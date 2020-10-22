@@ -1,0 +1,19 @@
+#-e .
+aws_cdk.core
+aws_cdk.aws_apigateway
+aws_cdk.aws_cloudformation
+aws_cdk.aws_ec2
+aws_cdk.aws_events
+aws_cdk.aws_events_targets
+aws_cdk.aws_iam
+aws_cdk.aws_kinesis
+aws_cdk.aws_kms
+aws_cdk.aws_lambda
+aws_cdk.aws_lambda_event_sources
+aws_cdk.aws_logs
+aws_cdk.aws_s3_notifications
+aws_cdk.aws_sns
+aws_cdk.aws_sns_subscriptions
+aws_cdk.aws_sqs
+aws_cdk.region_info
+

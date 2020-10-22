@@ -1,0 +1,4 @@
+requests==2.24.0
+requests-aws4auth==1.0
+elasticsearch==7.9.1
+geoip2==4.0.2

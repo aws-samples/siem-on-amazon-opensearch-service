@@ -1,0 +1,42 @@
+{
+  "app": "python3 app.py",
+  "context": {
+    "@aws-cdk/core:enableStackNameDuplicates": "true",
+    "aws-cdk:enableDiffNoFail": "true",
+    "vpc_type_comment": "vpc_type is new or import",
+    "vpc_type": "new",
+    "imported_vpc_id": "vpc-abcd1234",
+    "imported_vpc_subnet1": {"subnet_id": "subnet-example1111111111", "availability_zone": "ap-northeast-1a", "route_table_id": "rtb-example1111111111"},
+    "imported_vpc_subnet2": {"subnet_id": "subnet-example2222222222", "availability_zone": "ap-northeast-1c", "route_table_id": "rtb-example2222222222"},
+    "imported_vpc_subnet3": {"subnet_id": "subnet-example3333333333", "availability_zone": "ap-northeast-1d", "route_table_id": "rtb-example3333333333"},
+    "new_vpc_nw_cidr_block": "172.30.0.0/24",
+    "new_vpc_subnet_cidr_mask": "26",
+    "aes_domain_name": "aes-siem",
+    "s3_bucket_name":{
+      "log": "",
+      "snapshot": "",
+      "geo": ""
+    },
+    "kms_cmk_alias": "aes-siem-key",
+    "organizations": {
+      "org_id": "",
+      "management_id": "",
+      "member_ids": []
+    },
+    "organizations_eaxmple": {
+      "org_id": "o-12345678",
+      "management_id": "111111111111",
+      "member_ids": ["222222222222", "333333333333"]
+    },
+    "no_organizations": {
+      "aws_accounts": []
+    },
+    "no_organizations_example": {
+      "aws_accounts": ["888888888888", "999999999999"]
+    },
+    "additional_s3_buckets": [],
+    "additional_s3_buckets_sample": ["bucket-log-name", "this-is-not-arn"],
+    "additional_kms_cmks": [],
+    "additional_kms_cmks_sample": ["arn:aws:kms:ap-northeast-1:123456789012:key/abcd12345678-1234", "this-must-be-arn"]
+  }
+}
