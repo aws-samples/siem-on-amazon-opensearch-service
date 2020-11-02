@@ -302,6 +302,84 @@ s3_key の初期値: `vpcdnsquerylogs` (デフォルト設定の出力パスの�
     * クエリをログ記録するVPC: [**任意のVPCを追加**]
 1. [**クエリログの設定**] を選択して設定完了
 
+## 10. EC2 インスタンス (Amazon Linux 2)
+
+Amazon Linux 2 を実行している EC2 インスタンス の Secure ログを CloudWatch Agent から CloudWatch Logs に送信し、サブスクリプションフィルタで Kinesis Data Firehose に配信し、S3 バケットへ出力してください。
+
+OS のシステムログ
+s3_key の初期値: `/[Ll]inux/` (Firehose の出力パスに指定)
+
+Secure ログ
+s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
+
+ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先の S3 バケットのプレフィックスに指定してください。リージョン情報はログに含まれていないので、S3 キーに含めることで取得することができます。OS のシステムログとして取り込んだ後にSecure ログとして分類する方法と、最初から Secure ログとして取り込む方法の2種類があります。前者はプロセス名から判断するので、確実に Secure ログを Secure ログとして取り込むためには後者を選択してしてください。一方で後者はログの出力先毎に Firehose をデプロイする必要があります。
+
+手順は概要のみです。
+
+1. Amazon Linux 2 でデプロイした EC2 インスタンスに CloudWatch Agent をインストール
+1. CloudWatch Logs にログを転送
+1. CloudWatch Logs のサブスクリプションで Firehose に出力
+1. Firehose の出力先に S3 バケットを選択
+1. S3 バケットの出力先
+    * OS ログとして出力するプレフィックス: [**AWSLogs/123456789012/EC2/Linux/[region]/**]
+    * Secure ログとして出力するプレフィックス: [**AWSLogs/123456789012/EC2/Linux/Secure/[region]/**]
+        * 123456789012 は ご利用の AWS アカウント ID に置換してください
+
+## 11. AWS Security Hub (under development)
+
+Security Hub の 検出結果を S3 への出力するために、検出結果イベントを Amazon EventBridge で検出させ、Kinesis Data Firehose に配信して、S3 バケットへ出力してください。
+
+s3_key の初期値: `SecurityHub` (Firehose の出力パスに指定)
+
+ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key をKinesis Data Firehose の出力先 S3 バケットのプレフィックスに指定してください。
+
+Kinesis Data Firehose の設定
+
+1. AWS マネジメントコンソールにログイン
+1. [Kinesis コンソール](https://console.aws.amazon.com/kinesis/home?) に移動
+1. 画面左メニューの [**配信ストリーム**] を選択
+1. 画面右上の [**Create delivery stream**] を選択
+1. [New delivery stream] 画面にて次のパラメーターを入力
+    * Delivery stream name: [**aes-siem-firehose-securityhub**] を入力
+    * Source: [**Direct PUT or other sources**] にチェックを入れる
+    * [Enable server-side encryption for source records in delivery stream] は任意
+    * [**Next**] を選択
+1. [Process records] 画面にて次のパラメーターを入力
+    * Data transformation: [**Disabled**] を選択
+    * Record format conversion: [**Disabled**] を選択
+    * [**Next**] を選択
+1. [Choose a destination] 画面にて次のパラメーターを入力
+    * Destination: [**Amazon S3**] を選択
+    * S3 bucket: [**aes-siem-123456789012-log**] を入力
+        * 123456789012 は ご利用の AWS アカウント ID に置換してください
+    * S3 prefix: [**AWSLogs/123456789012/SecurityHub/[region]/**] を入力
+        * 123456789012 は ご利用の AWS アカウント ID に置換してください
+    * S3 error prefix: [**AWSLogs/123456789012/SecurityHub/[region]/error/**] を入力
+1. [Configure settings] 画面にて次のパラメーターを入力
+    * Buffer size: [**任意の数字**]を 入力
+    * Buffer interval: [**任意の数字**]を 入力
+    * S3 compression: [**GZIP**] を選択
+    * 次以降はデフォルトのまま
+    * [**Next**] を選択
+1. [**Create delivery stream**] を選択して Kinesis Data Firehose のデプロイ完了
+
+EventBridge の設定
+
+1. [EventBridge コンソール](https://console.aws.amazon.com/events/home?) に移動
+1. 画面左メニューの [**ルール**] を選択 => [**ルールの作成**] を選択
+1. [ルールを作成] 画面にて次のパラメーターを入力
+    * 名前: aes-siem-securityhub-to-firehose
+    * イベントパターンを選択
+    * サービスごとの事前定義パターン
+    * サービスプロバイダー: AWS
+    * サービス名: Security Hub
+    * イベントタイプ: Security Hub Findings - Imported
+    * [イベントバス]は変更なし
+    * ターゲット: Firehose 配信ストリーム
+    * ストリーム: aes-siem-firehose-securityhub
+    * 他は任意の値を選択して
+    * [**作成**] を選択を選択して完了
+
 ## マルチリージョン・マルチアカウント
 
 他のアカウントや他リージョンのログを、S3 レプリケーションか、クロスアカウントで ログ用 S3 バケットに出力することで SIEM on Amazon ES にログを取り込むことができます。

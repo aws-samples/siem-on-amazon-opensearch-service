@@ -21,7 +21,7 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.0.0'
+__version__ = '2.1.0-beta1'
 
 
 class MyAesSiemStack(core.Stack):
@@ -29,6 +29,7 @@ class MyAesSiemStack(core.Stack):
     def __init__(self, scope: core.Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
 
+        ES_LOADER_TIMEOUT = 600
         ######################################################################
         # ELB mapping
         ######################################################################
@@ -343,6 +344,14 @@ class MyAesSiemStack(core.Stack):
             self, 'AesSiemDlq', queue_name='aes-siem-dlq',
             retention_period=core.Duration.days(14))
 
+        sqs_aes_siem_splitted_logs = aws_sqs.Queue(
+            self, 'AesSiemSqsSplitLogs',
+            queue_name='aes-siem-sqs-splitted-logs',
+            dead_letter_queue=aws_sqs.DeadLetterQueue(
+                max_receive_count=2, queue=sqs_aes_siem_dlq),
+            visibility_timeout=core.Duration.seconds(ES_LOADER_TIMEOUT),
+            retention_period=core.Duration.days(14))
+
         ######################################################################
         # Setup Lambda
         ######################################################################
@@ -363,7 +372,7 @@ class MyAesSiemStack(core.Stack):
             code=aws_lambda.Code.asset('../lambda/es_loader'),
             handler='index.lambda_handler',
             memory_size=512,
-            timeout=core.Duration.seconds(600),
+            timeout=core.Duration.seconds(ES_LOADER_TIMEOUT),
             dead_letter_queue_enabled=True,
             dead_letter_queue=sqs_aes_siem_dlq,
             environment={'GEOIP_BUCKET': s3bucket_name_geo})
@@ -378,6 +387,15 @@ class MyAesSiemStack(core.Stack):
         sqs_aes_siem_dlq.grant(
             lambda_es_loader, 'sqs:SendMessage', 'sqs:ReceiveMessage',
             'sqs:DeleteMessage', 'sqs:GetQueueAttributes')
+
+        sqs_aes_siem_splitted_logs.grant(lambda_es_loader, 'sqs:SendMessage')
+        sqs_aes_siem_splitted_logs.grant(
+            lambda_es_loader, 'sqs:SendMessage', 'sqs:ReceiveMessage',
+            'sqs:DeleteMessage', 'sqs:GetQueueAttributes')
+
+        lambda_es_loader.add_event_source(
+            aws_lambda_event_sources.SqsEventSource(
+                sqs_aes_siem_splitted_logs, batch_size=1))
 
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',
@@ -440,6 +458,8 @@ class MyAesSiemStack(core.Stack):
 
         es_endpoint = aes_domain.get_att('es_endpoint').to_string()
         lambda_es_loader.add_environment('ES_ENDPOINT', es_endpoint)
+        lambda_es_loader.add_environment(
+            'SQS_SPLITTED_LOGS_URL', sqs_aes_siem_splitted_logs.queue_url)
 
         lambda_configure_es_vpc_kwargs = {}
         if vpc_type:

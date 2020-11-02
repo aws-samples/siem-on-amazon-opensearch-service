@@ -60,11 +60,14 @@ You can skip this session if you already deploy with above CloudFormation templa
 The following procedures assumes that all of the OS-level configuration has been completed. They are:
 
 * Amazon EC2 instance running Amazon Linux 2
-* Python 3.7 or later
-* git
+  * "Development Tools"
+  * Python 3.7
+  * Python 3.7 libraries and header files
+  * git
 
 ```shell
-sudo yum -y install python3 git
+sudo yum groupinstall -y "Development Tools"
+sudo yum install -y python3 python3-devel git jq
 ```
 
 #### 2-2. Clone SIEM on Amazon ES
@@ -148,6 +151,7 @@ The es-loader, python script, can load stored old logs in S3 Bucket to Amazon ES
 |Lambda function|aes-siem-BucketNotificationsHandler|
 |AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|
 |Amazon SQS Queue|aes-siem-dlq|
+|Amazon SQS Queue|aes-siem-sqs-splitted-logs|
 |CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader|
 |Amazon SNS Topic|aes-siem-alert|
 |Amazon SNS Subscription|entered email|

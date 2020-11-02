@@ -40,10 +40,11 @@
 
 1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイする
 1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、Amazon EC2 インスタンスにアタッチする
-1. シェルにログインして、Python 3、git、jq をインストールし、ソースコードを GitHub から取得する
+1. シェルにログインして、開発ツール、Python 3 と開発ファイル、git、jq をインストールし、ソースコードを GitHub から取得する
 
     ```shell
-    sudo yum install -y python3 git jq
+    sudo yum groupinstall -y "Development Tools"
+    sudo yum install -y python3 python3-devel git jq
     git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git
     ```
 

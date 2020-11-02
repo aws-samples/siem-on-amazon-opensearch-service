@@ -62,13 +62,16 @@ Amazon Linux 2 を実行している Amazon Elastic Compute Cloud (Amazon EC2) �
 前提の環境)
 
 * Amazon Linux 2 on Amazon EC2
-* Python 3.7
-* git
+  * "Development Tools"
+  * Python 3.7
+  * Python 3.7 libraries and header files
+  * git
 
-Python 3と git がインストールされてない場合は以下を実行
+上記がインストールされてない場合は以下を実行
 
 ```shell
-sudo yum -y install python3 git
+sudo yum groupinstall -y "Development Tools"
+sudo yum install -y python3 python3-devel git jq
 ```
 
 #### 2-2. SIEM on Amazon ES の clone
@@ -154,6 +157,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 |Lambda function|aes-siem-geoip-downloader|GeoIP のダウンロード|
 |Lambda function|aes-siem-BucketNotificationsHandler|ログ用 S3 バケットのイベント通知を設定|
 |AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|ログの暗号化に使用|
+|Amazon SQS Queue|aes-siem-sqs-splitted-logs|処理するログ行数が多い時は分割。それを管理するキュー|
 |Amazon SQS Queue|aes-siem-dlq|Amazon ES のログ取り込み失敗用Dead Ltter Queue|
 |CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader|aes-siem-geoip-downloaderを毎日実行|
 |Amazon SNS Topic|aes-siem-alert|Amazon ES の Alerting の Destinations で選択|

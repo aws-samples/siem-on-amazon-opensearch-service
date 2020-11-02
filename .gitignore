@@ -24,6 +24,8 @@ deployment/open-source/
 es_loader.zip
 geoip_downloader.zip
 deploy_es.zip
+restore_samplelog.zip
+siemlog.zip
 user.ini
 aes.ini
 global-s3-assets
