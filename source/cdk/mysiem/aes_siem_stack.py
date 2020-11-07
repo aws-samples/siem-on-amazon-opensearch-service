@@ -1,6 +1,9 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
+import boto3
+import botocore
+from botocore.exceptions import ClientError
 from aws_cdk import (
     aws_cloudformation,
     aws_ec2,
@@ -22,12 +25,117 @@ from aws_cdk import (
 )
 
 __version__ = '2.1.0-beta1'
+print(__version__)
+
+iam_client = boto3.client('iam')
+ec2_resource = boto3.resource('ec2')
+ec2_client = boto3.resource('ec2')
+
+
+def validate_cdk_json(context):
+    print('\ncdk.json validation for vpc configuration is starting...\n')
+    vpc_type = context.node.try_get_context("vpc_type")
+    if vpc_type == 'new':
+        print('vpc_type:\t\t\tnew')
+        return True
+    elif vpc_type == 'import':
+        print('vpc_type:\t\t\timport')
+    else:
+        raise Exception('vpc_type is invalid. You can use "new" or "import". '
+                        'Exit. Fix and Try again')
+
+    vpcid = context.node.try_get_context("imported_vpc_id")
+    vpc_client = ec2_resource.Vpc(vpcid)
+    print('checking vpc...')
+    vpc_client.state
+    print(f'checking vpc id...:\t\t{vpcid}')
+    is_dns_support = vpc_client.describe_attribute(
+        Attribute='enableDnsSupport')['EnableDnsSupport']['Value']
+    print(f'checking dns support...:\t{is_dns_support}')
+    is_dns_hotname = vpc_client.describe_attribute(
+        Attribute='enableDnsHostnames')['EnableDnsHostnames']['Value']
+    print(f'checking dns hostname...:\t{is_dns_hotname}')
+    if not is_dns_support or not is_dns_hotname:
+        raise Exception('enable DNS Hostname and DNS Support. Exit...')
+    print('checking vpc is...\t\t[PASS]\n')
+
+    subnet_ids_from_the_vpc = []
+    subnet_objs_from_the_vpc = vpc_client.subnets.all()
+    for subnet_obj in subnet_objs_from_the_vpc:
+        subnet_ids_from_the_vpc.append(subnet_obj.id)
+
+    def get_pub_or_priv_subnet(routes_attrs):
+        for route in routes_attrs:
+            if route['GatewayId'].startswith('igw-'):
+                return 'public'
+        return 'private'
+
+    validation_result = True
+    subnet_types = {}
+    routetables = vpc_client.route_tables.all()
+    for routetable in routetables:
+        rt_client = ec2_resource.RouteTable(routetable.id)
+        subnet_type = get_pub_or_priv_subnet(rt_client.routes_attribute)
+        for attribute in rt_client.associations_attribute:
+            subnetid = attribute.get('SubnetId', "")
+            main = attribute.get('Main', "")
+            if subnetid:
+                subnet_types[subnetid] = subnet_type
+            elif main:
+                subnet_types['main'] = subnet_type
+
+    print('checking subnet...')
+    subnet_ids = get_subnet_ids(context)
+
+    for subnet_id in subnet_ids:
+        if subnet_id in subnet_ids_from_the_vpc:
+            if subnet_id in subnet_types:
+                subnet_type = subnet_types[subnet_id]
+            else:
+                subnet_type = subnet_types['main']
+            if subnet_type == 'private':
+                print(f'{subnet_id} is\tprivate')
+            elif subnet_type == 'public':
+                print(f'{subnet_id} is\tpublic')
+                validation_result = False
+        else:
+            print(f'{subnet_id} is\tnot exist')
+            validation_result = False
+    if not validation_result:
+        raise Exception('subnet is invalid. Modify it.')
+    print('checking subnet is...\t\t[PASS]\n')
+    print('IGNORE Following Warning. '
+          '"No routeTableId was provided to the subnet..."')
+
+
+def get_subnet_ids(context):
+    subnet_ids = []
+    subnet_ids = context.node.try_get_context('imported_vpc_subnets')
+    if not subnet_ids:
+        # compatibility for v2.0.0
+        sbunet1 = context.node.try_get_context('imported_vpc_subnet1')
+        sbunet2 = context.node.try_get_context('imported_vpc_subnet2')
+        sbunet3 = context.node.try_get_context('imported_vpc_subnet3')
+        subnet_ids = [sbunet1['subnet_id'], sbunet2['subnet_id'],
+                      sbunet3['subnet_id']]
+    return subnet_ids
+
+
+def check_iam_role(pathprefix):
+    role_iterator = iam_client.list_roles(PathPrefix=pathprefix)
+    if len(role_iterator['Roles']) == 1:
+        return True
+    else:
+        return False
 
 
 class MyAesSiemStack(core.Stack):
 
     def __init__(self, scope: core.Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
+
+        if self.node.try_get_context('vpc_type'):
+            validate_cdk_json(self)
 
         ES_LOADER_TIMEOUT = 600
         ######################################################################
@@ -122,19 +230,16 @@ class MyAesSiemStack(core.Stack):
                 subnet_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
         elif vpc_type == 'import':
             vpc_id = self.node.try_get_context('imported_vpc_id')
-            _sbunet1 = self.node.try_get_context('imported_vpc_subnet1')
-            _sbunet2 = self.node.try_get_context('imported_vpc_subnet2')
-            _sbunet3 = self.node.try_get_context('imported_vpc_subnet3')
-
             vpc_aes_siem = aws_ec2.Vpc.from_lookup(
                 self, 'VpcAesSiem', vpc_id=vpc_id)
-            subnet1 = aws_ec2.Subnet.from_subnet_attributes(
-                self, 'Subenet1', **_sbunet1)
-            subnet2 = aws_ec2.Subnet.from_subnet_attributes(
-                self, 'Subenet2', **_sbunet2)
-            subnet3 = aws_ec2.Subnet.from_subnet_attributes(
-                self, 'Subenet3', **_sbunet3)
-            subnets = [subnet1, subnet2, subnet3]
+
+            subnet_ids = get_subnet_ids(self)
+            subnets = []
+            for number, subnet_id in enumerate(subnet_ids, 1):
+                obj_id = 'Subenet' + str(number)
+                subnet = aws_ec2.Subnet.from_subnet_id(self, obj_id, subnet_id)
+                subnets.append(subnet)
+            subnet1 = subnets[0]
             vpc_subnets = aws_ec2.SubnetSelection(subnets=subnets)
 
         if vpc_type:
@@ -329,7 +434,8 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         # in VPC
         ######################################################################
-        if vpc_type:
+        aes_role_exist = check_iam_role('/aws-service-role/es.amazonaws.com/')
+        if vpc_type and not aes_role_exist:
             slr_aes = aws_iam.CfnServiceLinkedRole(
                 self, 'AWSServiceRoleForAmazonElasticsearchService',
                 aws_service_name='es.amazonaws.com',

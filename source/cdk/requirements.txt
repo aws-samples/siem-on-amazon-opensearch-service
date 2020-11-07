@@ -1,4 +1,5 @@
 #-e .
+boto3
 aws_cdk.core
 aws_cdk.aws_apigateway
 aws_cdk.aws_cloudformation

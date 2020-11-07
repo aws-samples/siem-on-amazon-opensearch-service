@@ -223,6 +223,22 @@ def merge(a, b, path=None):
     return a
 
 
+def get_aws_account_from_text(text):
+    m = RE_ACCOUNT.search(text)
+    if m:
+        return(m.group(1))
+    else:
+        return None
+
+
+def get_aws_region_from_text(text):
+    m = RE_REGION.search(text)
+    if m:
+        return(m.group(1))
+    else:
+        return None
+
+
 class LogObj:
     """ 取得した一連のログファイルから表層的な情報を取得する。
     圧縮の有無の判断、ログ種類を判断、フォーマットの判断をして
@@ -234,8 +250,12 @@ class LogObj:
         self.s3key = None
         self.loggroup = None
         self.logstream = None
-        self.owner = None
         self.via_cwl = None
+        self.s3key_accountid = None
+        self.cwl_accountid = None
+        self.cwe_accountid = None
+        self.s3key_region = None
+        self.cwe_region = None
 
     @property
     def header(self):
@@ -243,8 +263,8 @@ class LogObj:
 
     def check_cwe_and_strip_header(self, dict_obj):
         if "detail-type" in dict_obj and "resources" in dict_obj:
-            # accountid = dict_obj['account']
-            # region = dict_obj['region']
+            self.cwe_accountid = dict_obj['account']
+            self.cwe_region = dict_obj['region']
             # source = dict_obj['source'] # eg) aws.securityhub
             # time = dict_obj['time'] #@ingested
             return dict_obj['detail']
@@ -273,11 +293,13 @@ class LogS3(LogObj):
         self.ignore = self.check_ignore()
         self.msgformat = 's3'
         if not self.ignore:
+            self.s3key_accountid = get_aws_account_from_text(self.s3key)
+            self.s3key_region = get_aws_region_from_text(self.s3key)
             self.__rawdata = self.extract_rawdata_from_s3obj()
             self.file_format = self.config[self.logtype]['file_format']
             self.via_cwl = self.config[self.logtype].getboolean('via_cwl')
         if self.via_cwl:
-            self.loggroup, self.logstream, self.owner = (
+            self.loggroup, self.logstream, self.cwl_accountid = (
                 self.extract_header_from_cwl(self.__rawdata))
 
     def check_ignore(self):
@@ -359,19 +381,21 @@ class LogS3(LogObj):
 
     @property
     def accountid(self):
-        if self.owner:
-            return self.owner
-        m = RE_ACCOUNT.search(self.s3key)
-        if m:
-            return(m.group(1))
+        if self.cwl_accountid:
+            return self.cwl_accountid
+        elif self.cwe_accountid:
+            return self.cwe_accountid
+        elif self.s3key_accountid:
+            return self.s3key_accountid
         else:
             return None
 
     @property
     def region(self):
-        m = RE_REGION.search(self.s3key)
-        if m:
-            return(m.group(1))
+        if self.cwe_region:
+            return self.cwe_region
+        elif self.s3key_region:
+            return self.s3key_region
         else:
             return None
 
@@ -406,14 +430,14 @@ class LogS3(LogObj):
             while index < size:
                 raw_event, offset = decoder.raw_decode(line, index)
                 raw_event = self.check_cwe_and_strip_header(raw_event)
-                if delimiter:
+                if delimiter and (delimiter in raw_event):
                     # multiple evets in 1 json
                     for record in raw_event[delimiter]:
                         count += 1
                         if 'count' not in mode:
                             if start <= count <= end:
                                 yield record
-                else:
+                elif not delimiter:
                     count += 1
                     if 'count' not in mode:
                         if start <= count <= end:
@@ -725,17 +749,23 @@ class LogParser:
                         continue
                 merge(ecs_dict, new_ecs_dict)
         if 'cloud' in ecs_dict:
-            if 'account' in ecs_dict['cloud'] \
-                    and 'id' in ecs_dict['cloud']['account']:
-                pass
+            # Set AWS Account ID
+            if ('account' in ecs_dict['cloud']
+                    and 'id' in ecs_dict['cloud']['account']):
+                if ecs_dict['cloud']['account']['id'] in ('unknown', ):
+                    # for vpcflowlogs
+                    ecs_dict['cloud']['account'] = {'id': self.accountid}
             elif self.accountid:
                 ecs_dict['cloud']['account'] = {'id': self.accountid}
+
+            # Set AWS Region
             if 'region' in ecs_dict['cloud']:
                 pass
             elif self.region:
                 ecs_dict['cloud']['region'] = self.region
             else:
                 ecs_dict['cloud']['region'] = 'unknown'
+
         static_ecs_keys = self.logconfig.get('static_ecs')
         if static_ecs_keys:
             for static_ecs_key in static_ecs_keys.split():
@@ -898,12 +928,14 @@ class LogParser:
     def del_none(self, d):
         """ 値のないキーを削除する。削除しないとESへのLoad時にエラーとなる """
         for key, value in list(d.items()):
+            if isinstance(value, dict):
+                self.del_none(value)
             if isinstance(value, dict) and len(value) == 0:
                 del d[key]
-            elif isinstance(value, str) and (value in ('', '-', 'null')):
+            elif isinstance(value, list) and len(value) == 0:
                 del d[key]
-            elif isinstance(value, dict):
-                self.del_none(value)
+            elif isinstance(value, str) and (value in ('', '-', 'null', '[]')):
+                del d[key]
         return d
 
     @property

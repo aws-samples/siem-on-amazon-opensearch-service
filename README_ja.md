@@ -4,6 +4,8 @@
 
 SIEM on Amazon Elasticsearch Service (Amazon ES) は、セキュリティインシデントを調査するためのソリューションです。AWS のマルチアカウント環境下で、複数種類のログを収集し、ログの相関分析や可視化をすることができます。デプロイは、AWS CloudFormation または AWS Cloud Development Kit (AWS CDK) で行います。20分程度でデプロイは終わります。AWS サービスのログを Simple Storage Service (Amazon S3) のバケットに PUT すると、自動的に ETL 処理を行い、SIEM on Amazon ES に取り込まれます。ログを取り込んだ後は、ダッシュボードによる可視化や、複数ログの相関分析ができるようになります。
 
+Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_service_ja.md) | [SIEM の設定](docs/configure_siem_ja.md) | [高度なデプロイ](docs/deployment_ja.md) | [よくある質問](docs/faq_ja.md) | [ダッシュボード](docs/dashboard_ja.md) | [サポートログタイプ](docs/suppoted_log_type.md) |
+
 ![Sample dashboard](./docs/images/dashboard-sample.jpg)
 
 ## アーキテクチャ
@@ -173,6 +175,16 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
     * Amazon S3 バケット: aes-siem-[AWS_Account]-geo
     * AWS KMS カスタマーマネジメントキー: aes-siem-key
         * 削除は注意して行ってください。ログをこのカスタマーマネジメントキーで暗号化していると、キーの削除後はそのログは読み込むことができなくなります。
+1. Amazon VPC 内にデプロイした場合は以下の AWS リソースも削除
+    * Amazon VPC: aes-siem/VpcAesSiem (VPC を新規に作成した場合)
+    * SecurityGroup: aes-siem-vpc-sg
+
+### SIEM on Amazon ES をすぐに再デプロイする場合は、KMS CMK のエイリアスが残っているため失敗します。次の AWS CLI コマンドで キーエイリアスを削除してください
+
+```shell
+export AWS_DEFAULT_REGION=<AWS_REGION>
+aws kms delete-alias  --alias-name  "alias/aes-siem-key"
+```
 
 ## Security
 

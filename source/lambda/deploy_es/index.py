@@ -297,7 +297,10 @@ def json_serial(obj):
     # for debug to dump various json
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
-    raise TypeError(f'Type {type(obj)} not serializable')
+    try:
+        return repr(obj)
+    except Exception:
+        raise TypeError(f'Type {type(obj)} not serializable')
 
 
 def send(event, context, responseStatus, responseData, physicalResourceId=None,

@@ -16,9 +16,11 @@ AWS Key Management Service (AWS KMS) による暗号化をして、S3 バケッ�
 
 ## 2. AWS CloudTrail
 
-CloudTrail のログを下記の方法で S3 バケットに出力してください。
+![CloudTrail to S3](images/cloudtrail-to-s3.jpg)
 
 s3_key の初期値: `CloudTrail` (デフォルト設定の出力パスの一部)
+
+CloudTrail のログを下記の方法で S3 バケットに出力してください。
 
 1. AWS マネジメントコンソールにログイン
 1. [CloudTrail コンソール](https://console.aws.amazon.com/cloudtrail/home?) に移動
@@ -50,9 +52,11 @@ s3_key の初期値: `CloudTrail` (デフォルト設定の出力パスの一部
 
 ## 3. Amazon Virtual Private Cloud (Amazon VPC) Flow Logs
 
-VPC Flow Logs を下記の方法で S3 バケットに出力してください。
+![VPC flog logs to S3](images/vpc-to-s3.jpg)
 
 s3_key の初期値: `vpcflowlogs` (デフォルト設定の出力パスの一部)
+
+VPC Flow Logs を下記の方法で S3 バケットに出力してください。
 
 1. AWS マネジメントコンソールにログイン
 1. [VPC コンソール](https://console.aws.amazon.com/vpc/home?) に移動
@@ -72,7 +76,7 @@ s3_key の初期値: `vpcflowlogs` (デフォルト設定の出力パスの一�
 
 ## 4. Amazon GuardDuty
 
-GuardDuty のログを下記の方法で S3 バケットに出力してください。
+![GuardDuty to S3](images/guardduty-to-s3.jpg)
 
 s3_key の初期値: `GuardDuty` (デフォルト設定の出力パスの一部)
 
@@ -94,6 +98,8 @@ s3_key の初期値: `GuardDuty` (デフォルト設定の出力パスの一部)
 
 ## 5. Amazon Simple Storage Service (Amazon S3) access log
 
+![S3 to S3](images/s3-to-s3.jpg)
+
 S3 access log を下記の方法で S3 バケットに出力してください。すでに CloudTrail の データイベントで S3 を取得してる場合、S3 access log との違いは [こちら](https://docs.aws.amazon.com/ja_jp/AmazonS3/latest/dev/logging-with-S3.html) をご確認ください
 
 s3_key の初期値: `s3accesslog` (標準の保存パスがないのでプレフィックスで指定してください)
@@ -110,6 +116,8 @@ s3_key の初期値: `s3accesslog` (標準の保存パスがないのでプレ�
     1. [**保存**] を選択
 
 ## 6. Elastic Load Balancing (ELB)
+
+![elb to S3](images/elb-to-s3.jpg)
 
 次の3つのロードバランサーのログについて、それぞれを S3 バケットに出力します。
 
@@ -147,7 +155,7 @@ CloudFront には、ディストリビューションに送信されるリクエ
 
 ### 7-1. CloudFront 標準ログ (アクセスログ)
 
-CloudFront 標準ログは、選択した Amazon S3 バケットに配信されます。
+![cloudfront starndard to s3](images/cloudfront-standard-to-s3.jpg)
 
 s3_key の初期値: `(^|\/)[0-9A-Z]{14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\.gz$$`
 
@@ -168,6 +176,8 @@ s3_key の初期値: `(^|\/)[0-9A-Z]{14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\
     * [**Update**] を選択して設定完了
 
 ### 7-2. CloudFront リアルタイムログ
+
+![cloudfront realtime to s3](images/cloudfront-realtime-to-s3.jpg)
 
 CloudFront リアルタイムログは、Amazon Kinesis Data Streams で選択したデータストリームに配信されます。その後、Amazon Kinesis Data Firehose を使用して、ログデータを Amazon S3 に送信します。
 
@@ -234,6 +244,8 @@ CloudFront の設定
 
 ## 8. AWS WAF
 
+![aws waf to s3](images/waf-to-s3.jpg)
+
 AWS WAF には AWS WAF と AWS WAF Classic の2つがありますが、両方とも同じ方法で S3 バケットに出力してください。
 
 s3_key の初期値: `aws-waf-logs-`
@@ -290,6 +302,8 @@ AWS WAF の ACL トラフィックログは Kinesis Data Firehose から S3 バ�
 
 ## 9. Route 53 Resolver VPC DNS Query Log
 
+![Amazon Linux 2 to S3](images/route53resolver-to-s3.jpg)
+
 s3_key の初期値: `vpcdnsquerylogs` (デフォルト設定の出力パスの一部)
 
 1. [Route 53 Resolver コンソール](https://console.aws.amazon.com/route53resolver/home?) に移動
@@ -304,7 +318,7 @@ s3_key の初期値: `vpcdnsquerylogs` (デフォルト設定の出力パスの�
 
 ## 10. EC2 インスタンス (Amazon Linux 2)
 
-Amazon Linux 2 を実行している EC2 インスタンス の Secure ログを CloudWatch Agent から CloudWatch Logs に送信し、サブスクリプションフィルタで Kinesis Data Firehose に配信し、S3 バケットへ出力してください。
+![Amazon Linux 2 to S3](images/al2-to-s3.jpg)
 
 OS のシステムログ
 s3_key の初期値: `/[Ll]inux/` (Firehose の出力パスに指定)
@@ -325,9 +339,9 @@ s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
     * Secure ログとして出力するプレフィックス: [**AWSLogs/123456789012/EC2/Linux/Secure/[region]/**]
         * 123456789012 は ご利用の AWS アカウント ID に置換してください
 
-## 11. AWS Security Hub (under development)
+## 11. AWS Security Hub (experimantal)
 
-Security Hub の 検出結果を S3 への出力するために、検出結果イベントを Amazon EventBridge で検出させ、Kinesis Data Firehose に配信して、S3 バケットへ出力してください。
+![SecurityHub to S2](images/securityhub-to-s3.jpg)
 
 s3_key の初期値: `SecurityHub` (Firehose の出力パスに指定)
 

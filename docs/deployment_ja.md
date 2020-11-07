@@ -36,6 +36,13 @@
 
 ## AWS CDK によるデプロイ
 
+### 注意事項
+
+* デプロイするサブネットは Private Subnet です
+* サブネットは 3つの異なる Availability Zone を選択してください。(デプロイするのは 1 AZ で 1インスタンスのみ)
+* Amazon VPC の [**DNS ホスト名**] と [**DNS ホスト解決**] の 2 つとも有効にしてください
+* デプロイ時に cdk.json の作成をしますが、このファイルを保存をしてください。SIEM on Amazon ES のデプロイで使用する CDK の再実行に必要です
+
 ### 1. AWS CDK 実行環境の準備
 
 1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイする
@@ -106,9 +113,10 @@ Amazon VPC に関するパラメーターと説明です。
 
 |パラメータ|説明|
 |----------|----|
-|vpc_typ|新しい Amazon VPC を作成する場合は "new"を、既存の Amazon VPC を利用する場合は "imported" を入力。編集するパラメーターとして、新規の場合はnew_vpc_XXXX、既存の利用は imported_vpc_XXXX を修正する|
+|vpc_typ|新しい Amazon VPC を作成する場合は [**new**] を、既存の Amazon VPC を利用する場合は [**import**] を入力。編集するパラメーターとして、新規の場合は new_vpc_XXXX、既存の利用は imported_vpc_XXXX を修正する|
 |imported_vpc_id|SIEM on Amazon ES をデプロイする Amazon VPC の ID を入力|
-|imported_vpc_subnetX|3つの、[VPC サブネット ID]、[アベイラビリティーゾーン]、[ルートテーブル ID] を入力|
+|imported_vpc_subnets|3つ以上の"VPC サブネット ID" をリスト形式で入力|
+|imported_vpc_subnetX|(deprecated) 3つの、[VPC サブネット ID]、[アベイラビリティーゾーン]、[ルートテーブル ID] を入力|
 |new_vpc_nw_cidr_block|新規に作成する Amazon VPC の IP と CIDR ブロックを入力。形式は、IP アドレス/サブネットマスク数。例) 192.0.2.0/24|
 |new_vpc_subnet_cidr_mask|サブネット CIDR ブロック。拡張性を考慮して 27 以上を推奨|
 
@@ -143,10 +151,10 @@ cp cdk.json.public.sample cdk.json
 |additional_s3_buckets||カンマ区切りで S3 バケット名を列挙|
 |additional_kms_cmks||カンマ区切りで AWS KMS カスタマーマネジメントキー の ARN を列挙|
 
-最後に jq コマンドで JSON ファイルのバリデーションをしてください。実行結果として、JSON が表示され、エラーが出なければ JSON ファイルの文法に問題はありません。
+最後に JSON ファイルのバリデーションをしてください。実行結果として、JSON が表示され、エラーが出なければ JSON ファイルの文法に問題はありません。
 
 ```shell
-cat cdk.json | jq .
+cdk context  --j
 ```
 
 ### 6. AWS CDK の実行
@@ -154,7 +162,7 @@ cat cdk.json | jq .
 AWS CDK によるデプロイを実行。
 
 ```bash
-cdk deploy aes-siem
+cdk deploy
 ```
 
 CloudFormation テンプレートと同じパラーメーターを指定可能。
@@ -171,7 +179,7 @@ CloudFormation テンプレートと同じパラーメーターを指定可能�
 パラメーター付きでの実行例)
 
 ```bash
-cdk deploy aes-siem \
+cdk deploy \
     --parameters AllowedSourceIpAddresses="10.0.0.0/8 192.168.0.1" \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
