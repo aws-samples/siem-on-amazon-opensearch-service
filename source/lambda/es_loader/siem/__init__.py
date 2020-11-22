@@ -509,6 +509,7 @@ class LogS3(LogObj):
                 yield logdata.strip()
 
         elif 'json' in self.file_format:
+            log_count = 0
             for x in self.extract_logobj_from_json(mode='count'):
                 log_count = x
             self.split_logs_to_sqs(log_count, max_log_count)
