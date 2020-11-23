@@ -339,20 +339,20 @@ s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
     * Secure ログとして出力するプレフィックス: [**AWSLogs/123456789012/EC2/Linux/Secure/[region]/**]
         * 123456789012 は ご利用の AWS アカウント ID に置換してください
 
-## 11. AWS Security Hub (experimantal)
+## 11. AWS Security Hub
 
 ![SecurityHub to S2](images/securityhub-to-s3.jpg)
 
 s3_key の初期値: `SecurityHub` (Firehose の出力パスに指定)
 
-ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key をKinesis Data Firehose の出力先 S3 バケットのプレフィックスに指定してください。
+* ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先 S3 バケットのプレフィックスに指定
+* 複数リージョンの Security Hub の findings を集約する時は、リージョン毎に、Firehose と EventEngine ルールを作成
 
 Kinesis Data Firehose の設定
 
-1. AWS マネジメントコンソールにログイン
 1. [Kinesis コンソール](https://console.aws.amazon.com/kinesis/home?) に移動
 1. 画面左メニューの [**配信ストリーム**] を選択
-1. 画面右上の [**Create delivery stream**] を選択
+1. 画面左上の [**Create delivery stream**] を選択
 1. [New delivery stream] 画面にて次のパラメーターを入力
     * Delivery stream name: [**aes-siem-firehose-securityhub**] を入力
     * Source: [**Direct PUT or other sources**] にチェックを入れる
@@ -365,10 +365,9 @@ Kinesis Data Firehose の設定
 1. [Choose a destination] 画面にて次のパラメーターを入力
     * Destination: [**Amazon S3**] を選択
     * S3 bucket: [**aes-siem-123456789012-log**] を入力
-        * 123456789012 は ご利用の AWS アカウント ID に置換してください
     * S3 prefix: [**AWSLogs/123456789012/SecurityHub/[region]/**] を入力
-        * 123456789012 は ご利用の AWS アカウント ID に置換してください
     * S3 error prefix: [**AWSLogs/123456789012/SecurityHub/[region]/error/**] を入力
+        * 123456789012 と [region] は ご利用の AWS アカウント ID と リージョンに、置換してください
 1. [Configure settings] 画面にて次のパラメーターを入力
     * Buffer size: [**任意の数字**]を 入力
     * Buffer interval: [**任意の数字**]を 入力
@@ -383,12 +382,12 @@ EventBridge の設定
 1. 画面左メニューの [**ルール**] を選択 => [**ルールの作成**] を選択
 1. [ルールを作成] 画面にて次のパラメーターを入力
     * 名前: aes-siem-securityhub-to-firehose
-    * イベントパターンを選択
-    * サービスごとの事前定義パターン
+    * パターンを定義: イベントパターンを選択
+    * イベント一致パターン: サービスごとの事前定義パターン
     * サービスプロバイダー: AWS
     * サービス名: Security Hub
     * イベントタイプ: Security Hub Findings - Imported
-    * [イベントバス]は変更なし
+    * [イベントバスを選択]パネルは変更なし
     * ターゲット: Firehose 配信ストリーム
     * ストリーム: aes-siem-firehose-securityhub
     * 他は任意の値を選択して

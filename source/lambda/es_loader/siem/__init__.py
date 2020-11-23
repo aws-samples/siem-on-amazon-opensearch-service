@@ -156,10 +156,15 @@ def get_value_from_dict(dct, xkeys_list):
 def put_value_into_dict(key_str, v):
     """dictのkeyにドットが含まれている場合に入れ子になったdictを作成し、値としてvを入れる.
     返値はdictタイプ。vが辞書ならさらに入れ子として代入。
+    値がlistなら、カンマ区切りのCSVにした文字列に変換
     TODO: 値に"が入ってると例外になる。対処方法が見つからず返値なDROPPEDにしてるので改善する。#34
 
     >>> put_value_into_dict('a.b.c', 123)
     {'a': {'b': {'c': '123'}}}
+    >>> put_value_into_dict('a.b.c', [123])
+    {'a': {'b': {'c': '123'}}}
+    >>> put_value_into_dict('a.b.c', [123, 456])
+    {'a': {'b': {'c': '123,456'}}}
     >>> v = {'x': 1, 'y': 2}
     >>> put_value_into_dict('a.b.c', v)
     {'a': {'b': {'c': {'x': 1, 'y': 2}}}}
@@ -171,6 +176,9 @@ def put_value_into_dict(key_str, v):
     xkeys = key_str.split('.')
     if isinstance(v, dict):
         json_data = r'{{"{0}": {1} }}'.format(xkeys[-1], json.dumps(v))
+    elif isinstance(v, list):
+        json_data = r'{{"{0}": "{1}" }}'.format(
+            xkeys[-1], ",".join(map(str, v)))
     else:
         json_data = r'{{"{0}": "{1}" }}'.format(xkeys[-1], v)
     if len(xkeys) >= 2:
