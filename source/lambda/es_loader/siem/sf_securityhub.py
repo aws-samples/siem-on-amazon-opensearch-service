@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
+from datetime import datetime
 import re
 import siem
 
@@ -21,8 +22,19 @@ def get_values_from_asff_resources(resources):
                              ['PrincipalId']).split(':')[0]
             name = resouce['Details']['AwsIamAccessKey']['PrincipalName']
             resouce_dict['user'] = {'id': accesskey, 'name': name}
+        elif resouce['Type'] == 'AwsEc2Volume':
+            try:
+                instanceid = (resouce['Details']['AwsEc2Volume']['Attachments']
+                              [0]['InstanceId'])
+            except Exception:
+                continue
+            resouce_dict['cloud'] = {'instance': {'id': instanceid}}
+        elif resouce['Type'] == 'AwsIamRole':
+            name = resouce['Id'].split('/')[-1]
+            resouce_dict['user'] = {'name': name}
         elif resouce['Type'] == 'AwsS3Bucket':
             pass
+
     return resouce_dict
 
 
@@ -64,19 +76,19 @@ def transform(logdata):
         if logdata['ThreatPurpose'] in ('Backdoor', 'CryptoCurrency',
                                         'Trojan'):
             logdata['event']['category'] = 'malware'
-
-        resouce_dict = get_values_from_asff_resources(logdata['Resources'])
-        siem.merge(logdata, resouce_dict)
     elif 'iam access analyzer' in module:
         pass
     elif 'security hub' in module:
-        pass
+        logdata['__doc_id_suffix'] = int(
+            datetime.fromisoformat(logdata['@timestamp']).timestamp())
+        logdata['rule']['name'] = logdata['Title']
     elif 'inspector' in module:
         logdata['event']['category'] = 'package'
-        # instanceid = siem.re_instanceid.search(logdata['Title'])
-        # if instanceid:
-        #     logdata['cloud']['instance'] = {'id': instanceid.group(1)}
     elif 'macie' in module:
         logdata['event']['category'] = 'intrusion_detection'
+        logdata['rule']['name'] = logdata['Title']
+
+    resouce_dict = get_values_from_asff_resources(logdata['Resources'])
+    siem.merge(logdata, resouce_dict)
 
     return logdata

@@ -811,6 +811,10 @@ class LogParser:
 
     @property
     def index_id(self):
+        if '__doc_id_suffix' in self.__logdata_dict:
+            temp = self.__logdata_dict['__doc_id_suffix']
+            del self.__logdata_dict['__doc_id_suffix']
+            return '{0}_{1}'.format(self.__logdata_dict['@id'], temp)
         if self.logconfig['doc_id_suffix']:
             suffix = get_value_from_dict(
                 self.__logdata_dict, self.logconfig.get('doc_id_suffix'))

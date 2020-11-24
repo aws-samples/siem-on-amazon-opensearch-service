@@ -21,6 +21,7 @@ SIEM on Amazon ES は以下のログを取り込むことができます。
 |AWS CloudTrail|CloudTrail Log Event|
 |Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs|
 |Amazon GuardDuty|GuardDuty finding|
+|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
 |AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
 |Amazon CloudFront|Standard access log<br>Real-time log|
