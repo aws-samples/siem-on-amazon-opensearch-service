@@ -24,4 +24,8 @@
 
 ![Amazon CloudFront Dashboard](images/dashboard-cloudfront.jpg)
 
+## Elastic Load Balancing
+
+![Elastic Load Balancing Dashboard](images/dashboard-elb.jpg)
+
 [READMEに戻る](../README_ja.md)

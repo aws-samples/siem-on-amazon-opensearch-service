@@ -24,4 +24,8 @@ This dashboard was imported from [AWS WAF Dashboard](https://github.com/aws-samp
 
 ![Amazon CloudFront Dashboard](images/dashboard-cloudfront.jpg)
 
+## Elastic Load Balancing
+
+![Elastic Load Balancing Dashboard](images/dashboard-elb.jpg)
+
 [Go Back To README](../README.md)
