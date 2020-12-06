@@ -16,14 +16,15 @@ from datetime import datetime, timedelta, timezone
 import boto3
 import geoip2.database
 
-__version__ = '2.1.0-beta1'
+__version__ = '2.1.0-beta3'
 
 # REGEXP and boost for lambda warm start
 # for transform script
 re_instanceid = re.compile(r'\W?(?P<instanceid>i-[0-9a-z]{8,17})\W?')
 RE_ACCOUNT = re.compile(r'/([0-9]{12})/')
 RE_REGION = re.compile('(global|(us|ap|ca|eu|me|sa|af)-[a-zA-Z]+-[0-9])')
-# for syslog timestamp
+# for timestamp
+RE_WITH_NANOSECONDS = re.compile(r'(.*)([0-9]{2}\.[0-9]{1,9})(.*)')
 RE_SYSLOG_FORMAT = re.compile(r'([A-Z][a-z]{2})\s+(\d{1,2})\s+'
                               r'(\d{2}):(\d{2}):(\d{2})(\.(\d{1,6}))?')
 MONTH_TO_INT = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
@@ -259,6 +260,7 @@ class LogObj:
         self.loggroup = None
         self.logstream = None
         self.via_cwl = None
+        self.via_firelens = None
         self.s3key_accountid = None
         self.cwl_accountid = None
         self.cwe_accountid = None
@@ -306,6 +308,8 @@ class LogS3(LogObj):
             self.__rawdata = self.extract_rawdata_from_s3obj()
             self.file_format = self.config[self.logtype]['file_format']
             self.via_cwl = self.config[self.logtype].getboolean('via_cwl')
+            self.via_firelens = self.config[self.logtype].getboolean(
+                'via_firelens')
         if self.via_cwl:
             self.loggroup, self.logstream, self.cwl_accountid = (
                 self.extract_header_from_cwl(self.__rawdata))
@@ -495,12 +499,14 @@ class LogS3(LogObj):
     def logdata_list(self):
         max_log_count = self.config[self.logtype].getint('max_log_count')
 
-        if self.file_format in ('text', 'csv'):
+        if self.file_format in ('text', 'csv') or self.via_firelens:
             if 'text' in self.file_format:
                 ignor_header_line_number = int(
                     self.config[self.logtype]['text_header_line_number'])
             elif 'csv' in self.file_format:
                 ignor_header_line_number = 1
+            else:
+                ignor_header_line_number = 0
 
             log_count = len(self.rawdata.readlines())
             self.split_logs_to_sqs(log_count, max_log_count)
@@ -645,7 +651,8 @@ class LogParser:
     def __init__(self, logdata, logtype, logconfig, msgformat=None,
                  logformat=None, header=None, s3bucket=None, s3key=None,
                  loggroup=None, logstream=None, accountid=None, region=None,
-                 log_pattern_prog=None, sf_module=None, *args, **kwargs):
+                 via_firelens=None, log_pattern_prog=None, sf_module=None,
+                 *args, **kwargs):
         self.msgformat = msgformat
         self.logdata = logdata
         self.logtype = logtype
@@ -659,11 +666,33 @@ class LogParser:
         self.region = region
         self.log_pattern_prog = log_pattern_prog
         self.header = header
+        self.via_firelens = via_firelens
         self.__logdata_dict = self.logdata_to_dict()
+        self.is_ignored = self.__logdata_dict.get('is_ignored')
+        self.__skip_normalization = self.__logdata_dict.get(
+            '__skip_normalization')
         self.sf_module = sf_module
 
     def logdata_to_dict(self):
         logdata_dict = {}
+
+        firelens_meta_dict = {}
+        if self.via_firelens:
+            (self.logdata, firelens_meta_dict) = (
+                self.get_log_and_meta_from_firelens())
+            if firelens_meta_dict['container_source'] == 'stderr':
+                ignore_container_stderr = self.logconfig.getboolean(
+                    'ignore_container_stderr')
+                if ignore_container_stderr:
+                    return {'is_ignored': True}
+                else:
+                    d = {'__skip_normalization': True,
+                         'error': {'message': self.logdata}}
+                    firelens_meta_dict.update(d)
+                    return firelens_meta_dict
+            if self.logformat in 'json':
+                self.logdata = json.loads(self.logdata)
+
         if 'kinesis' in self.msgformat and 'extractedFields' in self.logdata:
             # CWLでJSON化してる場合
             logdata_dict = self.logdata['extractedFields']
@@ -686,7 +715,27 @@ class LogParser:
                     f'use.ini.\nregex_pattern:\n{self.log_pattern_prog}\n'
                     f'rawdata:\n{self.logdata}\n')
 
+        if self.via_firelens:
+            logdata_dict.update(firelens_meta_dict)
+
         return logdata_dict
+
+    def get_log_and_meta_from_firelens(self):
+        obj = json.loads(self.logdata)
+        firelens_meta_dict = {}
+        # basic firelens field
+        firelens_meta_dict['container_id'] = obj.get('container_id')
+        firelens_meta_dict['container_name'] = obj.get('container_name')
+        firelens_meta_dict['container_source'] = obj.get('source')
+        # ecs meta data
+        firelens_meta_dict['ecs_cluster'] = obj.get('ecs_cluster')
+        firelens_meta_dict['ecs_task_arn'] = obj.get('ecs_task_arn')
+        firelens_meta_dict['ecs_task_definition'] = obj.get(
+            'ecs_task_definition')
+        firelens_meta_dict['ec2_instance_id'] = obj.get('ec2_instance_id')
+        # original log
+        logdata = obj['log']
+        return logdata, firelens_meta_dict
 
     def check_ignored_log(self, ignore_list):
         if self.logtype in ignore_list:
@@ -711,7 +760,7 @@ class LogParser:
         self.__event_ingested = datetime.now(timezone.utc)
         basic_dict['event']['ingested'] = self.event_ingested.isoformat()
         basic_dict['@log_type'] = self.logtype
-        if self.logconfig['doc_id']:
+        if self.logconfig['doc_id'] and not self.__skip_normalization:
             basic_dict['@id'] = self.__logdata_dict[self.logconfig['doc_id']]
         else:
             basic_dict['@id'] = hashlib.md5(
@@ -766,6 +815,8 @@ class LogParser:
                     ecs_dict['cloud']['account'] = {'id': self.accountid}
             elif self.accountid:
                 ecs_dict['cloud']['account'] = {'id': self.accountid}
+            else:
+                ecs_dict['cloud']['account'] = {'id': 'unknown'}
 
             # Set AWS Region
             if 'region' in ecs_dict['cloud']:
@@ -774,6 +825,17 @@ class LogParser:
                 ecs_dict['cloud']['region'] = self.region
             else:
                 ecs_dict['cloud']['region'] = 'unknown'
+
+        # get info from firelens matadata of Elastic Container Serivce
+        if 'ecs_task_arn' in self.__logdata_dict:
+            ecs_task_arn_taple = self.__logdata_dict['ecs_task_arn'].split(':')
+            ecs_dict['cloud']['account']['id'] = ecs_task_arn_taple[4]
+            ecs_dict['cloud']['region'] = ecs_task_arn_taple[3]
+            ecs_dict['cloud']['instance'] = {
+                'id': self.__logdata_dict['ec2_instance_id']}
+            ecs_dict['container'] = {
+                'id': self.__logdata_dict['container_id'],
+                'name': self.__logdata_dict['container_name']}
 
         static_ecs_keys = self.logconfig.get('static_ecs')
         if static_ecs_keys:
@@ -830,7 +892,7 @@ class LogParser:
             if len(timestamp_list) == 2:
                 self.logconfig['timestamp_format'] = timestamp_list[1]
             # フォーマットの指定がなければISO9601と仮定。
-        if self.logconfig['timestamp_key']:
+        if self.logconfig['timestamp_key'] and not self.__skip_normalization:
             # new code from ver 1.6.0
             timestamp_key = self.logconfig['timestamp_key']
             timestamp_format = self.logconfig['timestamp_format']
@@ -843,6 +905,11 @@ class LogParser:
             except AttributeError:
                 # int such as epoch
                 timestr = self.__logdata_dict[timestamp_key]
+            if self.logconfig.getboolean('timestamp_nano'):
+                m = RE_WITH_NANOSECONDS.match(timestr)
+                if m and m.group(3):
+                    microsec = m.group(2)[:9].ljust(6, '0')
+                    timestr = m.group(1) + microsec + m.group(3)
             if 'epoch' in timestamp_format:
                 epoch = float(timestr)
                 if epoch > 1000000000000:
@@ -885,7 +952,7 @@ class LogParser:
                     dt = datetime.fromisoformat(timestr)
                 except ValueError as err:
                     raise ValueError(
-                        'ERROR: timestamp {0} is not ISO9601. See details {1}'
+                        'ERROR: timestamp {0} is not ISO8601. See details {1}'
                         ''.format(self.logconfig['timestamp_key'], err))
                 if not dt.tzinfo:
                     dt = dt.replace(tzinfo=TZ)
@@ -953,5 +1020,10 @@ class LogParser:
 
     @property
     def json(self):
+        # 内部で管理用のフィールドを削除
+        try:
+            del self.__logdata_dict['__skip_normalization']
+        except Exception:
+            pass
         self.__logdata_dict = self.del_none(self.del_none(self.__logdata_dict))
         return json.dumps(self.__logdata_dict)

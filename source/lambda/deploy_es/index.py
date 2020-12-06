@@ -17,7 +17,7 @@ import requests
 import boto3
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.1.0-beta1'
+__version__ = '2.1.0-beta3'
 print('version: ' + __version__)
 
 client = boto3.client('es')

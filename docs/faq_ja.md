@@ -17,3 +17,15 @@ GitHub に Amazn ESの ワークショップを公開していますのでご活
 ## デプロイが終わらない
 
 30分以上待っても終わらない時があります。Amazon Elasticsearch Service(Amazon ES) のドメイン作成でなんらかの不具合が予想されます。Amazon ES のデプロイは、Lambda 関数の deploy-aes と configure-aes で行っています。CloudWatch Logs の aes-siem-deploy-aes と aes-siem-configure-aes でログを確認できますので、進行中なのか、不具合なのかを確認して下さい。不具合である場合はそれを解消するか、README に記載のクリーンアップをしてから再デプロイをしてください。
+
+## コンテナログの stderr を Firelens で送信した場合に、Amazon ES にログが取り込まれない
+
+stderr のログはデフォルトでは取り込まない設定にしています。取り込む時は、user.ini に下記の設定を追加してください。
+
+```ini
+ignore_container_stderr = False
+```
+
+## コンテナログの stderr を Firelens で送信して取り込んだ場合に、ログが発生した時刻と、Amazon ES 上の時刻が異なっている
+
+stderrは様々なログフォーマットがあり、ログの中に時刻フィールドが含まれていないこともあるので、ログを取り込んだ時間を @timestamp としています

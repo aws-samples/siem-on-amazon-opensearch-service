@@ -341,7 +341,7 @@ s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
 
 ## 11. AWS Security Hub
 
-![SecurityHub to S2](images/securityhub-to-s3.jpg)
+![SecurityHub to S3](images/securityhub-to-s3.jpg)
 
 s3_key の初期値: `SecurityHub` (Firehose の出力パスに指定)
 
@@ -392,6 +392,38 @@ EventBridge の設定
     * ストリーム: aes-siem-firehose-securityhub
     * 他は任意の値を選択して
     * [**作成**] を選択を選択して完了
+
+## Amazon ECS 対応 FireLens
+
+![ECS to Firelens to S3](images/ecs-to-firelens-to-s3.jpg)
+
+s3_key の初期値: なし。コンテナのアプリケーション毎に Firehose を作成して、それぞれに設定してください
+
+* ECS のログを Firelens(Fluent Bit) 経由で Firehose に送信をして、S3 に出力
+* コンテナのアプリケーションのログ種別は S3 のファイルパスで判断します。したがって、ログ種別毎に Firehose をプロビジョニング
+* コンテナの情報は、ECS メタデータから取得します。[タスク定義で有効化](https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/developerguide/using_firelens.html#firelens-taskdef-metadata)してください
+* stderr の取り込みは、デフォルトではしません。取得する場合は、user.ini に ignore_container_stderr = False としてください。@timestamp は SIEM のログ受信時刻になります。
+
+Kinesis Data Firehose の設定
+
+1. Security Hub の [Kinesis Data Firehose の設定] を参考にしてください
+1. S3 への出力パスにアプリケーションを判別するキーを含めてください (apacheなど)
+1. S3 に保存されるログから AWS Acount と Region は取得するので、S3 の出力パスにこの 2 つを含めるかどうかは任意です
+
+AWS Firelens の設定
+
+1. Firelens 経由でログを送るタスク定義ファイルと IAM の権限設定は、[公式ドキュメント](https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/userguide/using_firelens.html) と aws-samples の [amazon-ecs-firelens-examples の Send to Kinesis Data Firehose](https://github.com/aws-samples/amazon-ecs-firelens-examples/tree/mainline/examples/fluent-bit/kinesis-firehose) を参考にしてください
+
+SIEM の設定
+
+1. user.ini のログ種別毎に下記を含めてください
+
+```ini
+# firelens経由でログであることを指定
+via_firelens = True
+# stderr を取り込むか、取り込まないかを指定。Trueなら取り込まない
+ignore_container_stderr = True
+```
 
 ## マルチリージョン・マルチアカウント
 

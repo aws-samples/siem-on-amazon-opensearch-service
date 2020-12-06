@@ -15,7 +15,7 @@ from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 import siem
 
-__version__ = '2.1.0-beta1'
+__version__ = '2.1.0-beta3'
 print('version: ' + __version__)
 
 
@@ -141,7 +141,7 @@ def get_es_entry(logfile, logconfig, not_loading_list):
     # load config object on memory to avoid disk I/O accessing
     copy_attr_list = (
         'logtype', 'msgformat', 'file_format', 'header', 's3bucket', 's3key',
-        'accountid', 'region', 'loggroup', 'logstream')
+        'accountid', 'region', 'loggroup', 'logstream', 'via_firelens')
     logs = {}
     for key in copy_attr_list:
         logs[key] = copy.copy(getattr(logfile, key))
@@ -174,10 +174,11 @@ def get_es_entry(logfile, logconfig, not_loading_list):
             s3bucket=logs['s3bucket'], s3key=logs['s3key'],
             accountid=logs['accountid'], region=logs['region'],
             loggroup=logs['loggroup'], logstream=logs['logstream'],
+            via_firelens=logs['via_firelens'],
             log_pattern_prog=log_pattern_prog, sf_module=sf_module,)
         # 自分自身のログを無視する。ESにはロードしない。
-        is_ignore = logparser.check_ignored_log(not_loading_list)
-        if is_ignore:
+        is_ignored = logparser.check_ignored_log(not_loading_list)
+        if is_ignored or logparser.is_ignored:
             continue
         # idなどの共通的なフィールドを追加する
         logparser.add_basic_field()
