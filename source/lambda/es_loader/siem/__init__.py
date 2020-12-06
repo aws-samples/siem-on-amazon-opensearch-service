@@ -501,17 +501,17 @@ class LogS3(LogObj):
 
         if self.file_format in ('text', 'csv') or self.via_firelens:
             if 'text' in self.file_format:
-                ignor_header_line_number = int(
+                ignore_header_line_number = int(
                     self.config[self.logtype]['text_header_line_number'])
             elif 'csv' in self.file_format:
-                ignor_header_line_number = 1
+                ignore_header_line_number = 1
             else:
-                ignor_header_line_number = 0
+                ignore_header_line_number = 0
 
             log_count = len(self.rawdata.readlines())
             self.split_logs_to_sqs(log_count, max_log_count)
             if self.start_number == 0:
-                start = ignor_header_line_number
+                start = ignore_header_line_number
                 end = max_log_count
                 if not SQS_SPLITTED_LOGS_URL:
                     end = None
