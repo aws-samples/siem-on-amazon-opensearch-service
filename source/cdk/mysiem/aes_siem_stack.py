@@ -477,7 +477,7 @@ class MyAesSiemStack(core.Stack):
             # code=aws_lambda.Code.asset('../lambda/es_loader.zip'),
             code=aws_lambda.Code.asset('../lambda/es_loader'),
             handler='index.lambda_handler',
-            memory_size=512,
+            memory_size=2048,
             timeout=core.Duration.seconds(ES_LOADER_TIMEOUT),
             dead_letter_queue_enabled=True,
             dead_letter_queue=sqs_aes_siem_dlq,
