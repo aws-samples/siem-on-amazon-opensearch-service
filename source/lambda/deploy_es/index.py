@@ -60,7 +60,7 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': aesdomain,
-    'ElasticsearchVersion': '7.7',
+    'ElasticsearchVersion': '7.9',
     'ElasticsearchClusterConfig': {
         'InstanceType': 't3.small.elasticsearch',
         'InstanceCount': 1,
