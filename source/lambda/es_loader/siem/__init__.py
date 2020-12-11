@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 import boto3
 import geoip2.database
 
-__version__ = '2.1.0-beta3'
+__version__ = '2.1.0-beta4'
 
 # REGEXP and boost for lambda warm start
 # for transform script
@@ -246,6 +246,53 @@ def get_aws_region_from_text(text):
         return(m.group(1))
     else:
         return None
+
+
+def match_log_with_exclude_patterns(log_dict, log_patterns):
+    """ログと、log_patterns を比較させる
+    一つでもマッチングされれば、Amazon ESにLoadしない
+
+    >>> pattern1 = 111
+    >>> RE_BINGO = re.compile('^'+str(pattern1)+'$')
+    >>> pattern2 = 222
+    >>> RE_MISS = re.compile('^'+str(pattern2)+'$')
+    >>> log_patterns = { \
+    'a': RE_BINGO, 'b': RE_MISS, 'x': {'y': {'z': RE_BINGO}}}
+    >>> log_dict = {'a': 111}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    True
+    >>> log_dict = {'a': 21112}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+
+    >>> log_dict = {'a': '111'}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    True
+    >>> log_dict = {'aa': 222, 'a': 111}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    True
+    >>> log_dict = {'x': {'y': {'z': 111}}}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    True
+    >>> log_dict = {'x': {'y': {'z': 222}}}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+
+    >>> log_dict = {'x': {'hoge':222, 'y': {'z': 111}}}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    True
+    >>> log_dict = {'a': 222}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+
+    """
+    for key, pattern in log_patterns.items():
+        if key in log_dict:
+            if isinstance(pattern, dict) and isinstance(log_dict[key], dict):
+                res = match_log_with_exclude_patterns(log_dict[key], pattern)
+                return res
+            elif isinstance(pattern, re.Pattern):
+                if isinstance(log_dict[key], list):
+                    pass
+                elif pattern.match(str(log_dict[key])):
+                    return True
 
 
 class LogObj:
@@ -738,13 +785,11 @@ class LogParser:
         return logdata, firelens_meta_dict
 
     def check_ignored_log(self, ignore_list):
+        is_excluded = False
         if self.logtype in ignore_list:
-            for key in ignore_list[self.logtype]:
-                if key in self.__logdata_dict:
-                    value = self.__logdata_dict[key]
-                    if value and ignore_list[self.logtype][key] in value:
-                        return True
-        return False
+            is_excluded = match_log_with_exclude_patterns(
+                self.__logdata_dict, ignore_list[self.logtype])
+        return is_excluded
 
     def add_basic_field(self):
         basic_dict = {}
