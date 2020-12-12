@@ -85,6 +85,86 @@ AWSマネジメントコンソールから user.ini を直接編集して設定�
 
 設定完了です。SIEM on Amazon ES をアップデートすると Lambda 関数 の es-loader が入れ替わり user.ini は削除されるので、再度同じことをしてください。
 
+## ログ取り込みの除外設定
+
+S3 バケットに保存されたログは自動的に Amazon ES に取り込まれますが、条件を指定することで取り込みの除外をすることができます。これによって Amazon ES のリソースを節約できます。
+
+設定できる条件は以下の2つです
+
+1. S3 バケットの保存パス(オブジェクトキー)
+1. ログのフィールドと値
+
+### S3 バケットのファイルパス(オブジェクトキー) による除外
+
+CloudTrail や VPC Flow Logs を S3 バケットに出力すると、AWS アカウント ID やリージョン情報が付与されます。これらの情報を元にログの取り込みを除外します。例えば検証環境の AWS アカウントのログを取り込まない等の設定をすることができます。
+
+#### 設定方法
+
+user.ini (aws.ini) の s3_key_ignored に除外したいログの文字列を指定。この文字列が**含まれている**とログは取り込まれません。文字列には正規表現が指定できます。文字列が短すぎたり一般的な文字だと、除外したくないログにもマッチしてしまう可能性があるのでご注意ください。また、AWS リソースのログにはデフォルトで s3_key_ignored が指定されているログがあるので、aws.ini を確認して上書き設定で消さないようにしてください。
+
+##### 例1) VPC Flow Logs で AWS アカウント 123456789012 を除外する。単純な条件なので文字列を指定する
+
+S3 バケットに保存されたログ: s3://aes-siem-123456789012-log/AWSLogs/**000000000000**/vpcflowlogs/ap-northeast-1/2020/12/25/000000000000_vpcflowlogs_ap-northeast-1_fl-1234xxxxyyyyzzzzz_20201225T0000Z_1dba0383.log.gz
+
+設定ファイル user.ini
+
+```ini
+[vpcflowlogs]
+s3_key_ignored = 000000000000
+```
+
+##### 例2) vpcflowlogs の AWS アカウント 111111111111 と 222222222222 を除外する。文字列が複数あるので正規表現で指定
+
+```ini
+[vpcflowlogs]
+s3_key_ignored = (111111111111|222222222222)
+```
+
+### ログのフィールドと値 による除外
+
+個々のログのフィールドとその値を条件にして除外できます。例えば、VPC Flow Logs で特定の送信元 IP アドレスからの通信を除外する等です。
+
+設定方法)
+
+GeoIP を保存している S3 バケット(デフォルトではaes-siem-1234567890-**geo**)に、除外条件を指定した CSV ファイルをアップロード。アップロード先はプレフィックスなしのルートパス。
+
+* CSV ファイル名: [**exclude_log_patterns.csv**]
+* CSV ファイルの保存先: [s3://aes-siem-1234567890-**geo**/exclude_log_patterns.csv]
+* CSV フォーマット: ヘッダーを含んだ以下のフォーマット
+
+```csv
+log_type,field,pattern,pattern_type,comment
+```
+
+|ヘッダー|説明|
+|--------|----|
+|log_type|aws.ini または user.ini で指定したログのセクション名。例) cloudtrail, vpcflowlogs|
+|field|生ログのオリジナルのフィールド名。正規化後のフィールドではありません。JSON等の階層になっているフィールドはドット区切り( **.** )で指定。例) userIdentity.invokedBy|
+|pattern|フィールドの値を文字列で指定。**完全一致**により除外される。テキスト形式と正規表現が可能。例) テキスト形式: 192.0.2.10、正規表現: 192\\.0\\.2\\..*|
+|pattern_type|正規表現の場合は [**regex**]、文字列の場合は [**text**]|
+|comment|任意の文字列。除外条件には影響しない|
+
+#### 設定例
+
+```csv
+log_type,field,pattern,pattern_type,comment
+vpcflowlogs,srcaddr,192.0.2.10,text,sample1
+vpcflowlogs,srcaddr,192\.0\.2\.10[0-9],regex,sample2
+cloudtrail,userIdentity.invokedBy,.*\.amazonaws\.com,regex,sample3
+```
+
+##### sample1
+
+VPC Flow Logs で、送信元 IP アドレス(srcaddr) が 192.0.2.10 と一致する時は除外。pattern_type を text とした場合の条件はテキスト形式で完全一致。192.0.2.100 などが誤って除外されることを防ぐためです。フィールド名は、source.ip等の正規化後のフィールド名を指定してもマッチせず除外されません。
+
+##### sample2
+
+VPC Flow Logs で、送信元 IP アドレス(srcaddr) が 192.0.2.10 の文字列を含んだ IP アドレスを除外。正規表現で指定したことにより、192.0.2.100 も除外される。pattern_type を regex とした場合は、正規表現として意味のある文字列(ドット等)はエスケープしてください。
+
+##### sample3
+
+CloudTrail で、{'userIdentity': {'invokedBy': '*.amazonaws.com'}} と一致した場合に除外する。フィールド名が入れ子になっているので、CSVではドット区切りで指定。この例は、Config や ログ配信などのAWS のサービスがリクエストしたAPI Callのログを取り込まない。
+
 ## SIEM on Amazon ES の設定変更 (上級者向け)
 
 SIEM on Amazon ES のアプリケーションの設定を変更できます。設定は以下のような項目がありインデックス毎に定義できます。
