@@ -89,7 +89,6 @@ git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git
 
 ```shell
 export TEMPLATE_OUTPUT_BUCKET=<YOUR_TEMPLATE_OUTPUT_BUCKET> # Name for the S3 bucket where the template will be located
-export SOLUTION_NAME="siem-on-amazon-elasticsearch" # name of the solution
 export AWS_REGION=<AWS_REGION> # region where the distributable is deployed
 ```
 
@@ -98,8 +97,9 @@ export AWS_REGION=<AWS_REGION> # region where the distributable is deployed
 #### 2-4. AWS Lambda 関数のパッケージングとテンプレートの作成
 
 ```shell
-cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/ && ./step1-build-lambda-pkg.sh && cd ..
-chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET $SOLUTION_NAME $VERSION
+cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
+chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
+chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
 ```
 
 #### 2-5. Amazon S3 バケットへのアップロード
@@ -120,8 +120,8 @@ aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl b
 約20分で CloudFormation によるデプロイが完了します。次に、Kibana の設定をします。
 
 1. AWS CloudFormation コンソールで、作成したスタックを選択。画面右上のタブメニューから「出力」を選択。Kibana のユーザー名、パスワード、URL を確認できます。この認証情報を使って Kibana にログインしてください
-1. Kibana の Dashboard等 のファイルを[**ここ**](https://aes-siem.s3-ap-northeast-1.amazonaws.com/assets/saved_objects.zip) からダウンロードします。ダウンロードしたファイルを解凍してください
-1. Kibana のコンソールに移動してください。画面左側に並んでいるアイコンから「Management」 を選択してください、「Saved Objects」、「Import」、「Import」の順に選択をして、先ほど解凍したZIPファイルの中ある「dashboard_v770.ndjson」をインポートしてください
+1. Kibana の Dashboard等 のファイルを[**ここ**](https://aes-siem.amazonaws.com/assets/saved_objects.zip) からダウンロードします。ダウンロードしたファイルを解凍してください
+1. Kibana のコンソールに移動してください。画面左側に並んでいるアイコンから「Management」 を選択してください、「Saved Objects」、「Import」、「Import」の順に選択をして、先ほど解凍したZIPファイルの中ある「dashboard.ndjson」をインポートしてください
 1. インポートした設定ファイルを反映させるために一度ログアウトしてから、再ログインをしてください
 
 ### 4. ログの取り込み

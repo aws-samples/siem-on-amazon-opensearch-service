@@ -68,7 +68,7 @@ SIEM on Amazon ES で使用する AWS Lambda 関数は 3rd Party のライブラ
 
 ```shell
 cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
-./step1-build-lambda-pkg.sh
+chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh
 ```
 
 ### 4. AWS Cloud Development Kit (AWS CDK) の環境セットアップ
@@ -76,7 +76,7 @@ cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
 AWS CDK を実行できるように各種のソフトウェアをユーザーモードでインストールします。
 
 ```bash
-./step2-setup-cdk-env.sh
+chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh
 source ~/.bash_profile
 ```
 
