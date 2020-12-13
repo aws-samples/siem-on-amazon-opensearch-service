@@ -4,7 +4,7 @@
 
 SIEM on Amazon Elasticsearch Service (Amazon ES) は、セキュリティインシデントを調査するためのソリューションです。AWS のマルチアカウント環境下で、複数種類のログを収集し、ログの相関分析や可視化をすることができます。デプロイは、AWS CloudFormation または AWS Cloud Development Kit (AWS CDK) で行います。20分程度でデプロイは終わります。AWS サービスのログを Simple Storage Service (Amazon S3) のバケットに PUT すると、自動的に ETL 処理を行い、SIEM on Amazon ES に取り込まれます。ログを取り込んだ後は、ダッシュボードによる可視化や、複数ログの相関分析ができるようになります。
 
-Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_service_ja.md) | [SIEM の設定](docs/configure_siem_ja.md) | [高度なデプロイ](docs/deployment_ja.md) | [よくある質問](docs/faq_ja.md) | [ダッシュボード](docs/dashboard_ja.md) | [サポートログタイプ](docs/suppoted_log_type.md) |
+Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_service_ja.md) | [SIEM の設定](docs/configure_siem_ja.md) | [高度なデプロイ](docs/deployment_ja.md) | [ダッシュボード](docs/dashboard_ja.md) | [サポートログタイプ](docs/suppoted_log_type.md) | [よくある質問](docs/faq_ja.md) | [変更履歴](CHANGELOG.md) |
 
 ![Sample dashboard](./docs/images/dashboard-sample.jpg)
 
@@ -20,13 +20,15 @@ SIEM on Amazon ES は以下のログを取り込むことができます。
 |-----------|---|
 |AWS CloudTrail|CloudTrail Log Event|
 |Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs|
-|Amazon GuardDuty|GuardDuty finding|
+|Amazon GuardDuty|GuardDuty findings|
 |AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
 |AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
 |Amazon CloudFront|Standard access log<br>Real-time log|
 |Amazon Simple Storage Service (Amazon S3)|access log|
 |Amazon Route 53 Resolver|VPC DNS query log|
+|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
+|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
 
 対応ログは、[Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html) に従って正規化しています。ログのオリジナルと正規化したフィールド名の対応表は [こちら](docs/suppoted_log_type.md) をご参照ください。
 
@@ -44,7 +46,7 @@ IP アドレスに国情報や緯度・経度のロケーション情報を付�
 
 ### 1. クイックスタート
 
-SIEM on Amazon ES をデプロイするリージョンを選択してください。ご希望のリージョンがこのリストない場合は、手順に従って CloudFormation のテンプレートを作成してください。
+SIEM on Amazon ES をデプロイするリージョンを選択してください。
 
 | Region | CloudFormation |
 |--------|----------------|
@@ -53,6 +55,14 @@ SIEM on Amazon ES をデプロイするリージョンを選択してくださ�
 | Tokyo (ap-northeast-1) |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=aes-siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-elasticsearch.template) |
 | Frankfurt (eu-central-1) |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=aes-siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-elasticsearch.template) |
 | London(eu-west-2) |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=aes-siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-elasticsearch.template) |
+
+ご希望のリージョンがこのリストない場合は、手動で次のテンプレートを選択してください。
+
+```text
+https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-elasticsearch.template
+```
+
+次の手順に従って CloudFormation のテンプレートを作成することもできます。
 
 ### 2. CloudFormation テンプレートの作成
 
@@ -66,15 +76,19 @@ Amazon Linux 2 を実行している Amazon Elastic Compute Cloud (Amazon EC2) �
 
 * Amazon Linux 2 on Amazon EC2
   * "Development Tools"
-  * Python 3.7
-  * Python 3.7 libraries and header files
+  * Python 3.8
+  * Python 3.8 libraries and header files
   * git
 
 上記がインストールされてない場合は以下を実行
 
 ```shell
 sudo yum groupinstall -y "Development Tools"
-sudo yum install -y python3 python3-devel git jq
+sudo yum install -y amazon-linux-extras
+sudo amazon-linux-extras enable python3.8
+sudo yum install -y python38 python38-devel git jq
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
 ```
 
 #### 2-2. SIEM on Amazon ES の clone
@@ -120,7 +134,7 @@ aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl b
 約20分で CloudFormation によるデプロイが完了します。次に、Kibana の設定をします。
 
 1. AWS CloudFormation コンソールで、作成したスタックを選択。画面右上のタブメニューから「出力」を選択。Kibana のユーザー名、パスワード、URL を確認できます。この認証情報を使って Kibana にログインしてください
-1. Kibana の Dashboard等 のファイルを[**ここ**](https://aes-siem.amazonaws.com/assets/saved_objects.zip) からダウンロードします。ダウンロードしたファイルを解凍してください
+1. Kibana の Dashboard等 のファイルを[**ここ**](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip) からダウンロードします。ダウンロードしたファイルを解凍してください
 1. Kibana のコンソールに移動してください。画面左側に並んでいるアイコンから「Management」 を選択してください、「Saved Objects」、「Import」、「Import」の順に選択をして、先ほど解凍したZIPファイルの中ある「dashboard.ndjson」をインポートしてください
 1. インポートした設定ファイルを反映させるために一度ログアウトしてから、再ログインをしてください
 
@@ -130,9 +144,44 @@ S3 バケットの aes-siem-*[AWS アカウント ID]*-log にログを出力し
 
 AWS の各サービスのログを S3 バケットへの出力する方法は、[こちら](docs/configure_aws_service_ja.md) をご参照ください。
 
+## SIEM のアップデート
+
+SIEM on Amazon ES を新しいバージョンにアップデートする時は、Amazon ES のドメインをアップグレードしてから、初期インストールと同じ方法 (CloudFormation or AWS CDK) でアップデートしてください。SIEM の変更履歴は [こちら](CHANGELOG.md) から確認できます。
+
+### Amazon ES のドメインのアップグレード
+
+Amazon ES を 7.9 にアップグレードします
+
+1. [Amazon ES コンソール](https://console.aws.amazon.com/es/home?) に移動
+1. [**aes-siem**] ドメインを選択
+1. [**アクション**] アイコンを選択して、プルダウンリストから [**ドメインのアップグレード**] を選択
+1. アップグレード先のバージョンで [**7.9**] を選んで、[**送信**] を選択
+
+CloudFormation で初期インストールした場合は次へ進み、AWS CDK で初期インストールしている場合は [高度なデプロイ](docs/deployment_ja.md) のアップデートを参照してください。
+
+### CloudFormation スタックの更新
+
+CloudFormation のテンプレートを指定して更新します。テンプレートの URL は下記です。
+
+```text
+https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-elasticsearch.template
+```
+
+1. [CloudFormation コンソール](https://console.aws.amazon.com/cloudformation/home?) に移動
+1. [**aes-siem**] のスタックを選択
+1. 画面右上の [**更新する**] を選択
+1. スタックの更新で下記を選択
+    * テンプレートの準備: [**既存テンプレートを置き換える**]
+    * テンプレートソース: [**Amazon S3 URL**]
+    * Amazon S3 URL:
+    * [**次へ**] を選択
+1. 残りの全てデフォルト値で変更せず最後まで選択して完了
+
+以上でアップデートは完了です。
+
 ## 設定変更
 
-### デプロイ後の Amazon ES ドメインの変更
+### デプロイ後の Amazon ES ドメインのリソース変更
 
 Amazon ES のアクセスポリシーの変更、インスタンスのスペック変更、AZ の追加と変更、UltraWarm への変更等の Amazon ES ドメイン自体の変更は、AWS マネジメントコンソールから実行してください
 

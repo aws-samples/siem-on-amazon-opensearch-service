@@ -18,13 +18,15 @@ SIEM on Amazon ES can load and correlate following logs.
 |-----------|---|
 |AWS CloudTrail|CloudTrail Log Event|
 |Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs|
-|Amazon GuardDuty|GuardDuty finding|
+|Amazon GuardDuty|GuardDuty findings|
 |AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
 |AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
 |Amazon CloudFront|Standard access log<br>Real-time log|
 |Amazon Simple Storage Service (Amazon S3)|access log|
 |Amazon Route 53 Resolver|VPC DNS query log|
+|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
+|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
 
 Supported logs are normalized according to the [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html). Please refer to [here](docs/suppoted_log_type.md) to see correspondence log table of original and normalized field name.
 
@@ -42,7 +44,7 @@ _Note:_ CloudFormation deploys Amazon ES with **t3.small.elasticsearch instance.
 
 ### 1. Quick Start
 
-You can deploy with following CloudFormation template or create own template.
+You can deploy with following CloudFormation template.
 
 | Region | CloudFormation |
 |--------|----------------|
@@ -51,6 +53,14 @@ You can deploy with following CloudFormation template or create own template.
 | Tokyo (ap-northeast-1) |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=aes-siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-elasticsearch.template) |
 | Frankfurt (eu-central-1) |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=aes-siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-elasticsearch.template) |
 | London(eu-west-2) |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=aes-siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-elasticsearch.template) |
+
+If your region doesn't list above, use manually this template.
+
+```text
+https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-elasticsearch.template
+```
+
+Or you can create your template with following procedure.
 
 ### 2. Deploy siem with own template
 
@@ -62,13 +72,17 @@ The following procedures assumes that all of the OS-level configuration has been
 
 * Amazon EC2 instance running Amazon Linux 2
   * "Development Tools"
-  * Python 3.7
-  * Python 3.7 libraries and header files
+  * Python 3.8
+  * Python 3.8 libraries and header files
   * git
 
 ```shell
 sudo yum groupinstall -y "Development Tools"
-sudo yum install -y python3 python3-devel git jq
+sudo yum install -y amazon-linux-extras
+sudo amazon-linux-extras enable python3.8
+sudo yum install -y python38 python38-devel git jq
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
 ```
 
 #### 2-2. Clone SIEM on Amazon ES
@@ -114,7 +128,7 @@ Deploy with `https://s3.amazonaws.com/$TEMPLATE_OUTPUT_BUCKET/siem-on-amazon-ela
 It will probably take about 20 mins to finish deploy Amazon ES. Then you will configure Kibana.
 
 1. To login Amazon ES, move to CloudFormation console, select the stack and "Outputs" in tab menu. Then you can see Kibana's username, password and URL.
-1. To import Kibana's configuration such as dashboard, download [saved_objects.zip](https://aes-siem.amazonaws.com/assets/saved_objects.zip). Unzip the file.
+1. To import Kibana's configuration such as dashboard, download [saved_objects.zip](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip). Unzip the file.
 1. Go to Kibana console. Click "Management" in left side menu, "Saved Objects", "Import" and "Import". Select unzip file dashboard.ndjson. Then logout once to load the configuration.
 
 ### 4. Load logs to Amazon ES

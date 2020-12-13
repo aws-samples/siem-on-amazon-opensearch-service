@@ -47,11 +47,15 @@
 
 1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイする
 1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、Amazon EC2 インスタンスにアタッチする
-1. シェルにログインして、開発ツール、Python 3 と開発ファイル、git、jq をインストールし、ソースコードを GitHub から取得する
+1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq をインストールし、ソースコードを GitHub から取得する
 
     ```shell
     sudo yum groupinstall -y "Development Tools"
-    sudo yum install -y python3 python3-devel git jq
+    sudo yum install -y amazon-linux-extras
+    sudo amazon-linux-extras enable python3.8
+    sudo yum install -y python38 python38-devel git jq
+    sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+    sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
     git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git
     ```
 
@@ -97,11 +101,11 @@ source .env/bin/activate
 cdk bootstrap
 ```
 
-エラーで実行ができない場合、Amazon EC2 インスタンスに適切な権限のロールが割り当てられているかを確認してください。
+エラーで実行が失敗した場合、Amazon EC2 インスタンスに適切な権限のロールが割り当てられているかを確認してください。
 
 #### 5-1. SIEM on Amazon ES を Amazon VPC 内にデプロイ
 
-SIEM on Amazon ES を Amazon VPC 内にデプロイする場合は、Amazon VPC 用の AWS CDK のサンプルファイルをコピーして編集ください。
+SIEM on Amazon ES を Amazon VPC 内にデプロイする場合は、Amazon VPC 用の AWS CDK のサンプルファイルをコピーして編集してください。
 
 ```bash
 cp cdk.json.vpc.sample cdk.json
@@ -128,11 +132,11 @@ SIEM on Amazon ES をパブリックアクセス環境にデプロイする場�
 cp cdk.json.public.sample cdk.json
 ```
 
-パブリックアセスス特有の設定はなし
+パブリックアクセス特有の設定はなし
 
 #### 5-3. その他の共通設定
 
-共通の設定として以下のパラメーターで変更できます。変更がなければ修正は不要です。
+共通の設定として以下のパラメーターを変更できます。変更がなければ修正は不要です。
 
 |パラメーター|初期値|説明|
 |------------|-------|-----|
@@ -185,5 +189,26 @@ cdk deploy \
 ```
 
 約20分でデプロイが終わります。完了したら、READMEに戻って、「3. Kibana の設定」にお進みください。
+
+## AWS CDK によるアップデート
+
+SIEM のレポジトリを更新して、AWS CDK でアップデートします。初期インストール時に使用した cdk.json が CDK のディレクトリにあることを確認してください。
+
+```sh
+# cd SIEMのレポジトリ
+git pull --rebase
+```
+
+[**AWS CDK によるデプロイ**] の [**2. 環境変数の設定**]、[**3. AWS Lambda デプロイパッケージの作成**]、「**4. AWS Cloud Development Kit (AWS CDK) の環境セットアップ**] を再実行してください。
+
+[5. AWS CDK によるインストールのオプション設定] 以降は **実行せず**、下記のコマンドを実行
+
+```sh
+cd source/cdk/
+source .env/bin/activate
+cdk deploy
+```
+
+更新される差分が表示されるので確認して、[**y**] を入力。数分でアップデートは完了します。
 
 [READMEに戻る](../README_ja.md)
