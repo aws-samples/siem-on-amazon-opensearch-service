@@ -1427,25 +1427,6 @@
       },
       "DeletionPolicy": "Retain"
     },
-    "LambdaGeoipDownloaderAllowEventRuleaessiemCwlRuleLambdaGeoipDownloaderDilly9514E96121478990": {
-      "Type": "AWS::Lambda::Permission",
-      "Properties": {
-        "Action": "lambda:InvokeFunction",
-        "FunctionName": {
-          "Fn::GetAtt": [
-            "LambdaGeoipDownloaderA5EFF97E",
-            "Arn"
-          ]
-        },
-        "Principal": "events.amazonaws.com",
-        "SourceArn": {
-          "Fn::GetAtt": [
-            "CwlRuleLambdaGeoipDownloaderDillyF68D857D",
-            "Arn"
-          ]
-        }
-      }
-    },
     "LambdaDeployAES636B5079": {
       "Type": "AWS::Lambda::Function",
       "Properties": {
@@ -1735,6 +1716,25 @@
             "Id": "Target0"
           }
         ]
+      }
+    },
+    "CwlRuleLambdaGeoipDownloaderDillyAllowEventRuleaessiemCwlRuleLambdaGeoipDownloaderDilly9514E9612E9E452A": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "LambdaGeoipDownloaderA5EFF97E",
+            "Arn"
+          ]
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "CwlRuleLambdaGeoipDownloaderDillyF68D857D",
+            "Arn"
+          ]
+        }
       }
     },
     "SnsTopic2C1570A4": {
