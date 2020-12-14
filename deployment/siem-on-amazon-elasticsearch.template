@@ -1261,7 +1261,7 @@
           }
         },
         "FunctionName": "aes-siem-es-loader",
-        "MemorySize": 512,
+        "MemorySize": 2048,
         "Timeout": 600
       },
       "DependsOn": [
@@ -1269,13 +1269,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderVersion210beta28CB961A5": {
+    "LambdaEsLoaderVersion2100C30B2F3": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.1.0-beta2"
+        "Description": "2.1.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1417,15 +1417,34 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderVersion210beta22B492A1C": {
+    "LambdaGeoipDownloaderVersion2109AA660EA": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.1.0-beta2"
+        "Description": "2.1.0"
       },
       "DeletionPolicy": "Retain"
+    },
+    "LambdaGeoipDownloaderAllowEventRuleaessiemCwlRuleLambdaGeoipDownloaderDilly9514E96121478990": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "LambdaGeoipDownloaderA5EFF97E",
+            "Arn"
+          ]
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "CwlRuleLambdaGeoipDownloaderDillyF68D857D",
+            "Arn"
+          ]
+        }
+      }
     },
     "LambdaDeployAES636B5079": {
       "Type": "AWS::Lambda::Function",
@@ -1475,13 +1494,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESVersion210beta2CD61261C": {
+    "LambdaDeployAESVersion2106219E3DA": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.1.0-beta2"
+        "Description": "2.1.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1494,7 +1513,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.1.0-beta2"
+        "ConfigVersion": "2.1.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1552,13 +1571,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESVersion210beta2C929451D": {
+    "LambdaConfigureAESVersion210622A2452": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.1.0-beta2"
+        "Description": "2.1.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1571,7 +1590,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.1.0-beta2"
+        "ConfigVersion": "2.1.0"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"
@@ -1716,25 +1735,6 @@
             "Id": "Target0"
           }
         ]
-      }
-    },
-    "CwlRuleLambdaGeoipDownloaderDillyAllowEventRuleaessiemCwlRuleLambdaGeoipDownloaderDilly9514E9612E9E452A": {
-      "Type": "AWS::Lambda::Permission",
-      "Properties": {
-        "Action": "lambda:InvokeFunction",
-        "FunctionName": {
-          "Fn::GetAtt": [
-            "LambdaGeoipDownloaderA5EFF97E",
-            "Arn"
-          ]
-        },
-        "Principal": "events.amazonaws.com",
-        "SourceArn": {
-          "Fn::GetAtt": [
-            "CwlRuleLambdaGeoipDownloaderDillyF68D857D",
-            "Arn"
-          ]
-        }
       }
     },
     "SnsTopic2C1570A4": {
