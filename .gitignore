@@ -24,6 +24,8 @@ deployment/open-source/
 es_loader.zip
 geoip_downloader.zip
 deploy_es.zip
+restore_samplelog.zip
+siemlog.zip
 user.ini
 aes.ini
 global-s3-assets
@@ -34,6 +36,7 @@ Lambda*.zip
 .DS_Store
 temp/
 work/
+source/lambda/es_loader/*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -93,7 +96,6 @@ cover/
 *.pot
 
 # Django stuff:
-*.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal

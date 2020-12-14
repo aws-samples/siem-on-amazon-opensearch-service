@@ -16,9 +16,11 @@ AWS Key Management Service (AWS KMS) による暗号化をして、S3 バケッ�
 
 ## 2. AWS CloudTrail
 
-CloudTrail のログを下記の方法で S3 バケットに出力してください。
+![CloudTrail to S3](images/cloudtrail-to-s3.jpg)
 
 s3_key の初期値: `CloudTrail` (デフォルト設定の出力パスの一部)
+
+CloudTrail のログを下記の方法で S3 バケットに出力してください。
 
 1. AWS マネジメントコンソールにログイン
 1. [CloudTrail コンソール](https://console.aws.amazon.com/cloudtrail/home?) に移動
@@ -50,9 +52,11 @@ s3_key の初期値: `CloudTrail` (デフォルト設定の出力パスの一部
 
 ## 3. Amazon Virtual Private Cloud (Amazon VPC) Flow Logs
 
-VPC Flow Logs を下記の方法で S3 バケットに出力してください。
+![VPC flog logs to S3](images/vpc-to-s3.jpg)
 
 s3_key の初期値: `vpcflowlogs` (デフォルト設定の出力パスの一部)
+
+VPC Flow Logs を下記の方法で S3 バケットに出力してください。
 
 1. AWS マネジメントコンソールにログイン
 1. [VPC コンソール](https://console.aws.amazon.com/vpc/home?) に移動
@@ -72,7 +76,7 @@ s3_key の初期値: `vpcflowlogs` (デフォルト設定の出力パスの一�
 
 ## 4. Amazon GuardDuty
 
-GuardDuty のログを下記の方法で S3 バケットに出力してください。
+![GuardDuty to S3](images/guardduty-to-s3.jpg)
 
 s3_key の初期値: `GuardDuty` (デフォルト設定の出力パスの一部)
 
@@ -94,6 +98,8 @@ s3_key の初期値: `GuardDuty` (デフォルト設定の出力パスの一部)
 
 ## 5. Amazon Simple Storage Service (Amazon S3) access log
 
+![S3 to S3](images/s3-to-s3.jpg)
+
 S3 access log を下記の方法で S3 バケットに出力してください。すでに CloudTrail の データイベントで S3 を取得してる場合、S3 access log との違いは [こちら](https://docs.aws.amazon.com/ja_jp/AmazonS3/latest/dev/logging-with-S3.html) をご確認ください
 
 s3_key の初期値: `s3accesslog` (標準の保存パスがないのでプレフィックスで指定してください)
@@ -110,6 +116,8 @@ s3_key の初期値: `s3accesslog` (標準の保存パスがないのでプレ�
     1. [**保存**] を選択
 
 ## 6. Elastic Load Balancing (ELB)
+
+![elb to S3](images/elb-to-s3.jpg)
 
 次の3つのロードバランサーのログについて、それぞれを S3 バケットに出力します。
 
@@ -147,7 +155,7 @@ CloudFront には、ディストリビューションに送信されるリクエ
 
 ### 7-1. CloudFront 標準ログ (アクセスログ)
 
-CloudFront 標準ログは、選択した Amazon S3 バケットに配信されます。
+![cloudfront starndard to s3](images/cloudfront-standard-to-s3.jpg)
 
 s3_key の初期値: `(^|\/)[0-9A-Z]{14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\.gz$$`
 
@@ -168,6 +176,8 @@ s3_key の初期値: `(^|\/)[0-9A-Z]{14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\
     * [**Update**] を選択して設定完了
 
 ### 7-2. CloudFront リアルタイムログ
+
+![cloudfront realtime to s3](images/cloudfront-realtime-to-s3.jpg)
 
 CloudFront リアルタイムログは、Amazon Kinesis Data Streams で選択したデータストリームに配信されます。その後、Amazon Kinesis Data Firehose を使用して、ログデータを Amazon S3 に送信します。
 
@@ -234,6 +244,8 @@ CloudFront の設定
 
 ## 8. AWS WAF
 
+![aws waf to s3](images/waf-to-s3.jpg)
+
 AWS WAF には AWS WAF と AWS WAF Classic の2つがありますが、両方とも同じ方法で S3 バケットに出力してください。
 
 s3_key の初期値: `aws-waf-logs-`
@@ -290,6 +302,8 @@ AWS WAF の ACL トラフィックログは Kinesis Data Firehose から S3 バ�
 
 ## 9. Route 53 Resolver VPC DNS Query Log
 
+![Amazon Linux 2 to S3](images/route53resolver-to-s3.jpg)
+
 s3_key の初期値: `vpcdnsquerylogs` (デフォルト設定の出力パスの一部)
 
 1. [Route 53 Resolver コンソール](https://console.aws.amazon.com/route53resolver/home?) に移動
@@ -301,6 +315,115 @@ s3_key の初期値: `vpcdnsquerylogs` (デフォルト設定の出力パスの�
         * 123456789012 は ご利用の AWS アカウント ID に置換してください
     * クエリをログ記録するVPC: [**任意のVPCを追加**]
 1. [**クエリログの設定**] を選択して設定完了
+
+## 10. EC2 インスタンス (Amazon Linux 2)
+
+![Amazon Linux 2 to S3](images/al2-to-s3.jpg)
+
+OS のシステムログ
+s3_key の初期値: `/[Ll]inux/` (Firehose の出力パスに指定)
+
+Secure ログ
+s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
+
+ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先の S3 バケットのプレフィックスに指定してください。リージョン情報はログに含まれていないので、S3 キーに含めることで取得することができます。OS のシステムログとして取り込んだ後にSecure ログとして分類する方法と、最初から Secure ログとして取り込む方法の2種類があります。前者はプロセス名から判断するので、確実に Secure ログを Secure ログとして取り込むためには後者を選択してしてください。一方で後者はログの出力先毎に Firehose をデプロイする必要があります。
+
+手順は概要のみです。
+
+1. Amazon Linux 2 でデプロイした EC2 インスタンスに CloudWatch Agent をインストール
+1. CloudWatch Logs にログを転送
+1. CloudWatch Logs のサブスクリプションで Firehose に出力
+1. Firehose の出力先に S3 バケットを選択
+1. S3 バケットの出力先
+    * OS ログとして出力するプレフィックス: [**AWSLogs/123456789012/EC2/Linux/[region]/**]
+    * Secure ログとして出力するプレフィックス: [**AWSLogs/123456789012/EC2/Linux/Secure/[region]/**]
+        * 123456789012 は ご利用の AWS アカウント ID に置換してください
+
+## 11. AWS Security Hub
+
+![SecurityHub to S3](images/securityhub-to-s3.jpg)
+
+s3_key の初期値: `SecurityHub` (Firehose の出力パスに指定)
+
+* ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先 S3 バケットのプレフィックスに指定
+* 複数リージョンの Security Hub の findings を集約する時は、リージョン毎に、Firehose と EventEngine ルールを作成
+
+Kinesis Data Firehose の設定
+
+1. [Kinesis コンソール](https://console.aws.amazon.com/kinesis/home?) に移動
+1. 画面左メニューの [**配信ストリーム**] を選択
+1. 画面左上の [**Create delivery stream**] を選択
+1. [New delivery stream] 画面にて次のパラメーターを入力
+    * Delivery stream name: [**aes-siem-firehose-securityhub**] を入力
+    * Source: [**Direct PUT or other sources**] にチェックを入れる
+    * [Enable server-side encryption for source records in delivery stream] は任意
+    * [**Next**] を選択
+1. [Process records] 画面にて次のパラメーターを入力
+    * Data transformation: [**Disabled**] を選択
+    * Record format conversion: [**Disabled**] を選択
+    * [**Next**] を選択
+1. [Choose a destination] 画面にて次のパラメーターを入力
+    * Destination: [**Amazon S3**] を選択
+    * S3 bucket: [**aes-siem-123456789012-log**] を入力
+    * S3 prefix: [**AWSLogs/123456789012/SecurityHub/[region]/**] を入力
+    * S3 error prefix: [**AWSLogs/123456789012/SecurityHub/[region]/error/**] を入力
+        * 123456789012 と [region] は ご利用の AWS アカウント ID と リージョンに、置換してください
+1. [Configure settings] 画面にて次のパラメーターを入力
+    * Buffer size: [**任意の数字**]を 入力
+    * Buffer interval: [**任意の数字**]を 入力
+    * S3 compression: [**GZIP**] を選択
+    * 次以降はデフォルトのまま
+    * [**Next**] を選択
+1. [**Create delivery stream**] を選択して Kinesis Data Firehose のデプロイ完了
+
+EventBridge の設定
+
+1. [EventBridge コンソール](https://console.aws.amazon.com/events/home?) に移動
+1. 画面左メニューの [**ルール**] を選択 => [**ルールの作成**] を選択
+1. [ルールを作成] 画面にて次のパラメーターを入力
+    * 名前: aes-siem-securityhub-to-firehose
+    * パターンを定義: イベントパターンを選択
+    * イベント一致パターン: サービスごとの事前定義パターン
+    * サービスプロバイダー: AWS
+    * サービス名: Security Hub
+    * イベントタイプ: Security Hub Findings - Imported
+    * [イベントバスを選択]パネルは変更なし
+    * ターゲット: Firehose 配信ストリーム
+    * ストリーム: aes-siem-firehose-securityhub
+    * 他は任意の値を選択して
+    * [**作成**] を選択を選択して完了
+
+## Amazon ECS 対応 FireLens
+
+![ECS to Firelens to S3](images/ecs-to-firelens-to-s3.jpg)
+
+s3_key の初期値: なし。コンテナのアプリケーション毎に Firehose を作成して、それぞれに設定してください
+
+* ECS のログを Firelens(Fluent Bit) 経由で Firehose に送信をして、S3 に出力
+* コンテナのアプリケーションのログ種別は S3 のファイルパスで判断します。したがって、ログ種別毎に Firehose をプロビジョニング
+* コンテナの情報は、ECS メタデータから取得します。[タスク定義で有効化](https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/developerguide/using_firelens.html#firelens-taskdef-metadata)してください
+* stderr の取り込みは、デフォルトではしません。取得する場合は、user.ini に ignore_container_stderr = False としてください。@timestamp は SIEM のログ受信時刻になります。
+
+Kinesis Data Firehose の設定
+
+1. Security Hub の [Kinesis Data Firehose の設定] を参考にしてください
+1. S3 への出力パスにアプリケーションを判別するキーを含めてください (apacheなど)
+1. S3 に保存されるログから AWS Acount と Region は取得するので、S3 の出力パスにこの 2 つを含めるかどうかは任意です
+
+AWS Firelens の設定
+
+1. Firelens 経由でログを送るタスク定義ファイルと IAM の権限設定は、[公式ドキュメント](https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/userguide/using_firelens.html) と aws-samples の [amazon-ecs-firelens-examples の Send to Kinesis Data Firehose](https://github.com/aws-samples/amazon-ecs-firelens-examples/tree/mainline/examples/fluent-bit/kinesis-firehose) を参考にしてください
+
+SIEM の設定
+
+1. user.ini のログ種別毎に下記を含めてください
+
+```ini
+# firelens経由でログであることを指定
+via_firelens = True
+# stderr を取り込むか、取り込まないかを指定。Trueなら取り込まない
+ignore_container_stderr = True
+```
 
 ## マルチリージョン・マルチアカウント
 

@@ -18,12 +18,15 @@ SIEM on Amazon ES can load and correlate following logs.
 |-----------|---|
 |AWS CloudTrail|CloudTrail Log Event|
 |Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs|
-|Amazon GuardDuty|GuardDuty finding|
+|Amazon GuardDuty|GuardDuty findings|
+|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
 |AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
 |Amazon CloudFront|Standard access log<br>Real-time log|
 |Amazon Simple Storage Service (Amazon S3)|access log|
 |Amazon Route 53 Resolver|VPC DNS query log|
+|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
+|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
 
 Supported logs are normalized according to the [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html). Please refer to [here](docs/suppoted_log_type.md) to see correspondence log table of original and normalized field name.
 
@@ -41,7 +44,7 @@ _Note:_ CloudFormation deploys Amazon ES with **t3.small.elasticsearch instance.
 
 ### 1. Quick Start
 
-You can deploy with following CloudFormation template or create own template.
+You can deploy with following CloudFormation template.
 
 | Region | CloudFormation |
 |--------|----------------|
@@ -50,6 +53,14 @@ You can deploy with following CloudFormation template or create own template.
 | Tokyo (ap-northeast-1) |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=aes-siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-elasticsearch.template) |
 | Frankfurt (eu-central-1) |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=aes-siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-elasticsearch.template) |
 | London(eu-west-2) |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=aes-siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-elasticsearch.template) |
+
+If your region doesn't list above, use manually this template.
+
+```text
+https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-elasticsearch.template
+```
+
+Or you can create your template with following procedure.
 
 ### 2. Deploy siem with own template
 
@@ -60,11 +71,18 @@ You can skip this session if you already deploy with above CloudFormation templa
 The following procedures assumes that all of the OS-level configuration has been completed. They are:
 
 * Amazon EC2 instance running Amazon Linux 2
-* Python 3.7 or later
-* git
+  * "Development Tools"
+  * Python 3.8
+  * Python 3.8 libraries and header files
+  * git
 
 ```shell
-sudo yum -y install python3 git
+sudo yum groupinstall -y "Development Tools"
+sudo yum install -y amazon-linux-extras
+sudo amazon-linux-extras enable python3.8
+sudo yum install -y python38 python38-devel git jq
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
 ```
 
 #### 2-2. Clone SIEM on Amazon ES
@@ -79,7 +97,6 @@ git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git
 
 ```shell
 export TEMPLATE_OUTPUT_BUCKET=<YOUR_TEMPLATE_OUTPUT_BUCKET> # Name for the S3 bucket where the template will be located
-export SOLUTION_NAME="siem-on-amazon-elasticsearch" # name of the solution
 export AWS_REGION=<AWS_REGION> # region where the distributable is deployed
 ```
 
@@ -88,8 +105,9 @@ export AWS_REGION=<AWS_REGION> # region where the distributable is deployed
 #### 2-4. Build the AWS Lambda deployment package of SIEM on Amazon Elasticsearch Service
 
 ```shell
-cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/ && ./step1-build-lambda-pkg.sh && cd ..
-chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET $SOLUTION_NAME $VERSION
+cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
+chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
+chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
 ```
 
 #### 2-5. Upload deployment assets to your Amazon S3 buckets
@@ -110,12 +128,12 @@ Deploy with `https://s3.amazonaws.com/$TEMPLATE_OUTPUT_BUCKET/siem-on-amazon-ela
 It will probably take about 20 mins to finish deploy Amazon ES. Then you will configure Kibana.
 
 1. To login Amazon ES, move to CloudFormation console, select the stack and "Outputs" in tab menu. Then you can see Kibana's username, password and URL.
-1. To import Kibana's configuration such as dashboard, download [saved_objects.zip](https://aes-siem.s3-ap-northeast-1.amazonaws.com/assets/saved_objects.zip). Unzip the file.
-1. Go to Kibana console. Click "Management" in left side menu, "Saved Objects", "Import" and "Import". Select unzip file dashboard_v770.ndjson. Then logout once to load the configuration.
+1. To import Kibana's configuration such as dashboard, download [saved_objects.zip](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip). Unzip the file.
+1. Go to Kibana console. Click "Management" in left side menu, "Saved Objects", "Import" and "Import". Select unzip file dashboard.ndjson. Then logout once to load the configuration.
 
 ### 4. Load logs to Amazon ES
 
-PUT logs to S3 Bucket, **aes-siem-YOU_AWS_ACCOUNT-log**. Then the log will be loaded to Amazon ES. You can see more [details instructions](docs/configure_aws_service.md) for each logs.
+PUT logs to S3 Bucket, **aes-siem-<YOUR_AWS_ACCOUNT>-log**. Then the log will be loaded to Amazon ES. You can see more [details instructions](docs/configure_aws_service.md) for each logs.
 
 ## Conguration
 
@@ -148,6 +166,7 @@ The es-loader, python script, can load stored old logs in S3 Bucket to Amazon ES
 |Lambda function|aes-siem-BucketNotificationsHandler|
 |AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|
 |Amazon SQS Queue|aes-siem-dlq|
+|Amazon SQS Queue|aes-siem-sqs-splitted-logs|
 |CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader|
 |Amazon SNS Topic|aes-siem-alert|
 |Amazon SNS Subscription|entered email|

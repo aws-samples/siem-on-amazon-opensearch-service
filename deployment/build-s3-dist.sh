@@ -17,9 +17,9 @@
 #  - version-code: version of the package
 
 # Check to see if input has been provided:
-if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
+if [ -z "$1" ]; then
     echo "Please provide the base source bucket name, trademark approved solution name and version where the lambda code will eventually reside."
-    echo "For example: ./build-s3-dist.sh solutions trademarked-solution-name v1.0.0"
+    echo "For example: ./build-s3-dist.sh template-output-bucket-name"
     exit 1
 fi
 
@@ -57,12 +57,6 @@ echo "Updating code source bucket in template with $1"
 replace="s/%%BUCKET_NAME%%/$1/g"
 echo "sed -i $replace $template_dist_dir/*.template"
 sed -i $replace $template_dist_dir/*.template
-replace="s/%%SOLUTION_NAME%%/$2/g"
-echo "sed -i $replace $template_dist_dir/*.template"
-sed -i $replace $template_dist_dir/*.template
-replace="s/%%VERSION%%/$3/g"
-echo "sed -i  $replace $template_dist_dir/*.template"
-sed -i  $replace $template_dist_dir/*.template
 
 echo "------------------------------------------------------------------------------"
 echo "Copy Lmabda function"

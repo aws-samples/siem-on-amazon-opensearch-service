@@ -22,9 +22,10 @@ echo "install boto3 --user"
 pip3 install boto3 --user
 
 echo "Install Node.js"
-curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.36.0/install.sh | bash
+curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
 . ~/.nvm/nvm.sh
-nvm install node
+nvm install --lts node
+nvm alias default lts/*
 node -e "console.log('Running Node.js ' + process.version)"
 echo "Install CDK"
 npm install -g aws-cdk

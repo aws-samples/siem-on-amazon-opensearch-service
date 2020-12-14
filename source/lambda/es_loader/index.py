@@ -4,6 +4,8 @@
 
 import configparser
 import copy
+import csv
+import json
 import importlib
 import sys
 import os
@@ -14,7 +16,7 @@ from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 import siem
 
-__version__ = '2.0.0'
+__version__ = '2.1.0'
 print('version: ' + __version__)
 
 
@@ -54,7 +56,7 @@ def initialize_es_connection(es_hostname):
     return es_conn
 
 
-def load_user_custome_libs():
+def load_user_custom_libs():
     # /opt is mounted by lambda layer
     print('These files are in /opt: ' + str(os.listdir(path='/opt/')))
     user_libs = []
@@ -99,22 +101,81 @@ def get_etl_config():
 def load_modules_on_memory(etl_config, user_libs):
     for logtype in etl_config:
         if etl_config[logtype].get('script_ecs'):
-            mod_name = 'sf_' + logtype
+            mod_name = 'sf_' + logtype.replace('-', '_')
+            # old_mod_name is for compatibility
+            old_mod_name = 'sf_' + logtype
             if mod_name + '.py' in user_libs:
+                importlib.import_module(mod_name)
+            elif old_mod_name + '.py' in user_libs:
                 importlib.import_module(mod_name)
             else:
                 importlib.import_module('siem.' + mod_name)
 
 
-def make_not_loading_list(etl_config):
-    # ignore list of not loading to es
-    not_loading_list = {}
+def make_exclude_own_log_patterns(etl_config):
+    log_patterns = {}
     if etl_config['DEFAULT'].getboolean('ignore_own_logs'):
         user_agent = etl_config['DEFAULT'].get('custom_user_agent', '')
         if user_agent:
-            not_loading_list['cloudtrail'] = {'userAgent': user_agent}
-            not_loading_list['s3accesslog'] = {'UserAgent': user_agent}
-    return not_loading_list
+            re_user_agent = re.compile('.*'+str(re.escape(user_agent))+'.*')
+            log_patterns['cloudtrail'] = {'userAgent': re_user_agent}
+            log_patterns['s3accesslog'] = {'UserAgent': re_user_agent}
+    return log_patterns
+
+
+def merge_dotted_key_value_into_dict(patterns_dict, dotted_key, value):
+    if not patterns_dict:
+        patterns_dict = {}
+    patterns_dict_temp = patterns_dict
+    key_list = dotted_key.split('.')
+    for key in key_list[:-1]:
+        patterns_dict_temp = patterns_dict_temp.setdefault(key, {})
+    patterns_dict_temp[key_list[-1]] = value
+    return patterns_dict
+
+
+def get_exclude_log_patterns_csv_filename(etl_config):
+    csv_filename = etl_config['DEFAULT'].get('exclude_log_patterns_filename')
+    if not csv_filename:
+        return None
+    if 'GEOIP_BUCKET' in os.environ:
+        geoipbucket = os.environ.get('GEOIP_BUCKET', '')
+    else:
+        config = configparser.ConfigParser(
+            interpolation=configparser.ExtendedInterpolation())
+        config.read('aes.ini')
+        config.sections()
+        if 'aes' in config:
+            geoipbucket = config['aes']['GEOIP_BUCKET']
+        else:
+            return None
+    s3geo = boto3.resource('s3')
+    bucket = s3geo.Bucket(geoipbucket)
+    s3obj = csv_filename
+    local_file = f'/tmp/{csv_filename}'
+    try:
+        bucket.download_file(s3obj, local_file)
+    except Exception:
+        return None
+    return local_file
+
+
+def merge_csv_into_log_patterns(log_patterns, csv_filename):
+    if not csv_filename:
+        return log_patterns
+    print('INFO[{0}]: {1} is imported to exclude_log_patterns'
+          ''.format(os.getpid(), csv_filename))
+    with open(csv_filename, 'rt') as f:
+        for line in csv.DictReader(f):
+            if line['pattern_type'].lower() == 'text':
+                pattern = re.compile(str(re.escape(line['pattern']))+'$')
+            else:
+                pattern = re.compile(str(line['pattern'])+'$')
+            log_patterns.setdefault(line['log_type'], {})
+            log_patterns[line['log_type']] = merge_dotted_key_value_into_dict(
+                log_patterns[line['log_type']],
+                line['field'], pattern)
+    return log_patterns
 
 
 def make_s3_session_config(etl_config):
@@ -128,25 +189,38 @@ def make_s3_session_config(etl_config):
     return s3_session_config
 
 
-def get_es_entry(logfile, logconfig, not_loading_list):
-    # 一つのログの単位でloop
+def get_es_entry(logfile, logconfig, exclude_log_patterns):
+    """get elasticsearch entry
+    To return json to load AmazonES, extract log, map fields to ecs fields and
+    enriich ip addresses with geoip. Most important process.
+    """
+    # load config object on memory to avoid disk I/O accessing
     copy_attr_list = (
         'logtype', 'msgformat', 'file_format', 'header', 's3bucket', 's3key',
-        'accountid', 'region', 'loggroup', 'logstream')
+        'accountid', 'region', 'loggroup', 'logstream', 'via_firelens')
     logs = {}
     for key in copy_attr_list:
         logs[key] = copy.copy(getattr(logfile, key))
+
+    # load regex pattern for text log on memory
     log_pattern_prog = None
     if 'log_pattern' in logconfig:
         log_pattern_prog = re.compile(logconfig['log_pattern'])
+
+    # load custom script
     if logconfig['script_ecs']:
-        mod_name = 'sf_' + logs['logtype']
+        mod_name = 'sf_' + logs['logtype'].replace('-', '_')
+        # old_mod_name is for compatibility
+        old_mod_name = 'sf_' + logs['logtype']
         if mod_name + '.py' in user_libs:
             sf_module = importlib.import_module(mod_name)
+        elif old_mod_name + '.py' in user_libs:
+            sf_module = importlib.import_module(old_mod_name)
         else:
             sf_module = importlib.import_module('siem.' + mod_name)
     else:
         sf_module = None
+
     for logdata in logfile.logdata_list:
         # インスタンスを作ってログタイプを入れる
         logparser = siem.LogParser(
@@ -156,10 +230,11 @@ def get_es_entry(logfile, logconfig, not_loading_list):
             s3bucket=logs['s3bucket'], s3key=logs['s3key'],
             accountid=logs['accountid'], region=logs['region'],
             loggroup=logs['loggroup'], logstream=logs['logstream'],
+            via_firelens=logs['via_firelens'],
             log_pattern_prog=log_pattern_prog, sf_module=sf_module,)
         # 自分自身のログを無視する。ESにはロードしない。
-        is_ignore = logparser.check_ignored_log(not_loading_list)
-        if is_ignore:
+        is_ignored = logparser.check_ignored_log(exclude_log_patterns)
+        if is_ignored or logparser.is_ignored:
             continue
         # idなどの共通的なフィールドを追加する
         logparser.add_basic_field()
@@ -201,15 +276,22 @@ def check_es_results(results):
 
 es_hostname = get_es_hostname()
 es_conn = initialize_es_connection(es_hostname)
-user_libs = load_user_custome_libs()
+user_libs = load_user_custom_libs()
 etl_config = get_etl_config()
 load_modules_on_memory(etl_config, user_libs)
-not_loading_list = make_not_loading_list(etl_config)
+
+exclude_own_log_patterns = make_exclude_own_log_patterns(etl_config)
+csv_filename = get_exclude_log_patterns_csv_filename(etl_config)
+exclude_log_patterns = merge_csv_into_log_patterns(
+    exclude_own_log_patterns, csv_filename)
 s3_session_config = make_s3_session_config(etl_config)
 
 
 def lambda_handler(event, context):
     for record in event['Records']:
+        if 'body' in record:
+            # from sqs-splitted-logs
+            record = json.loads(record['body'])
         if 'kinesis' in record:
             logfile = siem.LogKinesis(record, etl_config)
         elif 's3' in record:
@@ -219,7 +301,7 @@ def lambda_handler(event, context):
             raise Exception(
                 'ERROR[{0}]: invalid input data. exit'.format(os.getpid()))
         if logfile.ignore:
-            print('WARN[{0}]: skip because {1}'.format(
+            print('WARN[{0}]: skipped because {1}'.format(
                 os.getpid(), logfile.ignore))
             continue
         print('INFO[{0}]: {1}'.format(os.getpid(), logfile.startmsg,))
@@ -230,7 +312,7 @@ def lambda_handler(event, context):
         size = 0
         results = False
         putdata_list = []
-        for data in get_es_entry(logfile, logconfig, not_loading_list):
+        for data in get_es_entry(logfile, logconfig, exclude_log_patterns):
             putdata_list.append(data)
             size += len(str(data))
             # es の http.max_content_length は t2 で10MB なのでデータがたまったらESにロード
@@ -250,7 +332,6 @@ def lambda_handler(event, context):
 if __name__ == '__main__':
     import argparse
     from datetime import datetime, timezone
-    import json
     from multiprocessing import Pool
     from functools import partial
 
@@ -282,7 +363,7 @@ if __name__ == '__main__':
                 s3key = s3key
                 event = {'Records': [
                             {'s3': {'bucket': {'name': s3bucket},
-                             'object': {'key': s3key}}}]}
+                                    'object': {'key': s3key}}}]}
                 yield line_num, event, None
 
     def create_event_from_sqs(queue_name):
@@ -297,7 +378,14 @@ if __name__ == '__main__':
                 for msg in messages:
                     if msg.message_id not in try_list:
                         try_list.append(msg.message_id)
-                        yield msg.message_id, json.loads(msg.body), msg
+                        event = json.loads(msg.body)
+                        if 'Records' in event:
+                            # from DLQ
+                            pass
+                        else:
+                            # from aes-siem-sqs-splitted-logs
+                            event = {'Records': [json.loads(msg.body)]}
+                        yield msg.message_id, event, msg
             else:
                 break
 

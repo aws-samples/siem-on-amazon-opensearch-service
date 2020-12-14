@@ -17,7 +17,7 @@ import requests
 import boto3
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.0.0'
+__version__ = '2.1.0'
 print('version: ' + __version__)
 
 client = boto3.client('es')
@@ -60,7 +60,7 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': aesdomain,
-    'ElasticsearchVersion': '7.7',
+    'ElasticsearchVersion': '7.9',
     'ElasticsearchClusterConfig': {
         'InstanceType': 't3.small.elasticsearch',
         'InstanceCount': 1,
@@ -297,7 +297,10 @@ def json_serial(obj):
     # for debug to dump various json
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
-    raise TypeError(f'Type {type(obj)} not serializable')
+    try:
+        return repr(obj)
+    except Exception:
+        raise TypeError(f'Type {type(obj)} not serializable')
 
 
 def send(event, context, responseStatus, responseData, physicalResourceId=None,

@@ -1,0 +1,26 @@
+[DEFAULT]
+# デフォルトの設定を上書き
+index_rotation = auto
+
+# ECS 上のコンテナで動作している apache のログを取り込む例
+[apache-ecs]
+index_name = log-web-apache
+via_firelens = True
+s3_key = firelens
+file_format = text
+timestamp_key = datetime
+timestamp_format = %d/%b/%Y:%H:%M:%S %z
+log_pattern = (?P<remotehost>.*) (?P<rfc931>.*) (?P<authuser>.*) \[(?P<datetime>.*?)\] \"(-|(?P<request_method>.*) (?P<request_path>.*) HTTP/(?P<request_version>.*))\" (?P<response_status>.*) (-|(?P<response_bytes>.*))
+
+ecs = http.request.method http.response.body.bytes http.response.status_code http.version source.ip url.path
+http.request.method = request_method
+http.response.body.bytes = response_bytes
+http.response.status_code = response_status
+http.version = request_version
+source.ip = remotehost
+url.path = request_path
+
+static_ecs = @log_type
+@log_type = apache
+
+geoip = source

@@ -36,14 +36,26 @@
 
 ## AWS CDK によるデプロイ
 
+### 注意事項
+
+* デプロイするサブネットは Private Subnet です
+* サブネットは 3つの異なる Availability Zone を選択してください。(デプロイするのは 1 AZ で 1インスタンスのみ)
+* Amazon VPC の [**DNS ホスト名**] と [**DNS ホスト解決**] の 2 つとも有効にしてください
+* デプロイ時に cdk.json の作成をしますが、このファイルを保存をしてください。SIEM on Amazon ES のデプロイで使用する CDK の再実行に必要です
+
 ### 1. AWS CDK 実行環境の準備
 
 1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイする
 1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、Amazon EC2 インスタンスにアタッチする
-1. シェルにログインして、Python 3、git、jq をインストールし、ソースコードを GitHub から取得する
+1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq をインストールし、ソースコードを GitHub から取得する
 
     ```shell
-    sudo yum install -y python3 git jq
+    sudo yum groupinstall -y "Development Tools"
+    sudo yum install -y amazon-linux-extras
+    sudo amazon-linux-extras enable python3.8
+    sudo yum install -y python38 python38-devel git jq
+    sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+    sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
     git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git
     ```
 
@@ -60,7 +72,7 @@ SIEM on Amazon ES で使用する AWS Lambda 関数は 3rd Party のライブラ
 
 ```shell
 cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
-./step1-build-lambda-pkg.sh
+chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh
 ```
 
 ### 4. AWS Cloud Development Kit (AWS CDK) の環境セットアップ
@@ -68,7 +80,7 @@ cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
 AWS CDK を実行できるように各種のソフトウェアをユーザーモードでインストールします。
 
 ```bash
-./step2-setup-cdk-env.sh
+chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh
 source ~/.bash_profile
 ```
 
@@ -89,11 +101,11 @@ source .env/bin/activate
 cdk bootstrap
 ```
 
-エラーで実行ができない場合、Amazon EC2 インスタンスに適切な権限のロールが割り当てられているかを確認してください。
+エラーで実行が失敗した場合、Amazon EC2 インスタンスに適切な権限のロールが割り当てられているかを確認してください。
 
 #### 5-1. SIEM on Amazon ES を Amazon VPC 内にデプロイ
 
-SIEM on Amazon ES を Amazon VPC 内にデプロイする場合は、Amazon VPC 用の AWS CDK のサンプルファイルをコピーして編集ください。
+SIEM on Amazon ES を Amazon VPC 内にデプロイする場合は、Amazon VPC 用の AWS CDK のサンプルファイルをコピーして編集してください。
 
 ```bash
 cp cdk.json.vpc.sample cdk.json
@@ -105,9 +117,10 @@ Amazon VPC に関するパラメーターと説明です。
 
 |パラメータ|説明|
 |----------|----|
-|vpc_typ|新しい Amazon VPC を作成する場合は "new"を、既存の Amazon VPC を利用する場合は "imported" を入力。編集するパラメーターとして、新規の場合はnew_vpc_XXXX、既存の利用は imported_vpc_XXXX を修正する|
+|vpc_typ|新しい Amazon VPC を作成する場合は [**new**] を、既存の Amazon VPC を利用する場合は [**import**] を入力。編集するパラメーターとして、新規の場合は new_vpc_XXXX、既存の利用は imported_vpc_XXXX を修正する|
 |imported_vpc_id|SIEM on Amazon ES をデプロイする Amazon VPC の ID を入力|
-|imported_vpc_subnetX|3つの、[VPC サブネット ID]、[アベイラビリティーゾーン]、[ルートテーブル ID] を入力|
+|imported_vpc_subnets|3つ以上の"VPC サブネット ID" をリスト形式で入力|
+|imported_vpc_subnetX|(deprecated) 3つの、[VPC サブネット ID]、[アベイラビリティーゾーン]、[ルートテーブル ID] を入力|
 |new_vpc_nw_cidr_block|新規に作成する Amazon VPC の IP と CIDR ブロックを入力。形式は、IP アドレス/サブネットマスク数。例) 192.0.2.0/24|
 |new_vpc_subnet_cidr_mask|サブネット CIDR ブロック。拡張性を考慮して 27 以上を推奨|
 
@@ -119,11 +132,11 @@ SIEM on Amazon ES をパブリックアクセス環境にデプロイする場�
 cp cdk.json.public.sample cdk.json
 ```
 
-パブリックアセスス特有の設定はなし
+パブリックアクセス特有の設定はなし
 
 #### 5-3. その他の共通設定
 
-共通の設定として以下のパラメーターで変更できます。変更がなければ修正は不要です。
+共通の設定として以下のパラメーターを変更できます。変更がなければ修正は不要です。
 
 |パラメーター|初期値|説明|
 |------------|-------|-----|
@@ -142,10 +155,10 @@ cp cdk.json.public.sample cdk.json
 |additional_s3_buckets||カンマ区切りで S3 バケット名を列挙|
 |additional_kms_cmks||カンマ区切りで AWS KMS カスタマーマネジメントキー の ARN を列挙|
 
-最後に jq コマンドで JSON ファイルのバリデーションをしてください。実行結果として、JSON が表示され、エラーが出なければ JSON ファイルの文法に問題はありません。
+最後に JSON ファイルのバリデーションをしてください。実行結果として、JSON が表示され、エラーが出なければ JSON ファイルの文法に問題はありません。
 
 ```shell
-cat cdk.json | jq .
+cdk context  --j
 ```
 
 ### 6. AWS CDK の実行
@@ -153,7 +166,7 @@ cat cdk.json | jq .
 AWS CDK によるデプロイを実行。
 
 ```bash
-cdk deploy aes-siem
+cdk deploy
 ```
 
 CloudFormation テンプレートと同じパラーメーターを指定可能。
@@ -170,11 +183,32 @@ CloudFormation テンプレートと同じパラーメーターを指定可能�
 パラメーター付きでの実行例)
 
 ```bash
-cdk deploy aes-siem \
+cdk deploy \
     --parameters AllowedSourceIpAddresses="10.0.0.0/8 192.168.0.1" \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
 
 約20分でデプロイが終わります。完了したら、READMEに戻って、「3. Kibana の設定」にお進みください。
+
+## AWS CDK によるアップデート
+
+SIEM のレポジトリを更新して、AWS CDK でアップデートします。初期インストール時に使用した cdk.json が CDK のディレクトリにあることを確認してください。
+
+```sh
+# cd SIEMのレポジトリ
+git pull --rebase
+```
+
+[**AWS CDK によるデプロイ**] の [**2. 環境変数の設定**]、[**3. AWS Lambda デプロイパッケージの作成**]、「**4. AWS Cloud Development Kit (AWS CDK) の環境セットアップ**] を再実行してください。
+
+[5. AWS CDK によるインストールのオプション設定] 以降は **実行せず**、下記のコマンドを実行
+
+```sh
+cd source/cdk/
+source .env/bin/activate
+cdk deploy
+```
+
+更新される差分が表示されるので確認して、[**y**] を入力。数分でアップデートは完了します。
 
 [READMEに戻る](../README_ja.md)
