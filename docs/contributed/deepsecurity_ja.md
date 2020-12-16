@@ -88,12 +88,6 @@ PUT _template/log-deepsecurity
         "cloud.account" : {
           "type" : "object"
         },
-        "cloud.region" : {
-          "type" : "keyword"
-        },
-        "event.action" : {
-          "type" : "keyword"
-        },
         "event.severity" : {
           "type" : "integer"
         },
@@ -101,42 +95,6 @@ PUT _template/log-deepsecurity
           "type" : "text"
         },
         "event.count" : {
-          "type" : "integer"
-        },
-        "file.path" : {
-          "type" : "keyword"
-        },
-        "destination.port" : {
-          "type" : "integer"
-        },
-        "destination.ip" : {
-          "type" : "ip"
-        },
-        "geo.country_iso_code" : {
-          "type" : "keyword"
-        },
-        "host.id" : {
-          "type" : "keyword"
-        },
-        "network.transport" : {
-          "type" : "keyword"
-        },
-        "rule.category" : {
-          "type" : "keyword"
-        },
-        "rule.name" : {
-          "type" : "keyword"
-        },
-        "rule.ruleset" : {
-          "type" : "keyword"
-        },
-        "service.name" : {
-          "type" : "keyword"
-        },
-        "source.ip" : {
-          "type" : "ip"
-        },
-        "source.port" : {
           "type" : "integer"
         },
         "timestamp" : {
@@ -156,7 +114,23 @@ aws.ini/user.iniに以下を定義します。
 index = log-deepsecurity
 s3_key = ds_agent
 format = json
-scripted_fields = True
+script_ecs = event.action destination.ip destination.port destination.mac destination.bytes source.ip source.port source.mac source.bytes network.transport event.action server.name file.path event.count rule.category host.id event.original
+event.action = act
+destination.ip = dst
+destination.port = dpt
+destination.mac = dmac
+destination.bytes = out
+source.ip = src
+source.port = spt
+source.mac = smac
+source.bytes = in
+network.transport = proto
+server.name = fluent_hostname
+file.path = fname
+event.count = cnt
+rule.category = cs1
+host.id = cn1
+event.original = msg
 ```
 
 lambda functionに、deepsecurityのlogを解釈する siem/sf_deepsecurity.py が存在していることを確認してください。
