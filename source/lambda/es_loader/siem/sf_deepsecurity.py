@@ -2,6 +2,7 @@ import re
 import base64
 import json
 import ipaddress
+from siem import merge, put_value_into_dict, get_value_from_dict
 
 def transform(logdata):
     # https://cloudone.trendmicro.com/docs/workload-security/event-syslog-message-formats/
@@ -101,91 +102,3 @@ def transform(logdata):
     del logdata['TrendMicroDsTenant'], logdata['TrendMicroDsTenantId']
 
     return logdata
-
-
-def put_value_into_dict(key_str, v):
-    """dictのkeyにドットが含まれている場合に入れ子になったdictを作成し、値としてvを入れる.
-    返値はdictタイプ。vが辞書ならさらに入れ子として代入。
-    TODO: 値に"が入ってると例外になる。対処方法が見つからず返値なDROPPEDにしてるので改善する。#34
-
-    >>> put_value_into_dict('a.b.c', 123)
-    {'a': {'b': {'c': '123'}}}
-    >>> v = {'x': 1, 'y': 2}
-    >>> put_value_into_dict('a.b.c', v)
-    {'a': {'b': {'c': {'x': 1, 'y': 2}}}}
-    >>> v = str({'x': "1", 'y': '2"3'})
-    >>> put_value_into_dict('a.b.c', v)
-    {'a': {'b': {'c': 'DROPPED'}}}
-    """
-    v = v
-    xkeys = key_str.split('.')
-    if isinstance(v, dict):
-        json_data = r'{{"{0}": {1} }}'.format(xkeys[-1], json.dumps(v))
-    else:
-        json_data = r'{{"{0}": "{1}" }}'.format(xkeys[-1], v)
-    if len(xkeys) >= 2:
-        xkeys.pop()
-        for xkey in reversed(xkeys):
-            json_data = r'{{"{0}": {1} }}'.format(xkey, json_data)
-    try:
-        new_dict = json.loads(json_data, strict=False)
-    except json.decoder.JSONDecodeError:
-        new_dict = put_value_into_dict(key_str, "DROPPED")
-    return new_dict
-
-def get_value_from_dict(dct, xkeys_list):
-    """ 入れ子になった辞書に対して、dotを含んだkeyで値を
-    抽出する。keyはリスト形式で複数含んでいたら分割する。
-    値がなければ返値なし
-
-    >>> dct = {'a': {'b': {'c': 123}}}
-    >>> xkey = "a.b.c"
-    >>> get_value_from_dict(dct, xkey)
-    123
-    >>> xkey = "x.y.z"
-    >>> get_value_from_dict(dct, xkey)
-
-    >>> xkeys_list = "a.b.c x.y.z"
-    >>> get_value_from_dict(dct, xkeys_list)
-    123
-    >>> dct = {'a': {'b': [{'c': 123}, {'c': 456}]}}
-    >>> xkeys_list = "a.b.0.c"
-    >>> get_value_from_dict(dct, xkeys_list)
-    123
-    """
-    for xkeys in xkeys_list.split():
-        v = dct
-        for k in xkeys.split('.'):
-            try:
-                k = int(k)
-            except ValueError:
-                pass
-            try:
-                v = v[k]
-            except (TypeError, KeyError, IndexError):
-                v = ''
-                break
-        if v:
-            return v
-
-def merge(a, b, path=None):
-    """merges b into a
-    """
-    if path is None:
-        path = []
-    for key in b:
-        if key in a:
-            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                merge(a[key], b[key], path + [str(key)])
-            elif a[key] == b[key]:
-                pass  # same leaf value
-            elif str(a[key]) in str(b[key]):
-                # strで上書き。JSONだったのをstrに変換したデータ
-                a[key] = b[key]
-            else:
-                # conflict and override original value with new one
-                a[key] = b[key]
-        else:
-            a[key] = b[key]
-    return a
-
