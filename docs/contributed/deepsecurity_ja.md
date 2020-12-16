@@ -125,7 +125,7 @@ source.port = spt
 source.mac = smac
 source.bytes = in
 network.transport = proto
-server.name = fluent_hostname
+server.name = hostname
 file.path = fname
 event.count = cnt
 rule.category = cs1
@@ -135,5 +135,3 @@ event.original = msg
 
 lambda functionに、deepsecurityのlogを解釈する siem/sf_deepsecurity.py が存在していることを確認してください。
 ここまでの設定で、Elasticsearchにログがloadされていくはずです。
-
-
