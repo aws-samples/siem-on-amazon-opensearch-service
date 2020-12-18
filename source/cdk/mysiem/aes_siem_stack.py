@@ -66,7 +66,8 @@ def validate_cdk_json(context):
 
     def get_pub_or_priv_subnet(routes_attrs):
         for route in routes_attrs:
-            if route['GatewayId'].startswith('igw-'):
+            gateway = route.get('GatewayId')
+            if gateway and gateway.startswith('igw-'):
                 return 'public'
         return 'private'
 
