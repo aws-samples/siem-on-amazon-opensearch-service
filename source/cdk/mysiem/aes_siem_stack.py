@@ -800,7 +800,7 @@ class MyAesSiemStack(core.Stack):
             # for CloudTrail
             cond_tail2 = self.make_resource_list(
                 path='arn:aws:cloudtrail:*:', tail=':trail/*',
-                keys=[org_mgmt_id, no_org_ids])
+                keys=self.list_without_none(org_mgmt_id, no_org_ids))
             key_policy_mul_trail2 = aws_iam.PolicyStatement(
                 sid=('Allow CloudTrail to encrypt logs for multiaccounts'),
                 actions=['kms:GenerateDataKey*'],
@@ -816,7 +816,7 @@ class MyAesSiemStack(core.Stack):
                 sid=('Enable cross account encrypt access for S3 Cross Region '
                      'Replication'),
                 actions=['kms:Encrypt'],
-                principals=self.make_account_plincipals(
+                principals=self.make_account_principals(
                     org_mgmt_id, org_member_ids, no_org_ids),
                 resources=['*'],)
             kms_aes_siem.add_to_resource_policy(key_policy_rep1)
@@ -829,7 +829,7 @@ class MyAesSiemStack(core.Stack):
             # for CloudTrail
             s3_mulpaths = self.make_resource_list(
                 path=f'{s3_log_bucket_arn}/AWSLogs/', tail='/*',
-                keys=[org_id, org_mgmt_id, no_org_ids])
+                keys=self.list_without_none(org_id, org_mgmt_id, no_org_ids))
             bucket_policy_org_trail = aws_iam.PolicyStatement(
                 sid='AWSCloudTrailWrite for Multiaccounts / Organizations',
                 principals=[
@@ -842,7 +842,7 @@ class MyAesSiemStack(core.Stack):
             # config
             s3_conf_multpaths = self.make_resource_list(
                 path=f'{s3_log_bucket_arn}/AWSLogs/', tail='/Config/*',
-                keys=[org_id, org_mgmt_id, no_org_ids])
+                keys=self.list_without_none(org_id, org_mgmt_id, no_org_ids))
             bucket_policy_mul_config2 = aws_iam.PolicyStatement(
                 sid='AWSConfigBucketDelivery',
                 principals=[aws_iam.ServicePrincipal('config.amazonaws.com')],
@@ -854,7 +854,7 @@ class MyAesSiemStack(core.Stack):
             # for replication
             bucket_policy_rep1 = aws_iam.PolicyStatement(
                 sid='PolicyForDestinationBucket / Permissions on objects',
-                principals=self.make_account_plincipals(
+                principals=self.make_account_principals(
                     org_mgmt_id, org_member_ids, no_org_ids),
                 actions=['s3:ReplicateDelete', 's3:ReplicateObject',
                          's3:ReplicateTags', 's3:GetObjectVersionTagging',
@@ -862,7 +862,7 @@ class MyAesSiemStack(core.Stack):
                 resources=[f'{s3_log_bucket_arn}/*'])
             bucket_policy_rep2 = aws_iam.PolicyStatement(
                 sid='PolicyForDestinationBucket / Permissions on bucket',
-                principals=self.make_account_plincipals(
+                principals=self.make_account_principals(
                     org_mgmt_id, org_member_ids, no_org_ids),
                 actions=['s3:List*', 's3:GetBucketVersioning',
                          's3:PutBucketVersioning'],
@@ -898,26 +898,27 @@ class MyAesSiemStack(core.Stack):
         core.CfnOutput(self, 'KibanaAdmin', export_name='kibana-admin',
                        value=kibanaadmin)
 
-    def make_account_plincipals(self, *args):
-        aws_ids = []
+    def list_without_none(self, *args):
+        list_args = []
         for arg in args:
-            if isinstance(arg, str):
-                aws_ids.append(arg)
+            if not arg:
+                pass
+            elif isinstance(arg, str):
+                list_args.append(arg)
             elif isinstance(arg, list):
-                aws_ids.extend(arg)
-        account_plincipals = []
+                list_args.extend(arg)
+        return list_args
+
+    def make_account_principals(self, *args):
+        aws_ids = self.list_without_none(*args)
+        account_principals = []
         for aws_id in sorted(set(aws_ids)):
-            account_plincipals.append(
+            account_principals.append(
                 aws_iam.AccountPrincipal(account_id=aws_id))
-        return account_plincipals
+        return account_principals
 
     def make_resource_list(self, path=None, tail=None, keys=[]):
-        aws_ids = []
-        for key in keys:
-            if isinstance(key, str):
-                aws_ids.append(key)
-            elif isinstance(key, list):
-                aws_ids.extend(key)
+        aws_ids = self.list_without_none(keys)
         multi_s3path = []
         for aws_id in sorted(set(aws_ids)):
             multi_s3path.append(path + aws_id + tail)
