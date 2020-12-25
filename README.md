@@ -10,7 +10,7 @@ SIEM on Amazon Elasticsearch Service (Amazon ES) is a solution that collects mul
 
 ![Architecture](./docs/images/aes-siem-architecture.png)
 
-## Suppoted Logs
+## Supported Logs
 
 SIEM on Amazon ES can load and correlate following logs.
 
@@ -135,7 +135,7 @@ It will probably take about 20 mins to finish deploy Amazon ES. Then you will co
 
 PUT logs to S3 Bucket, **aes-siem-<YOUR_AWS_ACCOUNT>-log**. Then the log will be loaded to Amazon ES. You can see more [details instructions](docs/configure_aws_service.md) for each logs.
 
-## Conguration
+## Configuration
 
 ### Configuring Amazon ES
 
