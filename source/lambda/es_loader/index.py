@@ -16,7 +16,7 @@ from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 import siem
 
-__version__ = '2.1.0'
+__version__ = '2.1.1'
 print('version: ' + __version__)
 
 

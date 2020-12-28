@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2020-12-28
+### Added
+- Deep Security Support #27
+
+### Fixed
+- Parse issue of S3 access logs with double quotes on the UA. #34
+- Parse issue of  ALB and CLB logs when IPv6 address is contained #31
+- Issue with key policy created by CDK #32
+- VPC config validation raises KeyError when using VPC peering instead IGW #29
+
 ## [2.1.0] - 2020-12-14
 ### Added
 - Supported and normalized log: Security Hub(Security Hub, GuardDuty, Macie, IAM Analyzer, Inspector), Linux SSH log via CWL, ECS via Firelens(Framework only) #7

@@ -14,6 +14,7 @@ fi
 echo "------------------------------------------------------------------------------"
 echo "[Packing] pip and Source Folder"
 echo "------------------------------------------------------------------------------"
+pip install pip==20.3.3
 function pip_zip_for_lambda () {
     if [ -e $1.zip ]; then
       echo "rm $1.zip"
@@ -37,7 +38,8 @@ function pip_zip_for_lambda () {
     mv -f README.md.org README.md
     echo "cp -f $source_template_dir/../LICENSE $source_template_dir/../CODE_OF_CONDUCT.md $source_template_dir/../CONTRIBUTING.md ${source_dir}/lambda/$1/"
     cp -f $source_template_dir/../LICENSE $source_template_dir/../CODE_OF_CONDUCT.md $source_template_dir/../CONTRIBUTING.md ${source_dir}/lambda/$1/
-    zip -r -9 ../$1.zip *
+    echo "zip -r -9 ../$1.zip *"
+    zip -r -9 ../$1.zip * > /dev/null
     echo "rm ${source_dir}/lambda/$1/LICENSE ${source_dir}/lambda/$1/CODE_OF_CONDUCT.md ${source_dir}/lambda/$1/CONTRIBUTING.md"
     rm ${source_dir}/lambda/$1/LICENSE ${source_dir}/lambda/$1/CODE_OF_CONDUCT.md ${source_dir}/lambda/$1/CONTRIBUTING.md
     cd ..

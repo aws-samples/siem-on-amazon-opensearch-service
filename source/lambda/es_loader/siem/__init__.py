@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 import boto3
 import geoip2.database
 
-__version__ = '2.1.0'
+__version__ = '2.1.1'
 
 # REGEXP and boost for lambda warm start
 # for transform script
