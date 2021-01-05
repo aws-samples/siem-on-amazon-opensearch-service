@@ -55,11 +55,18 @@ echo "cp $template_dir/*.template $template_dist_dir/"
 cp $template_dir/*.template $template_dist_dir/
 echo "Updating code source bucket in template with $1"
 replace="s/%%BUCKET_NAME%%/$1/g"
-echo "sed -i $replace $template_dist_dir/*.template"
-sed -i $replace $template_dist_dir/*.template
+
+if [ "$(uname)" == 'Darwin' ]; then
+# Command for MacOS('sed -i' in MacOS needs extension as parameter)
+    echo "sed -i '' $replace $template_dist_dir/*.template"
+    sed -i '' $replace $template_dist_dir/*.template
+else
+    echo "sed -i $replace $template_dist_dir/*.template"
+    sed -i $replace $template_dist_dir/*.template
+fi
 
 echo "------------------------------------------------------------------------------"
-echo "Copy Lmabda function"
+echo "Copy Lambda function"
 echo "------------------------------------------------------------------------------"
 cd $source_dir/lambda/
 pwd
