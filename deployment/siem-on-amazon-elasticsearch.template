@@ -1219,14 +1219,12 @@
           "S3Bucket": "%%BUCKET_NAME%%",
           "S3Key": "assets/es_loader.zip"
         },
-        "Handler": "index.lambda_handler",
         "Role": {
           "Fn::GetAtt": [
             "LambdaEsLoaderServiceRoleFFD43869",
             "Arn"
           ]
         },
-        "Runtime": "python3.8",
         "DeadLetterConfig": {
           "TargetArn": {
             "Fn::GetAtt": [
@@ -1249,6 +1247,10 @@
                 ]
               ]
             },
+            "LOG_LEVEL": "info",
+            "POWERTOOLS_LOGGER_LOG_EVENT": "false",
+            "POWERTOOLS_SERVICE_NAME": "es-loader",
+            "POWERTOOLS_METRICS_NAMESPACE": "SIEM-beta",
             "ES_ENDPOINT": {
               "Fn::GetAtt": [
                 "AesSiemDomainDeployedR2",
@@ -1261,7 +1263,9 @@
           }
         },
         "FunctionName": "aes-siem-es-loader",
+        "Handler": "index.lambda_handler",
         "MemorySize": 2048,
+        "Runtime": "python3.8",
         "Timeout": 600
       },
       "DependsOn": [
@@ -1269,29 +1273,29 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderVersion211827BE5C6": {
+    "LambdaEsLoaderVersion220beta132398BEC": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.1.1"
+        "Description": "2.2.0-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
     "LambdaEsLoaderSqsEventSourceaessiemAesSiemSqsSplitLogs506AFFA6A7D8B2E9": {
       "Type": "AWS::Lambda::EventSourceMapping",
       "Properties": {
+        "FunctionName": {
+          "Ref": "LambdaEsLoader4B1E2DD9"
+        },
+        "BatchSize": 1,
         "EventSourceArn": {
           "Fn::GetAtt": [
             "AesSiemSqsSplitLogs0191F431",
             "Arn"
           ]
-        },
-        "FunctionName": {
-          "Ref": "LambdaEsLoader4B1E2DD9"
-        },
-        "BatchSize": 1
+        }
       }
     },
     "LambdaGeoipDownloaderServiceRoleE37FB908": {
@@ -1381,14 +1385,12 @@
           "S3Bucket": "%%BUCKET_NAME%%",
           "S3Key": "assets/geoip_downloader.zip"
         },
-        "Handler": "index.lambda_handler",
         "Role": {
           "Fn::GetAtt": [
             "LambdaGeoipDownloaderServiceRoleE37FB908",
             "Arn"
           ]
         },
-        "Runtime": "python3.8",
         "Environment": {
           "Variables": {
             "s3bucket_name": {
@@ -1409,7 +1411,9 @@
           }
         },
         "FunctionName": "aes-siem-geoip-downloader",
+        "Handler": "index.lambda_handler",
         "MemorySize": 320,
+        "Runtime": "python3.8",
         "Timeout": 300
       },
       "DependsOn": [
@@ -1417,13 +1421,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderVersion2111BDC6017": {
+    "LambdaGeoipDownloaderVersion220beta1ED2FF068": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.1.1"
+        "Description": "2.2.0-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1434,14 +1438,12 @@
           "S3Bucket": "%%BUCKET_NAME%%",
           "S3Key": "assets/deploy_es.zip"
         },
-        "Handler": "index.aes_domain_handler",
         "Role": {
           "Fn::GetAtt": [
             "AesSiemDeployRoleForLambda654D64F2",
             "Arn"
           ]
         },
-        "Runtime": "python3.8",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -1468,20 +1470,22 @@
           }
         },
         "FunctionName": "aes-siem-deploy-aes",
+        "Handler": "index.aes_domain_handler",
         "MemorySize": 128,
+        "Runtime": "python3.8",
         "Timeout": 720
       },
       "DependsOn": [
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESVersion21115C60866": {
+    "LambdaDeployAESVersion220beta18821F8C6": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.1.1"
+        "Description": "2.2.0-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1494,7 +1498,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.1.1"
+        "ConfigVersion": "2.2.0-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1505,14 +1509,12 @@
           "S3Bucket": "%%BUCKET_NAME%%",
           "S3Key": "assets/deploy_es.zip"
         },
-        "Handler": "index.aes_config_handler",
         "Role": {
           "Fn::GetAtt": [
             "AesSiemDeployRoleForLambda654D64F2",
             "Arn"
           ]
         },
-        "Runtime": "python3.8",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -1545,20 +1547,22 @@
           }
         },
         "FunctionName": "aes-siem-configure-aes",
+        "Handler": "index.aes_config_handler",
         "MemorySize": 128,
+        "Runtime": "python3.8",
         "Timeout": 300
       },
       "DependsOn": [
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESVersion211ADB095E6": {
+    "LambdaConfigureAESVersion220beta1A7209506": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.1.1"
+        "Description": "2.2.0-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1571,7 +1575,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.1.1"
+        "ConfigVersion": "2.2.0-beta.1"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"

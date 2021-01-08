@@ -1,4 +1,5 @@
 # python libs
+bin/
 certifi*
 aiohttp*
 async_timeout*
@@ -13,6 +14,16 @@ multidict*
 geoip2*
 attr*
 typing_extensions*
+aws_lambda_powertools*
+aws_xray_sdk*
+fastjsonschema*
+jmespath*
+jsonpickle*
+libfuturize*
+libpasteurize*
+past*
+python_dateutil-2.8.1*
+wrapt*
 
 # AWS CDK
 cdk.context.json

@@ -14,7 +14,7 @@ fi
 echo "------------------------------------------------------------------------------"
 echo "[Packing] pip and Source Folder"
 echo "------------------------------------------------------------------------------"
-pip install pip==20.3.3
+pip3 install pip==20.3.3
 function pip_zip_for_lambda () {
     if [ -e $1.zip ]; then
       echo "rm $1.zip"
@@ -32,6 +32,10 @@ function pip_zip_for_lambda () {
     fi
     find . -name __pycache__ | xargs rm -fr
     rm -f .DS_Store
+    #rm -fr *dist-info
+    echo "# delete python libraries which are already installed in lambda environment"
+    echo "rm -fr boto* aiohttp* future* urllib3* dateutil* s3transfer* six*"
+    rm -fr boto* aiohttp* future* urllib3* dateutil* s3transfer* six*
     if [ -d requests_aws4auth ]; then
         mv LICENSE README.md HISTORY.md requests_aws4auth-*-info/
     fi

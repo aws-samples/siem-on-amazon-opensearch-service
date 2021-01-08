@@ -11,12 +11,17 @@ import ipaddress
 import json
 import os
 import re
+import sys
 import zipfile
 from datetime import datetime, timedelta, timezone
 import boto3
 import geoip2.database
+from aws_lambda_powertools import Logger
 
-__version__ = '2.1.1'
+__version__ = '2.2.0-beta.1'
+
+logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
+logger.info('version: ' + __version__)
 
 # REGEXP and boost for lambda warm start
 # for transform script
@@ -35,6 +40,11 @@ try:
     SQS_SPLITTED_LOGS_URL = os.environ['SQS_SPLITTED_LOGS_URL']
 except KeyError:
     SQS_SPLITTED_LOGS_URL = None
+
+
+def set_default_for_json(object):
+    if isinstance(object, datetime):
+        return object.isoformat()
 
 
 # download geoip database
@@ -66,7 +76,7 @@ def download_geoip_database(s3key_prefix='GeoLite2/'):
                 print(db + ' is not found in s3')
                 with open(localfile_not_found, 'w') as f:
                     f.write('')
-    print('These files are in /tmp: ' + str(os.listdir(path='/tmp/')))
+    logger.info('These files are in /tmp: ' + str(os.listdir(path='/tmp/')))
 
 
 download_geoip_database()
@@ -346,6 +356,7 @@ class LogS3(LogObj):
         except KeyError:
             self.start_number = 0
             self.end_number = 0
+        self.total_log_count = 0
         self.config = config
         self.ignore = self.check_ignore()
         self.msgformat = 's3'
@@ -393,6 +404,7 @@ class LogS3(LogObj):
             body = bz2.open(rawbody, mode='rt', encoding='utf8',
                             errors='ignore')
         else:
+            logger.error('unknown file format')
             raise Exception('unknown file format')
         return body
 
@@ -519,8 +531,8 @@ class LogS3(LogObj):
         sqs_client = boto3.client("sqs")
         queue_url = SQS_SPLITTED_LOGS_URL
         q, mod = divmod(log_count, max_log_count)
-        print(f'[DEBUG]: split_logs: s3://{self.s3bucket}/{self.s3key}, '
-              f'max_log_count: {max_log_count}, log_count: {log_count}')
+        logger.debug({'split_logs': f's3://{self.s3bucket}/{self.s3key}',
+                      'max_log_count': max_log_count, 'log_count': log_count})
         entries = []
         for x in range(q):
             start = (x + 1) * max_log_count + 1
@@ -532,13 +544,14 @@ class LogS3(LogObj):
                 "s3": {"bucket": {"name": self.s3bucket},
                        "object": {"key": self.s3key}}}
             message_body = json.dumps(queue_body)
-            print(message_body)
+            logger.debug(message_body)
             entries.append({'Id': f'num_{start}', 'MessageBody': message_body})
             if (x % 10 == 9) or (x + 1 == q):
                 response = sqs_client.send_message_batch(
                     QueueUrl=queue_url, Entries=entries)
                 if response['ResponseMetadata']['HTTPStatusCode'] != 200:
-                    print(json.dumps(response))
+                    logger.error(json.dumps(response))
+                    raise Exception(json.dumps(response))
                 entries = []
         return True
 
@@ -559,13 +572,14 @@ class LogS3(LogObj):
             self.split_logs_to_sqs(log_count, max_log_count)
             if self.start_number == 0:
                 start = ignore_header_line_number
-                end = max_log_count
-                if not SQS_SPLITTED_LOGS_URL:
-                    end = None
+                if max_log_count >= log_count or not SQS_SPLITTED_LOGS_URL:
+                    end = log_count
+                else:
+                    end = max_log_count
             else:
                 start = self.start_number - 1
                 end = self.end_number
-
+            self.total_log_count = end - start
             for logdata in self.rawdata.readlines()[start:end]:
                 yield logdata.strip()
 
@@ -573,6 +587,7 @@ class LogS3(LogObj):
             log_count = 0
             for x in self.extract_logobj_from_json(mode='count'):
                 log_count = x
+            self.total_log_count = log_count
             self.split_logs_to_sqs(log_count, max_log_count)
             logobjs = self.extract_logobj_from_json(
                 'extract', self.start_number, self.end_number, log_count,
@@ -582,10 +597,9 @@ class LogS3(LogObj):
 
     @property
     def startmsg(self):
-        startmsg = (
-            f's3 bucket: {self.s3bucket}, key: {self.s3key}, '
-            f'logtype: {self.logtype}, start_number: {self.start_number}, '
-            f'end_number: {self.end_number}')
+        startmsg = {'s3_bucket': self.s3bucket, 's3_key': self.s3key,
+                    'logtype': self.logtype, 'start_number': self.start_number,
+                    'end_number': self.end_number}
         return startmsg
 
 
@@ -752,15 +766,18 @@ class LogParser:
             try:
                 m = self.log_pattern_prog.match(self.logdata)
             except AttributeError:
-                raise AttributeError(
-                    'You need to define log format and relevant configuration')
+                msg = 'No log_pattern. You need to define it in user.ini'
+                logger.exception(msg)
+                raise AttributeError(msg) from None
             if m:
                 logdata_dict = m.groupdict()
             else:
-                raise Exception(
-                    f'Invalid regex pattern of {self.logtype} in aws.ini or '
-                    f'use.ini.\nregex_pattern:\n{self.log_pattern_prog}\n'
-                    f'rawdata:\n{self.logdata}\n')
+                msg_dict = {
+                    'Exception': f'Invalid regex paasttern of {self.logtype}',
+                    'rawdata': self.logdata,
+                    'regex_pattern': self.log_pattern_prog}
+                logger.error(msg_dict)
+                raise Exception(repr(msg_dict))
 
         if self.via_firelens:
             logdata_dict.update(firelens_meta_dict)
@@ -871,7 +888,7 @@ class LogParser:
             else:
                 ecs_dict['cloud']['region'] = 'unknown'
 
-        # get info from firelens matadata of Elastic Container Serivce
+        # get info from firelens metadata of Elastic Container Serivce
         if 'ecs_task_arn' in self.__logdata_dict:
             ecs_task_arn_taple = self.__logdata_dict['ecs_task_arn'].split(':')
             ecs_dict['cloud']['account']['id'] = ecs_task_arn_taple[4]
@@ -917,7 +934,7 @@ class LogParser:
         merge(self.__logdata_dict, enrich_dict)
 
     @property
-    def index_id(self):
+    def doc_id(self):
         if '__doc_id_suffix' in self.__logdata_dict:
             temp = self.__logdata_dict['__doc_id_suffix']
             del self.__logdata_dict['__doc_id_suffix']
@@ -995,24 +1012,26 @@ class LogParser:
             elif 'iso8601' in timestamp_format:
                 try:
                     dt = datetime.fromisoformat(timestr)
-                except ValueError as err:
-                    raise ValueError(
-                        'ERROR: timestamp {0} is not ISO8601. See details {1}'
-                        ''.format(self.logconfig['timestamp_key'], err))
+                except ValueError:
+                    msg = (f'You set {timestamp_key} field as ISO8601 format. '
+                           f'Timestamp string is {timestr} and NOT ISO8601. ')
+                    logger.exception(msg)
+                    raise ValueError(msg) from None
                 if not dt.tzinfo:
                     dt = dt.replace(tzinfo=TZ)
             elif timestamp_format:
                 try:
                     dt = datetime.strptime(timestr, timestamp_format)
-                except ValueError as err:
-                    raise ValueError(
-                        'ERROR: timestamp key {0} is wrong. See details {1}'
-                        ''.format(self.logconfig['timestamp_key'], err))
+                except ValueError:
+                    msg = f'timestamp key {timestamp_key} is wrong'
+                    logger.exception(msg)
+                    raise ValueError(msg) from None
                 if not dt.tzinfo:
                     dt = dt.replace(tzinfo=TZ)
             else:
-                raise ValueError(
-                    "ERROR: There is no timestamp format. It's necessary")
+                msg = f'There is no timestamp format for {self.logtype}'
+                logger.error(msg)
+                raise ValueError(msg)
         else:
             dt = datetime.now(timezone.utc)
         return dt
