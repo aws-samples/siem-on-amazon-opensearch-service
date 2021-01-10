@@ -300,13 +300,13 @@ zip を作成し Lambda レイヤーに登録すれば設定完了です
 
 |メトリクス|単位|説明|
 |------|-------|-----|
-|InputLogFileSize|Bytes|S3 バケットから取り込んだファイルサイズ|
-|OutputDataSize|Bytes|Amazon ES に送信したデータサイズ|
+|InputLogFileSize|Bytes|es-loader が S3 バケットから取り込んだファイルサイズ|
+|OutputDataSize|Bytes|es-loader が Amazon ES に送信したデータサイズ|
 |SuccessLogLoadCount|Count|es-loader が Amazon ES へのデータ送信が成功したログ数|
 |ErrorLogLoadCount|Count|es-loader が Amazon ES へのデータ送信が失敗したログ数|
 |TotalDurationTime|Milliseconds|es-loader が処理を始めてから全ての処理が完了するまでの時間。Lambda Durationとほぼ同じ|
 |EsResponseTime|Seconds|es-loader が Amazon ES にデータを送信して処理が完了するまでの時間|
-|TotalLogFileCount|Count|処理をしたログファイルの数|
+|TotalLogFileCount|Count|es-loader が 処理をしたログファイルの数|
 |TotalLogCount|Count|ログファイルに含まれるログから処理対象となったログの数。フィルターをして取り込まれなかったログも含む|
 
 ## ロギング
@@ -317,9 +317,9 @@ es-loader のログは JSON 形式で出力しているため、CloudWatch Logs 
 |フィールド|説明|
 |-----|------|
 |level|ログの重要度。デフォルトでは info 以上を記録しています。トラブル時に aes-siem-es-loader の環境変数 の LOG_LEVEL を debug に変更に変更することで、debug のログを一時的に記録することができます。大量にログが出るので確認が終わったら info に戻すことをおすすめします|
-|s3_key|S3 バケットに保存されているログファイルの オブジェクトキー です。対象ログファイルを処理した場合には s3_key を検索キーにして、ログと上記のメトリクスの生データを抽出して確認できます|
+|s3_key|S3 バケットに保存されているログファイルの オブジェクトキー です。対象ログファイルを処理した場合には s3_key を検索キーにして、処理一連のログと上記のメトリクスの生データを抽出して確認できます|
 |message|ログのメッセージ。場合によっては JSON 形式|
 
-その他のフィールドは、AWS Lambda Powertools Python を使用しています。詳細は、[AWS Lambda Powertools Python のドキュメント](https://awslabs.github.io/aws-lambda-powertools-python/core/metrics/)を参照してください、
+その他のフィールドは、AWS Lambda Powertools Python を使用しています。詳細は、[AWS Lambda Powertools Python のドキュメント](https://awslabs.github.io/aws-lambda-powertools-python/core/metrics/)を参照してください。
 
 [READMEに戻る](../README_ja.md)
