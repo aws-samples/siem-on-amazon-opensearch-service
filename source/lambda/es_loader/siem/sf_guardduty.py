@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 
 import re
-from siem import merge
+from siem import utils
 
 
 def transform(logdata):
@@ -27,7 +27,7 @@ def transform(logdata):
     else:
         direction = "INBOUND"
     gd['network'] = {'direction': direction}
-    merge(logdata, gd)
+    logdata = utils.merge_dicts(logdata, gd)
     if "OUTBOUND" in direction:
         logdata['source'], logdata['destination'] = (
             logdata.get('destination'), logdata.get('source'))

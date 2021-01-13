@@ -3,7 +3,7 @@
 
 from siem.sf_linux_os_syslog import (
     extract_instance_id, extract_from_sshd, extract_from_sudo)
-from siem import merge
+from siem import utils
 
 
 def transform(logdata):
@@ -16,5 +16,5 @@ def transform(logdata):
         linux_dict = extract_from_sudo(logdata, linux_dict)
 
     if linux_dict:
-        merge(logdata, linux_dict)
+        logdata = utils.merge_dicts(logdata, linux_dict)
     return logdata

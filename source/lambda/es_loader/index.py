@@ -2,197 +2,33 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-import configparser
 import copy
-import csv
-import json
+from functools import wraps
 import importlib
-import sys
+import json
 import os
 import re
+import sys
 import time
+
 import boto3
-import botocore
-from functools import wraps
 from aws_lambda_powertools import Metrics, Logger
 from aws_lambda_powertools.metrics import MetricUnit
-from elasticsearch import Elasticsearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
+
 import siem
+from siem import utils, geodb
 
-__version__ = '2.2.0-beta.1'
+__version__ = '2.2.0-beta.2'
 
-logger = Logger(child=True)
+
+logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
+logger.info('version: ' + __version__)
 metrics = Metrics()
 
-
-def get_es_hostname():
-    # get ES_ENDPOINT
-    if 'ES_ENDPOINT' in os.environ:
-        es_hostname = os.environ.get('ES_ENDPOINT', '')
-    else:
-        # For local shell execution
-        aes_config = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation())
-        aes_config.read('aes.ini')
-        aes_config.sections()
-        if 'aes' in aes_config:
-            es_hostname = aes_config['aes']['es_endpoint']
-        else:
-            logger.error('You need to set ES_ENDPOINT in ENVRIONMENT '
-                         'or modify aes.ini. exit')
-            raise Exception('No ES_ENDPOINT in Environemnt')
-    return es_hostname
-
-
-def initialize_es_connection(es_hostname):
-    es_region = es_hostname.split('.')[1]
-    # For Debug
-    # boto3.set_stream_logger('botocore', level='DEBUG')
-    credentials = boto3.Session().get_credentials()
-    service = 'es'
-    awsauth = AWS4Auth(
-        credentials.access_key, credentials.secret_key, es_region, service,
-        session_token=credentials.token)
-    es_conn = Elasticsearch(
-        hosts=[{'host': es_hostname, 'port': 443}], http_auth=awsauth,
-        use_ssl=True, http_compress=True, verify_certs=True,
-        retry_on_timeout=True, connection_class=RequestsHttpConnection,
-        timeout=60)
-    return es_conn
-
-
-def load_user_custom_libs():
-    # /opt is mounted by lambda layer
-    logger.info('These files are in /opt: ' + str(os.listdir(path='/opt/')))
-    user_libs = []
-    if os.path.isdir('/opt/siem'):
-        print('These files are in /opt/siem: '
-              + str(os.listdir(path='/opt/siem')))
-        user_libs = [i for i in os.listdir('/opt/siem/') if 'sf_' in i]
-        sys.path.append('/opt/siem')
-    return user_libs
-
-
-def timestr_to_hours(timestr):
-    try:
-        hours, minutes = timestr.split(':')
-        hours = int(hours) + int(minutes) / 60
-    except ValueError:
-        hours = timestr
-    except Exception:
-        logger.exception(f'impossible to convert {timestr} to hours')
-        raise Exception(f'impossible to convert {timestr} to hours') from None
-    return str(hours)
-
-
-def get_etl_config():
-    etl_config = configparser.ConfigParser(
-        interpolation=configparser.ExtendedInterpolation())
-    etl_config.read('aws.ini')
-    # overwride with user configration
-    etl_config.read('/opt/user.ini')
-    etl_config.read('user.ini')
-    etl_config.sections()
-    if 'doc_id' not in etl_config['DEFAULT']:
-        logger.error('invalid config file: aws.ini. exit')
-        raise Exception('invalid config file: aws.ini. exit')
-    for each_config in etl_config:
-        etl_config[each_config]['index_tz'] = timestr_to_hours(
-            etl_config[each_config]['index_tz'])
-        etl_config[each_config]['timestamp_tz'] = timestr_to_hours(
-            etl_config[each_config]['timestamp_tz'])
-    return etl_config
-
-
-def load_modules_on_memory(etl_config, user_libs):
-    for logtype in etl_config:
-        if etl_config[logtype].get('script_ecs'):
-            mod_name = 'sf_' + logtype.replace('-', '_')
-            # old_mod_name is for compatibility
-            old_mod_name = 'sf_' + logtype
-            if mod_name + '.py' in user_libs:
-                importlib.import_module(mod_name)
-            elif old_mod_name + '.py' in user_libs:
-                importlib.import_module(mod_name)
-            else:
-                importlib.import_module('siem.' + mod_name)
-
-
-def make_exclude_own_log_patterns(etl_config):
-    log_patterns = {}
-    if etl_config['DEFAULT'].getboolean('ignore_own_logs'):
-        user_agent = etl_config['DEFAULT'].get('custom_user_agent', '')
-        if user_agent:
-            re_user_agent = re.compile('.*'+str(re.escape(user_agent))+'.*')
-            log_patterns['cloudtrail'] = {'userAgent': re_user_agent}
-            log_patterns['s3accesslog'] = {'UserAgent': re_user_agent}
-    return log_patterns
-
-
-def merge_dotted_key_value_into_dict(patterns_dict, dotted_key, value):
-    if not patterns_dict:
-        patterns_dict = {}
-    patterns_dict_temp = patterns_dict
-    key_list = dotted_key.split('.')
-    for key in key_list[:-1]:
-        patterns_dict_temp = patterns_dict_temp.setdefault(key, {})
-    patterns_dict_temp[key_list[-1]] = value
-    return patterns_dict
-
-
-def get_exclude_log_patterns_csv_filename(etl_config):
-    csv_filename = etl_config['DEFAULT'].get('exclude_log_patterns_filename')
-    if not csv_filename:
-        return None
-    if 'GEOIP_BUCKET' in os.environ:
-        geoipbucket = os.environ.get('GEOIP_BUCKET', '')
-    else:
-        config = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation())
-        config.read('aes.ini')
-        config.sections()
-        if 'aes' in config:
-            geoipbucket = config['aes']['GEOIP_BUCKET']
-        else:
-            return None
-    s3geo = boto3.resource('s3')
-    bucket = s3geo.Bucket(geoipbucket)
-    s3obj = csv_filename
-    local_file = f'/tmp/{csv_filename}'
-    try:
-        bucket.download_file(s3obj, local_file)
-    except Exception:
-        return None
-    return local_file
-
-
-def merge_csv_into_log_patterns(log_patterns, csv_filename):
-    if not csv_filename:
-        return log_patterns
-    logger.info(f'{csv_filename} is imported to exclude_log_patterns')
-    with open(csv_filename, 'rt') as f:
-        for line in csv.DictReader(f):
-            if line['pattern_type'].lower() == 'text':
-                pattern = re.compile(str(re.escape(line['pattern']))+'$')
-            else:
-                pattern = re.compile(str(line['pattern'])+'$')
-            log_patterns.setdefault(line['log_type'], {})
-            log_patterns[line['log_type']] = merge_dotted_key_value_into_dict(
-                log_patterns[line['log_type']],
-                line['field'], pattern)
-    return log_patterns
-
-
-def make_s3_session_config(etl_config):
-    user_agent = etl_config['DEFAULT'].get('custom_user_agent', '')
-    user_agent_ver = etl_config['DEFAULT'].get('custom_user_agent_ver', '')
-    if user_agent:
-        s3_session_config = botocore.config.Config(
-            user_agent=f'{user_agent}/{user_agent_ver}')
-    else:
-        s3_session_config = None
-    return s3_session_config
+SQS_SPLITTED_LOGS_URL = None
+if 'SQS_SPLITTED_LOGS_URL' in os.environ:
+    SQS_SPLITTED_LOGS_URL = os.environ['SQS_SPLITTED_LOGS_URL']
+ES_HOSTNAME = utils.get_es_hostname()
 
 
 def extract_logfile_from_s3(record):
@@ -212,9 +48,10 @@ def extract_logfile_from_s3(record):
 
 
 def get_es_entries(logfile, logconfig, exclude_log_patterns):
-    """get elasticsearch entries
+    """get elasticsearch entries.
+
     To return json to load AmazonES, extract log, map fields to ecs fields and
-    enriich ip addresses with geoip. Most important process.
+    enrich ip addresses with geoip. Most important process.
     """
     # load config object on memory to avoid disk I/O accessing
     copy_attr_list = (
@@ -260,7 +97,7 @@ def get_es_entries(logfile, logconfig, exclude_log_patterns):
             continue
         # idなどの共通的なフィールドを追加する
         logparser.add_basic_field()
-        logger.debug({'doc_id': logparser.doc_id})
+        # logger.debug({'doc_id': logparser.doc_id})
         # 同じフィールド名で複数タイプがあるとESにロードするときにエラーになるので
         # 該当フィールドだけテキスト化する
         logparser.clean_multi_type_field()
@@ -269,10 +106,10 @@ def get_es_entries(logfile, logconfig, exclude_log_patterns):
         # 一部のフィールドを修正する
         logparser.transform_by_script()
         # ログにgeoipなどの情報をエンリッチ
-        logparser.enrich()
+        logparser.enrich(geodb_instance)
         yield {'index': {
             '_index': logparser.indexname, '_id': logparser.doc_id}}
-        logger.debug(logparser.json)
+        # logger.debug(logparser.json)
         yield logparser.json
 
 
@@ -314,7 +151,7 @@ def bulkloads_into_elasticsearch(es_entries, collected_metrics):
         total_output_size += output_size
         filter_path = ['took', 'errors', 'items.index.status']
         results = es_conn.bulk(putdata_list, filter_path=filter_path)
-        logger.debug(results)
+        # logger.debug(results)
         success, error, es_took = check_es_results(results)
         success_count += success
         error_count += error
@@ -364,17 +201,19 @@ def output_metrics(metrics, event=None, logfile=None, collected_metrics={}):
     metrics.add_metadata(key="s3_key", value=s3_key)
 
 
-es_hostname = get_es_hostname()
-es_conn = initialize_es_connection(es_hostname)
-user_libs = load_user_custom_libs()
-etl_config = get_etl_config()
-load_modules_on_memory(etl_config, user_libs)
+es_conn = utils.initialize_es_connection(ES_HOSTNAME)
+user_libs = utils.load_user_custom_libs()
+etl_config = utils.get_etl_config()
+utils.load_modules_on_memory(etl_config, user_libs)
 
-exclude_own_log_patterns = make_exclude_own_log_patterns(etl_config)
-csv_filename = get_exclude_log_patterns_csv_filename(etl_config)
-exclude_log_patterns = merge_csv_into_log_patterns(
+exclude_own_log_patterns = utils.make_exclude_own_log_patterns(etl_config)
+csv_filename = utils.get_exclude_log_patterns_csv_filename(etl_config)
+exclude_log_patterns = utils.merge_csv_into_log_patterns(
     exclude_own_log_patterns, csv_filename)
-s3_session_config = make_s3_session_config(etl_config)
+s3_session_config = utils.make_s3_session_config(etl_config)
+
+geodb_instance = geodb.GeoDB()
+utils.show_local_dir()
 
 
 def observability_decorator_switcher(func):
@@ -425,10 +264,10 @@ def lambda_handler(event, context):
 
 if __name__ == '__main__':
     import argparse
-    import traceback
     from datetime import datetime, timezone
-    from multiprocessing import Pool
     from functools import partial
+    from multiprocessing import Pool
+    import traceback
 
     print(__version__)
 
@@ -458,9 +297,10 @@ if __name__ == '__main__':
                     continue
                 line_num = num + 1
                 s3key = s3key
-                event = {'Records': [
-                            {'s3': {'bucket': {'name': s3bucket},
-                                    'object': {'key': s3key}}}]}
+                event = {
+                    'Records': [
+                        {'s3': {'bucket': {'name': s3bucket},
+                                'object': {'key': s3key}}}]}
                 yield line_num, event, None
 
     def create_event_from_sqs(queue_name):

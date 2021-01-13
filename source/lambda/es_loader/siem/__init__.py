@@ -3,306 +3,24 @@
 
 import base64
 import bz2
-import configparser
+from datetime import datetime, timedelta, timezone
 import gzip
 import hashlib
 import io
 import ipaddress
 import json
-import os
 import re
-import sys
 import zipfile
-from datetime import datetime, timedelta, timezone
-import boto3
-import geoip2.database
+
 from aws_lambda_powertools import Logger
+import boto3
 
-__version__ = '2.2.0-beta.1'
+import index as es_loader
+from siem import utils
 
-logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
-logger.info('version: ' + __version__)
+__version__ = '2.2.0-beta.2'
 
-# REGEXP and boost for lambda warm start
-# for transform script
-re_instanceid = re.compile(r'\W?(?P<instanceid>i-[0-9a-z]{8,17})\W?')
-RE_ACCOUNT = re.compile(r'/([0-9]{12})/')
-RE_REGION = re.compile('(global|(us|ap|ca|eu|me|sa|af)-[a-zA-Z]+-[0-9])')
-# for timestamp
-RE_WITH_NANOSECONDS = re.compile(r'(.*)([0-9]{2}\.[0-9]{1,9})(.*)')
-RE_SYSLOG_FORMAT = re.compile(r'([A-Z][a-z]{2})\s+(\d{1,2})\s+'
-                              r'(\d{2}):(\d{2}):(\d{2})(\.(\d{1,6}))?')
-MONTH_TO_INT = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
-                'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
-TD_OFFSET12 = timedelta(hours=12)
-
-try:
-    SQS_SPLITTED_LOGS_URL = os.environ['SQS_SPLITTED_LOGS_URL']
-except KeyError:
-    SQS_SPLITTED_LOGS_URL = None
-
-
-def set_default_for_json(object):
-    if isinstance(object, datetime):
-        return object.isoformat()
-
-
-# download geoip database
-def download_geoip_database(s3key_prefix='GeoLite2/'):
-    if 'GEOIP_BUCKET' in os.environ:
-        geoipbucket = os.environ.get('GEOIP_BUCKET', '')
-    else:
-        config = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation())
-        config.read('aes.ini')
-        config.sections()
-        if 'aes' in config:
-            geoipbucket = config['aes']['GEOIP_BUCKET']
-        else:
-            return None
-    geoip_dbs = ['GeoLite2-City.mmdb', 'GeoLite2-ASN.mmdb']
-    for db in geoip_dbs:
-        localfile = '/tmp/' + db
-        localfile_not_found = '/tmp/not_found_' + db
-        if os.path.isfile(localfile_not_found):
-            return True
-        if not os.path.isfile(localfile):
-            s3geo = boto3.resource('s3')
-            bucket = s3geo.Bucket(geoipbucket)
-            s3obj = s3key_prefix + db
-            try:
-                bucket.download_file(s3obj, localfile)
-            except Exception:
-                print(db + ' is not found in s3')
-                with open(localfile_not_found, 'w') as f:
-                    f.write('')
-    logger.info('These files are in /tmp: ' + str(os.listdir(path='/tmp/')))
-
-
-download_geoip_database()
-
-reader_city = None
-reader_geo = None
-if os.path.isfile('/tmp/GeoLite2-City.mmdb'):
-    reader_city = geoip2.database.Reader('/tmp/GeoLite2-City.mmdb')
-if os.path.isfile('/tmp/GeoLite2-ASN.mmdb'):
-    reader_geo = geoip2.database.Reader('/tmp/GeoLite2-ASN.mmdb')
-
-
-def get_geo_city(ip):
-    try:
-        response = reader_city.city(ip)
-    except Exception:
-        return None
-    country_iso_code = response.country.iso_code
-    country_name = response.country.name
-    city_name = response.city.name
-    __lon = response.location.longitude
-    __lat = response.location.latitude
-    location = {'lon': __lon, 'lat': __lat}
-    return {'city_name': city_name, 'country_iso_code': country_iso_code,
-            'country_name': country_name, 'location': location}
-
-
-def get_geo_asn(ip):
-    try:
-        response = reader_geo.asn(ip)
-    except Exception:
-        return None
-    return {'number': response.autonomous_system_number,
-            'organization': {'name': response.autonomous_system_organization}}
-
-
-def get_mime(data):
-    if data.startswith(b'\x1f\x8b'):
-        return 'gzip'
-    elif data.startswith(b'\x50\x4b'):
-        return 'zip'
-    elif data.startswith(b'\x42\x5a'):
-        return 'bzip2'
-    textchars = bytearray(
-        {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7f})
-    if bool(data.translate(None, textchars)):
-        return 'binary'
-    else:
-        return 'text'
-
-
-def get_value_from_dict(dct, xkeys_list):
-    """ 入れ子になった辞書に対して、dotを含んだkeyで値を
-    抽出する。keyはリスト形式で複数含んでいたら分割する。
-    値がなければ返値なし
-
-    >>> dct = {'a': {'b': {'c': 123}}}
-    >>> xkey = 'a.b.c'
-    >>> get_value_from_dict(dct, xkey)
-    123
-    >>> xkey = 'x.y.z'
-    >>> get_value_from_dict(dct, xkey)
-
-    >>> xkeys_list = 'a.b.c x.y.z'
-    >>> get_value_from_dict(dct, xkeys_list)
-    123
-    >>> dct = {'a': {'b': [{'c': 123}, {'c': 456}]}}
-    >>> xkeys_list = 'a.b.0.c'
-    >>> get_value_from_dict(dct, xkeys_list)
-    123
-    """
-    for xkeys in xkeys_list.split():
-        v = dct
-        for k in xkeys.split('.'):
-            try:
-                k = int(k)
-            except ValueError:
-                pass
-            try:
-                v = v[k]
-            except (TypeError, KeyError, IndexError):
-                v = ''
-                break
-        if v:
-            return v
-
-
-def put_value_into_dict(key_str, v):
-    """dictのkeyにドットが含まれている場合に入れ子になったdictを作成し、値としてvを入れる.
-    返値はdictタイプ。vが辞書ならさらに入れ子として代入。
-    値がlistなら、カンマ区切りのCSVにした文字列に変換
-    TODO: 値に"が入ってると例外になる。対処方法が見つからず返値なDROPPEDにしてるので改善する。#34
-
-    >>> put_value_into_dict('a.b.c', 123)
-    {'a': {'b': {'c': '123'}}}
-    >>> put_value_into_dict('a.b.c', [123])
-    {'a': {'b': {'c': '123'}}}
-    >>> put_value_into_dict('a.b.c', [123, 456])
-    {'a': {'b': {'c': '123,456'}}}
-    >>> v = {'x': 1, 'y': 2}
-    >>> put_value_into_dict('a.b.c', v)
-    {'a': {'b': {'c': {'x': 1, 'y': 2}}}}
-    >>> v = str({'x': "1", 'y': '2"3'})
-    >>> put_value_into_dict('a.b.c', v)
-    {'a': {'b': {'c': 'DROPPED'}}}
-    """
-    v = v
-    xkeys = key_str.split('.')
-    if isinstance(v, dict):
-        json_data = r'{{"{0}": {1} }}'.format(xkeys[-1], json.dumps(v))
-    elif isinstance(v, list):
-        json_data = r'{{"{0}": "{1}" }}'.format(
-            xkeys[-1], ",".join(map(str, v)))
-    else:
-        json_data = r'{{"{0}": "{1}" }}'.format(xkeys[-1], v)
-    if len(xkeys) >= 2:
-        xkeys.pop()
-        for xkey in reversed(xkeys):
-            json_data = r'{{"{0}": {1} }}'.format(xkey, json_data)
-    try:
-        new_dict = json.loads(json_data, strict=False)
-    except json.decoder.JSONDecodeError:
-        new_dict = put_value_into_dict(key_str, 'DROPPED')
-    return new_dict
-
-
-def conv_key(obj):
-    """dictのkeyに-が入ってたら_に置換する
-    """
-    if isinstance(obj, dict):
-        for org_key in list(obj.keys()):
-            new_key = org_key
-            if '-' in org_key:
-                new_key = org_key.translate({ord('-'): ord('_')})
-                obj[new_key] = obj.pop(org_key)
-            conv_key(obj[new_key])
-    elif isinstance(obj, list):
-        for val in obj:
-            conv_key(val)
-    else:
-        pass
-
-
-def merge(a, b, path=None):
-    """merges b into a
-    """
-    if path is None:
-        path = []
-    for key in b:
-        if key in a:
-            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                merge(a[key], b[key], path + [str(key)])
-            elif a[key] == b[key]:
-                pass  # same leaf value
-            elif str(a[key]) in str(b[key]):
-                # strで上書き。JSONだったのをstrに変換したデータ
-                a[key] = b[key]
-            else:
-                # conflict and override original value with new one
-                a[key] = b[key]
-        else:
-            a[key] = b[key]
-    return a
-
-
-def get_aws_account_from_text(text):
-    m = RE_ACCOUNT.search(text)
-    if m:
-        return(m.group(1))
-    else:
-        return None
-
-
-def get_aws_region_from_text(text):
-    m = RE_REGION.search(text)
-    if m:
-        return(m.group(1))
-    else:
-        return None
-
-
-def match_log_with_exclude_patterns(log_dict, log_patterns):
-    """ログと、log_patterns を比較させる
-    一つでもマッチングされれば、Amazon ESにLoadしない
-
-    >>> pattern1 = 111
-    >>> RE_BINGO = re.compile('^'+str(pattern1)+'$')
-    >>> pattern2 = 222
-    >>> RE_MISS = re.compile('^'+str(pattern2)+'$')
-    >>> log_patterns = { \
-    'a': RE_BINGO, 'b': RE_MISS, 'x': {'y': {'z': RE_BINGO}}}
-    >>> log_dict = {'a': 111}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
-    >>> log_dict = {'a': 21112}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-
-    >>> log_dict = {'a': '111'}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
-    >>> log_dict = {'aa': 222, 'a': 111}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
-    >>> log_dict = {'x': {'y': {'z': 111}}}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
-    >>> log_dict = {'x': {'y': {'z': 222}}}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-
-    >>> log_dict = {'x': {'hoge':222, 'y': {'z': 111}}}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
-    >>> log_dict = {'a': 222}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-
-    """
-    for key, pattern in log_patterns.items():
-        if key in log_dict:
-            if isinstance(pattern, dict) and isinstance(log_dict[key], dict):
-                res = match_log_with_exclude_patterns(log_dict[key], pattern)
-                return res
-            elif isinstance(pattern, re.Pattern):
-                if isinstance(log_dict[key], list):
-                    pass
-                elif pattern.match(str(log_dict[key])):
-                    return True
+logger = Logger(child=True)
 
 
 class LogObj:
@@ -361,8 +79,9 @@ class LogS3(LogObj):
         self.ignore = self.check_ignore()
         self.msgformat = 's3'
         if not self.ignore:
-            self.s3key_accountid = get_aws_account_from_text(self.s3key)
-            self.s3key_region = get_aws_region_from_text(self.s3key)
+            self.s3key_accountid = utils.extract_aws_account_from_text(
+                self.s3key)
+            self.s3key_region = utils.extract_aws_region_from_text(self.s3key)
             self.__rawdata = self.extract_rawdata_from_s3obj()
             self.file_format = self.config[self.logtype]['file_format']
             self.via_cwl = self.config[self.logtype].getboolean('via_cwl')
@@ -390,7 +109,7 @@ class LogS3(LogObj):
         # if obj['ResponseMetadata']['HTTPHeaders']['content-length'] == '0':
         #    raise Exception('No Contents in s3 object')
         rawbody = io.BytesIO(obj['Body'].read())
-        mime = get_mime(rawbody.read(16))
+        mime = utils.get_mime_type(rawbody.read(16))
         rawbody.seek(0)
         if mime == 'gzip':
             body = gzip.open(rawbody, mode='rt', encoding='utf8',
@@ -486,7 +205,7 @@ class LogS3(LogObj):
 
     def extract_logobj_from_json(self, mode='count', start=0, end=0,
                                  log_count=0, max_log_count=0):
-        if start == 0 and SQS_SPLITTED_LOGS_URL:
+        if start == 0 and es_loader.SQS_SPLITTED_LOGS_URL:
             end = max_log_count
         if start == 0 or max_log_count == 0:
             end = log_count
@@ -521,7 +240,7 @@ class LogS3(LogObj):
                 yield count
 
     def split_logs_to_sqs(self, log_count, max_log_count):
-        if self.start_number == 0 and SQS_SPLITTED_LOGS_URL:
+        if self.start_number == 0 and es_loader.SQS_SPLITTED_LOGS_URL:
             if max_log_count and (log_count > max_log_count):
                 pass
             else:
@@ -529,7 +248,7 @@ class LogS3(LogObj):
         else:
             return None
         sqs_client = boto3.client("sqs")
-        queue_url = SQS_SPLITTED_LOGS_URL
+        queue_url = es_loader.SQS_SPLITTED_LOGS_URL
         q, mod = divmod(log_count, max_log_count)
         logger.debug({'split_logs': f's3://{self.s3bucket}/{self.s3key}',
                       'max_log_count': max_log_count, 'log_count': log_count})
@@ -572,7 +291,8 @@ class LogS3(LogObj):
             self.split_logs_to_sqs(log_count, max_log_count)
             if self.start_number == 0:
                 start = ignore_header_line_number
-                if max_log_count >= log_count or not SQS_SPLITTED_LOGS_URL:
+                if (max_log_count >= log_count
+                        or not es_loader.SQS_SPLITTED_LOGS_URL):
                     end = log_count
                 else:
                     end = max_log_count
@@ -658,11 +378,7 @@ class LogKinesis(LogObj):
     @property
     def region(self):
         text = self.loggroup.lower() + '_' + self.logstream.lower()
-        m = RE_REGION.search(text)
-        if m:
-            return(m.group(1))
-        else:
-            return None
+        return utils.extract_aws_region_from_text(text)
 
     @property
     def logdata_list(self):
@@ -759,7 +475,7 @@ class LogParser:
             logdata_dict = self.logdata['extractedFields']
         elif self.logformat in 'csv':
             logdata_dict = dict(zip(self.header.split(), self.logdata.split()))
-            conv_key(logdata_dict)
+            utils.conv_key(logdata_dict)
         elif self.logformat in 'json':
             logdata_dict = self.logdata
         elif self.logformat in 'text':
@@ -804,7 +520,7 @@ class LogParser:
     def check_ignored_log(self, ignore_list):
         is_excluded = False
         if self.logtype in ignore_list:
-            is_excluded = match_log_with_exclude_patterns(
+            is_excluded = utils.match_log_with_exclude_patterns(
                 self.__logdata_dict, ignore_list[self.logtype])
         return is_excluded
 
@@ -839,17 +555,21 @@ class LogParser:
         clean_multi_type_dict = {}
         multifield_keys = self.logconfig['json_to_text'].split()
         for multifield_key in multifield_keys:
-            v = get_value_from_dict(self.__logdata_dict, multifield_key)
+            v = utils.get_value_from_dict(self.__logdata_dict, multifield_key)
             if v:
                 # json obj in json obj
                 if isinstance(v, int):
-                    new_dict = put_value_into_dict(multifield_key, v)
+                    new_dict = utils.put_value_into_dict(multifield_key, v)
                 elif '{' in v:
-                    new_dict = put_value_into_dict(multifield_key, repr(v))
+                    new_dict = utils.put_value_into_dict(
+                        multifield_key, repr(v))
                 else:
-                    new_dict = put_value_into_dict(multifield_key, str(v))
-                merge(clean_multi_type_dict, new_dict)
-        merge(self.__logdata_dict, clean_multi_type_dict)
+                    new_dict = utils.put_value_into_dict(
+                        multifield_key, str(v))
+                clean_multi_type_dict = utils.merge_dicts(
+                    clean_multi_type_dict, new_dict)
+        self.__logdata_dict = utils.merge_dicts(
+            self.__logdata_dict, clean_multi_type_dict)
 
     def transform_to_ecs(self):
         ecs_dict = {'ecs': {'version': self.logconfig['ecs_version']}}
@@ -858,16 +578,16 @@ class LogParser:
         ecs_keys = self.logconfig['ecs'].split()
         for ecs_key in ecs_keys:
             original_keys = self.logconfig[ecs_key]
-            v = get_value_from_dict(self.__logdata_dict, original_keys)
+            v = utils.get_value_from_dict(self.__logdata_dict, original_keys)
             if v:
-                new_ecs_dict = put_value_into_dict(ecs_key, v)
+                new_ecs_dict = utils.put_value_into_dict(ecs_key, v)
                 if '.ip' in ecs_key:
                     # IPアドレスの場合は、validation
                     try:
                         ipaddress.ip_address(v)
                     except ValueError:
                         continue
-                merge(ecs_dict, new_ecs_dict)
+                ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
         if 'cloud' in ecs_dict:
             # Set AWS Account ID
             if ('account' in ecs_dict['cloud']
@@ -902,36 +622,34 @@ class LogParser:
         static_ecs_keys = self.logconfig.get('static_ecs')
         if static_ecs_keys:
             for static_ecs_key in static_ecs_keys.split():
-                new_ecs_dict = put_value_into_dict(
+                new_ecs_dict = utils.put_value_into_dict(
                     static_ecs_key, self.logconfig[static_ecs_key])
-                merge(ecs_dict, new_ecs_dict)
-        merge(self.__logdata_dict, ecs_dict)
+                ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
+        self.__logdata_dict = utils.merge_dicts(self.__logdata_dict, ecs_dict)
 
     def transform_by_script(self):
         # if overrite index_name, add key(__logdata_dict) to self.
         if self.logconfig['script_ecs']:
             self.__logdata_dict = self.sf_module.transform(self.__logdata_dict)
 
-    def enrich(self):
+    def enrich(self, geodb_instance):
         enrich_dict = {}
         # geoip
-        if not reader_city:
-            return None
         geoip_list = self.logconfig['geoip'].split()
         for geoip_ecs in geoip_list:
             try:
                 ipaddr = self.__logdata_dict[geoip_ecs]['ip']
             except KeyError:
                 continue
-            geoip = get_geo_city(ipaddr)
+            geoip, asn = geodb_instance.check_ipaddress(ipaddr)
             if geoip:
                 enrich_dict[geoip_ecs] = {'geo': geoip}
-            asn = get_geo_asn(ipaddr)
             if geoip and asn:
                 enrich_dict[geoip_ecs].update({'as': asn})
             elif asn:
                 enrich_dict[geoip_ecs] = {'as': asn}
-        merge(self.__logdata_dict, enrich_dict)
+        self.__logdata_dict = utils.merge_dicts(
+            self.__logdata_dict, enrich_dict)
 
     @property
     def doc_id(self):
@@ -940,7 +658,7 @@ class LogParser:
             del self.__logdata_dict['__doc_id_suffix']
             return '{0}_{1}'.format(self.__logdata_dict['@id'], temp)
         if self.logconfig['doc_id_suffix']:
-            suffix = get_value_from_dict(
+            suffix = utils.get_value_from_dict(
                 self.__logdata_dict, self.logconfig.get('doc_id_suffix'))
             if suffix:
                 return '{0}_{1}'.format(self.__logdata_dict['@id'], suffix)
@@ -968,7 +686,7 @@ class LogParser:
                 # int such as epoch
                 timestr = self.__logdata_dict[timestamp_key]
             if self.logconfig.getboolean('timestamp_nano'):
-                m = RE_WITH_NANOSECONDS.match(timestr)
+                m = utils.RE_WITH_NANOSECONDS.match(timestr)
                 if m and m.group(3):
                     microsec = m.group(2)[:9].ljust(6, '0')
                     timestr = m.group(1) + microsec + m.group(3)
@@ -976,14 +694,15 @@ class LogParser:
                 epoch = float(timestr)
                 if epoch > 1000000000000:
                     # milli epoch
-                    dt = datetime.fromtimestamp(epoch/1000, tz=TZ)
+                    epoch_seconds = epoch / 1000
+                    dt = datetime.fromtimestamp(epoch_seconds, tz=TZ)
                 else:
                     # normal epoch
                     dt = datetime.fromtimestamp(epoch, tz=TZ)
             elif 'syslog' in timestamp_format:
                 # timezoneを考慮して、12時間を早めた現在時刻を基準とする
-                now = datetime.now(timezone.utc) + TD_OFFSET12
-                m = RE_SYSLOG_FORMAT.match(timestr)
+                now = datetime.now(timezone.utc) + utils.TD_OFFSET12
+                m = utils.RE_SYSLOG_FORMAT.match(timestr)
                 try:
                     # コンマ以下の秒があったら
                     microsec = int(m.group(7).ljust(6, '0'))
@@ -991,21 +710,23 @@ class LogParser:
                     microsec = 0
                 try:
                     dt = datetime(
-                        year=now.year, month=MONTH_TO_INT[m.group(1)],
+                        year=now.year, month=utils.MONTH_TO_INT[m.group(1)],
                         day=int(m.group(2)), hour=int(m.group(3)),
                         minute=int(m.group(4)), second=int(m.group(5)),
                         microsecond=microsec, tzinfo=TZ)
                 except ValueError:
                     # うるう年対策
+                    last_year = now.year - 1
                     dt = datetime(
-                        year=now.year-1, month=MONTH_TO_INT[m.group(1)],
+                        year=last_year, month=utils.MONTH_TO_INT[m.group(1)],
                         day=int(m.group(2)), hour=int(m.group(3)),
                         minute=int(m.group(4)), second=int(m.group(5)),
                         microsecond=microsec, tzinfo=TZ)
                 if dt > now:
                     # syslog timestamp が未来。マイナス1年の補正が必要
-                    # 1年以上古いログの補正はできない
-                    dt = dt.replace(year=now.year-1)
+                    # know_issue: 1年以上古いログの補正はできない
+                    last_year = now.year - 1
+                    dt = dt.replace(year=last_year)
                 else:
                     # syslog timestamp が過去であり適切。処理なし
                     pass
@@ -1070,7 +791,7 @@ class LogParser:
             return indexname + index_dt.strftime('-%Y')
 
     def del_none(self, d):
-        """ 値のないキーを削除する。削除しないとESへのLoad時にエラーとなる """
+        """値のないキーを削除する。削除しないとESへのLoad時にエラーとなる """
         for key, value in list(d.items()):
             if isinstance(value, dict):
                 self.del_none(value)
@@ -1089,5 +810,175 @@ class LogParser:
             del self.__logdata_dict['__skip_normalization']
         except Exception:
             pass
-        self.__logdata_dict = self.del_none(self.del_none(self.__logdata_dict))
+        self.__logdata_dict = self.del_none(self.__logdata_dict)
         return json.dumps(self.__logdata_dict)
+
+
+###############################################################################
+# DEPRECATED function. Moved to siem.utils
+###############################################################################
+def get_value_from_dict(dct, xkeys_list):
+    """Deprecated.
+    入れ子になった辞書に対して、dotを含んだkeyで値を
+    抽出する。keyはリスト形式で複数含んでいたら分割する。
+    値がなければ返値なし
+
+    >>> dct = {'a': {'b': {'c': 123}}}
+    >>> xkey = 'a.b.c'
+    >>> get_value_from_dict(dct, xkey)
+    123
+    >>> xkey = 'x.y.z'
+    >>> get_value_from_dict(dct, xkey)
+
+    >>> xkeys_list = 'a.b.c x.y.z'
+    >>> get_value_from_dict(dct, xkeys_list)
+    123
+    >>> dct = {'a': {'b': [{'c': 123}, {'c': 456}]}}
+    >>> xkeys_list = 'a.b.0.c'
+    >>> get_value_from_dict(dct, xkeys_list)
+    123
+    """
+    for xkeys in xkeys_list.split():
+        v = dct
+        for k in xkeys.split('.'):
+            try:
+                k = int(k)
+            except ValueError:
+                pass
+            try:
+                v = v[k]
+            except (TypeError, KeyError, IndexError):
+                v = ''
+                break
+        if v:
+            return v
+
+
+def put_value_into_dict(key_str, v):
+    """Deprecated.
+    dictのkeyにドットが含まれている場合に入れ子になったdictを作成し、値としてvを入れる.
+    返値はdictタイプ。vが辞書ならさらに入れ子として代入。
+    値がlistなら、カンマ区切りのCSVにした文字列に変換
+    TODO: 値に"が入ってると例外になる。対処方法が見つからず返値なDROPPEDにしてるので改善する。#34
+
+    >>> put_value_into_dict('a.b.c', 123)
+    {'a': {'b': {'c': '123'}}}
+    >>> put_value_into_dict('a.b.c', [123])
+    {'a': {'b': {'c': '123'}}}
+    >>> put_value_into_dict('a.b.c', [123, 456])
+    {'a': {'b': {'c': '123,456'}}}
+    >>> v = {'x': 1, 'y': 2}
+    >>> put_value_into_dict('a.b.c', v)
+    {'a': {'b': {'c': {'x': 1, 'y': 2}}}}
+    >>> v = str({'x': "1", 'y': '2"3'})
+    >>> put_value_into_dict('a.b.c', v)
+    {'a': {'b': {'c': 'DROPPED'}}}
+    """
+    v = v
+    xkeys = key_str.split('.')
+    if isinstance(v, dict):
+        json_data = r'{{"{0}": {1} }}'.format(xkeys[-1], json.dumps(v))
+    elif isinstance(v, list):
+        json_data = r'{{"{0}": "{1}" }}'.format(
+            xkeys[-1], ",".join(map(str, v)))
+    else:
+        json_data = r'{{"{0}": "{1}" }}'.format(xkeys[-1], v)
+    if len(xkeys) >= 2:
+        xkeys.pop()
+        for xkey in reversed(xkeys):
+            json_data = r'{{"{0}": {1} }}'.format(xkey, json_data)
+    try:
+        new_dict = json.loads(json_data, strict=False)
+    except json.decoder.JSONDecodeError:
+        new_dict = utils.put_value_into_dict(key_str, 'DROPPED')
+    return new_dict
+
+
+def conv_key(obj):
+    """Deprecated.
+    dictのkeyに-が入ってたら_に置換する
+    """
+    if isinstance(obj, dict):
+        for org_key in list(obj.keys()):
+            new_key = org_key
+            if '-' in org_key:
+                new_key = org_key.translate({ord('-'): ord('_')})
+                obj[new_key] = obj.pop(org_key)
+            utils.conv_key(obj[new_key])
+    elif isinstance(obj, list):
+        for val in obj:
+            utils.conv_key(val)
+    else:
+        pass
+
+
+def merge(a, b, path=None):
+    """Deprecated.
+    merges b into a
+    Moved to siem.utils.merge_dicts.
+    """
+    if path is None:
+        path = []
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                merge(a[key], b[key], path + [str(key)])
+            elif a[key] == b[key]:
+                pass  # same leaf value
+            elif str(a[key]) in str(b[key]):
+                # strで上書き。JSONだったのをstrに変換したデータ
+                a[key] = b[key]
+            else:
+                # conflict and override original value with new one
+                a[key] = b[key]
+        else:
+            a[key] = b[key]
+    return a
+
+
+def match_log_with_exclude_patterns(log_dict, log_patterns):
+    """Deprecated.
+    ログと、log_patterns を比較させる
+    一つでもマッチングされれば、Amazon ESにLoadしない
+
+    >>> pattern1 = 111
+    >>> RE_BINGO = re.compile('^'+str(pattern1)+'$')
+    >>> pattern2 = 222
+    >>> RE_MISS = re.compile('^'+str(pattern2)+'$')
+    >>> log_patterns = { \
+    'a': RE_BINGO, 'b': RE_MISS, 'x': {'y': {'z': RE_BINGO}}}
+    >>> log_dict = {'a': 111}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    True
+    >>> log_dict = {'a': 21112}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+
+    >>> log_dict = {'a': '111'}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    True
+    >>> log_dict = {'aa': 222, 'a': 111}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    True
+    >>> log_dict = {'x': {'y': {'z': 111}}}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    True
+    >>> log_dict = {'x': {'y': {'z': 222}}}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+
+    >>> log_dict = {'x': {'hoge':222, 'y': {'z': 111}}}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    True
+    >>> log_dict = {'a': 222}
+    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+
+    """
+    for key, pattern in log_patterns.items():
+        if key in log_dict:
+            if isinstance(pattern, dict) and isinstance(log_dict[key], dict):
+                res = match_log_with_exclude_patterns(log_dict[key], pattern)
+                return res
+            elif isinstance(pattern, re.Pattern):
+                if isinstance(log_dict[key], list):
+                    pass
+                elif pattern.match(str(log_dict[key])):
+                    return True
