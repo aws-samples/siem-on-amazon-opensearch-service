@@ -42,7 +42,7 @@ CloudFormation テンプレートを使って、SIEM on Amazon ES のドメイ�
 
 IP アドレスに国情報や緯度・経度のロケーション情報を付与することができます。ロケーション情報は [MaxMind 社](https://www.maxmind.com)の GeoLite2 Free をダウンロードして活用します。ロケーション情報を付与したい方は MaxMind にて無料ライセンスを取得してください。
 
-注) CloudFormation テンプレートは Amazon ES を **t3.small.elasticsearch インスタンス の最小構成でデプロイします。SIEM は、多くのログを集約して負荷が高くなるため、小さい t2/t3 を避けて、メトリクスを確認しつつ最適なインスタンスを選択してください。** また、インスタンスの変更、ディスクの拡張、UltraWarm の使用等は、AWS マネジメントコンソールから直接行ってください。SIEM on Amaozn ES の CloudFormation テンプレートは Amazon ES に対しては初期デプロイのみで、ノードの変更、削除等の管理はしません
+注) CloudFormation テンプレートは Amazon ES を **t3.small.elasticsearch インスタンス の最小構成でデプロイします。SIEM は、多くのログを集約して負荷が高くなるため、小さい t2/t3 を避けて、メトリクスを確認しつつ最適なインスタンスを選択してください。** また、インスタンスの変更、ディスクの拡張、UltraWarm の使用等は、AWS マネジメントコンソールから直接行ってください。SIEM on Amazon ES の CloudFormation テンプレートは Amazon ES に対しては初期デプロイのみで、ノードの変更、削除等の管理はしません
 
 ### 1. クイックスタート
 
@@ -221,7 +221,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 1. 手動で次の AWS リソースを削除
     * Amazon ES ドメイン: aes-siem
     * Amazon S3 バケット: aes-siem-[AWS_Account]-log
-    * Amaozn S3 バケット: aes-siem-[AWS_Account]-snapshot
+    * Amazon S3 バケット: aes-siem-[AWS_Account]-snapshot
     * Amazon S3 バケット: aes-siem-[AWS_Account]-geo
     * AWS KMS カスタマーマネジメントキー: aes-siem-key
         * 削除は注意して行ってください。ログをこのカスタマーマネジメントキーで暗号化していると、キーの削除後はそのログは読み込むことができなくなります。

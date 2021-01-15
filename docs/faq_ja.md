@@ -9,7 +9,7 @@ AWS 公式ページに該当の不具合があるかをご確認下さい
 
 ## Amazon Elasticsearch Service や Kibana の使用方法を学びたい
 
-GitHub に Amazn ESの ワークショップを公開していますのでご活用下さい
+GitHub に Amazon ES の ワークショップを公開していますのでご活用下さい
 
 * [Amazon Elasticsearch Service Intro Workshop を公開しました！- 基本的な使い方から最新アップデートまで 2 時間で体験](https://aws.amazon.com/jp/blogs/news/amazon-elasticsearch-service-hands-on/)
 * [Amazon Elasticsearch Service Intro Workshop](https://github.com/aws-samples/amazon-s3-datalake-handson/blob/master/JP/README.md)

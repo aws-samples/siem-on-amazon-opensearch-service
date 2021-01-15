@@ -432,6 +432,19 @@ class MyAesSiemStack(core.Stack):
             assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
         )
 
+        # EC2 role
+        aes_siem_es_loader_ec2_role = aws_iam.Role(
+            self, 'AesSiemEsLoaderEC2Role',
+            role_name='aes-siem-es-loader-for-ec2',
+            assumed_by=aws_iam.ServicePrincipal('ec2.amazonaws.com'),
+        )
+
+        aws_iam.CfnInstanceProfile(
+            self, 'AesSiemEsLoaderEC2InstanceProfile',
+            instance_profile_name=aes_siem_es_loader_ec2_role.role_name,
+            roles=[aes_siem_es_loader_ec2_role.role_name]
+        )
+
         ######################################################################
         # in VPC
         ######################################################################
@@ -507,6 +520,12 @@ class MyAesSiemStack(core.Stack):
         lambda_es_loader.add_event_source(
             aws_lambda_event_sources.SqsEventSource(
                 sqs_aes_siem_splitted_logs, batch_size=1))
+
+        # es-loaer on EC2 role
+        sqs_aes_siem_dlq.grant(
+            aes_siem_es_loader_ec2_role, 'sqs:SendMessage',
+            'sqs:ReceiveMessage', 'sqs:DeleteMessage',
+            'sqs:GetQueueAttributes')
 
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',
@@ -620,59 +639,70 @@ class MyAesSiemStack(core.Stack):
         es_arn = (f'arn:aws:es:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
                   f':domain/{aes_domain_name}')
         # grant permission to es_loader role
-        lambda_es_loader.role.attach_inline_policy(
-            aws_iam.Policy(
-                self, 'aes-siem-policy-to-load-entries-to-es',
-                policy_name='aes-siem-policy-to-load-entries-to-es',
-                statements=[
-                    aws_iam.PolicyStatement(
-                        actions=['es:*'],
-                        resources=[es_arn + '/*', ]),
-                ]
-            )
+        inline_policy_to_load_entries_into_es = aws_iam.Policy(
+            self, 'aes-siem-policy-to-load-entries-to-es',
+            policy_name='aes-siem-policy-to-load-entries-to-es',
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['es:*'],
+                    resources=[es_arn + '/*', ]),
+            ]
         )
+        lambda_es_loader.role.attach_inline_policy(
+            inline_policy_to_load_entries_into_es)
+        aes_siem_es_loader_ec2_role.attach_inline_policy(
+            inline_policy_to_load_entries_into_es)
+
         # grant additional permission to es_loader role
         additional_kms_cmks = self.node.try_get_context('additional_kms_cmks')
         if additional_kms_cmks:
-            lambda_es_loader.role.attach_inline_policy(
-                aws_iam.Policy(
-                    self, 'access_to_additional_cmks',
-                    policy_name='access_to_additional_cmks',
-                    statements=[
-                        aws_iam.PolicyStatement(
-                            actions=['kms:Decrypt'],
-                            resources=sorted(set(additional_kms_cmks))
-                        )
-                    ]
-                )
+            inline_policy_access_to_additional_cmks = aws_iam.Policy(
+                self, 'access_to_additional_cmks',
+                policy_name='access_to_additional_cmks',
+                statements=[
+                    aws_iam.PolicyStatement(
+                        actions=['kms:Decrypt'],
+                        resources=sorted(set(additional_kms_cmks))
+                    )
+                ]
             )
+            lambda_es_loader.role.attach_inline_policy(
+                inline_policy_access_to_additional_cmks)
+            aes_siem_es_loader_ec2_role.attach_inline_policy(
+                inline_policy_access_to_additional_cmks)
         additional_buckets = self.node.try_get_context('additional_s3_buckets')
+
         if additional_buckets:
             buckets_list = []
             for bucket in additional_buckets:
                 buckets_list.append(f'arn:aws:s3:::{bucket}')
                 buckets_list.append(f'arn:aws:s3:::{bucket}/*')
-            lambda_es_loader.role.attach_inline_policy(
-                aws_iam.Policy(
-                    self, 'access_to_additional_buckets',
-                    policy_name='access_to_additional_buckets',
-                    statements=[
-                        aws_iam.PolicyStatement(
-                            actions=['s3:GetObject*', 's3:GetBucket*',
-                                     's3:List*'],
-                            resources=sorted(set(buckets_list))
-                        )
-                    ]
-                )
+            inline_policy_access_to_additional_buckets = aws_iam.Policy(
+                self, 'access_to_additional_buckets',
+                policy_name='access_to_additional_buckets',
+                statements=[
+                    aws_iam.PolicyStatement(
+                        actions=['s3:GetObject*', 's3:GetBucket*', 's3:List*'],
+                        resources=sorted(set(buckets_list))
+                    )
+                ]
             )
+            lambda_es_loader.role.attach_inline_policy(
+                inline_policy_access_to_additional_buckets)
+            aes_siem_es_loader_ec2_role.attach_inline_policy(
+                inline_policy_access_to_additional_buckets)
+
         kms_aes_siem.grant_decrypt(lambda_es_loader)
+        kms_aes_siem.grant_decrypt(aes_siem_es_loader_ec2_role)
 
         ######################################################################
         # s3 notification and grant permisssion
         ######################################################################
         s3_geo.grant_read_write(lambda_geo)
         s3_geo.grant_read(lambda_es_loader)
+        s3_geo.grant_read(aes_siem_es_loader_ec2_role)
         s3_log.grant_read(lambda_es_loader)
+        s3_log.grant_read(aes_siem_es_loader_ec2_role)
 
         # create s3 notification for es_loader
         notification = aws_s3_notifications.LambdaDestination(lambda_es_loader)
