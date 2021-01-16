@@ -512,7 +512,6 @@ class MyAesSiemStack(core.Stack):
             lambda_es_loader, 'sqs:SendMessage', 'sqs:ReceiveMessage',
             'sqs:DeleteMessage', 'sqs:GetQueueAttributes')
 
-        sqs_aes_siem_splitted_logs.grant(lambda_es_loader, 'sqs:SendMessage')
         sqs_aes_siem_splitted_logs.grant(
             lambda_es_loader, 'sqs:SendMessage', 'sqs:ReceiveMessage',
             'sqs:DeleteMessage', 'sqs:GetQueueAttributes')
@@ -523,9 +522,8 @@ class MyAesSiemStack(core.Stack):
 
         # es-loaer on EC2 role
         sqs_aes_siem_dlq.grant(
-            aes_siem_es_loader_ec2_role, 'sqs:SendMessage',
-            'sqs:ReceiveMessage', 'sqs:DeleteMessage',
-            'sqs:GetQueueAttributes')
+            aes_siem_es_loader_ec2_role, 'sqs:GetQueue*', 'sqs:ListQueues*',
+            'sqs:ReceiveMessage*', 'sqs:DeleteMessage*')
 
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',

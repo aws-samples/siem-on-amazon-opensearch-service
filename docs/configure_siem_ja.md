@@ -302,7 +302,7 @@ zip を作成し Lambda レイヤーに登録すれば設定完了です
 
 ## S3 バケットに保存された過去データの取り込み
 
-S3 バケットに保存されているログをバッチで Amazon ES に取り込みます。通常は S3 バケットに保存された時にリアルタイムで取り込みます。しかし、バックアップをしていたデータを可視化やインシデント調査のために後から取り込む、または、リアルタイムで取り込みを失敗したデータが、保存されている SQS のデッドレターキューから取り込みをリトライする時に利用できます。
+S3 バケットに保存されているログをバッチで Amazon ES に取り込みます。通常は S3 バケットに保存された時にリアルタイムで取り込みます。一方で、バックアップをしていたデータを可視化やインシデント調査のために後から取り込むこともできます。同様の方法で、リアルタイムの取り込みに失敗して SQS のデッドレターキューに待避されたデータも取り込めます。
 
 ### 環境準備
 
@@ -312,7 +312,7 @@ S3 バケットに保存されているログをバッチで Amazon ES に取り
 1. Amazon Linux からインターネット上の GitHub と PyPI サイト へ HTTP 通信を許可
 1. EC2 に IAM ロールの [**aes-siem-es-loader-for-ec2**] をアタッチ
 1. Amazon Linux のターミナルに接続して、[README](../README_ja.md) の説明にある [2. CloudFormation テンプレートの作成] の [2-1. 準備] と [2-2. SIEM on Amazon ES の clone] の手順を実施
-1. 下記のコマンドで Python のモジュールをインストールする
+1. 下記のコマンドで Python のモジュールをインストールします
 
     ```python
     cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
@@ -322,12 +322,10 @@ S3 バケットに保存されているログをバッチで Amazon ES に取り
 #### 環境変数の設定
 
 1. AWS マネジメントコンソールの Lambda コンソールに移動
-1. aes-siem-es-loader 関数に移動して以下の 2 つの環境変数名と値をメモをする
+1. aes-siem-es-loader 関数に移動して以下の 2 つの環境変数名と値をメモします
     * ES_ENDPOINT
     * GEOIP_BUCKET
-1. EC2 インスタンスの Amazon Linux のターミナルに貼り付ける
-
-    環境変数の設定コマンド例。値は環境に合わせて変更してください
+1. 環境変数を EC2 インスタンスの Amazon Linux のターミナルに貼り付けます。値は環境に合わせて変更してください
 
     ```sh
     export ES_ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
@@ -336,62 +334,72 @@ S3 バケットに保存されているログをバッチで Amazon ES に取り
 
 ### S3 バケットのオブジェクトリストからの取り込み
 
-es-loader
+1. es-loaderのディレクトリに移動します
 
-```sh
-cd
-cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
-```
+    ```sh
+    cd
+    cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
+    ```
 
-S3 バケットからオブジェクトリスト(s3-list.txt)を作成する
+1. S3 バケットからオブジェクトリスト (s3-list.txt) を作成します。
 
-```sh
-export AWS_ACCOUNT=123456789012   # お使いのAWSアカウントに置換してください
-export LOG_BUCKET=aes-siem-${AWS_ACCOUNT}-log
-aws s3 ls ${LOG_BUCKET} --recursive > s3-list.txt
-```
+    ```sh
+    export AWS_ACCOUNT=123456789012   # お使いのAWSアカウントに置換してください
+    export LOG_BUCKET=aes-siem-${AWS_ACCOUNT}-log
+    aws s3 ls ${LOG_BUCKET} --recursive > s3-list.txt
+    ```
 
-必要に応じて、取り込む対象を限定したリストを作成する
+1. 必要に応じて、取り込む対象を限定したリストを作成します
 
-例) 2021 年の CloudTrail のログだけのリストを作成する
+    例) 2021 年の CloudTrail のログだけのリストを作成
 
-```bash
-grep CloudTrail s3-list.txt |grep /2021/ > s3-cloudtrail-2021-list.txt
-```
+    ```sh
+    grep CloudTrail s3-list.txt |grep /2021/ > s3-cloudtrail-2021-list.txt
+    ```
 
-作成した S3 リストのオブジェクトを es-loader にログを流し込む
+1. 作成した S3 リストのオブジェクトを es-loader にログを流し込みます
 
-```sh
-# 対象の S3 バケットにある全てのオブジェクトを流し込む
-./index.py -b ${LOG_BUCKET} -l s3-list.txt
-# 抽出したオブジェクトを流し込む例
-# ./index.py -b ${LOG_BUCKET} -l s3-cloudtrail-2021-list.txt
-```
+    ```sh
+    # 対象の S3 バケットにある全てのオブジェクトを流し込む
+    ./index.py -b ${LOG_BUCKET} -l s3-list.txt
+    # 抽出したオブジェクトを流し込む例
+    # ./index.py -b ${LOG_BUCKET} -l s3-cloudtrail-2021-list.txt
+    ```
 
-成功したオブジェクトリスト: s3のリストファイル名.finish.log
-失敗したオブジェクトリスト: s3のリストファイル名.error.log
-失敗したオブジェクトのデバッグログ: s3のリストファイル名.error_debug.log
+1. 完了したら結果を確認します。取り込みに失敗すると失敗したオブジェクトリストのログファイルが生成されます。このファイルが存在しなければ全ての取り込みが成功してます
+    * 成功したオブジェクトリスト: S3 のリストファイル名.finish.log
+    * 失敗したオブジェクトリスト: S3 のリストファイル名.error.log
+    * 失敗したオブジェクトのデバッグログ: S3 のリストファイル名.error_debug.log
+1. 失敗したオブジェクトリストを、上記コマンドにリストとして再指定することで失敗したログファイルだけの取り込みができます。
 
-失敗したオブジェクトリストは、上記コマンドにリストとして再指定することで失敗したログだけの取り込みができます。
+    例)
 
-例)
+    ```sh
+    ./index.py -b ${LOG_BUCKET} -l s3-list.error.txt
+    ```
 
-```sh
-./index.py -b ${LOG_BUCKET} -l s3-list.error.txt
-```
+1. 全ての取り込みが成功したら、読み込み用に作成した S3 オブジェクトリストと、生成されたログファイルを削除してください
 
 ### SQS のキューからの取り込み
 
-SQS の SIEM 用のデッドレターキュー (aes-siem-dlq) からログを取り込みます。(実体は S3 バケット上のログ)
+SQS の SIEM 用のデッドレターキュー (aes-siem-dlq) からメッセージを取り込みます。(実体は S3 バケット上のログ)
 
-リージョンを指定してから es-loader を実行
+1. リージョンを指定してから es-loader を実行します
 
-```sh
-export AWS_DEFAULT_REGION=ap-northeast-1
-cd
-cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
-./index.py -q aes-siem-dlq
-```
+    ```sh
+    export AWS_DEFAULT_REGION=ap-northeast-1
+    cd
+    cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
+    ./index.py -q aes-siem-dlq
+    ```
+
+1. 完了したら結果を確認します。取り込みに失敗すると失敗したオブジェクトリストのログファイルが生成されます。このファイルが存在しなければ全ての取り込みが成功してます
+    * 成功したオブジェクトリスト: aes-siem-dlq-日時.finish.log
+    * 失敗したオブジェクトリスト: aes-siem-dlq-日時.error.log
+    * 失敗したオブジェクトのデバッグログ: aes-siem-dlq-日時.error_debug.log
+
+1. 失敗したオブジェクトリストは、S3 のオブジェクトリストとなっているため、前章のコマンドにリストとして指定することで失敗したログだけの取り込みができます
+1. 全ての取り込みが成功したら生成されたログファイルを削除してください
 
 ## モニタリング
 
