@@ -324,6 +324,18 @@ class MyAesSiemStack(core.Stack):
             resources=['*'],)
         kms_aes_siem.add_to_resource_policy(key_policy_basic1)
 
+        # for Athena
+        key_policy_athena = aws_iam.PolicyStatement(
+            sid='Allow Athena to query s3 objects with this key',
+            actions=['kms:Decrypt', 'kms:DescribeKey', 'kms:Encrypt',
+                     'kms:GenerateDataKey*', 'kms:ReEncrypt*'],
+            principals=[aws_iam.AccountPrincipal(
+                account_id=core.Aws.ACCOUNT_ID)],
+            resources=['*'],
+            conditions={'ForAnyValue:StringEquals': {
+                'aws:CalledVia': 'athena.amazonaws.com'}})
+        kms_aes_siem.add_to_resource_policy(key_policy_athena)
+
         # for CloudTrail
         key_policy_trail1 = aws_iam.PolicyStatement(
             sid='Allow CloudTrail to describe key',
