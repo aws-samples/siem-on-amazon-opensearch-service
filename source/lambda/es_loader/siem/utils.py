@@ -3,7 +3,8 @@
 
 import configparser
 import csv
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 import importlib
 import json
 import os
@@ -16,7 +17,7 @@ import botocore
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.2.0-beta.2'
+__version__ = '2.2.0-beta.3'
 
 logger = Logger(child=True)
 
@@ -34,6 +35,7 @@ RE_SYSLOG_FORMAT = re.compile(r'([A-Z][a-z]{2})\s+(\d{1,2})\s+'
                               r'(\d{2}):(\d{2}):(\d{2})(\.(\d{1,6}))?')
 MONTH_TO_INT = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
                 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
+NOW = datetime.now(timezone.utc)
 TD_OFFSET12 = timedelta(hours=12)
 
 
@@ -62,6 +64,111 @@ def extract_aws_instanceid_from_text(text):
 
 
 #############################################################################
+# date time
+#############################################################################
+def get_timestr_from_logdata_dict(logdata_dict, timestamp_key, has_nanotime):
+    # 末尾がZはPythonでは対応していないのでカットしてTZを付与
+    try:
+        timestr = logdata_dict[timestamp_key].replace('Z', '+00:00')
+    except AttributeError:
+        # int such as epoch
+        timestr = logdata_dict[timestamp_key]
+    if has_nanotime:
+        m = RE_WITH_NANOSECONDS.match(timestr)
+        if m and m.group(3):
+            microsec = m.group(2)[:9].ljust(6, '0')
+            timestr = m.group(1) + microsec + m.group(3)
+    return timestr
+
+
+@lru_cache(maxsize=100000)
+def convert_timestr_to_datetime(timestr, timestamp_key, timestamp_format, TZ):
+    dt = None
+    if 'epoch' in timestamp_format:
+        dt = convert_epoch_to_datetime(timestr, TZ)
+    elif 'syslog' in timestamp_format:
+        dt = convert_syslog_to_datetime(timestr, TZ)
+    elif 'iso8601' in timestamp_format:
+        dt = convert_iso8601_to_datetime(timestr, TZ, timestamp_key)
+    elif timestamp_format:
+        dt = convert_custom_timeformat_to_datetime(
+            timestr, TZ, timestamp_format, timestamp_key)
+    return dt
+
+
+def convert_epoch_to_datetime(timestr, TZ):
+    epoch = float(timestr)
+    if epoch > 1000000000000:
+        # milli epoch
+        epoch_seconds = epoch / 1000
+        dt = datetime.fromtimestamp(epoch_seconds, tz=TZ)
+    else:
+        # normal epoch
+        dt = datetime.fromtimestamp(epoch, tz=TZ)
+    return dt
+
+
+@lru_cache(maxsize=10000)
+def convert_syslog_to_datetime(timestr, TZ):
+    now = NOW + TD_OFFSET12
+    # timezoneを考慮して、12時間を早めた現在時刻を基準とする
+    m = RE_SYSLOG_FORMAT.match(timestr)
+    try:
+        # コンマ以下の秒があったら
+        microsec = int(m.group(7).ljust(6, '0'))
+    except AttributeError:
+        microsec = 0
+    try:
+        dt = datetime(
+            year=now.year, month=MONTH_TO_INT[m.group(1)],
+            day=int(m.group(2)), hour=int(m.group(3)), minute=int(m.group(4)),
+            second=int(m.group(5)), microsecond=microsec, tzinfo=TZ)
+    except ValueError:
+        # うるう年対策
+        last_year = now.year - 1
+        dt = datetime(
+            year=last_year, month=MONTH_TO_INT[m.group(1)],
+            day=int(m.group(2)), hour=int(m.group(3)), minute=int(m.group(4)),
+            second=int(m.group(5)), microsecond=microsec, tzinfo=TZ)
+    if dt > now:
+        # syslog timestamp が未来。マイナス1年の補正が必要
+        # know_issue: 1年以上古いログの補正はできない
+        last_year = now.year - 1
+        dt = dt.replace(year=last_year)
+    else:
+        # syslog timestamp が過去であり適切。処理なし
+        pass
+    return dt
+
+
+def convert_iso8601_to_datetime(timestr, TZ, timestamp_key):
+    try:
+        dt = datetime.fromisoformat(timestr)
+    except ValueError:
+        msg = (f'You set {timestamp_key} field as ISO8601 format. '
+               f'Timestamp string is {timestr} and NOT ISO8601.')
+        logger.exception(msg)
+        raise ValueError(msg) from None
+    if not dt.tzinfo:
+        dt = dt.replace(tzinfo=TZ)
+    return dt
+
+
+@lru_cache(maxsize=10000)
+def convert_custom_timeformat_to_datetime(timestr, TZ, timestamp_format,
+                                          timestamp_key):
+    try:
+        dt = datetime.strptime(timestr, timestamp_format)
+    except ValueError:
+        msg = f'timestamp key {timestamp_key} is wrong'
+        logger.exception(msg)
+        raise ValueError(msg) from None
+    if not dt.tzinfo:
+        dt = dt.replace(tzinfo=TZ)
+    return dt
+
+
+#############################################################################
 # Amazon ES
 #############################################################################
 def get_es_hostname():
@@ -84,7 +191,7 @@ def get_es_hostname():
 
 
 #############################################################################
-# lambda initialization
+# Lambda initialization
 #############################################################################
 def initialize_es_connection(es_hostname):
     es_region = es_hostname.split('.')[1]

@@ -11,7 +11,7 @@ from aws_lambda_powertools import Logger
 import boto3
 import geoip2.database
 
-__version__ = '2.2.0-beta.2'
+__version__ = '2.2.0-beta.3'
 
 logger = Logger(child=True)
 
@@ -40,7 +40,7 @@ class GeoDB():
                 '/tmp/' + self.GEOIP_DBS['asn'])
 
     def check_ipaddress(self, ip: str):
-        if (ip is None) or (not self.RE_DIGIT.match(ip)):
+        if (ip is None) or (not self.RE_DIGIT.search(ip)):
             return None, None
         return self._get_geo_city(ip), self._get_geo_asn(ip)
 

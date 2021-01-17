@@ -18,7 +18,7 @@ import boto3
 import index as es_loader
 from siem import utils
 
-__version__ = '2.2.0-beta.2'
+__version__ = '2.2.0-beta.3'
 
 logger = Logger(child=True)
 
@@ -667,6 +667,8 @@ class LogParser:
         return self.__logdata_dict['@id']
 
     def get_timestamp(self):
+        '''
+        OBSOLETED v 2.2.0
         if 'timestamp' in self.logconfig and self.logconfig['timestamp']:
             # this is depprecatd code of v1.5.2 and keep for compatibility
             timestamp_list = self.logconfig['timestamp'].split(',')
@@ -674,84 +676,19 @@ class LogParser:
             if len(timestamp_list) == 2:
                 self.logconfig['timestamp_format'] = timestamp_list[1]
             # フォーマットの指定がなければISO9601と仮定。
+        '''
         if self.logconfig['timestamp_key'] and not self.__skip_normalization:
             # new code from ver 1.6.0
             timestamp_key = self.logconfig['timestamp_key']
             timestamp_format = self.logconfig['timestamp_format']
             timestamp_tz = float(self.logconfig['timestamp_tz'])
             TZ = timezone(timedelta(hours=timestamp_tz))
-            # 末尾がZはPythonでは対応していないのでカットしてTZを付与
-            try:
-                timestr = self.__logdata_dict[timestamp_key].replace(
-                    'Z', '+00:00')
-            except AttributeError:
-                # int such as epoch
-                timestr = self.__logdata_dict[timestamp_key]
-            if self.logconfig.getboolean('timestamp_nano'):
-                m = utils.RE_WITH_NANOSECONDS.match(timestr)
-                if m and m.group(3):
-                    microsec = m.group(2)[:9].ljust(6, '0')
-                    timestr = m.group(1) + microsec + m.group(3)
-            if 'epoch' in timestamp_format:
-                epoch = float(timestr)
-                if epoch > 1000000000000:
-                    # milli epoch
-                    epoch_seconds = epoch / 1000
-                    dt = datetime.fromtimestamp(epoch_seconds, tz=TZ)
-                else:
-                    # normal epoch
-                    dt = datetime.fromtimestamp(epoch, tz=TZ)
-            elif 'syslog' in timestamp_format:
-                # timezoneを考慮して、12時間を早めた現在時刻を基準とする
-                now = datetime.now(timezone.utc) + utils.TD_OFFSET12
-                m = utils.RE_SYSLOG_FORMAT.match(timestr)
-                try:
-                    # コンマ以下の秒があったら
-                    microsec = int(m.group(7).ljust(6, '0'))
-                except AttributeError:
-                    microsec = 0
-                try:
-                    dt = datetime(
-                        year=now.year, month=utils.MONTH_TO_INT[m.group(1)],
-                        day=int(m.group(2)), hour=int(m.group(3)),
-                        minute=int(m.group(4)), second=int(m.group(5)),
-                        microsecond=microsec, tzinfo=TZ)
-                except ValueError:
-                    # うるう年対策
-                    last_year = now.year - 1
-                    dt = datetime(
-                        year=last_year, month=utils.MONTH_TO_INT[m.group(1)],
-                        day=int(m.group(2)), hour=int(m.group(3)),
-                        minute=int(m.group(4)), second=int(m.group(5)),
-                        microsecond=microsec, tzinfo=TZ)
-                if dt > now:
-                    # syslog timestamp が未来。マイナス1年の補正が必要
-                    # know_issue: 1年以上古いログの補正はできない
-                    last_year = now.year - 1
-                    dt = dt.replace(year=last_year)
-                else:
-                    # syslog timestamp が過去であり適切。処理なし
-                    pass
-            elif 'iso8601' in timestamp_format:
-                try:
-                    dt = datetime.fromisoformat(timestr)
-                except ValueError:
-                    msg = (f'You set {timestamp_key} field as ISO8601 format. '
-                           f'Timestamp string is {timestr} and NOT ISO8601. ')
-                    logger.exception(msg)
-                    raise ValueError(msg) from None
-                if not dt.tzinfo:
-                    dt = dt.replace(tzinfo=TZ)
-            elif timestamp_format:
-                try:
-                    dt = datetime.strptime(timestr, timestamp_format)
-                except ValueError:
-                    msg = f'timestamp key {timestamp_key} is wrong'
-                    logger.exception(msg)
-                    raise ValueError(msg) from None
-                if not dt.tzinfo:
-                    dt = dt.replace(tzinfo=TZ)
-            else:
+            has_nanotime = self.logconfig.getboolean('timestamp_nano')
+            timestr = utils.get_timestr_from_logdata_dict(
+                self.__logdata_dict, timestamp_key, has_nanotime)
+            dt = utils.convert_timestr_to_datetime(
+                timestr, timestamp_key, timestamp_format, TZ)
+            if not dt:
                 msg = f'There is no timestamp format for {self.logtype}'
                 logger.error(msg)
                 raise ValueError(msg)
