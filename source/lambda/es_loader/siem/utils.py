@@ -84,7 +84,7 @@ def get_es_hostname():
 
 
 #############################################################################
-# initalize when lambda cold boot
+# lambda initialization
 #############################################################################
 def initialize_es_connection(es_hostname):
     es_region = es_hostname.split('.')[1]
@@ -259,40 +259,64 @@ def get_mime_type(data):
         return 'text'
 
 
-def get_value_from_dict(dct, xkeys_list):
-    """ 入れ子になった辞書に対して、dotを含んだkeyで値を
-    抽出する。keyはリスト形式で複数含んでいたら分割する。
-    値がなければ返値なし
+def value_from_nesteddict_by_dottedkey(nested_dict, dotted_key):
+    """get value form nested dict by dotted key.
 
-    >>> dct = {'a': {'b': {'c': 123}}}
-    >>> xkey = 'a.b.c'
-    >>> get_value_from_dict(dct, xkey)
-    123
-    >>> xkey = 'x.y.z'
-    >>> get_value_from_dict(dct, xkey)
+    入れ子になった辞書nested_dictに対して、dotを含んだdotted_keyで値を抽出する
 
-    >>> xkeys_list = 'a.b.c x.y.z'
-    >>> get_value_from_dict(dct, xkeys_list)
+    >>> nested_dict = {'a': {'b': {'c': 123}}}
+    >>> dotted_key = 'a.b.c'
+    >>> value_from_nesteddict_by_dottedkey(nested_dict, dotted_key)
     123
-    >>> dct = {'a': {'b': [{'c': 123}, {'c': 456}]}}
-    >>> xkeys_list = 'a.b.0.c'
-    >>> get_value_from_dict(dct, xkeys_list)
+    >>> dotted_key = 'a.b'
+    >>> value_from_nesteddict_by_dottedkey(nested_dict, dotted_key)
+    {'c': 123}
+    >>> dotted_key = 'x.y.z'
+    >>> value_from_nesteddict_by_dottedkey(nested_dict, dotted_key)
+
+    >>> nested_dict = {'a': {'b': [{'d0': 123}, {'d1': 456}]}}
+    >>> dotted_key = 'a.b.0.d0'
+    >>> value_from_nesteddict_by_dottedkey(nested_dict, dotted_key)
     123
     """
-    for xkeys in xkeys_list.split():
-        v = dct
-        for k in xkeys.split('.'):
-            try:
-                k = int(k)
-            except ValueError:
-                pass
-            try:
-                v = v[k]
-            except (TypeError, KeyError, IndexError):
-                v = ''
-                break
-        if v:
-            return v
+    value = nested_dict
+    for key in dotted_key.split('.'):
+        if key.isdigit():
+            key = int(key)
+        try:
+            value = value[key]
+        except (TypeError, KeyError, IndexError):
+            value = ''
+            break
+    if value:
+        return value
+
+
+def value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list):
+    """get value form nested dict by dotted key list.
+
+    get the values in loop and return 1st value
+    >>> nested_dict = {'a': {'b': {'c1': 123, 'c2': 456}}}
+    >>> dotted_key_list = 'a.b.c1 a.b.c2'
+    >>> value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list)
+    123
+    >>> nested_dict = {'a': {'b': {'c1': 123, 'c2': 456}}}
+    >>> dotted_key_list = 'a.b.c2 a.b.c1'
+    >>> value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list)
+    456
+    >>> nested_dict = {'a': {'b': {'c1': 123, 'c2': 456}}}
+    >>> dotted_key_list = 'z.z.z.z.z.z a.b.c1 a.b.c2'
+    >>> value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list)
+    123
+    """
+    if isinstance(dotted_key_list, str):
+        dotted_key_list = dotted_key_list.split()
+    elif isinstance(dotted_key_list, list):
+        pass
+    for dotted_key in dotted_key_list:
+        value = value_from_nesteddict_by_dottedkey(nested_dict, dotted_key)
+        if value:
+            return value
 
 
 def put_value_into_dict(key_str, v):
@@ -351,30 +375,6 @@ def conv_key(obj):
         pass
 
 
-def merge(a, b, path=None):
-    """merges b into a
-
-    This function is DEPRECATED. Moved to siem.utils.merge_dicts.
-    """
-    if path is None:
-        path = []
-    for key in b:
-        if key in a:
-            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                merge(a[key], b[key], path + [str(key)])
-            elif a[key] == b[key]:
-                pass  # same leaf value
-            elif str(a[key]) in str(b[key]):
-                # strで上書き。JSONだったのをstrに変換したデータ
-                a[key] = b[key]
-            else:
-                # conflict and override original value with new one
-                a[key] = b[key]
-        else:
-            a[key] = b[key]
-    return a
-
-
 def match_log_with_exclude_patterns(log_dict, log_patterns):
     """ログと、log_patterns を比較させる
     一つでもマッチングされれば、Amazon ESにLoadしない
@@ -430,13 +430,13 @@ def merge_dicts(dicta, dictb, path=None):
 
     >>> dicta = {'a': 1, 'b': 2}
     >>> dictb = {'b': 3, 'c': 4}
-    >>> merge_dicta_into_dictb(dicta, dictb)
+    >>> merge_dicts(dicta, dictb)
     {'a': 1, 'b': 3, 'c': 4}
 
     >>> dicta = {'a': 1, 'b': {'x': 10, 'z': 30}}
     >>> dictb = {'b': {'x': 10, 'y': 20}, 'c': 4}
-    >>> merge_dicta_into_dictb(dicta, dictb)
-    {'a': 1, 'b': {'x': 10, 'y': 20, 'z': 30}, 'c': 4}
+    >>> merge_dicts(dicta, dictb)
+    {'a': 1, 'b': {'x': 10, 'z': 30, 'y': 20}, 'c': 4}
 
     """
     if path is None:

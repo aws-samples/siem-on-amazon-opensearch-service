@@ -40,7 +40,7 @@ class GeoDB():
                 '/tmp/' + self.GEOIP_DBS['asn'])
 
     def check_ipaddress(self, ip: str):
-        if (ip is None) or (not self.RE_DIGIT.search(ip)):
+        if (ip is None) or (not self.RE_DIGIT.match(ip)):
             return None, None
         return self._get_geo_city(ip), self._get_geo_asn(ip)
 

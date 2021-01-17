@@ -555,7 +555,8 @@ class LogParser:
         clean_multi_type_dict = {}
         multifield_keys = self.logconfig['json_to_text'].split()
         for multifield_key in multifield_keys:
-            v = utils.get_value_from_dict(self.__logdata_dict, multifield_key)
+            v = utils.value_from_nesteddict_by_dottedkey(
+                self.__logdata_dict, multifield_key)
             if v:
                 # json obj in json obj
                 if isinstance(v, int):
@@ -578,7 +579,8 @@ class LogParser:
         ecs_keys = self.logconfig['ecs'].split()
         for ecs_key in ecs_keys:
             original_keys = self.logconfig[ecs_key]
-            v = utils.get_value_from_dict(self.__logdata_dict, original_keys)
+            v = utils.value_from_nesteddict_by_dottedkeylist(
+                self.__logdata_dict, original_keys)
             if v:
                 new_ecs_dict = utils.put_value_into_dict(ecs_key, v)
                 if '.ip' in ecs_key:
@@ -658,7 +660,7 @@ class LogParser:
             del self.__logdata_dict['__doc_id_suffix']
             return '{0}_{1}'.format(self.__logdata_dict['@id'], temp)
         if self.logconfig['doc_id_suffix']:
-            suffix = utils.get_value_from_dict(
+            suffix = utils.value_from_nesteddict_by_dottedkey(
                 self.__logdata_dict, self.logconfig.get('doc_id_suffix'))
             if suffix:
                 return '{0}_{1}'.format(self.__logdata_dict['@id'], suffix)
@@ -818,7 +820,8 @@ class LogParser:
 # DEPRECATED function. Moved to siem.utils
 ###############################################################################
 def get_value_from_dict(dct, xkeys_list):
-    """Deprecated.
+    """Deprecated. moved to utils.value_from_nesteddict_by_dottedkeylist.
+
     入れ子になった辞書に対して、dotを含んだkeyで値を
     抽出する。keyはリスト形式で複数含んでいたら分割する。
     値がなければ返値なし

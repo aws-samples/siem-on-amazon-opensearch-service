@@ -401,6 +401,7 @@ if __name__ == '__main__':
             try:
                 res.get()
             except Exception:
+                f_err_debug.write(traceback.format_exc())
                 print(traceback.format_exc())
 
         pool.close()
