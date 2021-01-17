@@ -67,12 +67,13 @@ def extract_aws_instanceid_from_text(text):
 # date time
 #############################################################################
 def get_timestr_from_logdata_dict(logdata_dict, timestamp_key, has_nanotime):
+    timestr = value_from_nesteddict_by_dottedkey(logdata_dict, timestamp_key)
     # 末尾がZはPythonでは対応していないのでカットしてTZを付与
     try:
-        timestr = logdata_dict[timestamp_key].replace('Z', '+00:00')
+        timestr = timestr.replace('Z', '+00:00')
     except AttributeError:
         # int such as epoch
-        timestr = logdata_dict[timestamp_key]
+        pass
     if has_nanotime:
         m = RE_WITH_NANOSECONDS.match(timestr)
         if m and m.group(3):
