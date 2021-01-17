@@ -6,7 +6,6 @@ import csv
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 import importlib
-import json
 import os
 import re
 import sys
@@ -408,11 +407,9 @@ def value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list):
     >>> dotted_key_list = 'a.b.c1 a.b.c2'
     >>> value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list)
     123
-    >>> nested_dict = {'a': {'b': {'c1': 123, 'c2': 456}}}
     >>> dotted_key_list = 'a.b.c2 a.b.c1'
     >>> value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list)
     456
-    >>> nested_dict = {'a': {'b': {'c1': 123, 'c2': 456}}}
     >>> dotted_key_list = 'z.z.z.z.z.z a.b.c1 a.b.c2'
     >>> value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list)
     123
@@ -427,47 +424,45 @@ def value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list):
             return value
 
 
-def put_value_into_dict(key_str, v):
-    """dictのkeyにドットが含まれている場合に入れ子になったdictを作成し、値としてvを入れる.
-    返値はdictタイプ。vが辞書ならさらに入れ子として代入。
+def put_value_into_nesteddict(dotted_key, value):
+    """put value into nested dict by dotted key.
+
+    dictのkeyにドットが含まれている場合に入れ子になったdictを作成し、
+    値としてvalueを返す。返値はdictタイプ。vが辞書ならさらに入れ子として代入。
     値がlistなら、カンマ区切りのCSVにした文字列に変換
-    TODO: 値に"が入ってると例外になる。対処方法が見つからず返値なDROPPEDにしてるので改善する。#34
-
-    >>> put_value_into_dict('a.b.c', 123)
+    >>> put_value_into_nesteddict('a', 123)
+    {'a': '123'}
+    >>> put_value_into_nesteddict('a.b.c.d.e', 123)
+    {'a': {'b': {'c': {'d': {'e': '123'}}}}}
+    >>> put_value_into_nesteddict('a.b.c', [123])
     {'a': {'b': {'c': '123'}}}
-    >>> put_value_into_dict('a.b.c', [123])
-    {'a': {'b': {'c': '123'}}}
-    >>> put_value_into_dict('a.b.c', [123, 456])
-    {'a': {'b': {'c': '123,456'}}}
-    >>> v = {'x': 1, 'y': 2}
-    >>> put_value_into_dict('a.b.c', v)
+    >>> put_value_into_nesteddict('a.b.c', [123, 456])
+    {'a': {'b': {'c': '123, 456'}}}
+    >>> put_value_into_nesteddict('a.b.c', {'x': 1, 'y': 2})
     {'a': {'b': {'c': {'x': 1, 'y': 2}}}}
-    >>> v = str({'x': "1", 'y': '2"3'})
-    >>> put_value_into_dict('a.b.c', v)
-    {'a': {'b': {'c': 'DROPPED'}}}
+    >>> put_value_into_nesteddict('a.b.c', '"')
+    {'a': {'b': {'c': '"'}}}
     """
-    v = v
-    xkeys = key_str.split('.')
-    if isinstance(v, dict):
-        json_data = r'{{"{0}": {1} }}'.format(xkeys[-1], json.dumps(v))
-    elif isinstance(v, list):
-        json_data = r'{{"{0}": "{1}" }}'.format(
-            xkeys[-1], ",".join(map(str, v)))
+    if isinstance(value, dict) or isinstance(value, str):
+        value = value
+    elif isinstance(value, list):
+        value = ", ".join(map(str, value))
     else:
-        json_data = r'{{"{0}": "{1}" }}'.format(xkeys[-1], v)
-    if len(xkeys) >= 2:
-        xkeys.pop()
-        for xkey in reversed(xkeys):
-            json_data = r'{{"{0}": {1} }}'.format(xkey, json_data)
-    try:
-        new_dict = json.loads(json_data, strict=False)
-    except json.decoder.JSONDecodeError:
-        new_dict = put_value_into_dict(key_str, 'DROPPED')
-    return new_dict
+        value = str(value)
+    nested_dict = {}
+    keys, current = dotted_key.split('.'), nested_dict
+    for p in keys[:-1]:
+        current[p] = {}
+        current = current[p]
+
+    current[keys[-1]] = value
+    return nested_dict
 
 
-def conv_key(obj):
-    """dictのkeyに-が入ってたら_に置換する
+def convert_keyname_to_safe_field(obj):
+    """convert keyname into safe field name.
+
+    when dict key include dash(-), convert to safe field name under_score(_).
     """
     if isinstance(obj, dict):
         for org_key in list(obj.keys()):
@@ -475,16 +470,18 @@ def conv_key(obj):
             if '-' in org_key:
                 new_key = org_key.translate({ord('-'): ord('_')})
                 obj[new_key] = obj.pop(org_key)
-            conv_key(obj[new_key])
+            convert_keyname_to_safe_field(obj[new_key])
     elif isinstance(obj, list):
         for val in obj:
-            conv_key(val)
+            convert_keyname_to_safe_field(val)
     else:
         pass
 
 
 def match_log_with_exclude_patterns(log_dict, log_patterns):
-    """ログと、log_patterns を比較させる
+    """match log with exclude patterns.
+
+    ログと、log_patterns を比較させる
     一つでもマッチングされれば、Amazon ESにLoadしない
 
     >>> pattern1 = 111
@@ -567,7 +564,9 @@ def merge_dicts(dicta, dictb, path=None):
 
 
 def dev_merge_dicts(dicta: dict, dictb: dict):
-    """merge two dicts. under develoment.
+    """merge two dicts.
+
+    under development.
     """
     if not isinstance(dicta, dict) or not isinstance(dictb, dict):
         return dicta

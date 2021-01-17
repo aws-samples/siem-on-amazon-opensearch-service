@@ -1,7 +1,6 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-import base64
 import bz2
 from datetime import datetime, timedelta, timezone
 import gzip
@@ -23,15 +22,14 @@ __version__ = '2.2.0-beta.3'
 logger = Logger(child=True)
 
 
-class LogObj:
-    """ 取得した一連のログファイルから表層的な情報を取得する。
+class LogS3:
+    """取得した一連のログファイルから表層的な情報を取得する.
+
     圧縮の有無の判断、ログ種類を判断、フォーマットの判断をして
     最後に、生ファイルを個々のログに分割してリスト型として返す
     """
-    def __init__(self, config):
-        self.config = config
-        self.s3bucket = None
-        self.s3key = None
+    def __init__(self, record, config, s3_client):
+        # Get the bucket name and key for the new file
         self.loggroup = None
         self.logstream = None
         self.via_cwl = None
@@ -41,31 +39,7 @@ class LogObj:
         self.cwe_accountid = None
         self.s3key_region = None
         self.cwe_region = None
-
-    @property
-    def header(self):
-        return None
-
-    def check_cwe_and_strip_header(self, dict_obj):
-        if "detail-type" in dict_obj and "resources" in dict_obj:
-            self.cwe_accountid = dict_obj['account']
-            self.cwe_region = dict_obj['region']
-            # source = dict_obj['source'] # eg) aws.securityhub
-            # time = dict_obj['time'] #@ingested
-            return dict_obj['detail']
-        else:
-            return dict_obj
-
-
-class LogS3(LogObj):
-    """ 取得した一連のログファイルから表層的な情報を取得する。
-    圧縮の有無の判断、ログ種類を判断、フォーマットの判断をして
-    最後に、生ファイルを個々のログに分割してリスト型として返す
-    """
-    def __init__(self, record, config, s3):
-        # Get the bucket name and key for the new file
-        super().__init__(config)
-        self.s3 = s3
+        self.s3_client = s3_client
         self.s3bucket = record['s3']['bucket']['name']
         self.s3key = record['s3']['object']['key']
         try:
@@ -105,7 +79,7 @@ class LogS3(LogObj):
         return False
 
     def extract_rawdata_from_s3obj(self):
-        obj = self.s3.get_object(Bucket=self.s3bucket, Key=self.s3key)
+        obj = self.s3_client.get_object(Bucket=self.s3bucket, Key=self.s3key)
         # if obj['ResponseMetadata']['HTTPHeaders']['content-length'] == '0':
         #    raise Exception('No Contents in s3 object')
         rawbody = io.BytesIO(obj['Body'].read())
@@ -126,6 +100,16 @@ class LogS3(LogObj):
             logger.error('unknown file format')
             raise Exception('unknown file format')
         return body
+
+    def check_cwe_and_strip_header(self, dict_obj):
+        if "detail-type" in dict_obj and "resources" in dict_obj:
+            self.cwe_accountid = dict_obj['account']
+            self.cwe_region = dict_obj['region']
+            # source = dict_obj['source'] # eg) aws.securityhub
+            # time = dict_obj['time'] #@ingested
+            return dict_obj['detail']
+        else:
+            return dict_obj
 
     def extract_header_from_cwl(self, rawdata):
         index = 0
@@ -323,105 +307,10 @@ class LogS3(LogObj):
         return startmsg
 
 
-class LogKinesis(LogObj):
-    """ Kinesisで受信したCWLのログから表層的に情報を取得する。
-    圧縮の有無の判断、ログ種類を判断、フォーマットの判断をして
-    最後に、生ファイルを個々のログに分割してリスト型として返す
-    入力値となるKinesisのJSONサンプルはこちら
-    https://docs.aws.amazon.com/ja_jp/lambda/latest/dg/with-kinesis-example.html
-    """
-    def __init__(self, record, config):
-        super().__init__(config)
-        self.config = config
-        self.rawdata_dict = self.get_rawdata_dict(record)
-        self.loggroup = self.rawdata_dict['logGroup']
-        self.logstream = self.rawdata_dict['logStream']
-        self.msgformat = 'kinesis'
-        self.ignore = self.check_ignore()
-        self.__file_format = None
-
-    def get_rawdata_dict(self, record):
-        payload = base64.b64decode(record['kinesis']['data'])
-        gzipbody = io.BytesIO(payload)
-        body = gzip.open(gzipbody, mode='rt').readline()
-        body_dict = json.loads(body)
-        return body_dict
-
-    def check_ignore(self):
-        if 'CONTROL_MESSAGE' in self.rawdata_dict['messageType']:
-            return "Kinesis's control_message"
-        if 'unknown' in self.logtype:
-            # 対応していないlogtypeはunknownになる。その場合は処理をスキップさせる
-            return "Unknown log type in kinesis"
-        else:
-            return False
-
-    @property
-    def logtype(self):
-        for section in self.config.sections():
-            if self.config[section]['loggroup'] in self.loggroup.lower():
-                return section
-            else:
-                try:
-                    # CWEでログをCWLに送るとaws sourceが入ってるのでそれで評価
-                    meta = self.rawdata_dict['logEvents'][0]['message'][:150]
-                except KeyError:
-                    meta = ''
-                if self.config[section]['loggroup'] in meta.lower():
-                    return section
-        return 'unknown'
-
-    @property
-    def accountid(self):
-        return self.rawdata_dict['owner']
-
-    @property
-    def region(self):
-        text = self.loggroup.lower() + '_' + self.logstream.lower()
-        return utils.extract_aws_region_from_text(text)
-
-    @property
-    def logdata_list(self):
-        for record in self.rawdata_dict['logEvents']:
-            # CWLでJSON化してる場合 eg) vpcflowlogs
-            if 'extractedFields' in record:
-                self.__file_format = 'json'
-                yield record
-                continue
-            if self.config[self.logtype]['file_format'] == 'text':
-                yield record['message']
-                continue
-            record = json.loads(record['message'])
-            # CWEにて送られたCWLかどうかの判定 eg) securityhub, guardduty
-            cwl_keys = ('source', 'detail', 'resources', 'account', 'time')
-            if all(k in record for k in cwl_keys):
-                record = record['detail']
-                # 1つのJSNにログが複数ある場合 eg) securityhub
-                delimiter = self.config[self.logtype]['json_delimiter']
-                if delimiter:
-                    for each_event in record[delimiter]:
-                        yield each_event
-                else:
-                    yield record
-            else:
-                yield record
-
-    @property
-    def startmsg(self):
-        startmsg = ('AccountID: {0}, logGroup: {1}, logStream: {2}'.format(
-            self.accountid, self.loggroup, self.logstream))
-        return startmsg
-
-    @property
-    def file_format(self):
-        if self.__file_format:
-            return self.__file_format
-        else:
-            return self.config[self.logtype]['file_format']
-
-
 class LogParser:
-    """ 生ファイルから、ファイルタイプ毎に、タイムスタンプの抜き出し、
+    """LogParser class.
+
+    生ファイルから、ファイルタイプ毎に、タイムスタンプの抜き出し、
     テキストなら名前付き正規化による抽出、エンリッチ(geoipなどの付与)、
     フィールドのECSへの統一、最後にJSON化、する
     """
@@ -475,7 +364,7 @@ class LogParser:
             logdata_dict = self.logdata['extractedFields']
         elif self.logformat in 'csv':
             logdata_dict = dict(zip(self.header.split(), self.logdata.split()))
-            utils.conv_key(logdata_dict)
+            utils.convert_keyname_to_safe_field(logdata_dict)
         elif self.logformat in 'json':
             logdata_dict = self.logdata
         elif self.logformat in 'text':
@@ -560,12 +449,13 @@ class LogParser:
             if v:
                 # json obj in json obj
                 if isinstance(v, int):
-                    new_dict = utils.put_value_into_dict(multifield_key, v)
+                    new_dict = utils.put_value_into_nesteddict(
+                        multifield_key, v)
                 elif '{' in v:
-                    new_dict = utils.put_value_into_dict(
+                    new_dict = utils.put_value_into_nesteddict(
                         multifield_key, repr(v))
                 else:
-                    new_dict = utils.put_value_into_dict(
+                    new_dict = utils.put_value_into_nesteddict(
                         multifield_key, str(v))
                 clean_multi_type_dict = utils.merge_dicts(
                     clean_multi_type_dict, new_dict)
@@ -582,7 +472,7 @@ class LogParser:
             v = utils.value_from_nesteddict_by_dottedkeylist(
                 self.__logdata_dict, original_keys)
             if v:
-                new_ecs_dict = utils.put_value_into_dict(ecs_key, v)
+                new_ecs_dict = utils.put_value_into_nesteddict(ecs_key, v)
                 if '.ip' in ecs_key:
                     # IPアドレスの場合は、validation
                     try:
@@ -624,7 +514,7 @@ class LogParser:
         static_ecs_keys = self.logconfig.get('static_ecs')
         if static_ecs_keys:
             for static_ecs_key in static_ecs_keys.split():
-                new_ecs_dict = utils.put_value_into_dict(
+                new_ecs_dict = utils.put_value_into_nesteddict(
                     static_ecs_key, self.logconfig[static_ecs_key])
                 ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
         self.__logdata_dict = utils.merge_dicts(self.__logdata_dict, ecs_dict)
@@ -667,6 +557,10 @@ class LogParser:
         return self.__logdata_dict['@id']
 
     def get_timestamp(self):
+        '''get time stamp.
+
+        '''
+
         '''
         OBSOLETED v 2.2.0
         if 'timestamp' in self.logconfig and self.logconfig['timestamp']:
@@ -796,6 +690,8 @@ def get_value_from_dict(dct, xkeys_list):
 
 def put_value_into_dict(key_str, v):
     """Deprecated.
+
+    moved to utils.put_value_into_nesteddict
     dictのkeyにドットが含まれている場合に入れ子になったdictを作成し、値としてvを入れる.
     返値はdictタイプ。vが辞書ならさらに入れ子として代入。
     値がlistなら、カンマ区切りのCSVにした文字列に変換
@@ -830,12 +726,14 @@ def put_value_into_dict(key_str, v):
     try:
         new_dict = json.loads(json_data, strict=False)
     except json.decoder.JSONDecodeError:
-        new_dict = utils.put_value_into_dict(key_str, 'DROPPED')
+        new_dict = put_value_into_dict(key_str, 'DROPPED')
     return new_dict
 
 
 def conv_key(obj):
     """Deprecated.
+
+    moved to utils.convert_key_to_safe_field
     dictのkeyに-が入ってたら_に置換する
     """
     if isinstance(obj, dict):
@@ -854,6 +752,7 @@ def conv_key(obj):
 
 def merge(a, b, path=None):
     """Deprecated.
+
     merges b into a
     Moved to siem.utils.merge_dicts.
     """
@@ -878,6 +777,7 @@ def merge(a, b, path=None):
 
 def match_log_with_exclude_patterns(log_dict, log_patterns):
     """Deprecated.
+
     ログと、log_patterns を比較させる
     一つでもマッチングされれば、Amazon ESにLoadしない
 

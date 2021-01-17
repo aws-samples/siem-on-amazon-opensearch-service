@@ -35,11 +35,8 @@ def extract_logfile_from_s3(record):
     if 'body' in record:
         # from sqs-splitted-logs
         record = json.loads(record['body'])
-    if 'kinesis' in record:
-        logfile = siem.LogKinesis(record, etl_config)
-    elif 's3' in record:
-        s3 = boto3.client('s3', config=s3_session_config)
-        logfile = siem.LogS3(record, etl_config, s3)
+    if 's3' in record:
+        logfile = siem.LogS3(record, etl_config, s3_client)
     else:
         logger.error('invalid input data. exit')
         raise Exception('invalid input data. exit')
@@ -175,7 +172,7 @@ def output_metrics(metrics, event=None, logfile=None, collected_metrics={}):
     success_count = collected_metrics['success_count']
     error_count = collected_metrics['error_count']
     es_response_time = collected_metrics['es_response_time']
-    input_file_size = event['Records'][0]['s3']['object']['size']
+    input_file_size = event['Records'][0]['s3']['object'].get('size', 0)
     s3_key = event['Records'][0]['s3']['object']['key']
     duration = int(
         (time.perf_counter() - collected_metrics['start_time']) * 1000) + 10
@@ -211,6 +208,7 @@ csv_filename = utils.get_exclude_log_patterns_csv_filename(etl_config)
 exclude_log_patterns = utils.merge_csv_into_log_patterns(
     exclude_own_log_patterns, csv_filename)
 s3_session_config = utils.make_s3_session_config(etl_config)
+s3_client = boto3.client('s3', config=s3_session_config)
 
 geodb_instance = geodb.GeoDB()
 utils.show_local_dir()
@@ -243,7 +241,7 @@ def lambda_handler(event, context):
         logger.info(logfile.startmsg)
 
         # ETL対象のログタイプのConfigだけを限定して定義する
-        logconfig = copy.copy(etl_config[logfile.logtype])
+        logconfig = etl_config[logfile.logtype]
         # ESにPUTするデータを作成する
         es_entries = get_es_entries(logfile, logconfig, exclude_log_patterns)
         # 作成したデータをESにPUTしてメトリクスを収集する
