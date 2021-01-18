@@ -417,7 +417,7 @@ SQS の SIEM 用のデッドレターキュー (aes-siem-dlq) からメッセー
 |SuccessLogLoadCount|Count|es-loader が Amazon ES へのデータ送信が成功したログ数|
 |ErrorLogLoadCount|Count|es-loader が Amazon ES へのデータ送信が失敗したログ数|
 |TotalDurationTime|Milliseconds|es-loader が処理を始めてから全ての処理が完了するまでの時間。Lambda Durationとほぼ同じ|
-|EsResponseTime|Seconds|es-loader が Amazon ES にデータを送信して処理が完了するまでの時間|
+|EsResponseTime|Milliseconds|es-loader が Amazon ES にデータを送信して処理が完了するまでの時間|
 |TotalLogFileCount|Count|es-loader が 処理をしたログファイルの数|
 |TotalLogCount|Count|ログファイルに含まれるログから処理対象となったログの数。フィルターをして取り込まれなかったログも含む|
 

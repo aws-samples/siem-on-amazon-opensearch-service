@@ -113,6 +113,7 @@ def get_es_entries(logfile, logconfig, exclude_log_patterns):
 def check_es_results(results):
     duration = results['took']
     success, error = 0, 0
+    error_reasons = []
     if not results['errors']:
         success = len(results['items'])
     else:
@@ -121,7 +122,11 @@ def check_es_results(results):
                 # status code
                 # 200:OK, 201:Created, 400:NG
                 error += 1
-    return success, error, duration
+                error_reason = result['index'].get('error')
+                if error_reason:
+                    error_reasons.append(error_reason)
+
+    return duration, success, error, error_reasons
 
 
 def bulkloads_into_elasticsearch(es_entries, collected_metrics):
@@ -129,31 +134,34 @@ def bulkloads_into_elasticsearch(es_entries, collected_metrics):
     total_count, success_count, error_count, es_response_time = 0, 0, 0, 0
     results = False
     putdata_list = []
+    error_reason_list = []
+    filter_path = ['took', 'errors', 'items.index.status',
+                   'items.index.error.reason', 'items.index.error.type']
     for data in es_entries:
         putdata_list.append(data)
         output_size += len(str(data))
         # es の http.max_content_length は t2 で10MB なのでデータがたまったらESにロード
         if isinstance(data, str) and output_size > 6000000:
             total_output_size += output_size
-            filter_path = ['took', 'errors', 'items.index.status']
             results = es_conn.bulk(putdata_list, filter_path=filter_path)
-            success, error, es_took = check_es_results(results)
+            es_took, success, error, error_reasons = check_es_results(results)
             success_count += success
             error_count += error
             es_response_time += es_took
             output_size = 0
             total_count += len(putdata_list)
             putdata_list = []
+            error_reason_list.extend([error_reasons])
     if output_size > 0:
         total_output_size += output_size
-        filter_path = ['took', 'errors', 'items.index.status']
         results = es_conn.bulk(putdata_list, filter_path=filter_path)
         # logger.debug(results)
-        success, error, es_took = check_es_results(results)
+        es_took, success, error, error_reasons = check_es_results(results)
         success_count += success
         error_count += error
         es_response_time += es_took
         total_count += len(putdata_list)
+        error_reason_list.extend(error_reasons)
     elif not results:
         logger.info('No entries were successed to load')
     collected_metrics['total_output_size'] = total_output_size
@@ -162,7 +170,7 @@ def bulkloads_into_elasticsearch(es_entries, collected_metrics):
     collected_metrics['error_count'] = error_count
     collected_metrics['es_response_time'] = es_response_time
 
-    return collected_metrics
+    return collected_metrics, error_reason_list
 
 
 def output_metrics(metrics, event=None, logfile=None, collected_metrics={}):
@@ -190,7 +198,8 @@ def output_metrics(metrics, event=None, logfile=None, collected_metrics={}):
     metrics.add_metric(
         name="TotalDurationTime", unit=MetricUnit.Milliseconds, value=duration)
     metrics.add_metric(
-        name="EsResponseTime", unit=MetricUnit.Seconds, value=es_response_time)
+        name="EsResponseTime", unit=MetricUnit.Milliseconds,
+        value=es_response_time)
     metrics.add_metric(
         name="TotalLogFileCount", unit=MetricUnit.Count, value=1)
     metrics.add_metric(
@@ -245,7 +254,7 @@ def lambda_handler(event, context):
         # ESにPUTするデータを作成する
         es_entries = get_es_entries(logfile, logconfig, exclude_log_patterns)
         # 作成したデータをESにPUTしてメトリクスを収集する
-        collected_metrics = bulkloads_into_elasticsearch(
+        collected_metrics, error_reason_list = bulkloads_into_elasticsearch(
             es_entries, collected_metrics)
 
         output_metrics(metrics, event=event, logfile=logfile,
@@ -255,6 +264,7 @@ def lambda_handler(event, context):
             error_message = (f"{collected_metrics['error_count']}"
                              " of logs were NOT loaded into Amazon ES")
             logger.error(error_message)
+            logger.error(error_reason_list[:5])
             raise Exception(error_message)
         else:
             logger.info('All logs were loaded into Amazon ES')
