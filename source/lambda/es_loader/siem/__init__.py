@@ -9,6 +9,7 @@ import io
 import ipaddress
 import json
 import re
+import urllib.parse
 import zipfile
 
 from aws_lambda_powertools import Logger
@@ -79,7 +80,14 @@ class LogS3:
         return False
 
     def extract_rawdata_from_s3obj(self):
-        obj = self.s3_client.get_object(Bucket=self.s3bucket, Key=self.s3key)
+        try:
+            safe_s3_key = urllib.parse.unquote_plus(self.s3key)
+            obj = self.s3_client.get_object(
+                Bucket=self.s3bucket, Key=safe_s3_key)
+        except Exception:
+            msg = f'Failed to download S3 object from {self.s3key}'
+            logger.exception(msg)
+            raise Exception(msg) from None
         # if obj['ResponseMetadata']['HTTPHeaders']['content-length'] == '0':
         #    raise Exception('No Contents in s3 object')
         rawbody = io.BytesIO(obj['Body'].read())

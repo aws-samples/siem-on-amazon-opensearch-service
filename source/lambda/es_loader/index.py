@@ -36,11 +36,12 @@ def extract_logfile_from_s3(record):
         # from sqs-splitted-logs
         record = json.loads(record['body'])
     if 's3' in record:
+        logger.structure_logs(
+            append=True, s3_key=record['s3']['object']['key'])
         logfile = siem.LogS3(record, etl_config, s3_client)
     else:
         logger.error('invalid input data. exit')
         raise Exception('invalid input data. exit')
-    logger.structure_logs(append=True, s3_key=record['s3']['object']['key'])
     return logfile
 
 
