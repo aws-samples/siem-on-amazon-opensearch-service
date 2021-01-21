@@ -11,7 +11,7 @@ from aws_lambda_powertools import Logger
 import boto3
 import geoip2.database
 
-__version__ = '2.2.0-beta.3'
+__version__ = '2.2.0-beta.4'
 
 logger = Logger(child=True)
 

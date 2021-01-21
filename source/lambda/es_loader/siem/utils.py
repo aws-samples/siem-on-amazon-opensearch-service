@@ -16,7 +16,7 @@ import botocore
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.2.0-beta.3'
+__version__ = '2.2.0-beta.4'
 
 logger = Logger(child=True)
 
@@ -169,7 +169,7 @@ def convert_custom_timeformat_to_datetime(timestr, TZ, timestamp_format,
 
 
 #############################################################################
-# Amazon ES
+# Amazon ES / AWS Resouce
 #############################################################################
 def get_es_hostname():
     # get ES_ENDPOINT
@@ -188,6 +188,22 @@ def get_es_hostname():
                          'or modify aes.ini. exit')
             raise Exception('No ES_ENDPOINT in Environemnt')
     return es_hostname
+
+
+def create_logtype_s3key_dict(etl_config):
+    logtype_s3key_dict = {}
+    for logtype in etl_config.sections():
+        logtype_s3key_dict[logtype] = re.compile(etl_config[logtype]['s3_key'])
+    return logtype_s3key_dict
+
+
+def get_logtype_from_s3key(s3key, logtype_s3key_dict):
+    logtype = ''
+    for logtype, re_s3key in logtype_s3key_dict.items():
+        m = re_s3key.search(s3key)
+        if m:
+            return logtype
+    return 'unknown'
 
 
 #############################################################################

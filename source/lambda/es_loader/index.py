@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 
 import copy
-from functools import wraps
+from functools import lru_cache, wraps
 import importlib
 import json
 import os
@@ -18,7 +18,7 @@ from aws_lambda_powertools.metrics import MetricUnit
 import siem
 from siem import utils, geodb
 
-__version__ = '2.2.0-beta.3'
+__version__ = '2.2.0-beta.4'
 
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
@@ -32,37 +32,77 @@ ES_HOSTNAME = utils.get_es_hostname()
 
 
 def extract_logfile_from_s3(record):
-    if 'body' in record:
-        # from sqs-splitted-logs
-        record = json.loads(record['body'])
     if 's3' in record:
-        logger.structure_logs(
-            append=True, s3_key=record['s3']['object']['key'])
-        logfile = siem.LogS3(record, etl_config, s3_client)
+        s3key = record['s3']['object']['key']
+        logger.structure_logs(append=True, s3_key=s3key)
+        logtype = utils.get_logtype_from_s3key(s3key, logtype_s3key_dict)
+        logconfig = create_logconfig(logtype)
+        logfile = siem.LogS3(record, s3_client, logtype, logconfig)
     else:
         logger.error('invalid input data. exit')
         raise Exception('invalid input data. exit')
     return logfile
 
 
-def get_es_entries(logfile, logconfig, exclude_log_patterns):
+@lru_cache
+def get_value_from_etl_config(logtype, key, keytype=None):
+    try:
+        if keytype is None:
+            value = etl_config[logtype][key]
+        elif keytype == 'bool':
+            value = etl_config[logtype].getboolean(key)
+        elif keytype == 'int':
+            value = etl_config[logtype].getint(key)
+        elif keytype == 're':
+            rawdata = etl_config[logtype][key]
+            if rawdata:
+                value = re.compile(rawdata)
+            else:
+                value = ''
+        else:
+            value = ''
+    except KeyError:
+        logger.exception('unknown error')
+        raise KeyError("Can't find the key in logconfig")
+    except Exception:
+        logger.exception('unknown error')
+        raise Exception('unknown error') from None
+    return value
+
+
+@lru_cache
+def create_logconfig(logtype):
+    type_re = ['s3_key_ignored', 'log_pattern']
+    type_int = ['max_log_count', 'text_header_line_number']
+    type_bool = ['via_cwl', 'via_firelens', 'ignore_container_stderr', 'timestamp_nano']
+    logconfig = {}
+    for key in etl_config[logtype]:
+        if key in type_re:
+            logconfig[key] = get_value_from_etl_config(logtype, key, 're')
+        elif key in type_int:
+            logconfig[key] = get_value_from_etl_config(logtype, key, 'int')
+        elif key in type_bool:
+            logconfig[key] = get_value_from_etl_config(logtype, key, 'bool')
+        else:
+            logconfig[key] = get_value_from_etl_config(logtype, key)
+    return logconfig
+
+
+def get_es_entries(logfile, exclude_log_patterns):
     """get elasticsearch entries.
 
     To return json to load AmazonES, extract log, map fields to ecs fields and
     enrich ip addresses with geoip. Most important process.
     """
+    # ETL対象のログタイプのConfigだけを限定して定義する
+    logconfig = create_logconfig(logfile.logtype)
     # load config object on memory to avoid disk I/O accessing
     copy_attr_list = (
-        'logtype', 'msgformat', 'file_format', 'header', 's3bucket', 's3key',
+        'logtype', 'file_format', 'header', 's3bucket', 's3key',
         'accountid', 'region', 'loggroup', 'logstream', 'via_firelens')
     logs = {}
     for key in copy_attr_list:
         logs[key] = copy.copy(getattr(logfile, key))
-
-    # load regex pattern for text log on memory
-    log_pattern_prog = None
-    if 'log_pattern' in logconfig:
-        log_pattern_prog = re.compile(logconfig['log_pattern'])
 
     # load custom script
     if logconfig['script_ecs']:
@@ -82,13 +122,12 @@ def get_es_entries(logfile, logconfig, exclude_log_patterns):
         # インスタンスを作ってログタイプを入れる
         logparser = siem.LogParser(
             logdata=logdata, logtype=logs['logtype'],
-            msgformat=logs['msgformat'], logformat=logs['file_format'],
-            header=logs['header'], logconfig=logconfig,
-            s3bucket=logs['s3bucket'], s3key=logs['s3key'],
-            accountid=logs['accountid'], region=logs['region'],
-            loggroup=logs['loggroup'], logstream=logs['logstream'],
-            via_firelens=logs['via_firelens'],
-            log_pattern_prog=log_pattern_prog, sf_module=sf_module,)
+            logformat=logs['file_format'], header=logs['header'],
+            logconfig=logconfig, s3bucket=logs['s3bucket'],
+            s3key=logs['s3key'], accountid=logs['accountid'],
+            region=logs['region'], loggroup=logs['loggroup'],
+            logstream=logs['logstream'], via_firelens=logs['via_firelens'],
+            sf_module=sf_module)
         # 自分自身のログを無視する。ESにはロードしない。
         is_ignored = logparser.check_ignored_log(exclude_log_patterns)
         if is_ignored or logparser.is_ignored:
@@ -174,15 +213,15 @@ def bulkloads_into_elasticsearch(es_entries, collected_metrics):
     return collected_metrics, error_reason_list
 
 
-def output_metrics(metrics, event=None, logfile=None, collected_metrics={}):
+def output_metrics(metrics, record=None, logfile=None, collected_metrics={}):
     if not os.environ.get('AWS_EXECUTION_ENV'):
         return
     total_output_size = collected_metrics['total_output_size']
     success_count = collected_metrics['success_count']
     error_count = collected_metrics['error_count']
     es_response_time = collected_metrics['es_response_time']
-    input_file_size = event['Records'][0]['s3']['object'].get('size', 0)
-    s3_key = event['Records'][0]['s3']['object']['key']
+    input_file_size = record['s3']['object'].get('size', 0)
+    s3_key = record['s3']['object']['key']
     duration = int(
         (time.perf_counter() - collected_metrics['start_time']) * 1000) + 10
     total_log_count = logfile.total_log_count
@@ -208,22 +247,6 @@ def output_metrics(metrics, event=None, logfile=None, collected_metrics={}):
     metrics.add_metadata(key="s3_key", value=s3_key)
 
 
-es_conn = utils.initialize_es_connection(ES_HOSTNAME)
-user_libs = utils.load_user_custom_libs()
-etl_config = utils.get_etl_config()
-utils.load_modules_on_memory(etl_config, user_libs)
-
-exclude_own_log_patterns = utils.make_exclude_own_log_patterns(etl_config)
-csv_filename = utils.get_exclude_log_patterns_csv_filename(etl_config)
-exclude_log_patterns = utils.merge_csv_into_log_patterns(
-    exclude_own_log_patterns, csv_filename)
-s3_session_config = utils.make_s3_session_config(etl_config)
-s3_client = boto3.client('s3', config=s3_session_config)
-
-geodb_instance = geodb.GeoDB()
-utils.show_local_dir()
-
-
 def observability_decorator_switcher(func):
     if os.environ.get('AWS_EXECUTION_ENV'):
         @metrics.log_metrics
@@ -240,25 +263,44 @@ def observability_decorator_switcher(func):
         return decorator
 
 
+es_conn = utils.initialize_es_connection(ES_HOSTNAME)
+user_libs = utils.load_user_custom_libs()
+etl_config = utils.get_etl_config()
+utils.load_modules_on_memory(etl_config, user_libs)
+logtype_s3key_dict = utils.create_logtype_s3key_dict(etl_config)
+
+exclude_own_log_patterns = utils.make_exclude_own_log_patterns(etl_config)
+csv_filename = utils.get_exclude_log_patterns_csv_filename(etl_config)
+exclude_log_patterns = utils.merge_csv_into_log_patterns(
+    exclude_own_log_patterns, csv_filename)
+s3_session_config = utils.make_s3_session_config(etl_config)
+s3_client = boto3.client('s3', config=s3_session_config)
+
+geodb_instance = geodb.GeoDB()
+utils.show_local_dir()
+
+
 @observability_decorator_switcher
 def lambda_handler(event, context):
     for record in event['Records']:
         collected_metrics = {'start_time': time.perf_counter()}
+        if 'body' in record:
+            # from sqs-splitted-logs
+            record = json.loads(record['body'])
+        # S3からファイルを取得してログを抽出する
         logfile = extract_logfile_from_s3(record)
         if logfile.ignore:
             logger.warn(f'Skipped because {logfile.ignore}')
             continue
         logger.info(logfile.startmsg)
 
-        # ETL対象のログタイプのConfigだけを限定して定義する
-        logconfig = etl_config[logfile.logtype]
-        # ESにPUTするデータを作成する
-        es_entries = get_es_entries(logfile, logconfig, exclude_log_patterns)
+        # 抽出したログからESにPUTするデータを作成する
+        es_entries = get_es_entries(logfile, exclude_log_patterns)
         # 作成したデータをESにPUTしてメトリクスを収集する
         collected_metrics, error_reason_list = bulkloads_into_elasticsearch(
             es_entries, collected_metrics)
 
-        output_metrics(metrics, event=event, logfile=logfile,
+        output_metrics(metrics, record=record, logfile=logfile,
                        collected_metrics=collected_metrics)
         # raise error to retry if error has occuered
         if collected_metrics['error_count']:

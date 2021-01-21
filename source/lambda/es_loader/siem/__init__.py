@@ -18,7 +18,7 @@ import boto3
 import index as es_loader
 from siem import utils
 
-__version__ = '2.2.0-beta.3'
+__version__ = '2.2.0-beta.4'
 
 logger = Logger(child=True)
 
@@ -29,10 +29,11 @@ class LogS3:
     圧縮の有無の判断、ログ種類を判断、フォーマットの判断をして
     最後に、生ファイルを個々のログに分割してリスト型として返す
     """
-    def __init__(self, record, config, s3_client):
+    def __init__(self, record, s3_client, logtype, logconfig):
         # Get the bucket name and key for the new file
         self.loggroup = None
         self.logstream = None
+        self.logconfig = logconfig
         self.via_cwl = None
         self.via_firelens = None
         self.s3key_accountid = None
@@ -40,6 +41,7 @@ class LogS3:
         self.cwe_accountid = None
         self.s3key_region = None
         self.cwe_region = None
+        self.logtype = logtype
         self.s3_client = s3_client
         self.s3bucket = record['s3']['bucket']['name']
         self.s3key = record['s3']['object']['key']
@@ -50,18 +52,15 @@ class LogS3:
             self.start_number = 0
             self.end_number = 0
         self.total_log_count = 0
-        self.config = config
         self.ignore = self.check_ignore()
-        self.msgformat = 's3'
         if not self.ignore:
             self.s3key_accountid = utils.extract_aws_account_from_text(
                 self.s3key)
             self.s3key_region = utils.extract_aws_region_from_text(self.s3key)
             self.__rawdata = self.extract_rawdata_from_s3obj()
-            self.file_format = self.config[self.logtype]['file_format']
-            self.via_cwl = self.config[self.logtype].getboolean('via_cwl')
-            self.via_firelens = self.config[self.logtype].getboolean(
-                'via_firelens')
+            self.file_format = self.logconfig['file_format']
+            self.via_cwl = self.logconfig['via_cwl']
+            self.via_firelens = self.logconfig['via_firelens']
         if self.via_cwl:
             self.loggroup, self.logstream, self.cwl_accountid = (
                 self.extract_header_from_cwl(self.__rawdata))
@@ -71,12 +70,12 @@ class LogS3:
             # 対応していないlogtypeはunknownになる。その場合は処理をスキップさせる
             return f'Unknown log type in S3 key, {self.s3key}'
         else:
-            s3_key_ignored = self.config[self.logtype]['s3_key_ignored']
-            if s3_key_ignored:
-                m = re.search(s3_key_ignored, self.s3key)
+            re_s3_key_ignored = self.logconfig['s3_key_ignored']
+            if re_s3_key_ignored:
+                m = re_s3_key_ignored.search(self.s3key)
                 if m:
-                    return (f'"s3_key_ignored" {s3_key_ignored} matched with '
-                            f'{self.s3key}')
+                    return (fr'"s3_key_ignored" {re_s3_key_ignored} matched '
+                            fr'with {self.s3key}')
         return False
 
     def extract_rawdata_from_s3obj(self):
@@ -124,7 +123,7 @@ class LogS3:
         body = rawdata
         decoder = json.JSONDecoder()
         while True:
-            obj, offset = decoder.raw_decode(str(body.read()))
+            obj, offset = decoder.raw_decode(body.read())
             index = offset + index
             body.seek(index)
             if 'CONTROL_MESSAGE' in obj['messageType']:
@@ -141,7 +140,7 @@ class LogS3:
         rawlog_io_obj.seek(index)
         newlog_io_obj = io.StringIO()
         while size > index:
-            obj, offset = decoder.raw_decode(str(rawlog_io_obj.read()))
+            obj, offset = decoder.raw_decode(rawlog_io_obj.read())
             index = offset + index
             rawlog_io_obj.seek(index)
             if 'CONTROL_MESSAGE' in obj['messageType']:
@@ -151,15 +150,6 @@ class LogS3:
         del rawlog_io_obj
         newlog_io_obj.seek(0)
         return newlog_io_obj
-
-    @property
-    def logtype(self):
-        for section in self.config.sections():
-            p = self.config[section]['s3_key']
-            if re.search(p, self.s3key):
-                return section
-        else:
-            return 'unknown'
 
     @property
     def accountid(self):
@@ -202,7 +192,7 @@ class LogS3:
         if start == 0 or max_log_count == 0:
             end = log_count
         decoder = json.JSONDecoder()
-        delimiter = self.config[self.logtype]['json_delimiter']
+        delimiter = self.logconfig['json_delimiter']
         count = 0
         # For ndjson
         for line in self.rawdata.readlines():
@@ -268,12 +258,11 @@ class LogS3:
 
     @property
     def logdata_list(self):
-        max_log_count = self.config[self.logtype].getint('max_log_count')
+        max_log_count = self.logconfig['max_log_count']
 
         if self.file_format in ('text', 'csv') or self.via_firelens:
             if 'text' in self.file_format:
-                ignore_header_line_number = int(
-                    self.config[self.logtype]['text_header_line_number'])
+                ignore_header_line_number = self.logconfig['text_header_line_number']
             elif 'csv' in self.file_format:
                 ignore_header_line_number = 1
             else:
@@ -322,12 +311,11 @@ class LogParser:
     テキストなら名前付き正規化による抽出、エンリッチ(geoipなどの付与)、
     フィールドのECSへの統一、最後にJSON化、する
     """
-    def __init__(self, logdata, logtype, logconfig, msgformat=None,
-                 logformat=None, header=None, s3bucket=None, s3key=None,
-                 loggroup=None, logstream=None, accountid=None, region=None,
+    def __init__(self, logdata, logtype, logconfig, logformat=None,
+                 header=None, s3bucket=None, s3key=None, loggroup=None,
+                 logstream=None, accountid=None, region=None,
                  via_firelens=None, log_pattern_prog=None, sf_module=None,
                  *args, **kwargs):
-        self.msgformat = msgformat
         self.logdata = logdata
         self.logtype = logtype
         self.logconfig = logconfig
@@ -355,9 +343,9 @@ class LogParser:
             (self.logdata, firelens_meta_dict) = (
                 self.get_log_and_meta_from_firelens())
             if firelens_meta_dict['container_source'] == 'stderr':
-                ignore_container_stderr = self.logconfig.getboolean(
-                    'ignore_container_stderr')
-                if ignore_container_stderr:
+                ignore_container_stderr_bool = (
+                    self.logconfig['ignore_container_stderr'])
+                if ignore_container_stderr_bool:
                     return {'is_ignored': True}
                 else:
                     d = {'__skip_normalization': True,
@@ -367,17 +355,15 @@ class LogParser:
             if self.logformat in 'json':
                 self.logdata = json.loads(self.logdata)
 
-        if 'kinesis' in self.msgformat and 'extractedFields' in self.logdata:
-            # CWLでJSON化してる場合
-            logdata_dict = self.logdata['extractedFields']
-        elif self.logformat in 'csv':
+        if self.logformat in 'csv':
             logdata_dict = dict(zip(self.header.split(), self.logdata.split()))
             utils.convert_keyname_to_safe_field(logdata_dict)
         elif self.logformat in 'json':
             logdata_dict = self.logdata
         elif self.logformat in 'text':
             try:
-                m = self.log_pattern_prog.match(self.logdata)
+                re_log_pattern_prog = self.logconfig['log_pattern']
+                m = re_log_pattern_prog.match(self.logdata)
             except AttributeError:
                 msg = 'No log_pattern. You need to define it in user.ini'
                 logger.exception(msg)
@@ -423,9 +409,7 @@ class LogParser:
 
     def add_basic_field(self):
         basic_dict = {}
-        if 'kinesis' in self.msgformat and 'extractedFields' in self.logdata:
-            basic_dict['@message'] = self.logdata['message']
-        elif self.logformat in 'json':
+        if self.logformat in 'json':
             basic_dict['@message'] = str(json.dumps(self.logdata))
         else:
             basic_dict['@message'] = str(self.logdata)
@@ -519,7 +503,7 @@ class LogParser:
                 'id': self.__logdata_dict['container_id'],
                 'name': self.__logdata_dict['container_name']}
 
-        static_ecs_keys = self.logconfig.get('static_ecs')
+        static_ecs_keys = self.logconfig['static_ecs']
         if static_ecs_keys:
             for static_ecs_key in static_ecs_keys.split():
                 new_ecs_dict = utils.put_value_into_nesteddict(
@@ -559,7 +543,7 @@ class LogParser:
             return '{0}_{1}'.format(self.__logdata_dict['@id'], temp)
         if self.logconfig['doc_id_suffix']:
             suffix = utils.value_from_nesteddict_by_dottedkey(
-                self.__logdata_dict, self.logconfig.get('doc_id_suffix'))
+                self.__logdata_dict, self.logconfig['doc_id_suffix'])
             if suffix:
                 return '{0}_{1}'.format(self.__logdata_dict['@id'], suffix)
         return self.__logdata_dict['@id']
@@ -585,7 +569,7 @@ class LogParser:
             timestamp_format = self.logconfig['timestamp_format']
             timestamp_tz = float(self.logconfig['timestamp_tz'])
             TZ = timezone(timedelta(hours=timestamp_tz))
-            has_nanotime = self.logconfig.getboolean('timestamp_nano')
+            has_nanotime = self.logconfig['timestamp_nano']
             timestr = utils.get_timestr_from_logdata_dict(
                 self.__logdata_dict, timestamp_key, has_nanotime)
             dt = utils.convert_timestr_to_datetime(
