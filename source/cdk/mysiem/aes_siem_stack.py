@@ -168,7 +168,10 @@ class MyAesSiemStack(core.Stack):
                          "IP address's country, get a license key form MaxMind"
                          " and input the key. If you not, keep "
                          "xxxxxxxxxxxxxxxx"))
-
+        reserved_concurrency = core.CfnParameter(
+            self, 'ReservedConcurrency', default=10, type='Number',
+            description=('Input reserved concurrency. Increase this value if '
+                         'there are steady logs delay despite no errors'))
         aes_domain_name = self.node.try_get_context('aes_domain_name')
         bucket = f'{aes_domain_name}-{core.Aws.ACCOUNT_ID}'
         s3bucket_name_geo = f'{bucket}-geo'
@@ -505,6 +508,8 @@ class MyAesSiemStack(core.Stack):
             handler='index.lambda_handler',
             memory_size=2048,
             timeout=core.Duration.seconds(ES_LOADER_TIMEOUT),
+            reserved_concurrent_executions=(
+                reserved_concurrency.value_as_number),
             dead_letter_queue_enabled=True,
             dead_letter_queue=sqs_aes_siem_dlq,
             environment={

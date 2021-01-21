@@ -175,6 +175,7 @@ CloudFormation テンプレートと同じパラーメーターを指定可能�
 |------------|----|
 |AllowedSourceIpAddresses|Amazon VPC 外に SIEM on Amazon ES をデプロイした時に、アクセスを許可するIPアドレス。複数アドレスはスペース区切り|
 |GeoLite2LicenseKey|Maxmindのライセンスキー。IP アドレスに国情報を付与|
+|ReservedConcurrency|es-loaderの同時実行数の上限値。デフォルトは10。エラーがないにもかかわらずログ取り込み遅延やThrottleが常時発生する場合はこの値を増やしてください|
 |SnsEmail|メールアドレス。SIEM on Amazon ES で検知したアラートを SNS 経由で送信する|
 
 文法) --parameters オプション1=パラメータ1 --parameters オプション2=パラメータ2

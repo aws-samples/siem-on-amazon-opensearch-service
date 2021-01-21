@@ -93,6 +93,11 @@
       "Default": "xxxxxxxxxxxxxxxx",
       "AllowedPattern": "^[0-9a-zA-Z]{16}$",
       "Description": "If you wolud like to enrich geoip locaiton such as IP address's country, get a license key form MaxMind and input the key. If you not, keep xxxxxxxxxxxxxxxx"
+    },
+    "ReservedConcurrency": {
+      "Type": "Number",
+      "Default": 10,
+      "Description": "Input reserved concurrency. Increase this value if there are steady logs delay despite no errors"
     }
   },
   "Conditions": {
@@ -1435,6 +1440,9 @@
         "FunctionName": "aes-siem-es-loader",
         "Handler": "index.lambda_handler",
         "MemorySize": 2048,
+        "ReservedConcurrentExecutions": {
+          "Ref": "ReservedConcurrency"
+        },
         "Runtime": "python3.8",
         "Timeout": 600
       },
