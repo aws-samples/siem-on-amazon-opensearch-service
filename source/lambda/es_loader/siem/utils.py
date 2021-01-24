@@ -16,7 +16,7 @@ import botocore
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.2.0-beta.4'
+__version__ = '2.2.0-beta.5'
 
 logger = Logger(child=True)
 
@@ -96,6 +96,7 @@ def convert_timestr_to_datetime(timestr, timestamp_key, timestamp_format, TZ):
     return dt
 
 
+@lru_cache(maxsize=1024)
 def convert_epoch_to_datetime(timestr, TZ):
     epoch = float(timestr)
     if epoch > 1000000000000:
@@ -141,6 +142,7 @@ def convert_syslog_to_datetime(timestr, TZ):
     return dt
 
 
+@lru_cache(maxsize=1024)
 def convert_iso8601_to_datetime(timestr, TZ, timestamp_key):
     try:
         dt = datetime.fromisoformat(timestr)
@@ -206,6 +208,19 @@ def get_logtype_from_s3key(s3key, logtype_s3key_dict):
     return 'unknown'
 
 
+def sqs_queue(queue_url):
+    if not queue_url:
+        return None
+    queue_name = queue_url.split('/')[-1]
+    try:
+        sqs_resource = boto3.resource('sqs')
+        sqs_queue = sqs_resource.get_queue_by_name(QueueName=queue_name)
+    except Exception:
+        logger.exception(f'impossible to connect SQS {queue_url}')
+        raise Exception(f'impossible to connect SQS {queue_url}') from None
+    return sqs_queue
+
+
 #############################################################################
 # Lambda initialization
 #############################################################################
@@ -226,7 +241,7 @@ def initialize_es_connection(es_hostname):
     return es_conn
 
 
-def load_user_custom_libs():
+def find_user_custom_libs():
     # /opt is mounted by lambda layer
     user_libs = []
     if os.path.isdir('/opt/siem'):
@@ -235,6 +250,7 @@ def load_user_custom_libs():
     return user_libs
 
 
+@lru_cache(maxsize=128)
 def timestr_to_hours(timestr):
     try:
         hours, minutes = timestr.split(':')
@@ -278,6 +294,22 @@ def load_modules_on_memory(etl_config, user_libs):
                 importlib.import_module(mod_name)
             else:
                 importlib.import_module('siem.' + mod_name)
+
+
+def load_sf_module(logfile, logconfig, user_libs_list):
+    if logconfig['script_ecs']:
+        mod_name = 'sf_' + logfile.logtype.replace('-', '_')
+        # old_mod_name is for compatibility
+        old_mod_name = 'sf_' + logfile.logtype
+        if mod_name + '.py' in user_libs_list:
+            sf_module = importlib.import_module(mod_name)
+        elif old_mod_name + '.py' in user_libs_list:
+            sf_module = importlib.import_module(old_mod_name)
+        else:
+            sf_module = importlib.import_module('siem.' + mod_name)
+    else:
+        sf_module = None
+    return sf_module
 
 
 def make_exclude_own_log_patterns(etl_config):

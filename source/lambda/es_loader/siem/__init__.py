@@ -3,6 +3,7 @@
 
 import bz2
 from datetime import datetime, timedelta, timezone
+from functools import cached_property
 import gzip
 import hashlib
 import io
@@ -13,110 +14,182 @@ import urllib.parse
 import zipfile
 
 from aws_lambda_powertools import Logger
-import boto3
 
 import index as es_loader
 from siem import utils
 
-__version__ = '2.2.0-beta.4'
+__version__ = '2.2.0-beta.5'
 
 logger = Logger(child=True)
 
 
 class LogS3:
-    """取得した一連のログファイルから表層的な情報を取得する.
+    """取得した一連のログファイルから表層的な情報を取得し、個々のログを返す.
 
     圧縮の有無の判断、ログ種類を判断、フォーマットの判断をして
     最後に、生ファイルを個々のログに分割してリスト型として返す
     """
-    def __init__(self, record, s3_client, logtype, logconfig):
-        # Get the bucket name and key for the new file
+    def __init__(self, record, logtype, logconfig, s3_client, sqs_queue):
+        self.record = record
+        self.logtype = logtype
+        self.logconfig = logconfig
+        self.s3_client = s3_client
+        self.sqs_queue = sqs_queue
+
         self.loggroup = None
         self.logstream = None
-        self.logconfig = logconfig
-        self.via_cwl = None
-        self.via_firelens = None
-        self.s3key_accountid = None
-        self.cwl_accountid = None
-        self.cwe_accountid = None
-        self.s3key_region = None
-        self.cwe_region = None
-        self.logtype = logtype
-        self.s3_client = s3_client
-        self.s3bucket = record['s3']['bucket']['name']
-        self.s3key = record['s3']['object']['key']
-        try:
-            self.start_number = record['siem']['start_number']
-            self.end_number = record['siem']['end_number']
-        except KeyError:
-            self.start_number = 0
-            self.end_number = 0
-        self.total_log_count = 0
-        self.ignore = self.check_ignore()
-        if not self.ignore:
-            self.s3key_accountid = utils.extract_aws_account_from_text(
-                self.s3key)
-            self.s3key_region = utils.extract_aws_region_from_text(self.s3key)
-            self.__rawdata = self.extract_rawdata_from_s3obj()
-            self.file_format = self.logconfig['file_format']
-            self.via_cwl = self.logconfig['via_cwl']
-            self.via_firelens = self.logconfig['via_firelens']
+        self.s3bucket = self.record['s3']['bucket']['name']
+        self.s3key = self.record['s3']['object']['key']
+
+        logger.info(self.startmsg())
+        if self.is_ignored:
+            return None
+        self.via_cwl = self.logconfig['via_cwl']
+        self.via_firelens = self.logconfig['via_firelens']
+        self.file_format = self.logconfig['file_format']
+        self.max_log_count = self.logconfig['max_log_count']
+
+        self.__rawdata = self.extract_rawdata_from_s3obj()
+
         if self.via_cwl:
             self.loggroup, self.logstream, self.cwl_accountid = (
                 self.extract_header_from_cwl(self.__rawdata))
+            self.__rawdata.seek(0)
+            self.__rawdata = self.extract_messages_from_cwl(self.__rawdata)
 
-    def check_ignore(self):
+    def __iter__(self):
+        if self.is_ignored:
+            return
+        if self.log_count >= self.max_log_count:
+            if es_loader.SQS_SPLITTED_LOGS_URL:
+                metadata = self.split_logs(self.log_count, self.max_log_count)
+                snet_count = self.send_meta_to_sqs(metadata)
+                self.is_ignored = True
+                self.ignored_reason = (f'Log file was split into {snet_count}'
+                                       f' pieces and sent to SQS.')
+                return
+        yield from self.logdata_generator()
+
+    ###########################################################################
+    # Property
+    ###########################################################################
+    @cached_property
+    def is_ignored(self):
         if 'unknown' in self.logtype:
             # 対応していないlogtypeはunknownになる。その場合は処理をスキップさせる
-            return f'Unknown log type in S3 key, {self.s3key}'
-        else:
-            re_s3_key_ignored = self.logconfig['s3_key_ignored']
-            if re_s3_key_ignored:
-                m = re_s3_key_ignored.search(self.s3key)
-                if m:
-                    return (fr'"s3_key_ignored" {re_s3_key_ignored} matched '
-                            fr'with {self.s3key}')
+            self.ignored_reason = f'Unknown log type in S3 key, {self.s3key}'
+            return True
+        re_s3_key_ignored = self.logconfig['s3_key_ignored']
+        if re_s3_key_ignored:
+            m = re_s3_key_ignored.search(self.s3key)
+            if m:
+                self.ignored_reason = (fr'"s3_key_ignored" {re_s3_key_ignored}'
+                                       fr' matched with {self.s3key}')
+                return True
         return False
 
-    def extract_rawdata_from_s3obj(self):
-        try:
-            safe_s3_key = urllib.parse.unquote_plus(self.s3key)
-            obj = self.s3_client.get_object(
-                Bucket=self.s3bucket, Key=safe_s3_key)
-        except Exception:
-            msg = f'Failed to download S3 object from {self.s3key}'
-            logger.exception(msg)
-            raise Exception(msg) from None
-        # if obj['ResponseMetadata']['HTTPHeaders']['content-length'] == '0':
-        #    raise Exception('No Contents in s3 object')
-        rawbody = io.BytesIO(obj['Body'].read())
-        mime = utils.get_mime_type(rawbody.read(16))
-        rawbody.seek(0)
-        if mime == 'gzip':
-            body = gzip.open(rawbody, mode='rt', encoding='utf8',
-                             errors='ignore')
-        elif mime == 'text':
-            body = io.TextIOWrapper(rawbody, encoding='utf8', errors='ignore')
-        elif mime == 'zip':
-            z = zipfile.ZipFile(rawbody)
-            body = open(z.namelist()[0], encoding='utf8', errors='ignore')
-        elif mime == 'bzip2':
-            body = bz2.open(rawbody, mode='rt', encoding='utf8',
-                            errors='ignore')
+    @cached_property
+    def log_count(self):
+        if self.end_number == 0:
+            if self.file_format in ('text', 'csv') or self.via_firelens:
+                log_count = len(self.rawdata.readlines())
+            elif 'json' in self.file_format:
+                log_count = 0
+                for x in self.extract_logobj_from_json(mode='count'):
+                    log_count = x
+            if log_count == 0:
+                self.is_ignored = True
+                self.ignored_reason = 'There is no valid log in S3 object'
+            return log_count
         else:
-            logger.error('unknown file format')
-            raise Exception('unknown file format')
-        return body
+            return (self.end_number - self.start_number)
 
-    def check_cwe_and_strip_header(self, dict_obj):
-        if "detail-type" in dict_obj and "resources" in dict_obj:
-            self.cwe_accountid = dict_obj['account']
-            self.cwe_region = dict_obj['region']
-            # source = dict_obj['source'] # eg) aws.securityhub
-            # time = dict_obj['time'] #@ingested
-            return dict_obj['detail']
+    @property
+    def rawdata(self):
+        self.__rawdata.seek(0)
+        return self.__rawdata
+
+    @cached_property
+    def csv_header(self):
+        if 'csv' in self.file_format:
+            return self.rawdata.readlines()[0].strip()
         else:
-            return dict_obj
+            return None
+
+    @cached_property
+    def accountid(self):
+        if hasattr(self, 'cwl_accountid') and self.cwl_accountid is not None:
+            return self.cwl_accountid
+        elif hasattr(self, 'cwe_accountid') and self.cwe_accountid is not None:
+            return self.cwe_accountid
+        s3key_accountid = utils.extract_aws_account_from_text(self.s3key)
+        if s3key_accountid:
+            return s3key_accountid
+        else:
+            return None
+
+    @cached_property
+    def region(self):
+        if hasattr(self, 'cwe_region') and self.cwe_region is not None:
+            return self.cwe_region
+        s3key_region = utils.extract_aws_region_from_text(self.s3key)
+        if s3key_region:
+            return s3key_region
+        else:
+            return None
+
+    @cached_property
+    def start_number(self):
+        try:
+            return int(self.record['siem']['start_number'])
+        except KeyError:
+            return 0
+
+    @cached_property
+    def end_number(self):
+        try:
+            return int(self.record['siem']['end_number'])
+        except KeyError:
+            return 0
+
+    ###########################################################################
+    # Method
+    ###########################################################################
+    def startmsg(self):
+        startmsg = {'msg': 'started ETL', 's3_bucket': self.s3bucket,
+                    's3_key': self.s3key, 'logtype': self.logtype,
+                    'start_number': self.start_number,
+                    'end_number': self.end_number}
+        return startmsg
+
+    def logdata_generator(self):
+        if 'text' in self.file_format:
+            ignore_header_line_number = self.logconfig[
+                'text_header_line_number']
+        elif 'csv' in self.file_format:
+            ignore_header_line_number = 1
+        else:
+            ignore_header_line_number = 0
+        if self.start_number <= ignore_header_line_number:
+            start = ignore_header_line_number
+            if self.max_log_count >= self.log_count:
+                end = self.log_count
+            else:
+                end = self.max_log_count
+        else:
+            start = self.start_number - 1
+            end = self.end_number
+        self.total_log_count = end - start
+
+        if self.file_format in ('text', 'csv') or self.via_firelens:
+            for logdata in self.rawdata.readlines()[start:end]:
+                yield logdata.strip()
+        elif 'json' in self.file_format:
+            logobjs = self.extract_logobj_from_json('extract', start, end)
+            for logobj in logobjs:
+                yield logobj
+        else:
+            raise
 
     def extract_header_from_cwl(self, rawdata):
         index = 0
@@ -151,46 +224,37 @@ class LogS3:
         newlog_io_obj.seek(0)
         return newlog_io_obj
 
-    @property
-    def accountid(self):
-        if self.cwl_accountid:
-            return self.cwl_accountid
-        elif self.cwe_accountid:
-            return self.cwe_accountid
-        elif self.s3key_accountid:
-            return self.s3key_accountid
+    def extract_rawdata_from_s3obj(self):
+        try:
+            safe_s3_key = urllib.parse.unquote_plus(self.s3key)
+            obj = self.s3_client.get_object(
+                Bucket=self.s3bucket, Key=safe_s3_key)
+        except Exception:
+            msg = f'Failed to download S3 object from {self.s3key}'
+            logger.exception(msg)
+            raise Exception(msg) from None
+        # if obj['ResponseMetadata']['HTTPHeaders']['content-length'] == '0':
+        #    raise Exception('No Contents in s3 object')
+        rawbody = io.BytesIO(obj['Body'].read())
+        mime_type = utils.get_mime_type(rawbody.read(16))
+        rawbody.seek(0)
+        if mime_type == 'gzip':
+            body = gzip.open(rawbody, mode='rt', encoding='utf8',
+                             errors='ignore')
+        elif mime_type == 'text':
+            body = io.TextIOWrapper(rawbody, encoding='utf8', errors='ignore')
+        elif mime_type == 'zip':
+            z = zipfile.ZipFile(rawbody)
+            body = open(z.namelist()[0], encoding='utf8', errors='ignore')
+        elif mime_type == 'bzip2':
+            body = bz2.open(rawbody, mode='rt', encoding='utf8',
+                            errors='ignore')
         else:
-            return None
+            logger.error('unknown file format')
+            raise Exception('unknown file format')
+        return body
 
-    @property
-    def region(self):
-        if self.cwe_region:
-            return self.cwe_region
-        elif self.s3key_region:
-            return self.s3key_region
-        else:
-            return None
-
-    @property
-    def rawdata(self):
-        self.__rawdata.seek(0)
-        if self.via_cwl:
-            return self.extract_messages_from_cwl(self.__rawdata)
-        return self.__rawdata
-
-    @property
-    def header(self):
-        if 'csv' in self.file_format:
-            return self.rawdata.readlines()[0].strip()
-        else:
-            return None
-
-    def extract_logobj_from_json(self, mode='count', start=0, end=0,
-                                 log_count=0, max_log_count=0):
-        if start == 0 and es_loader.SQS_SPLITTED_LOGS_URL:
-            end = max_log_count
-        if start == 0 or max_log_count == 0:
-            end = log_count
+    def extract_logobj_from_json(self, mode='count', start=0, end=0):
         decoder = json.JSONDecoder()
         delimiter = self.logconfig['json_delimiter']
         count = 0
@@ -221,87 +285,52 @@ class LogS3:
             if 'count' in mode:
                 yield count
 
-    def split_logs_to_sqs(self, log_count, max_log_count):
-        if self.start_number == 0 and es_loader.SQS_SPLITTED_LOGS_URL:
-            if max_log_count and (log_count > max_log_count):
-                pass
-            else:
-                return None
+    def check_cwe_and_strip_header(self, dict_obj):
+        if "detail-type" in dict_obj and "resources" in dict_obj:
+            self.cwe_accountid = dict_obj['account']
+            self.cwe_region = dict_obj['region']
+            # source = dict_obj['source'] # eg) aws.securityhub
+            # time = dict_obj['time'] #@ingested
+            return dict_obj['detail']
         else:
-            return None
-        sqs_client = boto3.client("sqs")
-        queue_url = es_loader.SQS_SPLITTED_LOGS_URL
+            return dict_obj
+
+    def split_logs(self, log_count, max_log_count):
         q, mod = divmod(log_count, max_log_count)
-        logger.debug({'split_logs': f's3://{self.s3bucket}/{self.s3key}',
-                      'max_log_count': max_log_count, 'log_count': log_count})
-        entries = []
+        if mod != 0:
+            q = q + 1
+        splite_logs_list = []
         for x in range(q):
-            start = (x + 1) * max_log_count + 1
-            end = (x + 2) * max_log_count
-            if (x + 1) == q:
-                end = log_count
+            if x == 0:
+                start = 1
+            else:
+                start = x * max_log_count + 1
+            end = (x + 1) * max_log_count
+            if (x == q - 1) and (mod != 0):
+                end = x * max_log_count + mod
+            splite_logs_list.append((start, end))
+        return splite_logs_list
+
+    def send_meta_to_sqs(self, metadata):
+        logger.debug({'split_logs': f's3://{self.s3bucket}/{self.s3key}',
+                      'max_log_count': self.max_log_count,
+                      'log_count': self.log_count})
+        entries = []
+        last_num = len(metadata)
+        for i, (start, end) in enumerate(metadata):
             queue_body = {
                 "siem": {"start_number": start, "end_number": end},
                 "s3": {"bucket": {"name": self.s3bucket},
                        "object": {"key": self.s3key}}}
             message_body = json.dumps(queue_body)
-            logger.debug(message_body)
             entries.append({'Id': f'num_{start}', 'MessageBody': message_body})
-            if (x % 10 == 9) or (x + 1 == q):
-                response = sqs_client.send_message_batch(
-                    QueueUrl=queue_url, Entries=entries)
+            if (len(entries) == 10) or (i == last_num - 1):
+                response = self.sqs_queue.send_messages(Entries=entries)
                 if response['ResponseMetadata']['HTTPStatusCode'] != 200:
                     logger.error(json.dumps(response))
                     raise Exception(json.dumps(response))
                 entries = []
-        return True
-
-    @property
-    def logdata_list(self):
-        max_log_count = self.logconfig['max_log_count']
-
-        if self.file_format in ('text', 'csv') or self.via_firelens:
-            if 'text' in self.file_format:
-                ignore_header_line_number = self.logconfig['text_header_line_number']
-            elif 'csv' in self.file_format:
-                ignore_header_line_number = 1
-            else:
-                ignore_header_line_number = 0
-
-            log_count = len(self.rawdata.readlines())
-            self.split_logs_to_sqs(log_count, max_log_count)
-            if self.start_number == 0:
-                start = ignore_header_line_number
-                if (max_log_count >= log_count
-                        or not es_loader.SQS_SPLITTED_LOGS_URL):
-                    end = log_count
-                else:
-                    end = max_log_count
-            else:
-                start = self.start_number - 1
-                end = self.end_number
-            self.total_log_count = end - start
-            for logdata in self.rawdata.readlines()[start:end]:
-                yield logdata.strip()
-
-        elif 'json' in self.file_format:
-            log_count = 0
-            for x in self.extract_logobj_from_json(mode='count'):
-                log_count = x
-            self.total_log_count = log_count
-            self.split_logs_to_sqs(log_count, max_log_count)
-            logobjs = self.extract_logobj_from_json(
-                'extract', self.start_number, self.end_number, log_count,
-                max_log_count)
-            for logobj in logobjs:
-                yield logobj
-
-    @property
-    def startmsg(self):
-        startmsg = {'s3_bucket': self.s3bucket, 's3_key': self.s3key,
-                    'logtype': self.logtype, 'start_number': self.start_number,
-                    'end_number': self.end_number}
-        return startmsg
+        return last_num
 
 
 class LogParser:
@@ -311,29 +340,27 @@ class LogParser:
     テキストなら名前付き正規化による抽出、エンリッチ(geoipなどの付与)、
     フィールドのECSへの統一、最後にJSON化、する
     """
-    def __init__(self, logdata, logtype, logconfig, logformat=None,
-                 header=None, s3bucket=None, s3key=None, loggroup=None,
-                 logstream=None, accountid=None, region=None,
-                 via_firelens=None, log_pattern_prog=None, sf_module=None,
-                 *args, **kwargs):
+    def __init__(self, logfile, logdata, logconfig, sf_module):
+        self.logfile = logfile
         self.logdata = logdata
-        self.logtype = logtype
         self.logconfig = logconfig
-        self.logformat = logformat
-        self.s3bucket = s3bucket
-        self.s3key = s3key
-        self.loggroup = loggroup
-        self.logstream = logstream
-        self.accountid = accountid
-        self.region = region
-        self.log_pattern_prog = log_pattern_prog
-        self.header = header
-        self.via_firelens = via_firelens
+
+        self.logtype = logfile.logtype
+        self.s3key = logfile.s3key
+        self.s3bucket = logfile.s3bucket
+        self.logformat = logfile.file_format
+        self.header = logfile.csv_header
+        self.accountid = logfile.accountid
+        self.region = logfile.region
+        self.loggroup = logfile.loggroup
+        self.logstream = logfile.logstream
+        self.via_firelens = logfile.via_firelens
+        self.sf_module = sf_module
+
         self.__logdata_dict = self.logdata_to_dict()
         self.is_ignored = self.__logdata_dict.get('is_ignored')
         self.__skip_normalization = self.__logdata_dict.get(
             '__skip_normalization')
-        self.sf_module = sf_module
 
     def logdata_to_dict(self):
         logdata_dict = {}
@@ -535,7 +562,7 @@ class LogParser:
         self.__logdata_dict = utils.merge_dicts(
             self.__logdata_dict, enrich_dict)
 
-    @property
+    @cached_property
     def doc_id(self):
         if '__doc_id_suffix' in self.__logdata_dict:
             temp = self.__logdata_dict['__doc_id_suffix']
@@ -582,15 +609,15 @@ class LogParser:
             dt = datetime.now(timezone.utc)
         return dt
 
-    @property
+    @cached_property
     def timestamp(self):
         return self.__timestamp
 
-    @property
+    @cached_property
     def event_ingested(self):
         return self.__event_ingested
 
-    @property
+    @cached_property
     def indexname(self):
         if '__index_name' in self.__logdata_dict:
             indexname = self.__logdata_dict['__index_name']
@@ -628,7 +655,7 @@ class LogParser:
                 del d[key]
         return d
 
-    @property
+    @cached_property
     def json(self):
         # 内部で管理用のフィールドを削除
         try:
