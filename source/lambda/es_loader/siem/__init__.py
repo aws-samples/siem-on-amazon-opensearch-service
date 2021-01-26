@@ -208,19 +208,16 @@ class LogS3:
 
     def extract_messages_from_cwl(self, rawlog_io_obj):
         decoder = json.JSONDecoder()
-        size = len(rawlog_io_obj.read())
+        rawlog = rawlog_io_obj.read()
+        size = len(rawlog)
         index = 0
-        rawlog_io_obj.seek(index)
         newlog_io_obj = io.StringIO()
         while size > index:
-            obj, offset = decoder.raw_decode(rawlog_io_obj.read())
-            index = offset + index
-            rawlog_io_obj.seek(index)
+            obj, index = decoder.raw_decode(rawlog, index)
             if 'CONTROL_MESSAGE' in obj['messageType']:
                 continue
             for log in obj['logEvents']:
                 newlog_io_obj.write(log['message'] + "\n")
-        del rawlog_io_obj
         newlog_io_obj.seek(0)
         return newlog_io_obj
 
@@ -380,7 +377,15 @@ class LogParser:
                     firelens_meta_dict.update(d)
                     return firelens_meta_dict
             if self.logformat in 'json':
-                self.logdata = json.loads(self.logdata)
+                try:
+                    self.logdata = json.loads(self.logdata)
+                except json.JSONDecodeError:
+                    error_message = 'invalid file format during parsing'
+                    d = {'__skip_normalization': True,
+                         'error': {'message': error_message}}
+                    firelens_meta_dict.update(d)
+                    logger.warn(f'{error_message} {self.s3key}')
+                    return firelens_meta_dict
 
         if self.logformat in 'csv':
             logdata_dict = dict(zip(self.header.split(), self.logdata.split()))
@@ -422,7 +427,9 @@ class LogParser:
         firelens_meta_dict['ecs_task_arn'] = obj.get('ecs_task_arn')
         firelens_meta_dict['ecs_task_definition'] = obj.get(
             'ecs_task_definition')
-        firelens_meta_dict['ec2_instance_id'] = obj.get('ec2_instance_id')
+        ec2_instance_id = obj.get('ec2_instance_id', False)
+        if ec2_instance_id:
+            firelens_meta_dict['ec2_instance_id'] = ec2_instance_id
         # original log
         logdata = obj['log']
         return logdata, firelens_meta_dict
@@ -448,6 +455,10 @@ class LogParser:
         basic_dict['@log_type'] = self.logtype
         if self.logconfig['doc_id'] and not self.__skip_normalization:
             basic_dict['@id'] = self.__logdata_dict[self.logconfig['doc_id']]
+        elif self.__skip_normalization:
+            unique_text = "{0}{1}".format(basic_dict['@message'], self.s3key)
+            basic_dict['@id'] = hashlib.md5(
+                unique_text.encode('utf-8')).hexdigest()
         else:
             basic_dict['@id'] = hashlib.md5(
                 str(basic_dict['@message']).encode('utf-8')).hexdigest()
@@ -524,8 +535,9 @@ class LogParser:
             ecs_task_arn_taple = self.__logdata_dict['ecs_task_arn'].split(':')
             ecs_dict['cloud']['account']['id'] = ecs_task_arn_taple[4]
             ecs_dict['cloud']['region'] = ecs_task_arn_taple[3]
-            ecs_dict['cloud']['instance'] = {
-                'id': self.__logdata_dict['ec2_instance_id']}
+            if 'ec2_instance_id' in self.__logdata_dict:
+                ecs_dict['cloud']['instance'] = {
+                    'id': self.__logdata_dict['ec2_instance_id']}
             ecs_dict['container'] = {
                 'id': self.__logdata_dict['container_id'],
                 'name': self.__logdata_dict['container_name']}
