@@ -406,7 +406,7 @@ class LogParser:
                 msg_dict = {
                     'Exception': f'Invalid regex paasttern of {self.logtype}',
                     'rawdata': self.logdata,
-                    'regex_pattern': self.log_pattern_prog}
+                    'regex_pattern': re_log_pattern_prog}
                 logger.error(msg_dict)
                 raise Exception(repr(msg_dict))
 
