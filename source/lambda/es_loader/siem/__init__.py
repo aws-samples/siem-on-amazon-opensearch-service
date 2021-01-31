@@ -15,10 +15,9 @@ import zipfile
 
 from aws_lambda_powertools import Logger
 
-import index as es_loader
 from siem import utils
 
-__version__ = '2.2.0-beta.5'
+__version__ = '2.2.0-beta.6'
 
 logger = Logger(child=True)
 
@@ -61,11 +60,11 @@ class LogS3:
         if self.is_ignored:
             return
         if self.log_count >= self.max_log_count:
-            if es_loader.SQS_SPLITTED_LOGS_URL:
+            if self.sqs_queue:
                 metadata = self.split_logs(self.log_count, self.max_log_count)
-                snet_count = self.send_meta_to_sqs(metadata)
+                sent_count = self.send_meta_to_sqs(metadata)
                 self.is_ignored = True
-                self.ignored_reason = (f'Log file was split into {snet_count}'
+                self.ignored_reason = (f'Log file was split into {sent_count}'
                                        f' pieces and sent to SQS.')
                 return
         yield from self.logdata_generator()
@@ -97,9 +96,12 @@ class LogS3:
                 log_count = 0
                 for x in self.extract_logobj_from_json(mode='count'):
                     log_count = x
+            else:
+                log_count = 0
             if log_count == 0:
                 self.is_ignored = True
-                self.ignored_reason = 'There is no valid log in S3 object'
+                self.ignored_reason = (
+                    'there are not any valid logs in S3 object')
             return log_count
         else:
             return (self.end_number - self.start_number)
@@ -153,10 +155,10 @@ class LogS3:
             return 0
 
     ###########################################################################
-    # Method
+    # Method/Function
     ###########################################################################
     def startmsg(self):
-        startmsg = {'msg': 'started ETL', 's3_bucket': self.s3bucket,
+        startmsg = {'msg': 'Invoked es-loader', 's3_bucket': self.s3bucket,
                     's3_key': self.s3key, 'logtype': self.logtype,
                     'start_number': self.start_number,
                     'end_number': self.end_number}
@@ -189,7 +191,7 @@ class LogS3:
             for logobj in logobjs:
                 yield logobj
         else:
-            raise
+            raise Exception
 
     def extract_header_from_cwl(self, rawdata):
         index = 0
@@ -337,10 +339,13 @@ class LogParser:
     テキストなら名前付き正規化による抽出、エンリッチ(geoipなどの付与)、
     フィールドのECSへの統一、最後にJSON化、する
     """
-    def __init__(self, logfile, logdata, logconfig, sf_module):
+    def __init__(self, logfile, logconfig, sf_module, geodb_instance,
+                 exclude_log_patterns):
         self.logfile = logfile
-        self.logdata = logdata
         self.logconfig = logconfig
+        self.sf_module = sf_module
+        self.geodb_instance = geodb_instance
+        self.exclude_log_patterns = exclude_log_patterns
 
         self.logtype = logfile.logtype
         self.s3key = logfile.s3key
@@ -352,94 +357,129 @@ class LogParser:
         self.loggroup = logfile.loggroup
         self.logstream = logfile.logstream
         self.via_firelens = logfile.via_firelens
-        self.sf_module = sf_module
 
-        self.__logdata_dict = self.logdata_to_dict()
-        self.is_ignored = self.__logdata_dict.get('is_ignored')
-        self.__skip_normalization = self.__logdata_dict.get(
-            '__skip_normalization')
+        self.timestamp_tz = timezone(
+            timedelta(hours=float(self.logconfig['timestamp_tz'])))
+        if self.logconfig['index_tz']:
+            self.index_tz = timezone(
+                timedelta(hours=float(self.logconfig['index_tz'])))
+        self.has_nanotime = self.logconfig['timestamp_nano']
 
-    def logdata_to_dict(self):
+    def __call__(self, logdata):
+        self.logdata = logdata
+        self.__logdata_dict = self.logdata_to_dict(logdata)
+        if self.is_ignored:
+            return
+        self.__event_ingested = datetime.now(timezone.utc)
+        self.__skip_normalization = self.set_skip_normalization()
+        self.__timestamp = self.get_timestamp()
+
+        # idなどの共通的なフィールドを追加する
+        self.add_basic_field()
+        # logger.debug({'doc_id': self.doc_id})
+        # 同じフィールド名で複数タイプがあるとESにロードするとエラーになるので
+        # 該当フィールドだけテキスト化する
+        self.clean_multi_type_field()
+        # フィールドをECSにマッピングして正規化する
+        self.transform_to_ecs()
+        # 一部のフィールドを修正する
+        self.transform_by_script()
+        # ログにgeoipなどの情報をエンリッチ
+        self.enrich()
+
+    ###########################################################################
+    # Property
+    ###########################################################################
+    @property
+    def is_ignored(self):
+        if self.__logdata_dict.get('is_ignored'):
+            self.ignored_reason = self.__logdata_dict.get('ignored_reason')
+            return True
+        if self.logtype in self.exclude_log_patterns:
+            is_excluded, ex_pattern = utils.match_log_with_exclude_patterns(
+                self.__logdata_dict, self.exclude_log_patterns[self.logtype])
+            if is_excluded:
+                self.ignored_reason = (
+                    f'matched {ex_pattern} with exclude_log_patterns')
+                return True
+        return False
+
+    @property
+    def timestamp(self):
+        return self.__timestamp
+
+    @property
+    def event_ingested(self):
+        return self.__event_ingested
+
+    @property
+    def doc_id(self):
+        if '__doc_id_suffix' in self.__logdata_dict:
+            # this field is added by sf_ script
+            temp = self.__logdata_dict['__doc_id_suffix']
+            del self.__logdata_dict['__doc_id_suffix']
+            return '{0}_{1}'.format(self.__logdata_dict['@id'], temp)
+        if self.logconfig['doc_id_suffix']:
+            suffix = utils.value_from_nesteddict_by_dottedkey(
+                self.__logdata_dict, self.logconfig['doc_id_suffix'])
+            if suffix:
+                return '{0}_{1}'.format(self.__logdata_dict['@id'], suffix)
+        return self.__logdata_dict['@id']
+
+    @property
+    def indexname(self):
+        if '__index_name' in self.__logdata_dict:
+            # this field is added by sf_ script
+            indexname = self.__logdata_dict['__index_name']
+            del self.__logdata_dict['__index_name']
+        else:
+            indexname = self.logconfig['index_name']
+        if 'auto' in self.logconfig['index_rotation']:
+            return indexname
+        if 'event_ingested' in self.logconfig['index_time']:
+            index_dt = self.event_ingested
+        else:
+            index_dt = self.timestamp
+        if self.logconfig['index_tz']:
+            index_dt = index_dt.astimezone(self.index_tz)
+        if 'daily' in self.logconfig['index_rotation']:
+            return indexname + index_dt.strftime('-%Y-%m-%d')
+        elif 'weekly' in self.logconfig['index_rotation']:
+            return indexname + index_dt.strftime('-%Y-w%W')
+        elif 'monthly' in self.logconfig['index_rotation']:
+            return indexname + index_dt.strftime('-%Y-%m')
+        else:
+            return indexname + index_dt.strftime('-%Y')
+
+    @property
+    def json(self):
+        # 内部で管理用のフィールドを削除
+        self.__logdata_dict = self.del_none(self.__logdata_dict)
+        return json.dumps(self.__logdata_dict)
+
+    ###########################################################################
+    # Method/Function - Main
+    ###########################################################################
+    def logdata_to_dict(self, logdata):
         logdata_dict = {}
-
         firelens_meta_dict = {}
         if self.via_firelens:
-            (self.logdata, firelens_meta_dict) = (
-                self.get_log_and_meta_from_firelens())
-            if firelens_meta_dict['container_source'] == 'stderr':
-                ignore_container_stderr_bool = (
-                    self.logconfig['ignore_container_stderr'])
-                if ignore_container_stderr_bool:
-                    return {'is_ignored': True}
-                else:
-                    d = {'__skip_normalization': True,
-                         'error': {'message': self.logdata}}
-                    firelens_meta_dict.update(d)
-                    return firelens_meta_dict
-            if self.logformat in 'json':
-                try:
-                    self.logdata = json.loads(self.logdata)
-                except json.JSONDecodeError:
-                    error_message = 'invalid file format during parsing'
-                    d = {'__skip_normalization': True,
-                         'error': {'message': error_message}}
-                    firelens_meta_dict.update(d)
-                    logger.warn(f'{error_message} {self.s3key}')
-                    return firelens_meta_dict
-
+            logdata, firelens_meta_dict = self.get_log_and_meta_from_firelens()
+            self.logdata = logdata
+            logdata, is_valid_log = self.validate_logdata_in_firelens(
+                logdata, firelens_meta_dict)
+            if not is_valid_log:
+                return logdata
         if self.logformat in 'csv':
-            logdata_dict = dict(zip(self.header.split(), self.logdata.split()))
-            utils.convert_keyname_to_safe_field(logdata_dict)
+            logdata_dict = dict(zip(self.header.split(), logdata.split()))
+            logdata_dict = utils.convert_keyname_to_safe_field(logdata_dict)
         elif self.logformat in 'json':
-            logdata_dict = self.logdata
+            logdata_dict = logdata
         elif self.logformat in 'text':
-            try:
-                re_log_pattern_prog = self.logconfig['log_pattern']
-                m = re_log_pattern_prog.match(self.logdata)
-            except AttributeError:
-                msg = 'No log_pattern. You need to define it in user.ini'
-                logger.exception(msg)
-                raise AttributeError(msg) from None
-            if m:
-                logdata_dict = m.groupdict()
-            else:
-                msg_dict = {
-                    'Exception': f'Invalid regex paasttern of {self.logtype}',
-                    'rawdata': self.logdata,
-                    'regex_pattern': re_log_pattern_prog}
-                logger.error(msg_dict)
-                raise Exception(repr(msg_dict))
-
+            logdata_dict = self.text_logdata_to_dict(logdata)
         if self.via_firelens:
             logdata_dict.update(firelens_meta_dict)
-
         return logdata_dict
-
-    def get_log_and_meta_from_firelens(self):
-        obj = json.loads(self.logdata)
-        firelens_meta_dict = {}
-        # basic firelens field
-        firelens_meta_dict['container_id'] = obj.get('container_id')
-        firelens_meta_dict['container_name'] = obj.get('container_name')
-        firelens_meta_dict['container_source'] = obj.get('source')
-        # ecs meta data
-        firelens_meta_dict['ecs_cluster'] = obj.get('ecs_cluster')
-        firelens_meta_dict['ecs_task_arn'] = obj.get('ecs_task_arn')
-        firelens_meta_dict['ecs_task_definition'] = obj.get(
-            'ecs_task_definition')
-        ec2_instance_id = obj.get('ec2_instance_id', False)
-        if ec2_instance_id:
-            firelens_meta_dict['ec2_instance_id'] = ec2_instance_id
-        # original log
-        logdata = obj['log']
-        return logdata, firelens_meta_dict
-
-    def check_ignored_log(self, ignore_list):
-        is_excluded = False
-        if self.logtype in ignore_list:
-            is_excluded = utils.match_log_with_exclude_patterns(
-                self.__logdata_dict, ignore_list[self.logtype])
-        return is_excluded
 
     def add_basic_field(self):
         basic_dict = {}
@@ -448,26 +488,23 @@ class LogParser:
         else:
             basic_dict['@message'] = str(self.logdata)
         basic_dict['event'] = {'module': self.logtype}
-        self.__timestamp = self.get_timestamp()
         basic_dict['@timestamp'] = self.timestamp.isoformat()
-        self.__event_ingested = datetime.now(timezone.utc)
         basic_dict['event']['ingested'] = self.event_ingested.isoformat()
         basic_dict['@log_type'] = self.logtype
-        if self.logconfig['doc_id'] and not self.__skip_normalization:
-            basic_dict['@id'] = self.__logdata_dict[self.logconfig['doc_id']]
-        elif self.__skip_normalization:
+        if self.__skip_normalization:
             unique_text = "{0}{1}".format(basic_dict['@message'], self.s3key)
             basic_dict['@id'] = hashlib.md5(
                 unique_text.encode('utf-8')).hexdigest()
+        elif self.logconfig['doc_id']:
+            basic_dict['@id'] = self.__logdata_dict[self.logconfig['doc_id']]
         else:
             basic_dict['@id'] = hashlib.md5(
                 str(basic_dict['@message']).encode('utf-8')).hexdigest()
         if self.loggroup:
             basic_dict['@log_group'] = self.loggroup
             basic_dict['@log_stream'] = self.logstream
-        if self.s3bucket:
-            basic_dict['@log_s3bucket'] = self.s3bucket
-            basic_dict['@log_s3key'] = self.s3key
+        basic_dict['@log_s3bucket'] = self.s3bucket
+        basic_dict['@log_s3key'] = self.s3key
         self.__logdata_dict.update(basic_dict)
 
     def clean_multi_type_field(self):
@@ -551,11 +588,10 @@ class LogParser:
         self.__logdata_dict = utils.merge_dicts(self.__logdata_dict, ecs_dict)
 
     def transform_by_script(self):
-        # if overrite index_name, add key(__logdata_dict) to self.
         if self.logconfig['script_ecs']:
             self.__logdata_dict = self.sf_module.transform(self.__logdata_dict)
 
-    def enrich(self, geodb_instance):
+    def enrich(self):
         enrich_dict = {}
         # geoip
         geoip_list = self.logconfig['geoip'].split()
@@ -564,7 +600,7 @@ class LogParser:
                 ipaddr = self.__logdata_dict[geoip_ecs]['ip']
             except KeyError:
                 continue
-            geoip, asn = geodb_instance.check_ipaddress(ipaddr)
+            geoip, asn = self.geodb_instance.check_ipaddress(ipaddr)
             if geoip:
                 enrich_dict[geoip_ecs] = {'geo': geoip}
             if geoip and asn:
@@ -574,85 +610,92 @@ class LogParser:
         self.__logdata_dict = utils.merge_dicts(
             self.__logdata_dict, enrich_dict)
 
-    @cached_property
-    def doc_id(self):
-        if '__doc_id_suffix' in self.__logdata_dict:
-            temp = self.__logdata_dict['__doc_id_suffix']
-            del self.__logdata_dict['__doc_id_suffix']
-            return '{0}_{1}'.format(self.__logdata_dict['@id'], temp)
-        if self.logconfig['doc_id_suffix']:
-            suffix = utils.value_from_nesteddict_by_dottedkey(
-                self.__logdata_dict, self.logconfig['doc_id_suffix'])
-            if suffix:
-                return '{0}_{1}'.format(self.__logdata_dict['@id'], suffix)
-        return self.__logdata_dict['@id']
+    ###########################################################################
+    # Method/Function - Support
+    ###########################################################################
+    def get_log_and_meta_from_firelens(self):
+        obj = json.loads(self.logdata)
+        firelens_meta_dict = {}
+        # basic firelens field
+        firelens_meta_dict['container_id'] = obj.get('container_id')
+        firelens_meta_dict['container_name'] = obj.get('container_name')
+        firelens_meta_dict['container_source'] = obj.get('source')
+        # ecs meta data
+        firelens_meta_dict['ecs_cluster'] = obj.get('ecs_cluster')
+        firelens_meta_dict['ecs_task_arn'] = obj.get('ecs_task_arn')
+        firelens_meta_dict['ecs_task_definition'] = obj.get(
+            'ecs_task_definition')
+        ec2_instance_id = obj.get('ec2_instance_id', False)
+        if ec2_instance_id:
+            firelens_meta_dict['ec2_instance_id'] = ec2_instance_id
+        # original log
+        logdata = obj['log']
+        return logdata, firelens_meta_dict
+
+    def validate_logdata_in_firelens(self, logdata, firelens_meta_dict):
+        if firelens_meta_dict['container_source'] == 'stderr':
+            ignore_container_stderr_bool = (
+                self.logconfig['ignore_container_stderr'])
+            if ignore_container_stderr_bool:
+                reason = "log is container's stderr"
+                return({'is_ignored': True, 'ignored_reason': reason}, False)
+            else:
+                d = {'__skip_normalization': True,
+                     'error': {'message': logdata}}
+                firelens_meta_dict.update(d)
+                return(firelens_meta_dict, False)
+        if self.logformat in 'json':
+            try:
+                logdata = json.loads(logdata)
+            except json.JSONDecodeError:
+                error_message = 'Invalid file format found during parsing'
+                d = {'__skip_normalization': True,
+                     'error': {'message': error_message}}
+                firelens_meta_dict.update(d)
+                logger.warn(f'{error_message} {self.s3key}')
+                return(firelens_meta_dict, False)
+        return(logdata, True)
+
+    def text_logdata_to_dict(self, logdata):
+        re_log_pattern_prog = self.logconfig['log_pattern']
+        try:
+            re_log_pattern_prog = self.logconfig['log_pattern']
+            m = re_log_pattern_prog.match(logdata)
+        except AttributeError:
+            msg = 'No log_pattern. You need to define it in user.ini'
+            logger.exception(msg)
+            raise AttributeError(msg) from None
+        if m:
+            logdata_dict = m.groupdict()
+        else:
+            msg_dict = {
+                'Exception': f'Invalid regex paasttern of {self.logtype}',
+                'rawdata': logdata, 'regex_pattern': re_log_pattern_prog}
+            logger.error(msg_dict)
+            raise Exception(repr(msg_dict))
+        return logdata_dict
+
+    def set_skip_normalization(self):
+        if self.__logdata_dict.get('__skip_normalization'):
+            del self.__logdata_dict['__skip_normalization']
+            return True
+        return False
 
     def get_timestamp(self):
-        '''get time stamp.
-
-        '''
-
-        '''
-        OBSOLETED v 2.2.0
-        if 'timestamp' in self.logconfig and self.logconfig['timestamp']:
-            # this is depprecatd code of v1.5.2 and keep for compatibility
-            timestamp_list = self.logconfig['timestamp'].split(',')
-            self.logconfig['timestamp_key'] = timestamp_list[0]
-            if len(timestamp_list) == 2:
-                self.logconfig['timestamp_format'] = timestamp_list[1]
-            # フォーマットの指定がなければISO9601と仮定。
-        '''
         if self.logconfig['timestamp_key'] and not self.__skip_normalization:
-            # new code from ver 1.6.0
-            timestamp_key = self.logconfig['timestamp_key']
-            timestamp_format = self.logconfig['timestamp_format']
-            timestamp_tz = float(self.logconfig['timestamp_tz'])
-            TZ = timezone(timedelta(hours=timestamp_tz))
-            has_nanotime = self.logconfig['timestamp_nano']
             timestr = utils.get_timestr_from_logdata_dict(
-                self.__logdata_dict, timestamp_key, has_nanotime)
+                self.__logdata_dict, self.logconfig['timestamp_key'],
+                self.has_nanotime)
             dt = utils.convert_timestr_to_datetime(
-                timestr, timestamp_key, timestamp_format, TZ)
+                timestr, self.logconfig['timestamp_key'],
+                self.logconfig['timestamp_format'], self.timestamp_tz)
             if not dt:
-                msg = f'There is no timestamp format for {self.logtype}'
+                msg = f'there is no timestamp format for {self.logtype}'
                 logger.error(msg)
                 raise ValueError(msg)
         else:
             dt = datetime.now(timezone.utc)
         return dt
-
-    @cached_property
-    def timestamp(self):
-        return self.__timestamp
-
-    @cached_property
-    def event_ingested(self):
-        return self.__event_ingested
-
-    @cached_property
-    def indexname(self):
-        if '__index_name' in self.__logdata_dict:
-            indexname = self.__logdata_dict['__index_name']
-            del self.__logdata_dict['__index_name']
-        else:
-            indexname = self.logconfig['index_name']
-        if 'auto' in self.logconfig['index_rotation']:
-            return indexname
-        if 'event_ingested' in self.logconfig['index_time']:
-            index_dt = self.event_ingested
-        else:
-            index_dt = self.timestamp
-        if self.logconfig['index_tz']:
-            TZ = timezone(timedelta(hours=float(self.logconfig['index_tz'])))
-            index_dt = index_dt.astimezone(TZ)
-        if 'daily' in self.logconfig['index_rotation']:
-            return indexname + index_dt.strftime('-%Y-%m-%d')
-        elif 'weekly' in self.logconfig['index_rotation']:
-            return indexname + index_dt.strftime('-%Y-w%W')
-        elif 'monthly' in self.logconfig['index_rotation']:
-            return indexname + index_dt.strftime('-%Y-%m')
-        else:
-            return indexname + index_dt.strftime('-%Y')
 
     def del_none(self, d):
         """値のないキーを削除する。削除しないとESへのLoad時にエラーとなる """
@@ -666,16 +709,6 @@ class LogParser:
             elif isinstance(value, str) and (value in ('', '-', 'null', '[]')):
                 del d[key]
         return d
-
-    @cached_property
-    def json(self):
-        # 内部で管理用のフィールドを削除
-        try:
-            del self.__logdata_dict['__skip_normalization']
-        except Exception:
-            pass
-        self.__logdata_dict = self.del_none(self.__logdata_dict)
-        return json.dumps(self.__logdata_dict)
 
 
 ###############################################################################

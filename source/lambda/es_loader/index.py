@@ -16,7 +16,7 @@ from aws_lambda_powertools.metrics import MetricUnit
 import siem
 from siem import utils, geodb
 
-__version__ = '2.2.0-beta.5'
+__version__ = '2.2.0-beta.6'
 
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
@@ -101,28 +101,15 @@ def get_es_entries(logfile, exclude_log_patterns):
     # load custom script
     sf_module = utils.load_sf_module(logfile, logconfig, user_libs_list)
 
+    logparser = siem.LogParser(
+        logfile, logconfig, sf_module, geodb_instance, exclude_log_patterns)
     for logdata in logfile:
-        # ログファイルを入れて個々のETLを行うインスタンスを作成
-        logparser = siem.LogParser(logfile, logdata, logconfig, sf_module)
-        # 自分自身のログを無視する。ESにはロードしない。
-        is_ignored = logparser.check_ignored_log(exclude_log_patterns)
-        if is_ignored or logparser.is_ignored:
-            logger.debug('matched with exclude_log_pattens')
+        logparser(logdata)
+        if logparser.is_ignored:
+            logger.debug(f'Skipped log because {logparser.ignored_reason}')
             continue
-        # idなどの共通的なフィールドを追加する
-        logparser.add_basic_field()
-        # logger.debug({'doc_id': logparser.doc_id})
-        # 同じフィールド名で複数タイプがあるとESにロードするときにエラーになるので
-        # 該当フィールドだけテキスト化する
-        logparser.clean_multi_type_field()
-        # フィールドをECSにマッピングして正規化する
-        logparser.transform_to_ecs()
-        # 一部のフィールドを修正する
-        logparser.transform_by_script()
-        # ログにgeoipなどの情報をエンリッチ
-        logparser.enrich(geodb_instance)
-        yield {'index': {
-            '_index': logparser.indexname, '_id': logparser.doc_id}}
+        yield {'index': {'_index': logparser.indexname,
+                         '_id': logparser.doc_id}}
         # logger.debug(logparser.json)
         yield logparser.json
 
@@ -266,7 +253,7 @@ def lambda_handler(event, context):
         # S3からファイルを取得してログを抽出する
         logfile = extract_logfile_from_s3(record)
         if logfile.is_ignored:
-            logger.warn(f'Skipped because {logfile.ignored_reason}')
+            logger.warn(f'Skipped S3 object because {logfile.ignored_reason}')
             continue
 
         # 抽出したログからESにPUTするデータを作成する
@@ -278,7 +265,7 @@ def lambda_handler(event, context):
                        collected_metrics=collected_metrics)
         # raise error to retry if error has occuered
         if logfile.is_ignored:
-            logger.warn(f'Skipped because {logfile.ignored_reason}')
+            logger.warn(f'Skipped S3 object because {logfile.ignored_reason}')
         elif collected_metrics['error_count']:
             error_message = (f"{collected_metrics['error_count']}"
                              " of logs were NOT loaded into Amazon ES")
@@ -413,6 +400,9 @@ if __name__ == '__main__':
         outfile = args.sqs + datetime.now(
             timezone.utc).strftime('-%Y%m%d_%H%M%S')
         events = create_event_from_sqs(args.sqs)
+    else:
+        outfile = None
+        events = {}
     f_err, f_err_debug, f_finish = open_debug_log(outfile)
 
     cpu_count = os.cpu_count()

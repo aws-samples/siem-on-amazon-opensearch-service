@@ -24,7 +24,7 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.2.0-beta.5'
+__version__ = '2.2.0-beta.6'
 print(__version__)
 
 iam_client = boto3.client('iam')
@@ -516,7 +516,7 @@ class MyAesSiemStack(core.Stack):
                 'GEOIP_BUCKET': s3bucket_name_geo, 'LOG_LEVEL': 'info',
                 'POWERTOOLS_LOGGER_LOG_EVENT': 'false',
                 'POWERTOOLS_SERVICE_NAME': 'es-loader',
-                'POWERTOOLS_METRICS_NAMESPACE': 'SIEM-beta'})
+                'POWERTOOLS_METRICS_NAMESPACE': 'SIEM'})
         es_loader_newver = lambda_es_loader.add_version(
             name=__version__, description=__version__)
         es_loader_opt = es_loader_newver.node.default_child.cfn_options

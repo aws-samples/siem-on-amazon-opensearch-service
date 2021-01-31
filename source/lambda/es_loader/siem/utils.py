@@ -16,7 +16,7 @@ import botocore
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.2.0-beta.5'
+__version__ = '2.2.0-beta.6'
 
 logger = Logger(child=True)
 
@@ -362,6 +362,7 @@ def merge_dotted_key_value_into_dict(patterns_dict, dotted_key, value):
 
 def merge_csv_into_log_patterns(log_patterns, csv_filename):
     if not csv_filename:
+        logger.info(f'{log_patterns}')
         return log_patterns
     logger.info(f'{csv_filename} is imported to exclude_log_patterns')
     with open(csv_filename, 'rt') as f:
@@ -374,6 +375,7 @@ def merge_csv_into_log_patterns(log_patterns, csv_filename):
             log_patterns[line['log_type']] = merge_dotted_key_value_into_dict(
                 log_patterns[line['log_type']],
                 line['field'], pattern)
+    logger.info(f'{log_patterns}')
     return log_patterns
 
 
@@ -524,9 +526,10 @@ def convert_keyname_to_safe_field(obj):
             convert_keyname_to_safe_field(val)
     else:
         pass
+    return obj
 
 
-def match_log_with_exclude_patterns(log_dict, log_patterns):
+def match_log_with_exclude_patterns(log_dict, log_patterns, ex_pattern=None):
     """match log with exclude patterns.
 
     ログと、log_patterns を比較させる
@@ -540,39 +543,43 @@ def match_log_with_exclude_patterns(log_dict, log_patterns):
     'a': RE_BINGO, 'b': RE_MISS, 'x': {'y': {'z': RE_BINGO}}}
     >>> log_dict = {'a': 111}
     >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
+    (True, '{a: 111}')
     >>> log_dict = {'a': 21112}
     >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-
+    (False, None)
     >>> log_dict = {'a': '111'}
     >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
+    (True, '{a: 111}')
     >>> log_dict = {'aa': 222, 'a': 111}
     >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
+    (True, '{a: 111}')
     >>> log_dict = {'x': {'y': {'z': 111}}}
     >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
+    (True, '{z: 111}')
     >>> log_dict = {'x': {'y': {'z': 222}}}
     >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-
+    (False, None)
     >>> log_dict = {'x': {'hoge':222, 'y': {'z': 111}}}
     >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
+    (True, '{z: 111}')
     >>> log_dict = {'a': 222}
     >>> match_log_with_exclude_patterns(log_dict, log_patterns)
+    (False, None)
 
     """
     for key, pattern in log_patterns.items():
         if key in log_dict:
             if isinstance(pattern, dict) and isinstance(log_dict[key], dict):
-                res = match_log_with_exclude_patterns(log_dict[key], pattern)
-                return res
+                res, ex_pattern = match_log_with_exclude_patterns(
+                    log_dict[key], pattern)
+                return(res, ex_pattern)
             elif isinstance(pattern, re.Pattern):
                 if isinstance(log_dict[key], list):
-                    pass
+                    return(False, None)
                 elif pattern.match(str(log_dict[key])):
-                    return True
+                    ex_pattern = '{{{0}: {1}}}'.format(key, log_dict[key])
+                    return(True, ex_pattern)
+    return(False, None)
 
 
 def merge_dicts(dicta, dictb, path=None):
