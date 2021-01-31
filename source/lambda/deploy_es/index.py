@@ -256,9 +256,17 @@ def configure_opendistro(es_endpoint, es_app_data):
 
 
 def configure_siem(es_endpoint, es_app_data):
-    print('Import kibana index patterns')
     awsauth = auth_aes(es_endpoint)
+    # create cluster settings #48
+    print('Configure cluster setting')
+    cluster_settings = es_app_data['cluster-settings']
+    for key in cluster_settings:
+        payload = json.loads(cluster_settings[key])
+        res = query_aes(
+            es_endpoint, awsauth, 'PUT', '_cluster/settings', payload)
+        print(output_message(key, res))
     # create index-template
+    print('Import kibana index patterns')
     index_patterns = es_app_data['index-template']
     for key in index_patterns:
         payload = json.loads(index_patterns[key])
