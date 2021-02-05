@@ -14,7 +14,7 @@ fi
 echo "------------------------------------------------------------------------------"
 echo "[Packing] pip and Source Folder"
 echo "------------------------------------------------------------------------------"
-pip3 install pip==20.3.3
+python3 -m pip install pip==20.3.3 --user
 function pip_zip_for_lambda () {
     if [ -e $1.zip ]; then
       echo "rm $1.zip"
@@ -28,7 +28,7 @@ function pip_zip_for_lambda () {
         rm -r $(echo "${dir}" | sed -e 's/-.*.dist-info/*/')
     done
     if [ -e requirements.txt ]; then
-        pip3 install -t . -r requirements.txt -U
+        python3 -m pip install -t . -r requirements.txt -U
     fi
     find . -name __pycache__ | xargs rm -fr
     rm -f .DS_Store

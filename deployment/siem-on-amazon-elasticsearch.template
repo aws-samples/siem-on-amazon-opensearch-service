@@ -1392,7 +1392,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "%%BUCKET_NAME%%",
-          "S3Key": "assets/es_loader.zip"
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip"
         },
         "Role": {
           "Fn::GetAtt": [
@@ -1561,7 +1561,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "%%BUCKET_NAME%%",
-          "S3Key": "assets/geoip_downloader.zip"
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/geoip_downloader.zip"
         },
         "Role": {
           "Fn::GetAtt": [
@@ -1614,7 +1614,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "%%BUCKET_NAME%%",
-          "S3Key": "assets/deploy_es.zip"
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip"
         },
         "Role": {
           "Fn::GetAtt": [
@@ -1685,7 +1685,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "%%BUCKET_NAME%%",
-          "S3Key": "assets/deploy_es.zip"
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip"
         },
         "Role": {
           "Fn::GetAtt": [

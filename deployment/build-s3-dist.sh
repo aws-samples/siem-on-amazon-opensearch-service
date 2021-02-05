@@ -36,34 +36,56 @@ template_dist_dir="$template_dir/global-s3-assets"
 build_dist_dir="$template_dir/regional-s3-assets"
 source_dir="$template_dir/../source"
 
+if [ "$SIEM_VER" ]; then
+  siem_ver="$SIEM_VER"
+else
+  ver=`grep ^__version__ $source_dir/lambda/es_loader/index.py | awk -F "'" '{print $2}'`
+  siem_ver="v$ver"
+fi
+
+if [ "$SOLUTION_NAME" ]; then
+  solution_name="$SOLUTION_NAME"
+else
+  solution_name="siem-on-amazon-elasticsearch"
+fi
+
 echo "------------------------------------------------------------------------------"
 echo "[Init] Clean old dist, node_modules and bower_components folders"
 echo "------------------------------------------------------------------------------"
 echo "rm -rf $template_dist_dir"
 rm -rf $template_dist_dir
-echo "mkdir -p $template_dist_dir"
-mkdir -p $template_dist_dir
+echo "mkdir -p $template_dist_dir/$solution_name/$siem_ver"
+mkdir -p $template_dist_dir/$solution_name/$siem_ver
 echo "rm -rf $build_dist_dir"
 rm -rf $build_dist_dir
-echo "mkdir -p $build_dist_dir"
-mkdir -p $build_dist_dir
+echo "mkdir -p $build_dist_dir/$solution_name/$siem_ver"
+mkdir -p $build_dist_dir/$solution_name/$siem_ver
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Templates"
 echo "------------------------------------------------------------------------------"
-echo "cp $template_dir/*.template $template_dist_dir/"
-cp $template_dir/*.template $template_dist_dir/
+echo "cp $template_dir/*.template $template_dist_dir/$solution_name/$siem_ver/"
+cp $template_dir/*.template $template_dist_dir/$solution_name/$siem_ver/
+
 echo "Updating code source bucket in template with $1"
-replace="s/%%BUCKET_NAME%%/$1/g"
+replace1="s/%%BUCKET_NAME%%/$1/g"
+echo "Updating s3 object key in template with $SIEM_VER"
+replace2="s@%%SOLUTION_NAME%%/%%VERSION%%@$solution_name/$siem_ver@g"
 
 if [ "$(uname)" == 'Darwin' ]; then
 # Command for MacOS('sed -i' in MacOS needs extension as parameter)
-    echo "sed -i '' $replace $template_dist_dir/*.template"
-    sed -i '' $replace $template_dist_dir/*.template
+    echo "sed -i '' $replace1 $template_dist_dir/$solution_name/$siem_ver/*.template"
+    sed -i '' $replace1 $template_dist_dir/$solution_name/$siem_ver/*.template
+    echo "sed -i '' $replace2 $template_dist_dir/$solution_name/$siem_ver/*.template"
+    sed -i '' $replace2 $template_dist_dir/$solution_name/$siem_ver/*.template
 else
-    echo "sed -i $replace $template_dist_dir/*.template"
-    sed -i $replace $template_dist_dir/*.template
+    echo "sed -i $replace1 $template_dist_dir/$solution_name/$siem_ver/*.template"
+    sed -i $replace1 $template_dist_dir/$solution_name/$siem_ver/*.template
+    echo "sed -i $replace2 $template_dist_dir/$solution_name/$siem_ver/*.template"
+    sed -i $replace2 $template_dist_dir/$solution_name/$siem_ver/*.template
 fi
+echo "cp $template_dist_dir/$solution_name/$siem_ver/*.template $template_dist_dir/"
+cp $template_dist_dir/$solution_name/$siem_ver/*.template $template_dist_dir/
 
 echo "------------------------------------------------------------------------------"
 echo "Copy Lambda function"
@@ -71,17 +93,17 @@ echo "--------------------------------------------------------------------------
 cd $source_dir/lambda/
 pwd
 ls *.zip
-if [ ! -d  $build_dist_dir/assets ]; then
-    mkdir -p $build_dist_dir/assets/
+if [ ! -d  $build_dist_dir/$solution_name/$siem_ver/assets ]; then
+    mkdir -p $build_dist_dir/$solution_name/$siem_ver/assets/
 fi
-cp -f *.zip $build_dist_dir/assets/
+cp -f *.zip $build_dist_dir/$solution_name/$siem_ver/assets/
 
 echo "------------------------------------------------------------------------------"
 echo "Pack and Copy saved objects of Kibana"
 echo "------------------------------------------------------------------------------"
 cd $source_dir/saved_objects
 zip -r ../saved_objects.zip *
-if [ ! -d  $template_dist_dir/assets ]; then
-    mkdir -p $template_dist_dir/assets/
+if [ ! -d  $template_dist_dir/$solution_name/$siem_ver/assets ]; then
+    mkdir -p $template_dist_dir/$solution_name/$siem_ver/assets/
 fi
-mv ../saved_objects.zip $template_dist_dir/assets/
+mv ../saved_objects.zip $template_dist_dir/$solution_name/$siem_ver/assets/
