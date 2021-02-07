@@ -1425,7 +1425,7 @@
             "LOG_LEVEL": "info",
             "POWERTOOLS_LOGGER_LOG_EVENT": "false",
             "POWERTOOLS_SERVICE_NAME": "es-loader",
-            "POWERTOOLS_METRICS_NAMESPACE": "SIEM-beta",
+            "POWERTOOLS_METRICS_NAMESPACE": "SIEM",
             "ES_ENDPOINT": {
               "Fn::GetAtt": [
                 "AesSiemDomainDeployedR2",
@@ -1451,13 +1451,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderVersion220beta6D783EF60": {
+    "LambdaEsLoaderVersion220D083459B": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.2.0-beta.6"
+        "Description": "2.2.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1599,13 +1599,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderVersion220beta661B49A08": {
+    "LambdaGeoipDownloaderVersion2206A7ADA79": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.2.0-beta.6"
+        "Description": "2.2.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1657,13 +1657,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESVersion220beta677944BAD": {
+    "LambdaDeployAESVersion220A3B1F5EB": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.2.0-beta.6"
+        "Description": "2.2.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1676,7 +1676,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.2.0-beta.6"
+        "ConfigVersion": "2.2.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1734,13 +1734,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESVersion220beta6F4BA7CE4": {
+    "LambdaConfigureAESVersion22080E94FA0": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.2.0-beta.6"
+        "Description": "2.2.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1753,7 +1753,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.2.0-beta.6"
+        "ConfigVersion": "2.2.0"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"

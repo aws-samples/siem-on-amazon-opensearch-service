@@ -34,8 +34,8 @@ function pip_zip_for_lambda () {
     rm -f .DS_Store
     #rm -fr *dist-info
     echo "# delete python libraries which are already installed in lambda environment"
-    echo "rm -fr boto* aiohttp* future* urllib3* dateutil* s3transfer* six*"
-    rm -fr boto* aiohttp* future* urllib3* dateutil* s3transfer* six*
+    echo "rm -fr boto* aiohttp* future* urllib3* dateutil* python_dateutil* s3transfer* six*"
+    rm -fr boto* aiohttp* future* urllib3* dateutil* python_dateutil* s3transfer* six*
     if [ -d requests_aws4auth ]; then
         mv LICENSE README.md HISTORY.md requests_aws4auth-*-info/
     fi

@@ -17,7 +17,7 @@ from aws_lambda_powertools import Logger
 
 from siem import utils
 
-__version__ = '2.2.0-beta.6'
+__version__ = '2.2.0'
 
 logger = Logger(child=True)
 
