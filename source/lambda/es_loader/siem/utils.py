@@ -211,10 +211,9 @@ def get_logtype_from_s3key(s3key, logtype_s3key_dict):
 def sqs_queue(queue_url):
     if not queue_url:
         return None
-    queue_name = queue_url.split('/')[-1]
     try:
-        sqs_resource = boto3.resource('sqs')
-        sqs_queue = sqs_resource.get_queue_by_name(QueueName=queue_name)
+        sqs_resource = boto3.resource('sqs', endpoint_url=queue_url)
+        sqs_queue = sqs_resource.Queue(queue_url)
     except Exception:
         logger.exception(f'impossible to connect SQS {queue_url}')
         raise Exception(f'impossible to connect SQS {queue_url}') from None
