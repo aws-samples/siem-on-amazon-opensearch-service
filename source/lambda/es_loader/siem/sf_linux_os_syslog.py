@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 
 import re
-from siem import re_instanceid, merge
+from siem import utils
 
 # REGEXP
 RE_LIST_SSHD = [
@@ -24,10 +24,10 @@ RE_LIST_SUDO = [
 
 
 def extract_instance_id(logdata, linux_dict):
-    instanceid = re_instanceid.search(
+    instanceid = utils.extract_aws_instanceid_from_text(
         logdata.get('@log_stream', ""))
     if instanceid:
-        linux_dict = {'cloud': {'instance': {'id': instanceid.group(1)}}}
+        linux_dict = {'cloud': {'instance': {'id': instanceid}}}
     return linux_dict
 
 
@@ -103,5 +103,5 @@ def transform(logdata):
         pass
 
     if linux_dict:
-        merge(logdata, linux_dict)
+        logdata = utils.merge_dicts(logdata, linux_dict)
     return logdata

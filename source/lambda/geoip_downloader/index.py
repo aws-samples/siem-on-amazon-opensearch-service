@@ -5,13 +5,13 @@ import hashlib
 import json
 import os
 import tarfile
-import urllib.request
-import urllib.parse
 import urllib.error
+import urllib.parse
+import urllib.request
 
 import boto3
 
-__version__ = '2.1.1'
+__version__ = '2.2.0'
 
 # get var from lambda environment
 try:

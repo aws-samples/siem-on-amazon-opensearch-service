@@ -5,19 +5,19 @@
 import configparser
 import json
 import os
-import string
 import secrets
+import string
 import time
-import urllib.request
-import urllib.parse
 import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import date, datetime
 
-import requests
 import boto3
+import requests
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.1.1'
+__version__ = '2.2.0'
 print('version: ' + __version__)
 
 client = boto3.client('es')
@@ -35,23 +35,26 @@ if vpc_subnet_id == 'None':
     vpc_subnet_id = None
 security_group_id = os.environ['security_group_id']
 
+es_loader_ec2_role = (
+    f'arn:aws:iam::{accountid}:role/aes-siem-es-loader-for-ec2')
+
 access_policies = {
-  'Version': '2012-10-17',
-  'Statement': [
-    {
-      'Effect': 'Allow',
-      'Principal': {'AWS': myiamarn},
-      'Action': ['es:*'],
-      'Resource': f'arn:aws:es:{region}:{accountid}:domain/{aesdomain}/*'
-    },
-    {
-      'Effect': 'Allow',
-      'Principal': {'AWS': '*'},
-      'Action': ['es:*'],
-      'Condition': {'IpAddress': {'aws:SourceIp': myaddress}},
-      'Resource': f'arn:aws:es:{region}:{accountid}:domain/{aesdomain}/*'
-    }
-  ]
+    'Version': '2012-10-17',
+    'Statement': [
+        {
+            'Effect': 'Allow',
+            'Principal': {'AWS': myiamarn},
+            'Action': ['es:*'],
+            'Resource': f'arn:aws:es:{region}:{accountid}:domain/{aesdomain}/*'
+        },
+        {
+            'Effect': 'Allow',
+            'Principal': {'AWS': '*'},
+            'Action': ['es:*'],
+            'Condition': {'IpAddress': {'aws:SourceIp': myaddress}},
+            'Resource': f'arn:aws:es:{region}:{accountid}:domain/{aesdomain}/*'
+        }
+    ]
 }
 if vpc_subnet_id:
     access_policies['Statement'][0]['Principal'] = {'AWS': '*'}
@@ -248,12 +251,22 @@ def configure_opendistro(es_endpoint, es_app_data):
                         added_user=kibanaadmin, added_role=aes_admin_role)
     upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
                         added_role=es_loader_role)
+    upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
+                        added_role=es_loader_ec2_role)
 
 
 def configure_siem(es_endpoint, es_app_data):
-    print('Import kibana index patterns')
     awsauth = auth_aes(es_endpoint)
+    # create cluster settings #48
+    print('Configure cluster setting')
+    cluster_settings = es_app_data['cluster-settings']
+    for key in cluster_settings:
+        payload = json.loads(cluster_settings[key])
+        res = query_aes(
+            es_endpoint, awsauth, 'PUT', '_cluster/settings', payload)
+        print(output_message(key, res))
     # create index-template
+    print('Import kibana index patterns')
     index_patterns = es_app_data['index-template']
     for key in index_patterns:
         payload = json.loads(index_patterns[key])

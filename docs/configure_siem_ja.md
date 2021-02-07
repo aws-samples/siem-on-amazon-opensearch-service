@@ -1,6 +1,15 @@
-# SIEM on Amaozon ES の設定変更
+# SIEM on Amazon ES の設定変更
 
 [In English](configure_siem.md) | [READMEに戻る](../README_ja.md)
+
+## 目次
+
+* [ログ取り込み方法のカスタマイズ](#ログ取り込み方法のカスタマイズ)
+* [ログ取り込みの除外設定](#ログ取り込みの除外設定)
+* [Amazon ES の設定変更](#Amazon-ES-の設定変更-上級者向け)
+* [AWS サービス以外のログの取り込み](#AWS-サービス以外のログの取り込み)
+* [S3 バケットに保存された過去データの取り込み](#S3-バケットに保存された過去データの取り込み)
+* [モニタリング](#モニタリング)
 
 ## ログ取り込み方法のカスタマイズ
 
@@ -120,7 +129,7 @@ s3_key_ignored = 000000000000
 s3_key_ignored = (111111111111|222222222222)
 ```
 
-### ログのフィールドと値 による除外
+### ログのフィールドと値による除外
 
 個々のログのフィールドとその値を条件にして除外できます。例えば、VPC Flow Logs で特定の送信元 IP アドレスからの通信を除外する等です。
 
@@ -165,9 +174,9 @@ VPC Flow Logs で、送信元 IP アドレス(srcaddr) が 192.0.2.10 の文字�
 
 CloudTrail で、{'userIdentity': {'invokedBy': '*.amazonaws.com'}} と一致した場合に除外する。フィールド名が入れ子になっているので、CSVではドット区切りで指定。この例は、Config や ログ配信などのAWS のサービスがリクエストしたAPI Callのログを取り込まない。
 
-## SIEM on Amazon ES の設定変更 (上級者向け)
+## Amazon ES の設定変更 (上級者向け)
 
-SIEM on Amazon ES のアプリケーションの設定を変更できます。設定は以下のような項目がありインデックス毎に定義できます。
+SIEM に関する Amazon ES のアプリケーションの設定を変更できます。設定は以下のような項目がありインデックス毎に定義できます。
 
 * インデックスのレプリカ数、シャード数
 * フィールドのマッピング、タイプ指定
@@ -206,7 +215,7 @@ POST _template/log-aws-cloudtrai_mine
 }
 ```
 
-## AWS以外のログの取り込み
+## AWS サービス以外のログの取り込み
 
 AWS 以外のログをログ用 S3 バケットにエクスポートすることで SIEM on Amazon ES に取り込むことができます。ファイルフォーマットはテキスト形式、JSON 形式、CSV 形式に対応しています。テキスト形式は1行ログを取り込むことができますが、複数行ログには対応していません。S3 へのエクスポートは Logstash や Fluentd のプラグインを使う方法があります。
 
@@ -290,5 +299,139 @@ Lambda レイヤーの zip 圧縮ファイルの内部は以下のディレク�
 ```
 
 zip を作成し Lambda レイヤーに登録すれば設定完了です
+
+## S3 バケットに保存された過去データの取り込み
+
+S3 バケットに保存されているログをバッチで Amazon ES に取り込みます。通常は S3 バケットに保存された時にリアルタイムで取り込みます。一方で、バックアップをしていたデータを可視化やインシデント調査のために後から取り込むこともできます。同様の方法で、リアルタイムの取り込みに失敗して SQS のデッドレターキューに待避されたデータも取り込めます。
+
+### 環境準備
+
+#### スクリプト(es-loader)実行環境の準備
+
+1. Amazon ES へ通信ができる VPC 内に Amazon Linux 2 で EC2 インスタンスをプロビジョニング
+1. Amazon Linux からインターネット上の GitHub と PyPI サイト へ HTTP 通信を許可
+1. EC2 に IAM ロールの [**aes-siem-es-loader-for-ec2**] をアタッチ
+1. Amazon Linux のターミナルに接続して、[README](../README_ja.md) の説明にある [2. CloudFormation テンプレートの作成] の [2-1. 準備] と [2-2. SIEM on Amazon ES の clone] の手順を実施
+1. 下記のコマンドで Python のモジュールをインストールします
+
+    ```python
+    cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
+    pip3 install -r requirements.txt -U -t .
+    ```
+
+#### 環境変数の設定
+
+1. AWS マネジメントコンソールの Lambda コンソールに移動
+1. aes-siem-es-loader 関数に移動して以下の 2 つの環境変数名と値をメモします
+    * ES_ENDPOINT
+    * GEOIP_BUCKET
+1. 環境変数を EC2 インスタンスの Amazon Linux のターミナルに貼り付けます。値は環境に合わせて変更してください
+
+    ```sh
+    export ES_ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
+    export GEOIP_BUCKET=aes-siem-123456789012-geo
+    ```
+
+### S3 バケットのオブジェクトリストからの取り込み
+
+1. es-loaderのディレクトリに移動します
+
+    ```sh
+    cd
+    cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
+    ```
+
+1. S3 バケットからオブジェクトリスト (s3-list.txt) を作成します。
+
+    ```sh
+    export AWS_ACCOUNT=123456789012   # お使いのAWSアカウントに置換してください
+    export LOG_BUCKET=aes-siem-${AWS_ACCOUNT}-log
+    aws s3 ls ${LOG_BUCKET} --recursive > s3-list.txt
+    ```
+
+1. 必要に応じて、取り込む対象を限定したリストを作成します
+
+    例) 2021 年の CloudTrail のログだけのリストを作成
+
+    ```sh
+    grep CloudTrail s3-list.txt |grep /2021/ > s3-cloudtrail-2021-list.txt
+    ```
+
+1. 作成した S3 リストのオブジェクトを es-loader にログを流し込みます
+
+    ```sh
+    # 対象の S3 バケットにある全てのオブジェクトを流し込む
+    ./index.py -b ${LOG_BUCKET} -l s3-list.txt
+    # 抽出したオブジェクトを流し込む例
+    # ./index.py -b ${LOG_BUCKET} -l s3-cloudtrail-2021-list.txt
+    ```
+
+1. 完了したら結果を確認します。取り込みに失敗すると失敗したオブジェクトリストのログファイルが生成されます。このファイルが存在しなければ全ての取り込みが成功してます
+    * 成功したオブジェクトリスト: S3 のリストファイル名.finish.log
+    * 失敗したオブジェクトリスト: S3 のリストファイル名.error.log
+    * 失敗したオブジェクトのデバッグログ: S3 のリストファイル名.error_debug.log
+1. 失敗したオブジェクトリストを、上記コマンドにリストとして再指定することで失敗したログファイルだけの取り込みができます。
+
+    例)
+
+    ```sh
+    ./index.py -b ${LOG_BUCKET} -l s3-list.error.txt
+    ```
+
+1. 全ての取り込みが成功したら、読み込み用に作成した S3 オブジェクトリストと、生成されたログファイルを削除してください
+
+### SQS のキューからの取り込み
+
+SQS の SIEM 用のデッドレターキュー (aes-siem-dlq) からメッセージを取り込みます。(実体は S3 バケット上のログ)
+
+1. リージョンを指定してから es-loader を実行します
+
+    ```sh
+    export AWS_DEFAULT_REGION=ap-northeast-1
+    cd
+    cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
+    ./index.py -q aes-siem-dlq
+    ```
+
+1. 完了したら結果を確認します。取り込みに失敗すると失敗したオブジェクトリストのログファイルが生成されます。このファイルが存在しなければ全ての取り込みが成功してます
+    * 成功したオブジェクトリスト: aes-siem-dlq-日時.finish.log
+    * 失敗したオブジェクトリスト: aes-siem-dlq-日時.error.log
+    * 失敗したオブジェクトのデバッグログ: aes-siem-dlq-日時.error_debug.log
+
+1. 失敗したオブジェクトリストは、S3 のオブジェクトリストとなっているため、前章のコマンドにリストとして指定することで失敗したログだけの取り込みができます
+1. 全ての取り込みが成功したら生成されたログファイルを削除してください
+
+## モニタリング
+
+### メトリクス
+
+ログを正規化して Amazon ES にデータを送信する es-loader のメトリクスを、CloudWatch Metrics で確認できます。
+
+* カスタム名前空間: SIEM
+* ディメンション: logtype
+
+|メトリクス|単位|説明|
+|------|-------|-----|
+|InputLogFileSize|Bytes|es-loader が S3 バケットから取り込んだファイルサイズ|
+|OutputDataSize|Bytes|es-loader が Amazon ES に送信したデータサイズ|
+|SuccessLogLoadCount|Count|es-loader が Amazon ES へのデータ送信が成功したログ数|
+|ErrorLogLoadCount|Count|es-loader が Amazon ES へのデータ送信が失敗したログ数|
+|TotalDurationTime|Milliseconds|es-loader が処理を始めてから全ての処理が完了するまでの時間。Lambda Durationとほぼ同じ|
+|EsResponseTime|Milliseconds|es-loader が Amazon ES にデータを送信して処理が完了するまでの時間|
+|TotalLogFileCount|Count|es-loader が 処理をしたログファイルの数|
+|TotalLogCount|Count|ログファイルに含まれるログから処理対象となったログの数。フィルターをして取り込まれなかったログも含む|
+
+### ロギング
+
+SIEM で利用している Lambda 関数のログを CloudWatch Logs で確認できます。
+es-loader のログは JSON 形式で出力しているため、CloudWatch Logs Insights でフィルターをして検索できます。
+
+|フィールド|説明|
+|-----|------|
+|level|ログの重要度。デフォルトでは info 以上を記録しています。トラブル時に aes-siem-es-loader の環境変数 の LOG_LEVEL を debug に変更に変更することで、debug のログを一時的に記録することができます。大量にログが出るので確認が終わったら info に戻すことをおすすめします|
+|s3_key|S3 バケットに保存されているログファイルの オブジェクトキー です。対象ログファイルを処理した場合には s3_key を検索キーにして、処理一連のログと上記のメトリクスの生データを抽出して確認できます|
+|message|ログのメッセージ。場合によっては JSON 形式|
+
+その他のフィールドは、AWS Lambda Powertools Python を使用しています。詳細は、[AWS Lambda Powertools Python のドキュメント](https://awslabs.github.io/aws-lambda-powertools-python/core/metrics/)を参照してください。
 
 [READMEに戻る](../README_ja.md)

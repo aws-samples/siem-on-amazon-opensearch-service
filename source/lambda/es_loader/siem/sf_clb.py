@@ -2,5 +2,8 @@
 # SPDX-License-Identifier: MIT-0
 
 def transform(logdata):
-    logdata['url']['full'] = logdata['request'].split(' ')[1]
+    try:
+        logdata['url']['full'] = logdata['request'].split(' ')[1]
+    except KeyError:
+        pass
     return logdata
