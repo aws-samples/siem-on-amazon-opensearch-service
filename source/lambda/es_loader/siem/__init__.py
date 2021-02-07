@@ -64,6 +64,7 @@ class LogS3:
                 metadata = self.split_logs(self.log_count, self.max_log_count)
                 sent_count = self.send_meta_to_sqs(metadata)
                 self.is_ignored = True
+                self.total_log_count = 0
                 self.ignored_reason = (f'Log file was split into {sent_count}'
                                        f' pieces and sent to SQS.')
                 return
