@@ -50,7 +50,7 @@ class LogS3:
 
         self.__rawdata = self.extract_rawdata_from_s3obj()
 
-        if self.via_cwl:
+        if self.__rawdata and self.via_cwl:
             self.loggroup, self.logstream, self.cwl_accountid = (
                 self.extract_header_from_cwl(self.__rawdata))
             self.__rawdata.seek(0)
@@ -75,9 +75,12 @@ class LogS3:
     ###########################################################################
     @cached_property
     def is_ignored(self):
-        if 'unknown' in self.logtype:
+        if self.s3key[-1] == '/':
+            self.ignored_reason = f'this s3 key is just path, {self.s3key}'
+            return True
+        elif 'unknown' in self.logtype:
             # 対応していないlogtypeはunknownになる。その場合は処理をスキップさせる
-            self.ignored_reason = f'Unknown log type in S3 key, {self.s3key}'
+            self.ignored_reason = f'unknown log type in S3 key, {self.s3key}'
             return True
         re_s3_key_ignored = self.logconfig['s3_key_ignored']
         if re_s3_key_ignored:
@@ -233,8 +236,16 @@ class LogS3:
             msg = f'Failed to download S3 object from {self.s3key}'
             logger.exception(msg)
             raise Exception(msg) from None
-        # if obj['ResponseMetadata']['HTTPHeaders']['content-length'] == '0':
-        #    raise Exception('No Contents in s3 object')
+        try:
+            s3size = int(
+                obj['ResponseMetadata']['HTTPHeaders']['content-length'])
+        except Exception:
+            s3size = 20
+        if s3size < 20:
+            self.is_ignored = True
+            self.ignored_reason = (f'no valid contents in s3 object, size of '
+                                   f'{self.s3key} is only {s3size} byte')
+            return None
         rawbody = io.BytesIO(obj['Body'].read())
         mime_type = utils.get_mime_type(rawbody.read(16))
         rawbody.seek(0)

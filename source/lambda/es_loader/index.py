@@ -76,7 +76,7 @@ def create_logconfig(logtype):
     type_bool = ['via_cwl', 'via_firelens', 'ignore_container_stderr',
                  'timestamp_nano']
     logconfig = {}
-    if 'unknown' == logtype:
+    if logtype in ('unknown', 'nodata'):
         return logconfig
     for key in etl_config[logtype]:
         if key in type_re:

@@ -200,7 +200,8 @@ def create_logtype_s3key_dict(etl_config):
 
 
 def get_logtype_from_s3key(s3key, logtype_s3key_dict):
-    logtype = ''
+    if s3key[-1] == '/':
+        return 'nodata'
     for logtype, re_s3key in logtype_s3key_dict.items():
         m = re_s3key.search(s3key)
         if m:
