@@ -56,6 +56,9 @@ class LogS3:
             self.__rawdata.seek(0)
             self.__rawdata = self.extract_messages_from_cwl(self.__rawdata)
 
+        if self.file_format in ('multiline', ):
+            self.re_multiline_firstline = self.logconfig['multiline_firstline']
+
     def __iter__(self):
         if self.is_ignored:
             return
@@ -100,6 +103,8 @@ class LogS3:
                 log_count = 0
                 for x in self.extract_logobj_from_json(mode='count'):
                     log_count = x
+            elif self.file_format in ('multiline', ):
+                log_count = self.count_multiline_log()
             else:
                 log_count = 0
             if log_count == 0:
@@ -194,6 +199,8 @@ class LogS3:
             logobjs = self.extract_logobj_from_json('extract', start, end)
             for logobj in logobjs:
                 yield logobj
+        elif self.file_format in ('multiline', ):
+            yield from self.extract_multiline_log(start, end)
         else:
             raise Exception
 
@@ -295,6 +302,41 @@ class LogS3:
                 index = search.end()
             if 'count' in mode:
                 yield count
+
+    def match_multiline_firstline(self, line):
+        if self.re_multiline_firstline.match(line):
+            return True
+        else:
+            return False
+
+    def count_multiline_log(self):
+        count = 0
+        for line in self.rawdata:
+            if self.match_multiline_firstline(line):
+                count += 1
+        return count
+
+    def extract_multiline_log(self, start=0, end=0):
+        count = 0
+        multilog = []
+        is_in_scope = False
+        for line in self.rawdata:
+            if self.match_multiline_firstline(line):
+                count += 1
+                if start < count <= end:
+                    if len(multilog) > 0:
+                        # yield previous log
+                        yield "".join(multilog).rstrip()
+                    multilog = []
+                    is_in_scope = True
+                    multilog.append(line)
+                else:
+                    continue
+            elif is_in_scope:
+                multilog.append(line)
+        if is_in_scope:
+            # yield last log
+            yield "".join(multilog).rstrip()
 
     def check_cwe_and_strip_header(self, dict_obj):
         if "detail-type" in dict_obj and "resources" in dict_obj:
@@ -487,7 +529,7 @@ class LogParser:
             logdata_dict = utils.convert_keyname_to_safe_field(logdata_dict)
         elif self.logformat in 'json':
             logdata_dict = logdata
-        elif self.logformat in 'text':
+        elif self.logformat in ('text', 'multiline'):
             logdata_dict = self.text_logdata_to_dict(logdata)
         if self.via_firelens:
             logdata_dict.update(firelens_meta_dict)

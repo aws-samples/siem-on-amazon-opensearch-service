@@ -70,7 +70,7 @@ def get_value_from_etl_config(logtype, key, keytype=None):
 
 @lru_cache(maxsize=128)
 def create_logconfig(logtype):
-    type_re = ['s3_key_ignored', 'log_pattern']
+    type_re = ['s3_key_ignored', 'log_pattern', 'multiline_firstline']
     type_int = ['max_log_count', 'text_header_line_number',
                 'ignore_header_line_number']
     type_bool = ['via_cwl', 'via_firelens', 'ignore_container_stderr',
