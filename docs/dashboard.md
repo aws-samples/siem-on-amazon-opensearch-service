@@ -1,6 +1,6 @@
 # Dashboard
 
-[日本語](dashboard_ja.md)
+[View this page in Japanese (日本語)](dashboard_ja.md)
 
 ## AWS CloudTrail
 
@@ -16,7 +16,7 @@
 
 ## AWS WAF
 
-This dashboard was imported from [AWS WAF Dashboard](https://github.com/aws-samples/aws-waf-dashboard) and then customized
+This dashboard was imported from [AWS WAF Dashboard](https://github.com/aws-samples/aws-waf-dashboard) and then was customized
 
 ![AWS WAF Dashboard](images/dashboard-awswaf.jpg)
 
@@ -28,4 +28,4 @@ This dashboard was imported from [AWS WAF Dashboard](https://github.com/aws-samp
 
 ![Elastic Load Balancing Dashboard](images/dashboard-elb.jpg)
 
-[Go Back To README](../README.md)
+[Back To README](../README.md)
