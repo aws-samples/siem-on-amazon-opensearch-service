@@ -24,7 +24,7 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.2.0'
+__version__ = '2.3.0-beta.1'
 print(__version__)
 
 iam_client = boto3.client('iam')
