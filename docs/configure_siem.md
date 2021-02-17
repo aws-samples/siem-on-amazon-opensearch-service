@@ -13,13 +13,13 @@
 
 ## Customizing the log loading method
 
-You can customize the log loading method into SIEM on Amazon ES. A log exported to the S3 bucket is normalized by Lambda function es-loader and loaded into SIEM on Amazon ES. The deployed Lambda function is named aes-siem-es-loader. And this Lambda function (es-loader) is triggered by an event notification (All object create events) from the S3 bucket. It then identifies the log type from the file name and the file path to the S3 bucket, extracts the field in a predefined manner for each log type, map it to [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html), and finally load it onto SIEM on Amazon ES by specifying the index name.
+You can customize the log loading method into SIEM on Amazon ES. A log exported to the S3 bucket is normalized by Lambda function es-loader and loaded into SIEM on Amazon ES. The deployed Lambda function is named aes-siem-es-loader. And this Lambda function (es-loader) is triggered by an event notification (All object create events) from the S3 bucket. It then identifies the log type from the file name and the file path to the S3 bucket; extracts the field in a predefined manner for each log type; maps it to [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html); and finally loads it into SIEM on Amazon ES by specifying the index name.
 
 This process is based on the initial values defined in the configuration file (aws.ini). You may also change them to any values if you want to: export a log to an S3 bucket with a different file path than the initial value; rename the index; or change the index rotation interval, for example. To change the values, you need to create user.ini and define fields and values following the aws.ini structure. The values you set in user.ini are prioritized over those in aws.ini, overwriting the initial values internally.
 
-You can save user.ini by either adding it to a Lambda layer (recommended) or by editing it directly from the AWS Management Console. Note that whenever you update SIEM on Amazon ES, the Lambda function is replaced with a new one. While user.ini remains unchanged if you use a Lambda layer (as it is independent from the Lambda function), the file is deleted if edited directly from the AWS Management Console, so you’ll need to create it again.
+You can save user.ini either by adding it to a Lambda layer (recommended) or by editing it directly from the AWS Management Console. Note that whenever you update SIEM on Amazon ES, the Lambda function is replaced with a new one. While user.ini remains unchanged if you use a Lambda layer (as it is independent from the Lambda function), the file is deleted if edited directly from the AWS Management Console, so you’ll need to create it again.
 
-Note: The configuration file (aws.ini/user.ini) is loaded using configparser in the standard Python3 library. Syntax and other rules follow this library, so even if you find space in some setting values, just describe them as they are. There is no need to enclose it in double or single quotes. For example, if you define key with value “This is a sample value”, it shows as follows:
+Note: The configuration file (aws.ini/user.ini) is loaded using configparser from the standard Python3 library. Syntax and other rules follow this library, so even when you find space between words in some set values, just describe them as they are. There is no need to enclose it in double or single quotes. For example, if you define a key with value “This is a sample value”, you should write like this:
 
 (Example of the correct configuration)
 
@@ -33,7 +33,7 @@ key = This is a sample value
 key = "This is a sample value"
 ```
 
-See [this](https://docs.python.org/ja/3/library/configparser.html#module-configparser) for more information on configparser syntax.
+See [this](https://docs.python.org/ja/3/library/configparser.html#module-configparser) for more information on the configparser syntax.
 
 ### Adding user.ini to an AWS Lambda layer (recommended)
 
@@ -48,20 +48,20 @@ The initial value of aws.ini is as follows:
 index_rotation = monthly
 ```
 
-Let’s suppose you create user.ini and set the parameter as follows:
+Create user.ini and set the parameter as follows:
 
 ```ini
 [cloudtrail]
 index_rotation = daily
 ```
 
-Zip the user.ini file so that it can be added to a Lambda layer. Note that user.ini should not contain any directories. The compressed file can have any name (we are naming it configure-es-loader.zip in this case).
+Zip the user.ini file so that it can be added to a Lambda layer. Note that user.ini should not contain any directories. The compressed file can have any name (we are naming it configure-es-loader.zip in this example).
 
 ```sh
 zip -r configure-es-loader.zip user.ini
 ```
 
-Next, let’s create a Lambda layer.
+Then create a Lambda layer following the steps below:
 
 1. Log in to the AWS Management Console
 1. Navigate to the [AWS Lambda console](https://console.aws.amazon.com/lambda/home)
@@ -105,13 +105,13 @@ There are two conditions you can specify:
 
 ### Adding an exclusion based on the S3 bucket file path (object key)
 
-Whenever CloudTrail or VPC flow logs are output to an S3 bucket, the AWS account ID and region information is added to the logs. You can use this information to add an exclusion to log loading. For example, you can configure not to load logs from your test AWS account.
+Whenever CloudTrail or VPC flow logs are output to the S3 bucket, the AWS account ID and region information is added to the logs. You can use this information to add an exclusion to log loading. For example, you can configure not to load logs from your test AWS account.
 
 #### How to add an exclusion:
 
 Specify the string of the log you want to exclude in s3_key_ignored in user.ini (aws.ini). The log will not be loaded if it **contains** the string(s) specified there. Strings can be specified using regular expressions. Note that if the string is too short or a generic word, it may also match logs that you don't want to exclude. Also, some AWS resources’ logs specify s3_key_ignored by default, so ensure to check aws.ini first to avoid overwriting the configuration.
 
-##### Example 1) Excluding AWS account 123456789012 from VPC flow logs -- you can simply specify a string
+##### Example 1) Excluding AWS account 123456789012 from VPC flow logs --> you can simply specify a string
 
 Logs stored in the S3 bucket: s3://aes-siem-123456789012-log/AWSLogs/**000000000000**/vpcflowlogs/ap-northeast-1/2020/12/25/000000000000_vpcflowlogs_ap-northeast-1_fl-1234xxxxyyyyzzzzz_20201225T0000Z_1dba0383.log.gz
 
@@ -122,7 +122,7 @@ Configuration file: user.ini
 s3_key_ignored = 000000000000
 ```
 
-##### Example 2) Excluding AWS accounts 111111111111 and 222222222222 from vpcflowlogs -- since there are more than one string, you can specify them using a regular expression
+##### Example 2) Excluding AWS accounts 111111111111 and 222222222222 from vpcflowlogs --> since there are more than one string, you can specify them using a regular expression
 
 ```ini
 [vpcflowlogs]
@@ -251,14 +251,14 @@ Here is the basic configuration flow for Apache HTTP server logs:
    log_pattern = (?P<remotehost>.*) (?P<rfc931>.*) (?P<authuser>.*) \[(?P<datetime>.*?)\] \"(?P<request_method>.*) (?P<request_path>.*)(?P<request_version> HTTP/.*)\" (?P<status>.*) (?P<bytes>.*)
    ```
 
-1. Specify timestamp to tell SIEM on Amazon ES the time at which the event occurred. Define the [date format](https://docs.python.org/ja/3/library/datetime.html#strftime-and-strptime-format-codes) as well if it is not compliant with the iso8601 format
+1. Specify timestamp to tell SIEM on Amazon ES the time at which the event occurred. Define the [date format](https://docs.python.org/ja/3/library/datetime.html#strftime-and-strptime-format-codes) as well if it is not compliant with the ISO 8601 format
 
    ```ini
    timestamp = datetime
    timestamp_format = %d/%b/%Y:%H:%M:%S %z
    ```
 
-1. Specify fields you want to map to Elastic Common Schema
+1. Specify the fields you want to map to Elastic Common Schema
 
    ```ini
    # Syntax
@@ -284,7 +284,7 @@ Here is the basic configuration flow for Apache HTTP server logs:
 
 For more information on configuration items, see aws.ini in es-loader (Lambda function).
 
-If this definition file is not enough to process your logic, you can also add custom logic using a Python script. For example, you can add logic to extract OS or platform from user-agent. The file name should be sf_logtype.py. In this example, it's named sf_apache.py. If log type contains - (dash), replace it with _ (underscore). Example) Log type: cloudfront-realtime => File name: sf_cloudfront_realtime.py
+If this definition file is not enough to process your logic, you can also add custom logic using a Python script. For example, you can add logic to extract OS or platform information from user-agent. The file name should be sf_logtype.py. In this example, it's named sf_apache.py. If the log type contains - (dash), replace it with _ (underscore). Example) Log type: cloudfront-realtime => File name: sf_cloudfront_realtime.py
 
 Save this file in es-loader's siem directory or in the Lambda layer’s siem directory.
 
@@ -298,7 +298,7 @@ The directory structure inside the zipped file of the Lambda layer should look l
     |- sf_logtype2.py
 ```
 
-Create a zip and register it to the Lambda layer and you're done
+Create a zip file and register it to the Lambda layer and you're done
 
 ## Loading past data stored in the S3 bucket
 
@@ -312,7 +312,7 @@ You can batch load logs stored in the S3 bucket into Amazon ES. Normally, logs a
 1. Allow HTTP communication from Amazon Linux to GitHub and PyPI websites on the Internet
 1. Attach IAM role [**aes-siem-es-loader-for-ec2**] to EC2
 1. Connect to the Amazon Linux terminal and follow the steps in [README](../README.md) --> [2. Creating CloudFormation Templates] --> [2-1. Preparation] and [2-2. Cloning SIEM on Amazon ES]
-1. Install Python modules with the following commands:
+1. Install Python modules using the commands below:
 
    ```python
    cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
@@ -322,7 +322,7 @@ You can batch load logs stored in the S3 bucket into Amazon ES. Normally, logs a
 #### Setting environment variables
 
 1. Navigate to the Lambda console in the AWS Management Console
-1. Navigate to the aes-siem-es-loader function and note the following two environment variable names and values:
+1. Navigate to the aes-siem-es-loader function and take a note of the following two environment variable names and values:
    * ES_ENDPOINT
    * GEOIP_BUCKET
 1. Paste the environment variables into the Amazon Linux terminal on the EC2 instance. Change the values to suit your environment
@@ -357,12 +357,12 @@ You can batch load logs stored in the S3 bucket into Amazon ES. Normally, logs a
    grep CloudTrail s3-list.txt |grep /2021/ > s3-cloudtrail-2021-list.txt
    ```
 
-1. Flow the object list you created in S3 into es-loader
+1. Load the objects into es-loader using the object list you created in S3
 
    ```sh
-   # Flowing all objects in the target S3 bucket into es-loader
+   # Loading all objects in the S3 bucket into es-loader
    ./index.py -b ${LOG_BUCKET} -l s3-list.txt
-   # Example of flowing extracted objects
+   # Example of loading extracted objects
    # ./index.py -b ${LOG_BUCKET} -l s3-cloudtrail-2021-list.txt
    ```
 
@@ -370,7 +370,7 @@ You can batch load logs stored in the S3 bucket into Amazon ES. Normally, logs a
    * Successful object list: S3 list filename.finish.log
    * Failed Object list: S3 list filename.error.log
    * Debug log for failed objects: S3 list filename.error_debug.log
-1. You can load only failed log files by re-specifying the failed object list as the list in the above command.
+1. You can also load only failed log files by repeating Step 4 and specifying the failed object list in Step 5:
 
    Example)
 
@@ -378,11 +378,11 @@ You can batch load logs stored in the S3 bucket into Amazon ES. Normally, logs a
    ./index.py -b ${LOG_BUCKET} -l s3-list.error.txt
    ```
 
-1. If all the loading succeeds, delete the S3 object list you created for reading as well as the log files generated
+1. After the loading succeeds, delete the S3 object list(s) you created as well as the log files generated
 
 ### Loading from SQS queue
 
-Let’s load messages from SQS's dead letter queue for SIEM (aes-siem-dlq). (They are actually logs in the S3 bucket)
+You can load messages from SQS's dead letter queue for SIEM (aes-siem-dlq). (They are actually logs stored in the S3 bucket)
 
 1. Specify the region and then run es-loader
 
@@ -398,14 +398,14 @@ Let’s load messages from SQS's dead letter queue for SIEM (aes-siem-dlq). (The
    * Failed object list: aes-siem-dlq-date.error.log
    * Debug logs for failed objects: aes-siem-dlq-date.error_debug.log
 
-1. The failed object list is an object list for S3, so you can load only failed logs by specifying the list in the command mentioned in the previous chapter
-1. Delete the generated log file after all the loading succeeds
+1. Since the failed object list is an object list for S3, you can load only failed logs by specifying the list when rerunning the command mentioned in the previous section
+1. Delete the generated log files after the loading succeeds
 
 ## Monitoring
 
 ### Metrics
 
-You can view the es-loader metrics that normalize logs and send data to Amazon ES in CloudWatch Metrics.
+You can view the metrics of es-loader, which normalizes logs and sends data to Amazon ES, in CloudWatch Metrics.
 
 * Custom namespace: SIEM
 * Dimension: logtype
@@ -419,19 +419,19 @@ You can view the es-loader metrics that normalize logs and send data to Amazon E
 | TotalDurationTime | Millisecond | The amount of time between when es-loader started processing and when all processing was completed. Approximately the same as Lambda Duration |
 | EsResponseTime | Millisecond | The amount of time it took for es-loader to send data to Amazon ES and complete processing |
 | TotalLogFileCount | Count | The number of log files processed by es-loader |
-| TotalLogCount | Count | The number of logs targeted for processing from the logs contained in the log file. This includes logs that were not actually loaded due to filtering |
+| TotalLogCount | Count | The number of logs targeted for processing from the logs contained in the log files. This includes logs that were not actually loaded due to filtering |
 
 ### Logging
 
-You can check the logs of the Lambda functions you are using in SIEM in CloudWatch Logs.
-Since the es-loader logs are output in the JSON format, you can filter and search them in CloudWatch Logs Insights.
+You can check the logs of the Lambda functions used for SIEM in CloudWatch Logs.
+The es-loader logs are output in the JSON format, so you can filter and search them in CloudWatch Logs Insights.
 
 | Field | Description |
 |-----|------|
-| level | The severity of the log. By default, “info” or higher are recorded. In case of trouble, you can temporarily log “debug” by changing “LOG_LEVEL”, an aes-siem-es-loader environment variable, to “debug”. Since a lot of logs will be generated, we recommend that you revert it to “info” when you're done checking |
-| s3_key | Object key for log files stored in the S3 bucket. If you have processed the target log file, you can use s3_key as the search key to extract the series of logs for processing and the raw data of the above metrics to confirm |
-| message | Messages in the log. In some cases, it’s in the JSON format |
+| level | The severity of the log. By default, only “info” or higher messages are logged. In case of trouble, you can temporarily log “debug” level messages by changing LOG_LEVEL (an aes-siem-es-loader environment variable) to “debug”. Because logging debug messages generates a lot of log files, we recommend that you revert LOG_LEVEL to “info” after investigation |
+| s3_key | Object key for the log files stored in the S3 bucket. After processing the target log files, you can use s3_key as the search key to extract the processing logs and the raw data of the above metrics to confirm |
+| message | Message in the log. In some cases, it’s in the JSON format |
 
-The other fields are using AWS Lambda Powertools Python. For more information, see the [AWS Lambda Powertools Python](https://awslabs.github.io/aws-lambda-powertools-python/core/metrics/) documentation.
+AWS Lambda Powertools Python is used for the other fields. For more information, see the [AWS Lambda Powertools Python](https://awslabs.github.io/aws-lambda-powertools-python/core/metrics/) documentation.
 
 [Back to README](../README.md)
