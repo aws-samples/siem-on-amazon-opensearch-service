@@ -13,7 +13,7 @@
 
 ## Customizing the log loading method
 
-You can customize the log loading method into SIEM on Amazon ES. A log exported to the S3 bucket is normalized by Lambda function es-loader and loaded into SIEM on Amazon ES. The deployed Lambda function is named aes-siem-es-loader. And this Lambda function (es-loader) is triggered by an event notification (All object create events) from the S3 bucket. It then identifies the log type from the file name and the file path to the S3 bucket; extracts the field in a predefined manner for each log type; maps it to [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html); and finally loads it onto SIEM on Amazon ES by specifying the index name.
+You can customize the log loading method into SIEM on Amazon ES. A log exported to the S3 bucket is normalized by Lambda function es-loader and loaded into SIEM on Amazon ES. The deployed Lambda function is named aes-siem-es-loader. And this Lambda function (es-loader) is triggered by an event notification (All object create events) from the S3 bucket. It then identifies the log type from the file name and the file path to the S3 bucket; extracts the field in a predefined manner for each log type; maps it to [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html); and finally loads it into SIEM on Amazon ES by specifying the index name.
 
 This process is based on the initial values defined in the configuration file (aws.ini). You may also change them to any values if you want to: export a log to an S3 bucket with a different file path than the initial value; rename the index; or change the index rotation interval, for example. To change the values, you need to create user.ini and define fields and values following the aws.ini structure. The values you set in user.ini are prioritized over those in aws.ini, overwriting the initial values internally.
 
@@ -48,7 +48,7 @@ The initial value of aws.ini is as follows:
 index_rotation = monthly
 ```
 
-Let’s suppose you create user.ini and set the parameter as follows:
+Create user.ini and set the parameter as follows:
 
 ```ini
 [cloudtrail]
@@ -61,7 +61,7 @@ Zip the user.ini file so that it can be added to a Lambda layer. Note that user.
 zip -r configure-es-loader.zip user.ini
 ```
 
-Next, let’s create a Lambda layer.
+Then create a Lambda layer following the steps below:
 
 1. Log in to the AWS Management Console
 1. Navigate to the [AWS Lambda console](https://console.aws.amazon.com/lambda/home)
