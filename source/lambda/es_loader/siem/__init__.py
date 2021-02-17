@@ -17,7 +17,7 @@ from aws_lambda_powertools import Logger
 
 from siem import utils
 
-__version__ = '2.2.0'
+__version__ = '2.3.0-beta.1'
 
 logger = Logger(child=True)
 
@@ -99,6 +99,7 @@ class LogS3:
         if self.end_number == 0:
             if self.file_format in ('text', 'csv') or self.via_firelens:
                 log_count = len(self.rawdata.readlines())
+                # log_count = sum(1 for line in self.rawdata)
             elif 'json' in self.file_format:
                 log_count = 0
                 for x in self.extract_logobj_from_json(mode='count'):
@@ -213,7 +214,7 @@ class LogS3:
             index = offset + index
             body.seek(index)
             if 'CONTROL_MESSAGE' in obj['messageType']:
-                continue
+                return None, None, None
             loggroup = obj['logGroup']
             logstream = obj['logStream']
             owner = obj['owner']
@@ -761,6 +762,8 @@ class LogParser:
             elif isinstance(value, list) and len(value) == 0:
                 del d[key]
             elif isinstance(value, str) and (value in ('', '-', 'null', '[]')):
+                del d[key]
+            elif isinstance(value, type(None)):
                 del d[key]
         return d
 

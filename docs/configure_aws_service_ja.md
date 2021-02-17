@@ -393,6 +393,60 @@ EventBridge の設定
     * 他は任意の値を選択して
     * [**作成**] を選択を選択して完了
 
+## 12. RDS (Aurora PostgreSQL互換 / PostgreSQL) (Experimental)
+
+![PostgreSQL to S3](images/postgresql-to-s3.jpg)
+
+s3_key の初期値: Postgre or postgres (Firehose の出力パスに指定)
+
+Firehoseの 設定
+
+※※ **S3 バケットへの出力時に、圧縮設定はしないで下さい。** CloudWatch Logsから受信する場合はすでに gzip 圧縮されているので二重圧縮となり適切に処理ができません ※※
+
+RDS の設定
+
+1. [RDS コンソール](https://console.aws.amazon.com/rds/home?) に移動します
+1. 画面左メニューの [**パラメータグループ**] => 画面右上の [**パラメータグループの作成**] を選択します
+1. ログ: [パラメータグループの作成] の画面にて次のパラメーターを入力します
+    * パラメータグループファミリー: aurora-postgresqlXX または postgresXX
+        * XX はお使いのバージョンを選択します
+    * タイプ: DB Parameter Group または、Aurora は DB Cluster Parameter Group
+    * グループ名: aes-siem-postgresqlXX
+    * 説明: aes-siem-postgresqlXX
+1. [**作成**] を選択
+1. 作成したパラメーターグループ [**aes-siem-postgresqlxX**] を選択して、以下のパラメーターを入力(適宜、取得したいログを選択)。
+
+    |パラメータ|設定値|説明|デフォルト値(参考)|
+    |----------|------|----|------------------|
+    |log_min_duration_statement|1000|スロークエリログの記録。設定値以上(ミリ秒)のクエリーを全て記録。1000ミリ秒(1秒)以上を対象|-1,無効化|
+    |log_statement|ddl|実行時間に関わらず、DDL (CREATE や DROP 等) をログに記録する|None|
+    |log_statement_stats|1 (有効化)|Statementに関する統計情報を出力|0,無効化|
+    |log_lock_waits|1 (有効化)|デッドロックのタイムアウトよりロックに時間を要した場合、ログメッセージを生成|0,無効化|
+    |log_checkpoints|1 (有効化)|チェックポイントを記録。パラメーターがなければ設定不要|0,無効化|
+    |log_connections|1 (有効化)|クライアント認証の成功終了などのサーバへの接続試行を出力|0,無効化|
+    |log_disconnections|1 (有効化)|セッション終了時にセッション時間を出力|0,無効化|
+
+    * ※その他のパラメーターの変更は、正常にログの取り込みやダッシュボードの表示ができない可能性があります
+1. [**変更の保存**] を選択
+1. データーベースにパラメータを適用します。
+1. 画面左メニューの [**データベース**] => 対象の Aurora のクラスター、または RDS インスタンスを選択し、[**変更**]を選択します
+    * パラメーターグループの aes-siem-postgresqlXX を選択します
+    * ログのエクスポート: [**Postgresql ログ**] と [**アップグレードログ**] があればチェックを入れます
+1. 画面右下の[**続行**] を選択
+1. 変更のスケジュールのどちらかを選択して、[**クラスターの変更**] を選択して完了です
+
+CloudWatch Logs Subscription の 設定
+
+こちらのサイトを参考に設定してください。[CloudWatch Logs サブスクリプションフィルタの使用 例 3: Amazon Kinesis Data Firehose のサブスクリプションフィルタ](https://docs.aws.amazon.com/ja_jp/AmazonCloudWatch/latest/logs/SubscriptionFilters.html#FirehoseExample)
+
+参考サイト
+
+* [Auroraユーザーガイド PostgreSQL データベースのログファイル](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/USER_LogAccess.Concepts.PostgreSQL.html)
+* [RDS ユーザーガイド PostgreSQL データベースのログファイル](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.PostgreSQL.html)
+* [Amazon RDS for PostgreSQL を使用してクエリロギングを有効化するにはどうすればよいですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/rds-postgresql-query-logging/)
+* [Kibana ダッシュボードの設定と作成](https://aws.amazon.com/jp/blogs/news/configuring-and-authoring-kibana-dashboards/)
+* [PostgreSQL を実行している自分の Amazon RDS DB インスタンスで失敗したログイン試行回数を追跡するにはどうすればよいですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/track-failed-login-rds-postgresql/)
+
 ## Amazon ECS 対応 FireLens
 
 ![ECS to Firelens to S3](images/ecs-to-firelens-to-s3.jpg)

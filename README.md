@@ -27,6 +27,7 @@ SIEM on Amazon ES can load and correlate the following log types.
 |Amazon CloudFront|Standard access log<br>Real-time log|
 |Amazon Simple Storage Service (Amazon S3)|Access log|
 |Amazon Route 53 Resolver|VPC DNS query log|
+|Amazon Relational Database Service (Amazon RDS)<br>experimental|Amazon RDS for PostgreSQL<br>Amazon Aurora(PostgreSQL)|
 |Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
 |Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
 
