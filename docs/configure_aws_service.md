@@ -157,7 +157,7 @@ For CloudFront, you can record requests sent for distribution in two ways. Stand
 
 ![cloudfront starndard to s3](images/cloudfront-standard-to-s3.jpg)
 
-The initial value of s3_key: `(^|\/)[0-9A-Z]{14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\.gz$$`
+The initial value of s3_key: `(^|\/)[0-9A-Z]{13,14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\.gz$$`
 
 The log type is determined by the default output file name using regular expressions. The logs do not contain AWS account IDs, so you should include them in the S3 prefix.
 
