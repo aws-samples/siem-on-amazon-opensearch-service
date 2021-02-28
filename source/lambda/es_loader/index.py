@@ -62,6 +62,9 @@ def get_value_from_etl_config(logtype, key, keytype=None):
     except KeyError:
         logger.exception('unknown error')
         raise KeyError("Can't find the key in logconfig")
+    except re.error:
+        logger.exception(f'invalid regex pattern for {key}')
+        raise Exception(f'invalid regex pattern for {key}') from None
     except Exception:
         logger.exception('unknown error')
         raise Exception('unknown error') from None

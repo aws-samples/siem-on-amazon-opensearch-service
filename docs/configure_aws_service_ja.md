@@ -447,6 +447,25 @@ CloudWatch Logs Subscription の 設定
 * [Kibana ダッシュボードの設定と作成](https://aws.amazon.com/jp/blogs/news/configuring-and-authoring-kibana-dashboards/)
 * [PostgreSQL を実行している自分の Amazon RDS DB インスタンスで失敗したログイン試行回数を追跡するにはどうすればよいですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/track-failed-login-rds-postgresql/)
 
+## 14. Amazon Managed Streaming for Apache Kafka (Amazon MSK) (Experimental)
+
+![MSK to S3](images/msk-to-s3.jpg)
+
+s3_key の初期値: `KafkaBrokerLogs` (デフォルト設定の出力パスの一部)
+
+Amazon MSK のログを下記の方法で S3 バケットに出力してください。
+
+1. AWS マネジメントコンソールにログインします
+1. [MSK コンソール](https://console.aws.amazon.com/msk/home?) に移動します
+1. 画面左メニューの [**クラスター**] を選択します
+1. 表のクラスター名から対象の [**クラスター**] を選択します
+1. モニタリングのパネルの [**編集**] を選択します
+1. ブローカーログの配信の [**Amazon S3 に配信**] にチェックを入れます
+    * Amazon S3 の送信先バケット: [**aes-siem-123456789012-log**] を選択
+        * 123456789012 は ご利用の AWS アカウント ID に置換してください
+    * プレフィックス - オプション: 空欄のまま
+1. [**変更を保存**] を選択して、設定完了です
+
 ## Amazon ECS 対応 FireLens
 
 ![ECS to Firelens to S3](images/ecs-to-firelens-to-s3.jpg)
