@@ -38,6 +38,27 @@ security_group_id = os.environ['security_group_id']
 es_loader_ec2_role = (
     f'arn:aws:iam::{accountid}:role/aes-siem-es-loader-for-ec2')
 
+cwl_resource_policy = {
+    'Version': "2012-10-17",
+    'Statement': [
+        {
+            'Effect': 'Allow',
+            'Principal': {'Service': "es.amazonaws.com"},
+            "Action": [
+                'logs:PutLogEvents',
+                'logs:CreateLogStream',
+                'logs:CreateLogGroup'
+            ],
+            'Resource': [
+                (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes'
+                 f'/domains/aes-siem/*'),
+                (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes/'
+                 f'domains/aes-siem/*:*')
+            ]
+        }
+    ]
+}
+
 access_policies = {
     'Version': '2012-10-17',
     'Statement': [
@@ -84,9 +105,6 @@ config_domain = {
         'VolumeSize': 10,
     },
     'AccessPolicies': access_policies_json,
-    'SnapshotOptions': {
-        'AutomatedSnapshotStartHour': 16
-    },
     # VPCOptions={
     #     'SubnetIds': [
     #         'string',
@@ -111,12 +129,14 @@ config_domain = {
     # AdvancedOptions={
     #     'string': 'string'
     # },
-    # LogPublishingOptions={
-    #     'string': {
-    #         'CloudWatchLogsLogGroupArn': 'string',
-    #         'Enabled': True|False
-    #     }
-    # },
+    'LogPublishingOptions': {
+        'ES_APPLICATION_LOGS': {
+            'CloudWatchLogsLogGroupArn': (
+                f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes/'
+                f'domains/aes-siem/application-logs'),
+            'Enabled': True
+        }
+    },
     'DomainEndpointOptions': {
         'EnforceHTTPS': True,
         'TLSSecurityPolicy': 'Policy-Min-TLS-1-2-2019-07'
@@ -362,9 +382,31 @@ def initial_event_check_and_exit(event, context, physicalResourceId):
         return(json.dumps(response, default=json_serial))
 
 
+def setup_aes_system_log():
+    log_group = '/aws/aes/domains/aes-siem/application-logs'
+    cwl_client = boto3.client('logs')
+    print('put_resource_policy for Amazon ES system log')
+    response = cwl_client.put_resource_policy(
+        policyName='AES-aes-siem-logs',
+        policyDocument=json.dumps(cwl_resource_policy)
+    )
+    print(response)
+    print('check log group')
+    response = cwl_client.describe_log_groups(logGroupNamePrefix=log_group)
+    if len(response['logGroups']) == 0:
+        print(f'create log group {log_group}')
+        response = cwl_client.create_log_group(logGroupName=log_group)
+        print(response)
+        print(f'put retention policy as 14 days for {log_group}')
+        response = cwl_client.put_retention_policy(
+            logGroupName=log_group, retentionInDays=14)
+        print(response)
+
+
 def aes_domain_handler(event=None, context=None):
     physicalResourceId = 'aes_domain'
     initial_event_check_and_exit(event, context, physicalResourceId)
+    setup_aes_system_log()
     global kibanaadmin
     kibanaadmin = kibanaadmin
     kibanapass = 'MASKED'

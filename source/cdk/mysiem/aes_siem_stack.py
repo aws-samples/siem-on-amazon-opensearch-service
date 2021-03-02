@@ -10,11 +10,9 @@ from aws_cdk import (
     aws_events,
     aws_events_targets,
     aws_iam,
-    aws_kinesis,
     aws_kms,
     aws_lambda,
     aws_lambda_event_sources,
-    aws_logs,
     aws_s3,
     aws_s3_notifications,
     aws_sns,
@@ -392,6 +390,25 @@ class MyAesSiemStack(core.Stack):
         # IAM Role
         ######################################################################
         # snaphot rule for AES
+        policydoc_create_loggroup = aws_iam.PolicyDocument(
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['logs:PutResourcePolicy',
+                             'logs:DescribeLogGroups',
+                             'logs:DescribeLogStreams'],
+                    resources=[(f'arn:aws:logs:{core.Aws.REGION}:'
+                                f'{core.Aws.ACCOUNT_ID}:*')]
+                ),
+                aws_iam.PolicyStatement(
+                    actions=['logs:CreateLogGroup', 'logs:CreateLogStream',
+                             'logs:PutLogEvents', 'logs:PutRetentionPolicy'],
+                    resources=[(f'arn:aws:logs:{core.Aws.REGION}:'
+                                f'{core.Aws.ACCOUNT_ID}:log-group:'
+                                f'/aws/aes/domains/aes-siem/*'), ],
+                )
+            ]
+        )
+
         policydoc_snapshot = aws_iam.PolicyDocument(
             statements=[
                 aws_iam.PolicyStatement(
@@ -430,7 +447,8 @@ class MyAesSiemStack(core.Stack):
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
                     'service-role/AWSLambdaBasicExecutionRole'),
             ],
-            inline_policies=[policydoc_assume_snapshrole, policydoc_snapshot],
+            inline_policies=[policydoc_assume_snapshrole, policydoc_snapshot,
+                             policydoc_create_loggroup],
             assumed_by=aws_iam.ServicePrincipal('lambda.amazonaws.com')
         )
 
@@ -571,7 +589,7 @@ class MyAesSiemStack(core.Stack):
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
             handler='index.aes_domain_handler',
             memory_size=128,
-            timeout=core.Duration.seconds(720),
+            timeout=core.Duration.seconds(900),
             environment={
                 'accountid': core.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
