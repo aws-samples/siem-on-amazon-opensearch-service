@@ -24,6 +24,7 @@ libpasteurize*
 past*
 python_dateutil-2.8.1*
 wrapt*
+crhelper*
 
 # AWS CDK
 cdk.context.json

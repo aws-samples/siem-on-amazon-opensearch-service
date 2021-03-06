@@ -7,7 +7,7 @@ from aws_cdk import core
 from mysiem.aes_siem_stack import MyAesSiemStack
 
 app = core.App()
-MyAesSiemStack(app, "aes-siem",
+MyAesSiemStack(app, "aes-siem", description='SIEM on Amazon ES',
                env={'account': os.environ['CDK_DEFAULT_ACCOUNT'],
                     'region': os.environ['CDK_DEFAULT_REGION']})
 app.synth()
