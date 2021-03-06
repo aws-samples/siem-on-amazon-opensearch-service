@@ -778,9 +778,7 @@ class MyAesSiemStack(core.Stack):
         # Download geoip every day at 6PM UTC
         rule = aws_events.Rule(
             self, 'CwlRuleLambdaGeoipDownloaderDilly',
-            schedule=aws_events.Schedule.cron(
-                minute='20', hour='0', month='*', week_day='*', year='*'),
-        )
+            schedule=aws_events.Schedule.rate(core.Duration.hours(12)))
         rule.add_target(aws_events_targets.LambdaFunction(lambda_geo))
 
         ######################################################################
