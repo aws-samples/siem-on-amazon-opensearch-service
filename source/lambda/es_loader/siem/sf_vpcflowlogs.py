@@ -9,4 +9,10 @@ def transform(logdata):
         logdata['event']['outcome'] = 'failure'
     else:
         logdata['event']['outcome'] = 'unknown'
+
+    try:
+        logdata['network']['type'] = logdata['network']['type'].lower()
+    except KeyError:
+        pass
+
     return logdata

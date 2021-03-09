@@ -69,8 +69,7 @@ Follow the steps below to output VPC flow logs to the S3 bucket:
    * Destination: Check [**Send to an S3 bucket**]
    * S3 bucket ARN: [**arn:aws:s3:::aes-siem-123456789012-log**]
       * Replace 123456789012 with your AWS account ID
-   * Log record format: Check [**AWS default format**]
-      * If you want to use a custom format, define a regular expression for logging in user.ini
+   * Log record format: Check [**AWS default format**] or check "Custom format" and select "Log format".
    * Tags: any
 1. Choose [**Create flow log**]
 

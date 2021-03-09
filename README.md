@@ -19,7 +19,7 @@ SIEM on Amazon ES can load and correlate the following log types.
 |AWS Service|Log|
 |-----------|---|
 |AWS CloudTrail|CloudTrail Log Event|
-|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs|
+|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
 |Amazon GuardDuty|GuardDuty findings|
 |AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
 |AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
