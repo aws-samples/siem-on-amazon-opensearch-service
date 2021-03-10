@@ -475,7 +475,11 @@ def aes_domain_delete(event, context):
 
 
 def aes_config_handler(event, context):
-    helper_config(event, context)
+    if 'ResourceType' in event \
+            and event['ResourceType'] == 'AWS::CloudFormation::CustomResource':
+        helper_config(event, context)
+    else:
+        aes_config_create_update(event, context)
 
 
 @helper_config.create
