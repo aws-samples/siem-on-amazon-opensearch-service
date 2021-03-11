@@ -22,10 +22,8 @@ def convert_underscore_field_into_dot_notation(prefix, logdata):
     for field in logdata:
         if field.startswith(prefix_underscore):
             underscore_fields.append(field)
-    print(underscore_fields)
     for underscore_field in underscore_fields:
         new_key = underscore_field.replace(prefix_underscore, '')
-        print(new_key)
         logdata[prefix][new_key] = logdata[underscore_field]
         del logdata[underscore_field]
     return logdata
