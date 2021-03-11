@@ -39,15 +39,15 @@
 ### 注意事項
 
 * デプロイするサブネットは Private Subnet です
-* サブネットは 3つの異なる Availability Zone を選択してください。(デプロイするのは 1 AZ で 1インスタンスのみ)
+* サブネットは 3つの異なる Availability Zone を選択してください。(実際にデプロイするのは 1 つの AZ へ 1 インスタンスのみです)
 * Amazon VPC の [**DNS ホスト名**] と [**DNS ホスト解決**] の 2 つとも有効にしてください
 * デプロイ時に cdk.json の作成をしますが、このファイルを保存をしてください。SIEM on Amazon ES のデプロイで使用する CDK の再実行に必要です
 
 ### 1. AWS CDK 実行環境の準備
 
-1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイする
-1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、Amazon EC2 インスタンスにアタッチする
-1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq をインストールし、ソースコードを GitHub から取得する
+1. CloudShell または、事前に Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください
+1. Amazon EC2 インスタンスを利用する場合は、AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、インスタンスにアタッチします
+1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq をインストールし、ソースコードを GitHub から取得します
 
     ```shell
     sudo yum groupinstall -y "Development Tools"
@@ -163,7 +163,7 @@ cdk context  --j
 
 ### 6. AWS CDK の実行
 
-AWS CDK によるデプロイを実行。
+AWS CDK によるデプロイを実行。CloudShell での実行時に、画面が終了してしまった場合は、進捗状況と結果は、AWSマネジメントコンソールの CloudFormation コンソールにて確認してください、
 
 ```bash
 cdk deploy
@@ -189,7 +189,7 @@ cdk deploy \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
 
-約20分でデプロイが終わります。完了したら、READMEに戻って、「3. Kibana の設定」にお進みください。
+約30分でデプロイが終わります。完了したら、READMEに戻って、「3. Kibana の設定」にお進みください。
 
 ## AWS CDK によるアップデート
 
