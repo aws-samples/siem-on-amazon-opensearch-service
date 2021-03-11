@@ -1,4 +1,5 @@
 {
+  "Description": "SIEM on Amazon ES",
   "Mappings": {
     "ELBv2AccountMap": {
       "af-south-1": {
@@ -1048,27 +1049,66 @@
                     "logs:PutRetentionPolicy"
                   ],
                   "Effect": "Allow",
-                  "Resource": {
-                    "Fn::Join": [
-                      "",
-                      [
-                        "arn:aws:logs:",
-                        {
-                          "Ref": "AWS::Region"
-                        },
-                        ":",
-                        {
-                          "Ref": "AWS::AccountId"
-                        },
-                        ":log-group:/aws/aes/domains/aes-siem/*"
+                  "Resource": [
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:logs:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":log-group:/aws/aes/domains/aes-siem/*"
+                        ]
                       ]
-                    ]
-                  }
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:logs:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":log-group:/aws/lambda/aes-siem-*"
+                        ]
+                      ]
+                    }
+                  ]
                 }
               ],
               "Version": "2012-10-17"
             },
             "PolicyName": "2"
+          },
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": [
+                    "lambda:AddPermission",
+                    "lambda:RemovePermission",
+                    "events:ListRules",
+                    "events:PutRule",
+                    "events:DeleteRule",
+                    "events:PutTargets",
+                    "events:RemoveTargets"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": "*"
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "3"
           }
         ],
         "RoleName": "aes-siem-deploy-role-for-lambda"
@@ -1712,7 +1752,7 @@
         "Handler": "index.aes_domain_handler",
         "MemorySize": 128,
         "Runtime": "python3.8",
-        "Timeout": 900
+        "Timeout": 300
       },
       "DependsOn": [
         "AesSiemDeployRoleForLambda654D64F2"
@@ -1738,8 +1778,7 @@
           ]
         },
         "ConfigVersion": "2.3.0-beta.1"
-      },
-      "DeletionPolicy": "Retain"
+      }
     },
     "LambdaConfigureAESA0471961": {
       "Type": "AWS::Lambda::Function",
@@ -1818,8 +1857,7 @@
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"
-      ],
-      "DeletionPolicy": "Retain"
+      ]
     },
     "aessiempolicytoloadentriestoesE6506021": {
       "Type": "AWS::IAM::Policy",
@@ -1949,7 +1987,7 @@
     "CwlRuleLambdaGeoipDownloaderDillyF68D857D": {
       "Type": "AWS::Events::Rule",
       "Properties": {
-        "ScheduleExpression": "cron(20 0 ? * * *)",
+        "ScheduleExpression": "rate(12 hours)",
         "State": "ENABLED",
         "Targets": [
           {
@@ -1964,7 +2002,7 @@
         ]
       }
     },
-    "CwlRuleLambdaGeoipDownloaderDillyAllowEventRuleaessiemCwlRuleLambdaGeoipDownloaderDilly9514E9612E9E452A": {
+    "CwlRuleLambdaGeoipDownloaderDillyAllowEventRuleaessiemLambdaGeoipDownloaderC2D21D0094BEB6E6": {
       "Type": "AWS::Lambda::Permission",
       "Properties": {
         "Action": "lambda:InvokeFunction",
