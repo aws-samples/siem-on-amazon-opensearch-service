@@ -63,6 +63,57 @@ def extract_aws_instanceid_from_text(text):
         return None
 
 
+def cluster_instance_identifier(logdata):
+    try:
+        log_group = logdata['@log_group'].split('/')
+    except Exception:
+        log_group = [None, None, None, None]
+
+    if 'rds' not in logdata:
+        logdata['rds'] = dict()
+    identifier = {}
+    identifier['cluster'], identifier['instance'] = (
+        extract_rds_cluster_instance_identifier(
+            log_group[3], log_group[4], logdata['@log_stream']))
+
+    return identifier
+
+
+@lru_cache(maxsize=1024)
+def extract_rds_cluster_instance_identifier(
+        log_group_3, log_group_4, log_stream):
+    cluster_identifier = None
+    instance_identifier = None
+    if log_group_3 in ('instance', ):
+        # ex)
+        # dBInstanceIdentifier = database-1
+        instance_identifier = log_group_4
+    elif log_group_3 in ('cluster', ):
+        # ex)
+        # dBClusterIdentifier = database-1
+        # dBInstanceIdentifier = database-1-instance-1
+        cluster_identifier = log_group_4
+        instance_identifier = log_stream.split('.')[0]
+    return cluster_identifier, instance_identifier
+
+
+def convert_underscore_field_into_dot_notation(prefix, logdata):
+    if not prefix:
+        return logdata
+    if prefix not in logdata:
+        logdata[prefix] = dict()
+    prefix_underscore = prefix + '_'
+    underscore_fields = []
+    for field in logdata:
+        if field.startswith(prefix_underscore):
+            underscore_fields.append(field)
+    for underscore_field in underscore_fields:
+        new_key = underscore_field.replace(prefix_underscore, '')
+        logdata[prefix][new_key] = logdata[underscore_field]
+        del logdata[underscore_field]
+    return logdata
+
+
 #############################################################################
 # date time
 #############################################################################
