@@ -446,6 +446,89 @@ CloudWatch Logs Subscription の 設定
 * [Kibana ダッシュボードの設定と作成](https://aws.amazon.com/jp/blogs/news/configuring-and-authoring-kibana-dashboards/)
 * [PostgreSQL を実行している自分の Amazon RDS DB インスタンスで失敗したログイン試行回数を追跡するにはどうすればよいですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/track-failed-login-rds-postgresql/)
 
+## 13. RDS (Aurora MySQL互換 / MySQL / MariaDB) (Experimental)
+
+![MySQL to S3](images/mysql-to-s3.jpg)
+
+以下のログを Cloud Watch Logs に出力して、SIEM に取り込みます。
+
+* エラーログ (Erorr log)
+* スロークエリログ (Slow query log)
+* 一般ログ (General log)
+* 監査ログ (Audit log)
+
+s3_key の初期値: MySQL, mysql, MariaDB or mariadb (Firehose の出力パスに指定)
+
+Firehoseの 設定
+
+※※ **S3 バケットへの出力時に、圧縮設定はしないで下さい。** CloudWatch Logsから受信する場合はすでに gzip 圧縮されているので二重圧縮となり適切に処理ができません ※※
+
+RDS の設定
+
+1. [RDS コンソール](https://console.aws.amazon.com/rds/home?) に移動します
+1. RDS で Audit ログを有効にするためにオプショングループから監査プラグインの設定をします。(Aurora は、パラメーターグループで設定します。) 設定できる Databae エンジンとバージョンは下記を参照して下さい
+    * [MariaDB - MariaDB データベースエンジンのオプション](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/Appendix.MariaDB.Options.html)
+    * [MySQL - MariaDB 監査プラグインのサポート](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/Appendix.MySQL.Options.AuditPlugin.html)
+    * [Aurora ]
+1. RDS で Audit ログ を有効にするオプション設定が可能で必要な場合は、画面左メニューの [**オプショングループ**] => 画面右上の [**グループの作成**] を選択します
+    * 名前: aes-siem-option-mysqlXX
+    * 説明: aes-siem-option-mysqlXX など
+    * エンジン: お使いのDBエンジン (mariadb または mysql)を選択します
+    * メジャーバージョン: お使いのバージョンを選択します
+1. [**作成**] を選択
+1. 作成したオプショングループ [**aes-siem-option-mysqlXX**] を選択します
+1. 画面を下にスクロールして、オプションペインの[**オプションの追加**]を選択します
+1. 以下のパラメーターを入力します。(適宜、取得したいログを選択)
+
+    |パラメータ|設定値|説明|デフォルト値(参考)|
+    |----------|------|----|------------------|
+    |SERVER_AUDIT_EVENTS|CONNECT,QUERY_DDL,QUERY_DCL|接続とDDLのみを監査ログとしてログに保存します|Null、無効化|
+    |SERVER_AUDIT_EXCL_USERS|rdsadmin|指定したユーザーからのアクティビティを除外|Null, なし|
+
+1. [**すぐに適用**]にチェックを入れて、[**保存**]を選択
+
+1. 各ログの出力設定をします
+1. 画面左メニューの [**パラメータグループ**] => 画面右上の [**パラメータグループの作成**] を選択します
+1. ログ: [パラメータグループの作成] の画面にて次のパラメーターを入力します
+    * パラメータグループファミリー: aurora-mysqlXX または mariadbXX または mysqlXX
+        * お使いの DB エンジンと XX はバージョンを選択します
+    * タイプ: DB Parameter Group または、Aurora は DB Cluster Parameter Group
+    * グループ名: aes-siem-mysqlXX など
+    * 説明: aes-siem-mysqlXX など
+1. [**作成**] を選択
+1. 作成したパラメーターグループ [**aes-siem-mysqlXX**] を選択して、以下のパラメーターを入力(適宜、取得したいログを選択しパラメーターを変更して下さい)
+
+    |パラメータ|設定値|説明|デフォルト値(参考)|
+    |----------|------|----|------------------|
+    |general_log|1 (有効化)|一般ログを有効にします|Null、無効化|
+    |slow_query_log|1 (有効化)|スロークエリログを有効にします|Null, 無効化|
+    |server_audit_logging|1 (有効化)| Aurora のみ。監査ログを有効にします|Null, 有効化|
+    |server_audit_excl_users|rdsadmin|Aurora のみ。指定したユーザーからのアクティビティを除外|Null, なし|
+    |server_audit_events|CONNECT,QUERY_DDL,QUERY_DCL|Aurora のみ。接続とDDLのみを監査ログとしてログに保存します|Null、無効化|
+    |long_query_time|1 (秒)|ログに記録されるクエリの最短実行時間の値を秒単位で指定します|10 (秒)|
+    |log_output|FILE|ログをファイルシステムに書き込み、CloudWatch Logs に発行させる|FILE or TABLE|
+
+1. [**変更の保存**] を選択
+
+1. データーベースへの設定
+    1. 画面左のメニューで、[データベース] を選択します
+    1. ログデータを出力する MariaDB / MySQL のインスタンス、または Aurora MySQL DB クラスターを選択します
+    1. [**変更**] を選択します
+    1. [追加設定] セクションから DB パラメーターグループと オプショングループに上記で作成したグループをそれぞれを選択します
+    1. [ログのエクスポート] セクションで、CloudWatch Logs に公開するログを選択します
+        * 監査ログ、エラーログ、全般ログ、スロークエリログ
+    1. 画面右下の[続行] を選択
+    1. すぐに適用を選択してから、[**DBインスタンスを変更**] を選択
+
+参考サイト
+
+* [Auroraユーザーガイド MySQL データベースログファイル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/AuroraUserGuide/USER_LogAccess.Concepts.MySQL.html)
+* [RDS ユーザーガイド MySQL データベースログファイル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MySQL.html)
+* [RDS ユーザーガイド MariaDB データベースのログファイル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MariaDB.html)
+* [Amazon RDS または Aurora for MySQL インスタンスのログを CloudWatch に公開するにはどうすれば良いですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/rds-aurora-mysql-logs-cloudwatch/)
+* [Amazon RDS MySQL または MariaDB インスタンスの監査ログを有効にして、そのログを CloudWatch に公開する方法を教えてください。](https://aws.amazon.com/jp/premiumsupport/knowledge-center/advanced-audit-rds-mysql-cloudwatch/)
+* [Amazon Aurora MySQL DB クラスターでの高度な監査の使用](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Auditing.html#AuroraMySQL.Auditing.Logs)
+
 ## 14. Amazon Managed Streaming for Apache Kafka (Amazon MSK) (Experimental)
 
 ![MSK to S3](images/msk-to-s3.jpg)

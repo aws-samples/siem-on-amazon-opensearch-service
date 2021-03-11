@@ -210,15 +210,19 @@ class LogS3:
         body = rawdata
         decoder = json.JSONDecoder()
         while True:
-            obj, offset = decoder.raw_decode(body.read())
+            try:
+                obj, offset = decoder.raw_decode(body.read())
+            except json.decoder.JSONDecodeError:
+                break
             index = offset + index
             body.seek(index)
             if 'CONTROL_MESSAGE' in obj['messageType']:
-                return None, None, None
+                continue
             loggroup = obj['logGroup']
             logstream = obj['logStream']
             owner = obj['owner']
             return loggroup, logstream, owner
+        return None, None, None
 
     def extract_messages_from_cwl(self, rawlog_io_obj):
         decoder = json.JSONDecoder()
