@@ -50,7 +50,7 @@
 1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq をインストールし、ソースコードを GitHub から取得します
 
     ```shell
-    sudo yum groupinstall -y "Development Tools"
+    sudo yum groups mark install -y "Development Tools"
     sudo yum install -y amazon-linux-extras
     sudo amazon-linux-extras enable python3.8
     sudo yum install -y python38 python38-devel git jq

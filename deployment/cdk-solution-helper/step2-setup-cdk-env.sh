@@ -18,8 +18,8 @@ if !(type pip3 > /dev/null 2>&1); then
     exit
 fi
 
-echo "install boto3 --user"
-pip3 install boto3 --user
+echo "python3 -m pip install boto3 --user"
+python3 -m pip install boto3 --user
 
 echo "Install Node.js"
 curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.2/install.sh | bash
@@ -33,7 +33,7 @@ npm install -g aws-cdk
 cd ${source_dir}/cdk
 python3 -m venv .env
 source .env/bin/activate
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
 BACK=$RANDOM
 if [ -e cdk.json ]; then

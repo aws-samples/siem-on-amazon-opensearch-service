@@ -11,12 +11,12 @@ function func_get_cdk_json () {
     --name "/aes-siem/cdk/cdk.json" \
     --region $AWS_DEFAULT_REGION \
     --query "Parameter.Value" \
-    --output text > cdk.json.ssm
+    --output text > cdk.json.ssm 2> /dev/null
   aws ssm get-parameter \
     --name "/aes-siem/cdk/cdk.context.json" \
     --region $AWS_DEFAULT_REGION \
     --query "Parameter.Value" \
-    --output text > cdk.context.json.ssm
+    --output text > cdk.context.json.ssm 2> /dev/null
   if [ ! -s "cdk.json.ssm" ]; then
     rm cdk.json.ssm
   fi
@@ -101,12 +101,26 @@ function func_continue_or_exit () {
 # main script
 ###############################################################################
 
-# 1. Setting Up the AWS CDK Execution Environment
+echo "Auto Installtion Script Started"
+date
+
+echo "### 1. Setting Up the AWS CDK Execution Environment ###"
 cd ~/
-sudo yum groupinstall -y "Development Tools"
-sudo yum install -y amazon-linux-extras
-sudo amazon-linux-extras enable python3.8
-sudo yum install -y python38 python38-devel git jq
+
+echo 'yum groups mark install -y "Development Tools"'
+sudo yum groups mark install -y "Development Tools" > /dev/null
+
+
+echo -e "Done\n"
+echo "sudo yum install -y amazon-linux-extras"
+sudo yum install -y amazon-linux-extras > /dev/null
+echo -e "Done\n"
+echo "sudo amazon-linux-extras enable python3.8"
+sudo amazon-linux-extras enable python3.8 > /dev/null
+echo -e "Done\n"
+echo "yum install -y python38 python38-devel git jq"
+sudo yum install -y python38 python38-devel git jq > /dev/null
+echo -e "Done\n"
 sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
 if [ ! -f /usr/bin/pip3 ]; then
   sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
@@ -115,47 +129,59 @@ fi
 if [ -d "siem-on-amazon-elasticsearch" ]; then
   echo "git rebase"
   cd siem-on-amazon-elasticsearch
-  git pull --rebase
+  git pull --rebase > /dev/null
 else
   echo "git clone"
-  git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git
+  git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git > /dev/null
 fi
+echo -e "Done\n"
+
+echo "### 2. Setting Environment Variables ###"
 
 if [ -v ${CDK_DEFAULT_ACCOUNT} ]; then
   GUESS_CDK_DEFAULT_ACCOUNT=`aws sts get-caller-identity --query 'Account' --output text`
-  read -p "Enter CDK_DEFAULT_ACCOUNT: default is [$GUESS_CDK_DEFAULT_ACCOUNT]: " CDK_DEFAULT_ACCOUNT
-  CDK_DEFAULT_ACCOUNT=${CDK_DEFAULT_ACCOUNT:-$GUESS_CDK_DEFAULT_ACCOUNT}
-  export CDK_DEFAULT_ACCOUNT
+  read -p "Enter CDK_DEFAULT_ACCOUNT: default is [$GUESS_CDK_DEFAULT_ACCOUNT]: " TEMP_CDK_DEFAULT_ACCOUNT
+  export CDK_DEFAULT_ACCOUNT=${TEMP_CDK_DEFAULT_ACCOUNT:-$GUESS_CDK_DEFAULT_ACCOUNT}
 fi
 
 EC2_AWS_DEFAULT_REGION=`curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e s/.$//`
-GUESS_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-$EC2_AWS_DEFAULT_REGION}
-read -p "Enter AWS_DEFAULT_REGION to deploy Amazon ES: default is [$GUESS_AWS_DEFAULT_REGION]: " AWS_DEFAULT_REGION
-AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-$GUESS_AWS_DEFAULT_REGION}
-export AWS_DEFAULT_REGION
+export GUESS_AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-$EC2_AWS_DEFAULT_REGION}
+read -p "Enter AWS_DEFAULT_REGION to deploy Amazon ES: default is [$GUESS_AWS_DEFAULT_REGION]: " TEMP_AWS_DEFAULT_REGION
+export AWS_DEFAULT_REGION=${TEMP_AWS_DEFAULT_REGION:-$GUESS_AWS_DEFAULT_REGION}
 export CDK_DEFAULT_REGION=$AWS_DEFAULT_REGION
+echo ""
 echo "Your AWS account is $CDK_DEFAULT_ACCOUNT"
 echo "AWS region of installation target is $AWS_DEFAULT_REGION"
+echo ""
 
 # additional
-cd ~/siem-on-amazon-elasticsearch/source/cdk/
+echo "func_get_cdk_json"
 func_get_cdk_json
+echo -e "Done\n"
 if [ ! -f "cdk.json" ]; then
-  func_ask_and_set_env
+  echo "func_ask_and_set_env"
+  func_ask_and_set_env > /dev/null
+  echo -e "Done\n"
 fi
 
-# 3. Creating an AWS Lambda Deployment Package
+echo "### 3. Creating an AWS Lambda Deployment Package ###"
 cd ~/siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
-chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh
+echo "./step1-build-lambda-pkg.sh"
+chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh > /dev/null
+echo -e "Done\n"
 
-# 4. Setting Up the Environment for AWS Cloud Development Kit (AWS CDK)
-chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh
+echo "### 4. Setting Up the Environment for AWS Cloud Development Kit (AWS CDK) ###"
+echo "./step2-setup-cdk-env.sh"
+chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh> /dev/null
 source ~/.bash_profile
+echo -e "Done\n"
 
-# 5. Setting Installation Options with the AWS CDK
-cd ../../source/cdk/
+echo "### 5. Setting Installation Options with the AWS CDK ###"
+cd ~/siem-on-amazon-elasticsearch/source/cdk/
 source .env/bin/activate
+echo "cdk bootstrap"
 cdk bootstrap
+echo -e "Done\n"
 
 echo "################################################"
 echo "# Next Procedure"
@@ -163,17 +189,17 @@ echo "################################################"
 echo "Open ANOTHER shell and edit cdk.json"
 echo "If you just update SIEM, you don't need to edit cdk.json"
 echo ""
+echo ""
 echo '```'
 echo "cd ~/siem-on-amazon-elasticsearch/source/cdk/"
 echo "vi cdk.json"
-echo '# validation. 0 is OK'
+echo '# validation.
+echo "# return 0 is OK'
 echo 'cat cdk.json.corrupt | jq empty; echo $?'
 echo '```'
 echo ""
 echo ""
-echo ""
-echo ""
-echo "Did you edit cdk.json and continue?"
+echo "Have you edit cdk.json? Do you want to continue?"
 func_continue_or_exit
 
 source .env/bin/activate

@@ -50,7 +50,7 @@ Skip these steps if you want to send logs from your existing S3 bucket to SIEM o
 1. Log in to the shell; install the development tools, Python 3.8 and development files, git, and jq; and get the source code from GitHub
 
    ```shell
-   sudo yum groupinstall -y "Development Tools"
+   sudo yum groups mark install -y "Development Tools"
    sudo yum install -y amazon-linux-extras
    sudo amazon-linux-extras enable python3.8
    sudo yum install -y python38 python38-devel git jq
