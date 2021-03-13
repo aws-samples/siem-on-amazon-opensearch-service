@@ -564,7 +564,8 @@ class LogParser:
             basic_dict['@log_stream'] = self.logstream
         basic_dict['@log_s3bucket'] = self.s3bucket
         basic_dict['@log_s3key'] = self.s3key
-        self.__logdata_dict.update(basic_dict)
+        self.__logdata_dict = utils.merge_dicts(
+            self.__logdata_dict, basic_dict)
 
     def clean_multi_type_field(self):
         clean_multi_type_dict = {}

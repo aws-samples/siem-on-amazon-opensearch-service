@@ -196,6 +196,8 @@ def convert_syslog_to_datetime(timestr, TZ):
 
 @lru_cache(maxsize=1024)
 def convert_iso8601_to_datetime(timestr, TZ, timestamp_key):
+    timestr = timestr.replace('+0000', '')
+    # Python datetime.fromisoformat can't parser +0000 format.
     try:
         dt = datetime.fromisoformat(timestr)
     except ValueError:
