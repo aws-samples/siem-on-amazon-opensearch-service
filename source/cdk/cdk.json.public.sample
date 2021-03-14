@@ -1,7 +1,7 @@
 {
   "app": "python3 app.py",
   "context": {
-    "@aws-cdk/core:enableStackNameDuplicates": "true",
+    "versionReporting": false,
     "aws-cdk:enableDiffNoFail": "true",
     "aes_domain_name": "aes-siem",
     "s3_bucket_name":{

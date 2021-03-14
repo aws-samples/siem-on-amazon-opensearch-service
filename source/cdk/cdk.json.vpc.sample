@@ -1,7 +1,7 @@
 {
   "app": "python3 app.py",
   "context": {
-    "@aws-cdk/core:enableStackNameDuplicates": "true",
+    "versionReporting": false,
     "aws-cdk:enableDiffNoFail": "true",
     "vpc_type_comment": "vpc_type is new or import",
     "vpc_type": "new",
