@@ -158,7 +158,8 @@ def bulkloads_into_elasticsearch(es_entries, collected_metrics):
             output_size = 0
             total_count += len(putdata_list)
             putdata_list = []
-            error_reason_list.extend([error_reasons])
+            if len(error_reasons):
+                error_reason_list.extend([error_reasons])
     if output_size > 0:
         total_output_size += output_size
         results = es_conn.bulk(putdata_list, filter_path=filter_path)
@@ -168,7 +169,8 @@ def bulkloads_into_elasticsearch(es_entries, collected_metrics):
         error_count += error
         es_response_time += es_took
         total_count += len(putdata_list)
-        error_reason_list.extend(error_reasons)
+        if len(error_reasons):
+            error_reason_list.extend([error_reasons])
     collected_metrics['total_output_size'] = total_output_size
     collected_metrics['total_log_load_count'] = total_count
     collected_metrics['success_count'] = success_count
