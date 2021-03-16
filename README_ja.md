@@ -2,7 +2,7 @@
 
 [In English](README.md)
 
-SIEM on Amazon Elasticsearch Service (Amazon ES) は、セキュリティインシデントを調査するためのソリューションです。AWS のマルチアカウント環境下で、複数種類のログを収集し、ログの相関分析や可視化をすることができます。デプロイは、AWS CloudFormation または AWS Cloud Development Kit (AWS CDK) で行います。20分程度でデプロイは終わります。AWS サービスのログを Simple Storage Service (Amazon S3) のバケットに PUT すると、自動的に ETL 処理を行い、SIEM on Amazon ES に取り込まれます。ログを取り込んだ後は、ダッシュボードによる可視化や、複数ログの相関分析ができるようになります。
+SIEM on Amazon Elasticsearch Service (Amazon ES) は、セキュリティインシデントを調査するためのソリューションです。AWS のマルチアカウント環境下で、複数種類のログを収集し、ログの相関分析や可視化をすることができます。デプロイは、AWS CloudFormation または AWS Cloud Development Kit (AWS CDK) で行います。30分程度でデプロイは終わります。AWS サービスのログを Simple Storage Service (Amazon S3) のバケットに PUT すると、自動的に ETL 処理を行い、SIEM on Amazon ES に取り込まれます。ログを取り込んだ後は、ダッシュボードによる可視化や、複数ログの相関分析ができるようになります。
 
 Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_service_ja.md) | [SIEM の設定](docs/configure_siem_ja.md) | [高度なデプロイ](docs/deployment_ja.md) | [ダッシュボード](docs/dashboard_ja.md) | [サポートログタイプ](docs/suppoted_log_type.md) | [よくある質問](docs/faq_ja.md) | [変更履歴](CHANGELOG.md) |
 
@@ -16,22 +16,24 @@ Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_servic
 
 SIEM on Amazon ES は以下のログを取り込むことができます。
 
-|AWS Service|Log|
-|-----------|---|
-|AWS CloudTrail|CloudTrail Log Event|
-|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
-|Amazon GuardDuty|GuardDuty findings|
-|AWS Network Firewall<br>**experimental**|Flow logs<br>Alert logs|
-|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
-|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
-|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
-|Amazon CloudFront|Standard access log<br>Real-time log|
-|Amazon Simple Storage Service (Amazon S3)|access log|
-|Amazon Route 53 Resolver|VPC DNS query log|
-|Amazon Relational Database Service (Amazon RDS)<br>**experimental**|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
-|Amazon Managed Streaming for Apache Kafka (Amazon MSK)<br>**experimental**|Broker log|
-|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
-|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
+|       |AWS Service|Log|
+|-------|-----------|---|
+|Security, Identity, & Compliance|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
+|Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
+|Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty findings|
+|Security, Identity, & Compliance|AWS Network Firewall<br>(**Experimental Support**)|Flow logs<br>Alert logs|
+|Management & Governance|AWS CloudTrail|CloudTrail Log Event|
+|Networking & Content Delivery|Amazon CloudFront|Standard access log<br>Real-time log|
+|Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS query log|
+|Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
+|Networking & Content Delivery|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
+|Storage|Amazon Simple Storage Service (Amazon S3)|access log|
+|Database|Amazon Relational Database Service (Amazon RDS)<br>(**Experimental Support**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
+|Analytics|Amazon Managed Streaming for Apache Kafka (Amazon MSK)<br>(**Experimental Support**)|Broker log|
+|Compute|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
+|Containers|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
+
+Experimental Support はログフィールドの正規化等を大きく変更する可能性があります
 
 対応ログは、[Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html) に従って正規化しています。ログのオリジナルと正規化したフィールド名の対応表は [こちら](docs/suppoted_log_type.md) をご参照ください。
 
@@ -73,11 +75,11 @@ https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-elasticsearch.template
 
 #### 2-1. 準備
 
-Amazon Linux 2 を実行している Amazon Elastic Compute Cloud (Amazon EC2) インスタンスを使って CloudFormation テンプレートを作成します
+AWS CloudShell または Amazon Linux 2 を実行している Amazon Elastic Compute Cloud (Amazon EC2) インスタンスを使って CloudFormation テンプレートを作成します
 
 前提の環境)
 
-* Amazon Linux 2 on Amazon EC2
+* AWS CloudShell または Amazon Linux 2 on Amazon EC2
   * "Development Tools"
   * Python 3.8
   * Python 3.8 libraries and header files
@@ -86,7 +88,7 @@ Amazon Linux 2 を実行している Amazon Elastic Compute Cloud (Amazon EC2) �
 上記がインストールされてない場合は以下を実行
 
 ```shell
-sudo yum groupinstall -y "Development Tools"
+sudo yum groups mark install -y "Development Tools"
 sudo yum install -y amazon-linux-extras
 sudo amazon-linux-extras enable python3.8
 sudo yum install -y python38 python38-devel git jq
@@ -99,6 +101,7 @@ sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
 GitHub レポジトリからコードを clone します
 
 ```shell
+cd
 git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git
 ```
 
@@ -114,7 +117,7 @@ export AWS_REGION=<AWS_REGION> # region where the distributable is deployed
 #### 2-4. AWS Lambda 関数のパッケージングとテンプレートの作成
 
 ```shell
-cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
+cd ~/siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
 chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
 chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
 ```
@@ -134,7 +137,7 @@ aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl b
 
 ### 3. Kibana の設定
 
-約20分で CloudFormation によるデプロイが完了します。次に、Kibana の設定をします。
+約30分で CloudFormation によるデプロイが完了します。次に、Kibana の設定をします。
 
 1. AWS CloudFormation コンソールで、作成したスタックを選択。画面右上のタブメニューから「出力」を選択。Kibana のユーザー名、パスワード、URL を確認できます。この認証情報を使って Kibana にログインしてください
 1. Kibana の Dashboard等 のファイルを[**ここ**](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip) からダウンロードします。ダウンロードしたファイルを解凍してください
@@ -186,7 +189,7 @@ https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-elasticsearch.template
 
 ### デプロイ後の Amazon ES ドメインのリソース変更
 
-Amazon ES のアクセスポリシーの変更、インスタンスのスペック変更、AZ の追加と変更、UltraWarm への変更等の Amazon ES ドメイン自体の変更は、AWS マネジメントコンソールから実行してください
+Amazon ES のアクセスポリシーの変更、インスタンスのスペック変更、AZ の追加と変更、UltraWarm への変更等の Amazon ES ドメイン自体の変更は、AWS マネジメントコンソールの [Amazon ES コンソール](https://console.aws.amazon.com/es/home?) から実行してください
 
 ### インデックス管理とカスタマイズ
 
