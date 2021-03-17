@@ -433,14 +433,14 @@ s3_key の初期値: `/20\d{2}-[01]\d-\d{2}-\d{2}-\d{2}-\d{2}-[0-9A-Z]{16}$$` (s
 * 一般ログ (General log)
 * 監査ログ (Audit log)
 
-s3_key の初期値: 
-
-Firehose の出力パスに指定
+s3_key の初期値は以下です。Firehose の出力パスに指定してください。
 
 * エラーログ: `(MySQL|mysql|MariaDB|mariadb).*(error)`
 * スロークエリログ: `(MySQL|mysql|MariaDB|mariadb).*(slowquery)`
 * 一般ログ: `(MySQL|mysql|MariaDB|mariadb).*(general)`
 * 監査ログ `(MySQL|mysql|MariaDB|mariadb).*(audit)`
+
+監査ログを Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/123456789012/RDS/mysql/audit/ap-northeast-1`
 
 #### RDS の設定
 
@@ -520,6 +520,8 @@ Firehose の出力パスに指定
 
 s3_key の初期値: `Postgre` or `postgres` (Firehose の出力パスに指定)
 
+Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/123456789012/RDS/postgresql/ap-northeast-1`
+
 #### RDS の設定
 
 1. [RDS コンソール](https://console.aws.amazon.com/rds/home?) に移動します
@@ -568,7 +570,6 @@ s3_key の初期値: `Postgre` or `postgres` (Firehose の出力パスに指定)
 * [Amazon RDS for PostgreSQL を使用してクエリロギングを有効化するにはどうすればよいですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/rds-postgresql-query-logging/)
 * [Kibana ダッシュボードの設定と作成](https://aws.amazon.com/jp/blogs/news/configuring-and-authoring-kibana-dashboards/)
 * [PostgreSQL を実行している自分の Amazon RDS DB インスタンスで失敗したログイン試行回数を追跡するにはどうすればよいですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/track-failed-login-rds-postgresql/)
-
 
 ## 7. 分析
 
