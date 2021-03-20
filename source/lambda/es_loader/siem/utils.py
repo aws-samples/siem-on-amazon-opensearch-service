@@ -16,7 +16,7 @@ import botocore
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.3.0-beta.3'
+__version__ = '2.3.0'
 
 logger = Logger(child=True)
 
