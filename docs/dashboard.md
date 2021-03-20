@@ -1,18 +1,19 @@
 # Dashboard
 
-[View this page in Japanese (日本語)](dashboard_ja.md)
+[View this page in Japanese (日本語)](dashboard_ja.md) | [Back to README](../README.md)
 
-## AWS CloudTrail
+* [AWS Security Hub](#AWS-Security-Hub)
+* [AWS WAF](#AWS-WAF)
+* [Amazon GuardDuty](#Amazon-GuardDuty)
+* [AWS CloudTrail](#AWS-CloudTrail)
+* [Amazon CloudFront](#Amazon-CloudFront)
+* [Amazon VPC Flow Logs](#Amazon-VPC-Flow-Logs)
+* [Elastic Load Balancing](#Elastic-Load-Balancing)
+* [Amazon Relational Database Service (RDS)](#Amazon-RDS)
 
-![AWS CloudTrail Dashboard](images/dashboard-cloudtrail.jpg)
+## AWS Security Hub
 
-## Amazon VPC Flow Logs
-
-![Amazon VPC Flow Logs Dashboard](images/dashboard-vpcflowlogs.jpg)
-
-## Amazon GuardDuty
-
-![Amazon GuardDuty Dashboard](images/dashboard-guardduty.jpg)
+![AWS Security Hub Dashboard](images/dashboard-securityhub.jpg)
 
 ## AWS WAF
 
@@ -20,12 +21,28 @@ This dashboard was imported from [AWS WAF Dashboard](https://github.com/aws-samp
 
 ![AWS WAF Dashboard](images/dashboard-awswaf.jpg)
 
+## Amazon GuardDuty
+
+![Amazon GuardDuty Dashboard](images/dashboard-guardduty.jpg)
+
+## AWS CloudTrail
+
+![AWS CloudTrail Dashboard](images/dashboard-cloudtrail.jpg)
+
 ## Amazon CloudFront
 
 ![Amazon CloudFront Dashboard](images/dashboard-cloudfront.jpg)
 
+## Amazon VPC Flow Logs
+
+![Amazon VPC Flow Logs Dashboard](images/dashboard-vpcflowlogs.jpg)
+
 ## Elastic Load Balancing
 
 ![Elastic Load Balancing Dashboard](images/dashboard-elb.jpg)
+
+## Amazon RDS
+
+![Amazon RDS Dashboard](images/dashboard-rds.jpg)
 
 [Back To README](../README.md)

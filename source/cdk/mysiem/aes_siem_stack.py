@@ -10,11 +10,9 @@ from aws_cdk import (
     aws_events,
     aws_events_targets,
     aws_iam,
-    aws_kinesis,
     aws_kms,
     aws_lambda,
     aws_lambda_event_sources,
-    aws_logs,
     aws_s3,
     aws_s3_notifications,
     aws_sns,
@@ -24,7 +22,7 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.2.0'
+__version__ = '2.3.0'
 print(__version__)
 
 iam_client = boto3.client('iam')
@@ -391,6 +389,46 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         # IAM Role
         ######################################################################
+        # delopyment policy for lambda deploy-aes
+        arn_prefix = f'arn:aws:logs:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
+        policydoc_create_loggroup = aws_iam.PolicyDocument(
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=[
+                        'logs:PutResourcePolicy',
+                        'logs:DescribeLogGroups',
+                        'logs:DescribeLogStreams'
+                    ],
+                    resources=[f'{arn_prefix}:*', ]
+                ),
+                aws_iam.PolicyStatement(
+                    actions=[
+                        'logs:CreateLogGroup', 'logs:CreateLogStream',
+                        'logs:PutLogEvents', 'logs:PutRetentionPolicy'],
+                    resources=[
+                        f'{arn_prefix}:log-group:/aws/aes/domains/aes-siem/*',
+                        f'{arn_prefix}:log-group:/aws/lambda/aes-siem-*',
+                    ],
+                )
+            ]
+        )
+
+        policydoc_crhelper = aws_iam.PolicyDocument(
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=[
+                        'lambda:AddPermission',
+                        'lambda:RemovePermission',
+                        'events:ListRules',
+                        'events:PutRule',
+                        'events:DeleteRule',
+                        'events:PutTargets',
+                        'events:RemoveTargets'],
+                    resources=['*']
+                )
+            ]
+        )
+
         # snaphot rule for AES
         policydoc_snapshot = aws_iam.PolicyDocument(
             statements=[
@@ -430,7 +468,8 @@ class MyAesSiemStack(core.Stack):
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
                     'service-role/AWSLambdaBasicExecutionRole'),
             ],
-            inline_policies=[policydoc_assume_snapshrole, policydoc_snapshot],
+            inline_policies=[policydoc_assume_snapshrole, policydoc_snapshot,
+                             policydoc_create_loggroup, policydoc_crhelper],
             assumed_by=aws_iam.ServicePrincipal('lambda.amazonaws.com')
         )
 
@@ -571,7 +610,7 @@ class MyAesSiemStack(core.Stack):
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
             handler='index.aes_domain_handler',
             memory_size=128,
-            timeout=core.Duration.seconds(720),
+            timeout=core.Duration.seconds(300),
             environment={
                 'accountid': core.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
@@ -599,7 +638,6 @@ class MyAesSiemStack(core.Stack):
             self, 'AesSiemDomainDeployedR2',
             service_token=lambda_deploy_es.function_arn,)
         aes_domain.add_override('Properties.ConfigVersion', __version__)
-        aes_domain.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
         es_endpoint = aes_domain.get_att('es_endpoint').to_string()
         lambda_es_loader.add_environment('ES_ENDPOINT', es_endpoint)
@@ -645,8 +683,7 @@ class MyAesSiemStack(core.Stack):
 
         aes_config = aws_cloudformation.CfnCustomResource(
             self, 'AesSiemDomainConfiguredR2',
-            service_token=lambda_configure_es.function_arn,
-        )
+            service_token=lambda_configure_es.function_arn,)
         aes_config.add_override('Properties.ConfigVersion', __version__)
         aes_config.add_depends_on(aes_domain)
         aes_config.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
@@ -736,16 +773,13 @@ class MyAesSiemStack(core.Stack):
         # Download geoip to S3 once by executing lambda_geo
         get_geodb = aws_cloudformation.CfnCustomResource(
             self, 'ExecLambdaGeoipDownloader',
-            service_token=lambda_geo.function_arn,
-        )
+            service_token=lambda_geo.function_arn,)
         get_geodb.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
         # Download geoip every day at 6PM UTC
         rule = aws_events.Rule(
             self, 'CwlRuleLambdaGeoipDownloaderDilly',
-            schedule=aws_events.Schedule.cron(
-                minute='20', hour='0', month='*', week_day='*', year='*'),
-        )
+            schedule=aws_events.Schedule.rate(core.Duration.hours(12)))
         rule.add_target(aws_events_targets.LambdaFunction(lambda_geo))
 
         ######################################################################

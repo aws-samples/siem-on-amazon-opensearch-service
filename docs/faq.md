@@ -14,7 +14,7 @@
 - Amazn ES Workshop content is available for you on GitHub.
 
 * [We have published “Amazon Elasticsearch Service Intro Workshop”!- Learn & experience the service in 2 hours -- from basic usage to the latest update](https://aws.amazon.com/jp/blogs/news/amazon-elasticsearch-service-hands-on/) (Japanese language)
-* [Amazon Elasticsearch Service Intro Workshop](https://github.com/aws-samples/amazon-s3-datalake-handson/blob/master/JP/README.md) (Japanese language)
+* [Amazon Elasticsearch Service Intro Workshop](https://github.com/aws-samples/amazon-s3-datalake-handson/tree/master/EN)
 
 ## Deployment doesn’t complete.
 

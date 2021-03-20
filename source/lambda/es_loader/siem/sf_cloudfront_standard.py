@@ -4,7 +4,7 @@
 import urllib.parse
 import re
 
-RE_CLOUDFRONT_DIST_ID = re.compile('[0-9A-Z]{14}')
+RE_CLOUDFRONT_DIST_ID = re.compile('/([0-9A-Z]{13,14})\.')
 
 
 def transform(logdata):
@@ -24,7 +24,7 @@ def transform(logdata):
 
     m = RE_CLOUDFRONT_DIST_ID.search(logdata['@log_s3key'])
     if m:
-        logdata['distribution_id'] = m.group(0)
+        logdata['distribution_id'] = m.group(1)
     else:
         logdata['distribution_id'] = "unknown"
 

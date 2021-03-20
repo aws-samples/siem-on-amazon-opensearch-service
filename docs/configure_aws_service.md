@@ -4,6 +4,35 @@
 
 On this page, we’ll walk you through how to load logs from each AWS service into SIEM on Amazon ES. Follow the steps below to configure each AWS service.
 
+## Table of contents
+
+1. [Common Configurations](#1-Common-Configurations)
+1. [Security, Identity, & Compliance](#2-Security-Identity--Compliance)
+    * [AWS Security Hub](#AWS-Security-Hub)
+    * [AWS WAF](#AWS-WAF)
+    * [Amazon GuardDuty](#Amazon-GuardDuty)
+    * [AWS Network Firewall](#AWS-Network-Firewall)
+1. [Management & Governance](#3-Management--Governance)
+    * [AWS CloudTrail](#AWS-CloudTrail)
+1. [Networking & Content Delivery](#4-Networking--Content-Delivery)
+    * [Amazon CloudFront](#Amazon-CloudFront)
+    * [Route 53 Resolver VPC DNS Query Logging](#Route-53-Resolver-VPC-DNS-Query-Logging)
+    * [Amazon Virtual Private Cloud (Amazon VPC) Flow Logs](#Amazon-VPC-Flow-Logs)
+    * [Elastic Load Balancing (ELB)](#Elastic-Load-Balancing-ELB)
+1. [Storage](#5-Storage)
+    * [Amazon Simple Storage Service (Amazon S3) access logs](#Amazon-S3-access-logs)
+1. [Database](#6-Database)
+    * [RDS (Aurora MySQL / MySQL / MariaDB)](#RDS-Aurora-MySQL--MySQL--MariaDB-Experimental-Support)
+    * [RDS (Aurora PostgreSQL / PostgreSQL)](#RDS-Aurora-PostgreSQL--PostgreSQL-Experimental-Support)
+1. [Analytics](#7-Analytics)
+    * [Amazon Managed Streaming for Apache Kafka (Amazon MSK)](#Amazon-MSK)
+1. [Compute](#8-Compute)
+    * [EC2 Instance (Amazon Linux 2)](#EC2-Instance-Amazon-Linux-2)
+1. [Containers](#9-Containers)
+    * [FireLens for Amazon ECS](#FireLens-for-Amazon-ECS)
+1. [Multiple regions / multiple accounts](#10-Multiple-regions--multiple-accounts)
+1. [Loading logs from an existing S3 bucket](#11-Loading-logs-from-an-existing-S3-bucket)
+
 ## 1. Common Configurations
 
 SIEM on Amazon ES determines the log type based on the name and path of the file that is put into the Amazon Simple Storage Service (Amazon S3) bucket. The initial value used for this is either the default output path or file name of each service. Additional identifiable information is used for services where the log type cannot be determined using the default values only. If you want to output logs to S3 using a file path different from the initial value, create user.ini and add your own file name or S3 object key to the “s3_key” field. See [Changing Configurations of SIEM on Amazon ES](configure_siem.md) on how to edit user.ini.
@@ -14,7 +43,152 @@ if you want to store files in the S3 bucket enabling AWS Key Management Service 
 
 The AWS account used here for instruction purpose is **123456789012** . Replace this with your AWS account when following the steps.
 
-## 2. AWS CloudTrail
+## 2. Security, Identity, & Compliance
+
+### AWS Security Hub
+
+![SecurityHub to S3](images/securityhub-to-s3.jpg)
+
+The initial value of s3_key: `SecurityHub` (specified in the Firehose output path)
+
+* Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose.
+* Create Firehose and EventEngine rules for each region when aggregating Security Hub findings from multiple regions
+
+Configuring Kinesis Data Firehose
+
+1. Navigate to the [Amazon Kinesis console](https://console.aws.amazon.com/kinesis/home?)
+1. Choose [**Delivery streams**] from the left pane
+1. Choose [**Create delivery stream**] at the top left of the screen
+1. On the [New delivery stream] screen, enter the following parameters:
+   * Delivery stream name: Enter [**aes-siem-firehose-securityhub**]
+   * Source: Check [**Direct PUT or other sources**]
+   * [Enable server-side encryption for source records in delivery stream] is optional
+   * Choose [**Next**]
+1. On the [Process records] screen, choose the following parameters:
+   * Data transformation: [**Disabled**]
+   * Record format conversion: [**Disabled**]
+   * Choose [**Next**]
+1. On the [Choose a destination] screen, choose/enter the following parameters:
+   * Destination: [**Amazon S3**]
+   * S3 bucket: [**aes-siem-123456789012-log**]
+   * S3 prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/**]
+   * S3 error prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/error/**]
+      * Replace 123456789012 with your AWS account and [region] with your region.
+1. On the [Configure settings] screen, enter the following parameters:
+   * Buffer size: Enter [**any number**]
+   * Buffer interval: Enter [**any number**]
+   * S3 compression: [**GZIP**]
+   * Leave the following parameters as default
+   * Choose [**Next**]
+1. Choose [**Create delivery stream**] to complete deployment of Kinesis Data Firehose
+
+Configuring EventBridge
+
+1. Navigate to the [EventBridge console](https://console.aws.amazon.com/events/home?)
+1. Choose [**Rules**] from the left pane => [**Create rule**]
+1. Enter the following parameters on the [Create rule] screen:
+   * Name: aes-siem-securityhub-to-firehose
+   * Define pattern: Choose Event pattern
+   * Event matching pattern: Pre-defined pattern by service
+   * Service provider: AWS
+   * Service Name: Security Hub
+   * Event Type: Security Hub Findings - Imported
+   * No change required for the “Select event bus” pane
+   * Target: Firehose delivery stream
+   * Stream: aes-siem-firehose-securityhub
+   * Choose any value for the rest
+   * Choose [**Create**] to complete the configuration
+
+### AWS WAF
+
+![aws waf to s3](images/waf-to-s3.jpg)
+
+AWS WAF has two types: AWS WAF and AWS WAF Classic. You should, however, output both to the S3 bucket in the same way.
+
+The initial value of s3_key: `aws-waf-logs-`
+
+AWS WAF ACL traffic logs are exported from Kinesis Data Firehose to the S3 bucket. Kinesis Data Firehose names must start with [**aws-waf-logs-**], and because this prefix is included in the file names when they are output to the S3 bucket, we are using it to determine the log type.
+
+#### I. Common Configurations for AWS WAF
+
+First, deploy Kinesis Data Firehose
+
+1. Navigate to [](https://console.aws.amazon.com/kinesis/home?)the Amazon Kinesis console and select the **region where AWS WAF was deployed**
+1. Choose [**Delivery streams**] from the left pane => [**Create delivery stream**]
+1. On the [New delivery stream] screen, enter the following parameters:
+   * Delivery stream name: Enter [**aws-waf-logs-XXXX(any name)**]
+   * Source: Check [**Direct PUT or other sources**]
+   * Choose [**Next**]
+1. On the [Process records] screen, choose the following parameters:
+   * Data transformation: [**Disabled**]
+   * Record format conversion: [**Disabled**]
+   * Choose [**Next**]
+1. On the [Choose a destination] screen, choose/enter the following parameters:
+   * Destination: [**Amazon S3**]
+   * S3 bucket: [**aes-siem-123456789012-log**]
+      * Replace 123456789012 with your AWS account ID
+   * S3 prefix: Enter [**AWSLogs/123456789012/WAF/region/**]
+   * S3 error prefix: Enter [**AWSLogs/123456789012/WAF/region/error/**]
+      * Replace 123456789012 with your AWS account and ap-northeast-1 with your region. If the resource to which you attach WAF is CloudFront, set the region to **global**
+1. On the [Configure settings] screen, enter the following parameters:
+   * Buffer size: Enter [**any number**]
+   * Buffer interval: Enter [**any number**]
+   * S3 compression: [**GZIP**]
+   * Leave the following parameters as default
+   * Choose [**Next**]
+1. Choose [**Create delivery stream**]
+
+#### II. Logging Configuration for AWS WAF
+
+1. Navigate to the [WAFv2 console](https://console.aws.amazon.com/wafv2/home?)
+1. Choose [**Web ACLs**] from the left pane
+1. From the drop-down menu at the center of the screen, choose the [**region**] where you deployed WAF => Choose the name of the target WAF to collect logs from
+1. Choose [**Logging and metrics**] tab => [**Enable logging**]
+1. From the [Amazon Kinesis Data Firehose Delivery Stream] drop-down menu, choose the [**Kinesis Firehose you created**]
+1. Choose [**Enable logging**] to complete the configuration
+
+#### III. Logging Configuration for WAF Classic
+
+1. Navigate to the [WAF Classic console](https://console.aws.amazon.com/waf/home?)
+1. Choose [**Web ACLs**] from the left pane
+1. From the drop-down menu at the center of the screen, choose the [**region**] where you deployed WAF => Choose the name of the target WAF to collect logs from
+1. Choose the [**Logging**] tab at the top right of the screen => Choose [**Enable logging**]
+1. From the [Amazon Kinesis Data Firehose] drop-down menu, choose the [**Kinesis Firehose you created**]
+1. Choose [**Create**] to complete the configuration
+
+### Amazon GuardDuty
+
+![GuardDuty to S3](images/guardduty-to-s3.jpg)
+
+The initial value of s3_key: `GuardDuty` (part of the default output path)
+
+1. Log in to the AWS Management Console
+1. Navigate to the [GuardDuty](https://console.aws.amazon.com/guardduty/home?) console
+1. Choose [**Settings**] from the left pane
+1. Scroll to [Findings export options] panel
+1. Frequency for updated findings: Choose [**Update CWE and S3 every 15 minutes**] and then choose [**Save**] (recommended)
+1. Choose [**Configure now**] for S3 bucket and enter the following parameters:
+   * Check [**Existing bucket  In your account**]
+   * Choose a bucket: Choose [**aes-siem-123456789012-log**]
+      * Replace 123456789012 with your AWS account ID
+   * Log file prefix: Leave blank
+   * KMS encryption: Check [**Choose key from your account**]
+   * Key alias: Choose [**aes-siem-key**]
+   * Choose [**Save**]
+
+Configuration is now complete. Choose [**Generate sample findings**] on the same settings screen to verify that loading into SIEM on Amazon ES has been successfully set up.
+
+### AWS Network Firewall
+
+![NFW to S3](images/nfw-to-s3.jpg)
+
+The initial value of s3_key: `_network-firewall_` (part of the default output path)
+
+Ref: [AWS Network Firewall - Developer Guide - Logging and monitoring in AWS Network Firewall(S3)](https://docs.aws.amazon.com/network-firewall/latest/developerguide/logging-s3.html)
+
+## 3. Management & Governance
+
+### AWS CloudTrail
 
 ![CloudTrail to S3](images/cloudtrail-to-s3.jpg)
 
@@ -50,114 +224,17 @@ Follow the steps below to output CloudTrail logs to the S3 bucket:
 1. Choose [**Next**]
 1. Choose [**Create trail**]
 
-## 3. Amazon Virtual Private Cloud (Amazon VPC) Flow Logs
+## 4. Networking & Content Delivery
 
-![VPC flog logs to S3](images/vpc-to-s3.jpg)
-
-The initial value of s3_key: `vpcflowlogs` (part of the default output path)
-
-Follow the steps below to output VPC flow logs to the S3 bucket:
-
-1. Log in to the AWS Management Console
-1. Navigate to the [Amazon VPC console](https://console.aws.amazon.com/vpc/home?)
-1. Choose [**VPC**] or [**Subnet**] from the left pane => Check the box of the resource to load
-1. Choose the [**Flow logs**] tab at the bottom of the screen => Choose [ **Create flow log**]
-1. Enter the following parameters on the Create flow log screen
-   * Name: any name
-   * Filter: any, but [**All**] is recommended
-   * Maximum aggregation interval: any, but setting this to 1 minute will increase the log volume
-   * Destination: Check [**Send to an S3 bucket**]
-   * S3 bucket ARN: [**arn:aws:s3:::aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * Log record format: Check [**AWS default format**]
-      * If you want to use a custom format, define a regular expression for logging in user.ini
-   * Tags: any
-1. Choose [**Create flow log**]
-
-## 4. Amazon GuardDuty
-
-![GuardDuty to S3](images/guardduty-to-s3.jpg)
-
-The initial value of s3_key: `GuardDuty` (part of the default output path)
-
-1. Log in to the AWS Management Console
-1. Navigate to the [GuardDuty](https://console.aws.amazon.com/guardduty/home?) console
-1. Choose [**Settings**] from the left pane
-1. Scroll to [Findings export options] panel
-1. Frequency for updated findings: Choose [**Update CWE and S3 every 15 minutes**] and then choose [**Save**] (recommended)
-1. Choose [**Configure now**] for S3 bucket and enter the following parameters:
-   * Check [**Existing bucket  In your account**]
-   * Choose a bucket: Choose [**aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * Log file prefix: Leave blank
-   * KMS encryption: Check [**Choose key from your account**]
-   * Key alias: Choose [**aes-siem-key**]
-   * Choose [**Save**]
-
-Configuration is now complete. Choose [**Generate sample findings**] on the same settings screen to verify that loading into SIEM on Amazon ES has been successfully set up.
-
-## 5. Amazon Simple Storage Service (Amazon S3) access logs
-
-![S3 to S3](images/s3-to-s3.jpg)
-
-Follow the steps below to output S3 access logs to the S3 bucket. If you are already capturing S3 logs using CloudTrail data events, click [here](https://docs.aws.amazon.com/ja_jp/AmazonS3/latest/dev/logging-with-S3.html) to see the difference from S3 access logging.
-
-The initial value of s3_key: `s3accesslog` (there is no standard save path, so specify it using a prefix)
-
-1. Log in to the AWS Management Console
-1. Navigate to the [Amazon S3 console](https://console.aws.amazon.com/s3/home?)
-1. From the bucket list, choose the S3 bucket you want to collect logs from.
-1. Choose [**Properties**] tab => [**Server access logging**]
-   1. Check Enable logging
-   1. Choose target bucket: aes-siem-123456789012-log
-      * Replace 123456789012 with your AWS account ID
-   1. Target prefix: [**AWSLogs/AWS account ID/s3accesslog/region/bucket name/** ]
-      * It’s important to have [s3accesslog] in the path
-   1. Choose [**Save**]
-
-## 6. Elastic Load Balancing (ELB)
-
-![elb to S3](images/elb-to-s3.jpg)
-
-Follow the steps below to output each of the following three load balancer logs to the S3 bucket:
-
-* Application Load Balancer(ALB)
-* Network Load Balancer(NLB)
-* Classic Load Balancer(CLB)
-
-The initial value of s3_key is determined by the default output path and file name using regular expressions
-
-* ALB: `elasticloadbalancing_.*T\d{4}Z_\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}_\w*\.log\.gz$$`
-* NLB: `elasticloadbalancing_.*T\d{4}Z_[0-9a-z]{8}\.log\.gz$$`
-* CLB: `elasticloadbalancing_.*T\d{4}Z_\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}_\w*\.log$$`
-
-1. Log in to the AWS Management Console
-1. Navigate to the [Amazon EC2 console](https://console.aws.amazon.com/ec2/home?)
-1. Choose [**Load balancers**] from the left pane => [**Check the box**] of the target load balancer to collect logs from
-1. Choose [Description ] tab => Enter the following parameters for ALB/NLB/CLB:
-   * For ALB/NLB: Choose [**Edit attributes**]
-      * Access logs: Check [**Enable**]
-      * S3 location: Enter [**aes-siem-123456789012-log**]
-         * Replace 123456789012 with your AWS account ID
-      * Create this location for me: unchecked
-      * Choose [**Save**]
-   * For CLB: Choose [**Configure Access Logs**]
-      * Enable access logs: [**checked**]
-      * Interval: Choose [**5 minutes or 60 minutes**]
-      * S3 location: Enter [**aes-siem-123456789012-log**]
-         * Replace 123456789012 with your AWS account ID
-      * Create this location for me: unchecked
-      * Choose [**Save**] to complete the configuration
-
-## 7. Amazon CloudFront
+### Amazon CloudFront
 
 For CloudFront, you can record requests sent for distribution in two ways. Standard logs (access logs) and real-time logs. Click [here](https://docs.aws.amazon.com/ja_jp/AmazonCloudFront/latest/DeveloperGuide/logging.html) to see the difference between the two.
 
-### 7-1. CloudFront Standard Log (Access Log)
+#### I. CloudFront Standard Log (Access Log)
 
 ![cloudfront starndard to s3](images/cloudfront-standard-to-s3.jpg)
 
-The initial value of s3_key: `(^|\/)[0-9A-Z]{14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\.gz$$`
+The initial value of s3_key: `(^|\/)[0-9A-Z]{13,14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\.gz$$`
 
 The log type is determined by the default output file name using regular expressions. The logs do not contain AWS account IDs, so you should include them in the S3 prefix.
 
@@ -175,7 +252,7 @@ The log type is determined by the default output file name using regular express
    * Cookie logging: [**Yes**]
    * Choose [**Update**] to complete the configuration
 
-### 7-2. CloudFront real-time logs
+#### II. CloudFront real-time logs
 
 ![cloudfront realtime to s3](images/cloudfront-realtime-to-s3.jpg)
 
@@ -242,65 +319,7 @@ Configuring Amazon CloudFront:
    * Cache behavior(s): Choose [**Default(*)**]
 1. Choose [**Create configuration**] to complete the configuration
 
-## 8. AWS WAF
-
-![aws waf to s3](images/waf-to-s3.jpg)
-
-AWS WAF has two types: AWS WAF and AWS WAF Classic. You should, however, output both to the S3 bucket in the same way.
-
-The initial value of s3_key: `aws-waf-logs-`
-
-AWS WAF ACL traffic logs are exported from Kinesis Data Firehose to the S3 bucket. Kinesis Data Firehose names must start with [**aws-waf-logs-**], and because this prefix is included in the file names when they are output to the S3 bucket, we are using it to determine the log type.
-
-### 8-1. Common Configurations for AWS WAF
-
-First, deploy Kinesis Data Firehose
-
-1. Log in to the AWS Management Console
-1. Navigate to [](https://console.aws.amazon.com/kinesis/home?)the Amazon Kinesis console and select the **region where AWS WAF was deployed**
-1. Choose [**Delivery streams**] from the left pane => [**Create delivery stream**]
-1. On the [New delivery stream] screen, enter the following parameters:
-   * Delivery stream name: Enter [**aws-waf-logs-XXXX(any name)**]
-   * Source: Check [**Direct PUT or other sources**]
-   * Choose [**Next**]
-1. On the [Process records] screen, choose the following parameters:
-   * Data transformation: [**Disabled**]
-   * Record format conversion: [**Disabled**]
-   * Choose [**Next**]
-1. On the [Choose a destination] screen, choose/enter the following parameters:
-   * Destination: [**Amazon S3**]
-   * S3 bucket: [**aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * S3 prefix: Enter [**AWSLogs/123456789012/WAF/region/**]
-   * S3 error prefix: Enter [**AWSLogs/123456789012/WAF/region/error/**]
-      * Replace 123456789012 with your AWS account and ap-northeast-1 with your region. If the resource to which you attach WAF is CloudFront, set the region to **global**
-1. On the [Configure settings] screen, enter the following parameters:
-   * Buffer size: Enter [**any number**]
-   * Buffer interval: Enter [**any number**]
-   * S3 compression: [**GZIP**]
-   * Leave the following parameters as default
-   * Choose [**Next**]
-1. Choose [**Create delivery stream**]
-
-### 8-2. Logging Configuration for AWS WAF
-
-1. Navigate to the [WAFv2 console](https://console.aws.amazon.com/wafv2/home?)
-1. Choose [**Web ACLs**] from the left pane
-1. From the drop-down menu at the center of the screen, choose the [**region**] where you deployed WAF => Choose the name of the target WAF to collect logs from
-1. Choose [**Logging and metrics**] tab => [**Enable logging**]
-1. From the [Amazon Kinesis Data Firehose Delivery Stream] drop-down menu, choose the [**Kinesis Firehose you created**]
-1. Choose [**Enable logging**] to complete the configuration
-
-### 8-3. Logging Configuration for WAF Classic
-
-1. Navigate to the [WAF Classic console](https://console.aws.amazon.com/waf/home?)
-1. Choose [**Web ACLs**] from the left pane
-1. From the drop-down menu at the center of the screen, choose the [**region**] where you deployed WAF => Choose the name of the target WAF to collect logs from
-1. Choose the [**Logging**] tab at the top right of the screen => Choose [**Enable logging**]
-1. From the [Amazon Kinesis Data Firehose] drop-down menu, choose the [**Kinesis Firehose you created**]
-1. Choose [**Create**] to complete the configuration
-
-## 9. Route 53 Resolver VPC DNS Query Logging
+### Route 53 Resolver VPC DNS Query Logging
 
 ![Amazon Linux 2 to S3](images/route53resolver-to-s3.jpg)
 
@@ -316,7 +335,136 @@ The initial value of s3_key: `vpcdnsquerylogs` (part of the default output path)
    * VPCs to log queries for: [**Add any VPC**]
 1. Choose [**Configure query logging**] to complete the configuration
 
-## 10. EC2 Instance (Amazon Linux 2)
+### Amazon VPC Flow Logs
+
+![VPC flog logs to S3](images/vpc-to-s3.jpg)
+
+The initial value of s3_key: `vpcflowlogs` (part of the default output path)
+
+Follow the steps below to output VPC flow logs to the S3 bucket:
+
+1. Log in to the AWS Management Console
+1. Navigate to the [Amazon VPC console](https://console.aws.amazon.com/vpc/home?)
+1. Choose [**VPC**] or [**Subnet**] from the left pane => Check the box of the resource to load
+1. Choose the [**Flow logs**] tab at the bottom of the screen => Choose [ **Create flow log**]
+1. Enter the following parameters on the Create flow log screen
+   * Name: any name
+   * Filter: any, but [**All**] is recommended
+   * Maximum aggregation interval: any, but setting this to 1 minute will increase the log volume
+   * Destination: Check [**Send to an S3 bucket**]
+   * S3 bucket ARN: [**arn:aws:s3:::aes-siem-123456789012-log**]
+      * Replace 123456789012 with your AWS account ID
+   * Log record format: Check [**AWS default format**] or check "Custom format" and select "Log format".
+   * Tags: any
+1. Choose [**Create flow log**]
+
+### Elastic Load Balancing (ELB)
+
+![elb to S3](images/elb-to-s3.jpg)
+
+Follow the steps below to output each of the following three load balancer logs to the S3 bucket:
+
+* Application Load Balancer(ALB)
+* Network Load Balancer(NLB)
+* Classic Load Balancer(CLB)
+
+The initial value of s3_key is determined by the default output path and file name using regular expressions
+
+* ALB: `elasticloadbalancing_.*T\d{4}Z_\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}_\w*\.log\.gz$$`
+* NLB: `elasticloadbalancing_.*T\d{4}Z_[0-9a-z]{8}\.log\.gz$$`
+* CLB: `elasticloadbalancing_.*T\d{4}Z_\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}_\w*\.log$$`
+
+1. Log in to the AWS Management Console
+1. Navigate to the [Amazon EC2 console](https://console.aws.amazon.com/ec2/home?)
+1. Choose [**Load balancers**] from the left pane => [**Check the box**] of the target load balancer to collect logs from
+1. Choose [Description ] tab => Enter the following parameters for ALB/NLB/CLB:
+   * For ALB/NLB: Choose [**Edit attributes**]
+      * Access logs: Check [**Enable**]
+      * S3 location: Enter [**aes-siem-123456789012-log**]
+         * Replace 123456789012 with your AWS account ID
+      * Create this location for me: unchecked
+      * Choose [**Save**]
+   * For CLB: Choose [**Configure Access Logs**]
+      * Enable access logs: [**checked**]
+      * Interval: Choose [**5 minutes or 60 minutes**]
+      * S3 location: Enter [**aes-siem-123456789012-log**]
+         * Replace 123456789012 with your AWS account ID
+      * Create this location for me: unchecked
+      * Choose [**Save**] to complete the configuration
+
+## 5. Storage
+
+### Amazon S3 access logs
+
+![S3 to S3](images/s3-to-s3.jpg)
+
+Follow the steps below to output S3 access logs to the S3 bucket. If you are already capturing S3 logs using CloudTrail data events, click [here](https://docs.aws.amazon.com/ja_jp/AmazonS3/latest/dev/logging-with-S3.html) to see the difference from S3 access logging.
+
+The initial value of s3_key: `s3accesslog` (there is no standard save path, so specify it using a prefix)
+
+1. Log in to the AWS Management Console
+1. Navigate to the [Amazon S3 console](https://console.aws.amazon.com/s3/home?)
+1. From the bucket list, choose the S3 bucket you want to collect logs from.
+1. Choose [**Properties**] tab => [**Server access logging**]
+   1. Check Enable logging
+   1. Choose target bucket: aes-siem-123456789012-log
+      * Replace 123456789012 with your AWS account ID
+   1. Target prefix: [**AWSLogs/AWS account ID/s3accesslog/region/bucket name/** ]
+      * It’s important to have [s3accesslog] in the path
+   1. Choose [**Save**]
+
+## 6. Database
+
+### RDS (Aurora MySQL / MySQL / MariaDB) (Experimental Support)
+
+![MySQL to S3](images/mysql-to-s3.jpg)
+
+* Erorr log
+* Slow query log
+* General log
+* Audit log
+
+The initial value of s3_key (specified in the Firehose output path)
+
+* Erorr log: `(MySQL|mysql|MariaDB|mariadb).*(error)`
+* Slow query log: `(MySQL|mysql|MariaDB|mariadb).*(slowquery)`
+* General log: `(MySQL|mysql|MariaDB|mariadb).*(general)`
+* Audit log: `(MySQL|mysql|MariaDB|mariadb).*(audit)`
+
+#### Reference
+
+* [Aurora User Guide / MySQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/USER_LogAccess.Concepts.MySQL.html)
+* [RDS User Guide / MySQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MySQL.html)
+* [RDS User Guide / MariaDB database log files](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MariaDB.html)
+* [Using advanced auditing with an Amazon Aurora MySQL DB cluster](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Auditing.html#AuroraMySQL.Auditing.Logs)
+* [How do I publish logs for Amazon RDS or Aurora for MySQL instances to CloudWatch?](https://aws.amazon.com/premiumsupport/knowledge-center/rds-aurora-mysql-logs-cloudwatch/)
+* [How can I enable audit logging for an Amazon RDS MySQL or MariaDB instance and publish the logs to CloudWatch?](https://aws.amazon.com/premiumsupport/knowledge-center/advanced-audit-rds-mysql-cloudwatch/)
+
+### RDS (Aurora PostgreSQL / PostgreSQL) (Experimental Support)
+
+![PostgreSQL to S3](images/postgresql-to-s3.jpg)
+
+The initial value of s3_key : `Postgre` or `postgres` (specified in the Firehose output path)
+
+#### Reference
+
+* [Aurora User Guide / PostgreSQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/USER_LogAccess.Concepts.PostgreSQL.html)
+* [RDS User Guide / PostgreSQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.PostgreSQL.html)
+* [How do I enable query logging using Amazon RDS for PostgreSQL?](https://aws.amazon.com/premiumsupport/knowledge-center/rds-postgresql-query-logging/)
+* [Configuring and authoring Kibana dashboards](https://aws.amazon.com/blogs/database/configuring-and-authoring-kibana-dashboards/)
+* [How can I track failed attempts to log in to my Amazon RDS DB instance that's running PostgreSQL?](https://aws.amazon.com/premiumsupport/knowledge-center/track-failed-login-rds-postgresql/)
+
+## 7. Analytics
+
+### Amazon MSK
+
+![MSK to S3](images/msk-to-s3.jpg)
+
+The initial value of s3_key: `KafkaBrokerLogs` (part of the default output path)
+
+## 8. Compute
+
+### EC2 Instance (Amazon Linux 2)
 
 ![Amazon Linux 2 to S3](images/al2-to-s3.jpg)
 
@@ -339,61 +487,9 @@ Here’s an outline of the steps:
    * Prefix to output logs as secure Log: [**AWSLogs/123456789012/EC2/Linux/Secure/[ region]/**]
       * Replace 123456789012 with your AWS account ID
 
-## 11. AWS Security Hub
+## 9. Containers
 
-![SecurityHub to S3](images/securityhub-to-s3.jpg)
-
-The initial value of s3_key: `SecurityHub` (specified in the Firehose output path)
-
-* Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose.
-* Create Firehose and EventEngine rules for each region when aggregating Security Hub findings from multiple regions
-
-Configuring Kinesis Data Firehose
-
-1. Navigate to the [Amazon Kinesis console](https://console.aws.amazon.com/kinesis/home?)
-1. Choose [**Delivery streams**] from the left pane
-1. Choose [**Create delivery stream**] at the top left of the screen
-1. On the [New delivery stream] screen, enter the following parameters:
-   * Delivery stream name: Enter [**aes-siem-firehose-securityhub**]
-   * Source: Check [**Direct PUT or other sources**]
-   * [Enable server-side encryption for source records in delivery stream] is optional
-   * Choose [**Next**]
-1. On the [Process records] screen, choose the following parameters:
-   * Data transformation: [**Disabled**]
-   * Record format conversion: [**Disabled**]
-   * Choose [**Next**]
-1. On the [Choose a destination] screen, choose/enter the following parameters:
-   * Destination: [**Amazon S3**]
-   * S3 bucket: [**aes-siem-123456789012-log**]
-   * S3 prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/**]
-   * S3 error prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/error/**]
-      * Replace 123456789012 with your AWS account and [region] with your region.
-1. On the [Configure settings] screen, enter the following parameters:
-   * Buffer size: Enter [**any number**]
-   * Buffer interval: Enter [**any number**]
-   * S3 compression: [**GZIP**]
-   * Leave the following parameters as default
-   * Choose [**Next**]
-1. Choose [**Create delivery stream**] to complete deployment of Kinesis Data Firehose
-
-Configuring EventBridge
-
-1. Navigate to the [EventBridge console](https://console.aws.amazon.com/events/home?)
-1. Choose [**Rules**] from the left pane => [**Create rule**]
-1. Enter the following parameters on the [Create rule] screen:
-   * Name: aes-siem-securityhub-to-firehose
-   * Define pattern: Choose Event pattern
-   * Event matching pattern: Pre-defined pattern by service
-   * Service provider: AWS
-   * Service Name: Security Hub
-   * Event Type: Security Hub Findings - Imported
-   * No change required for the “Select event bus” pane
-   * Target: Firehose delivery stream
-   * Stream: aes-siem-firehose-securityhub
-   * Choose any value for the rest
-   * Choose [**Create**] to complete the configuration
-
-## FireLens for Amazon ECS
+### FireLens for Amazon ECS
 
 ![ECS to Firelens to S3](images/ecs-to-firelens-to-s3.jpg)
 
@@ -425,12 +521,12 @@ via_firelens = True
 ignore_container_stderr = True
 ```
 
-## Multiple regions / multiple accounts
+## 10. Multiple regions / multiple accounts
 
 You can load logs from other accounts or regions into SIEM on Amazon ES by using S3 replication or cross-account output to the S3 bucket that stores logs.
 The output paths should be follow the S3 keys configured above.
 
-## Loading logs from an existing S3 bucket
+## 11. Loading logs from an existing S3 bucket
 
 You can also load logs into SIEM on Amazon ES from an already existing S3 bucket and/or by using an AWS KMS customer-managed key.
 To use an existing S3 bucket or AWS KMS customer-managed key, you must grant permissions to Lambda function es-loader. See [this](deployment.md) to deploy using AWS CDK.

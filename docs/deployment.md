@@ -2,6 +2,15 @@
 
 [View this page in Japanese (日本語)](deployment_ja.md) | [Back to README](../README.md)
 
+## Table of contents
+
+* [Conditions that require advanced deployment](#Conditions-that-require-advanced-deployment)
+* [Loading an existing S3 bucket](#Loading-an-existing-S3-bucket)
+* [Deploying with the AWS CDK](#Deploying-with-the-AWS-CDK)
+* [Updating SIEM with the AWS CDK](#Updating-SIEM-with-the-AWS-CDK)
+
+## Conditions that require advanced deployment
+
 Run the AWS Cloud Development Kit (AWS CDK) to deploy SIEM on Amazon ES without using AWS CloudFormation if any of the following is true:
 
 * I want to deploy Amazon Elasticsearch Service (Amazon ES) to an Amazon VPC **private subnet**
@@ -41,7 +50,7 @@ Skip these steps if you want to send logs from your existing S3 bucket to SIEM o
 * The subnet you deploy is a private subnet
 * Select three different Availability Zones for the subnet. (Only one instance is deployed per AZ)
 * In Amazon VPC, enable both [**DNS hostnames**] and [**DNS resolution**]
-* cdk.json is created during the deployment, and ensure to save this file. It will be required to rerun the CDK used for the deployment of SIEM on Amazon ES
+* `cdk.json` and `cdk.context.json` are created during the deployment, and ensure to save this file. It will be required to rerun the CDK used for the deployment of SIEM on Amazon ES
 
 ### 1. Setting Up the AWS CDK Execution Environment
 
@@ -50,7 +59,7 @@ Skip these steps if you want to send logs from your existing S3 bucket to SIEM o
 1. Log in to the shell; install the development tools, Python 3.8 and development files, git, and jq; and get the source code from GitHub
 
    ```shell
-   sudo yum groupinstall -y "Development Tools"
+   sudo yum groups mark install -y "Development Tools"
    sudo yum install -y amazon-linux-extras
    sudo amazon-linux-extras enable python3.8
    sudo yum install -y python38 python38-devel git jq

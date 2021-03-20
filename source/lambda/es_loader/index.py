@@ -16,7 +16,7 @@ from aws_lambda_powertools.metrics import MetricUnit
 import siem
 from siem import utils, geodb
 
-__version__ = '2.2.0'
+__version__ = '2.3.0'
 
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
@@ -62,6 +62,9 @@ def get_value_from_etl_config(logtype, key, keytype=None):
     except KeyError:
         logger.exception('unknown error')
         raise KeyError("Can't find the key in logconfig")
+    except re.error:
+        logger.exception(f'invalid regex pattern for {key}')
+        raise Exception(f'invalid regex pattern for {key}') from None
     except Exception:
         logger.exception('unknown error')
         raise Exception('unknown error') from None
@@ -70,13 +73,13 @@ def get_value_from_etl_config(logtype, key, keytype=None):
 
 @lru_cache(maxsize=128)
 def create_logconfig(logtype):
-    type_re = ['s3_key_ignored', 'log_pattern']
+    type_re = ['s3_key_ignored', 'log_pattern', 'multiline_firstline']
     type_int = ['max_log_count', 'text_header_line_number',
                 'ignore_header_line_number']
     type_bool = ['via_cwl', 'via_firelens', 'ignore_container_stderr',
                  'timestamp_nano']
     logconfig = {}
-    if 'unknown' == logtype:
+    if logtype in ('unknown', 'nodata'):
         return logconfig
     for key in etl_config[logtype]:
         if key in type_re:
@@ -155,7 +158,8 @@ def bulkloads_into_elasticsearch(es_entries, collected_metrics):
             output_size = 0
             total_count += len(putdata_list)
             putdata_list = []
-            error_reason_list.extend([error_reasons])
+            if len(error_reasons):
+                error_reason_list.extend([error_reasons])
     if output_size > 0:
         total_output_size += output_size
         results = es_conn.bulk(putdata_list, filter_path=filter_path)
@@ -165,7 +169,8 @@ def bulkloads_into_elasticsearch(es_entries, collected_metrics):
         error_count += error
         es_response_time += es_took
         total_count += len(putdata_list)
-        error_reason_list.extend(error_reasons)
+        if len(error_reasons):
+            error_reason_list.extend([error_reasons])
     collected_metrics['total_output_size'] = total_output_size
     collected_metrics['total_log_load_count'] = total_count
     collected_metrics['success_count'] = success_count

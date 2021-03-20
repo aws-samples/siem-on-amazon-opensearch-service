@@ -17,7 +17,7 @@ from aws_lambda_powertools import Logger
 
 from siem import utils
 
-__version__ = '2.2.0'
+__version__ = '2.3.0'
 
 logger = Logger(child=True)
 
@@ -50,11 +50,14 @@ class LogS3:
 
         self.__rawdata = self.extract_rawdata_from_s3obj()
 
-        if self.via_cwl:
+        if self.__rawdata and self.via_cwl:
             self.loggroup, self.logstream, self.cwl_accountid = (
                 self.extract_header_from_cwl(self.__rawdata))
             self.__rawdata.seek(0)
             self.__rawdata = self.extract_messages_from_cwl(self.__rawdata)
+
+        if self.file_format in ('multiline', ):
+            self.re_multiline_firstline = self.logconfig['multiline_firstline']
 
     def __iter__(self):
         if self.is_ignored:
@@ -75,9 +78,12 @@ class LogS3:
     ###########################################################################
     @cached_property
     def is_ignored(self):
-        if 'unknown' in self.logtype:
+        if self.s3key[-1] == '/':
+            self.ignored_reason = f'this s3 key is just path, {self.s3key}'
+            return True
+        elif 'unknown' in self.logtype:
             # 対応していないlogtypeはunknownになる。その場合は処理をスキップさせる
-            self.ignored_reason = f'Unknown log type in S3 key, {self.s3key}'
+            self.ignored_reason = f'unknown log type in S3 key, {self.s3key}'
             return True
         re_s3_key_ignored = self.logconfig['s3_key_ignored']
         if re_s3_key_ignored:
@@ -93,10 +99,13 @@ class LogS3:
         if self.end_number == 0:
             if self.file_format in ('text', 'csv') or self.via_firelens:
                 log_count = len(self.rawdata.readlines())
+                # log_count = sum(1 for line in self.rawdata)
             elif 'json' in self.file_format:
                 log_count = 0
                 for x in self.extract_logobj_from_json(mode='count'):
                     log_count = x
+            elif self.file_format in ('multiline', ):
+                log_count = self.count_multiline_log()
             else:
                 log_count = 0
             if log_count == 0:
@@ -191,6 +200,8 @@ class LogS3:
             logobjs = self.extract_logobj_from_json('extract', start, end)
             for logobj in logobjs:
                 yield logobj
+        elif self.file_format in ('multiline', ):
+            yield from self.extract_multiline_log(start, end)
         else:
             raise Exception
 
@@ -199,7 +210,10 @@ class LogS3:
         body = rawdata
         decoder = json.JSONDecoder()
         while True:
-            obj, offset = decoder.raw_decode(body.read())
+            try:
+                obj, offset = decoder.raw_decode(body.read())
+            except json.decoder.JSONDecodeError:
+                break
             index = offset + index
             body.seek(index)
             if 'CONTROL_MESSAGE' in obj['messageType']:
@@ -208,6 +222,7 @@ class LogS3:
             logstream = obj['logStream']
             owner = obj['owner']
             return loggroup, logstream, owner
+        return None, None, None
 
     def extract_messages_from_cwl(self, rawlog_io_obj):
         decoder = json.JSONDecoder()
@@ -233,8 +248,16 @@ class LogS3:
             msg = f'Failed to download S3 object from {self.s3key}'
             logger.exception(msg)
             raise Exception(msg) from None
-        # if obj['ResponseMetadata']['HTTPHeaders']['content-length'] == '0':
-        #    raise Exception('No Contents in s3 object')
+        try:
+            s3size = int(
+                obj['ResponseMetadata']['HTTPHeaders']['content-length'])
+        except Exception:
+            s3size = 20
+        if s3size < 20:
+            self.is_ignored = True
+            self.ignored_reason = (f'no valid contents in s3 object, size of '
+                                   f'{self.s3key} is only {s3size} byte')
+            return None
         rawbody = io.BytesIO(obj['Body'].read())
         mime_type = utils.get_mime_type(rawbody.read(16))
         rawbody.seek(0)
@@ -284,6 +307,41 @@ class LogS3:
                 index = search.end()
             if 'count' in mode:
                 yield count
+
+    def match_multiline_firstline(self, line):
+        if self.re_multiline_firstline.match(line):
+            return True
+        else:
+            return False
+
+    def count_multiline_log(self):
+        count = 0
+        for line in self.rawdata:
+            if self.match_multiline_firstline(line):
+                count += 1
+        return count
+
+    def extract_multiline_log(self, start=0, end=0):
+        count = 0
+        multilog = []
+        is_in_scope = False
+        for line in self.rawdata:
+            if self.match_multiline_firstline(line):
+                count += 1
+                if start < count <= end:
+                    if len(multilog) > 0:
+                        # yield previous log
+                        yield "".join(multilog).rstrip()
+                    multilog = []
+                    is_in_scope = True
+                    multilog.append(line)
+                else:
+                    continue
+            elif is_in_scope:
+                multilog.append(line)
+        if is_in_scope:
+            # yield last log
+            yield "".join(multilog).rstrip()
 
     def check_cwe_and_strip_header(self, dict_obj):
         if "detail-type" in dict_obj and "resources" in dict_obj:
@@ -476,7 +534,7 @@ class LogParser:
             logdata_dict = utils.convert_keyname_to_safe_field(logdata_dict)
         elif self.logformat in 'json':
             logdata_dict = logdata
-        elif self.logformat in 'text':
+        elif self.logformat in ('text', 'multiline'):
             logdata_dict = self.text_logdata_to_dict(logdata)
         if self.via_firelens:
             logdata_dict.update(firelens_meta_dict)
@@ -506,7 +564,8 @@ class LogParser:
             basic_dict['@log_stream'] = self.logstream
         basic_dict['@log_s3bucket'] = self.s3bucket
         basic_dict['@log_s3key'] = self.s3key
-        self.__logdata_dict.update(basic_dict)
+        self.__logdata_dict = utils.merge_dicts(
+            self.__logdata_dict, basic_dict)
 
     def clean_multi_type_field(self):
         clean_multi_type_dict = {}
@@ -708,6 +767,8 @@ class LogParser:
             elif isinstance(value, list) and len(value) == 0:
                 del d[key]
             elif isinstance(value, str) and (value in ('', '-', 'null', '[]')):
+                del d[key]
+            elif isinstance(value, type(None)):
                 del d[key]
         return d
 

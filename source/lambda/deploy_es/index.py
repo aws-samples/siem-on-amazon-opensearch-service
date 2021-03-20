@@ -4,21 +4,26 @@
 
 import configparser
 import json
+import logging
 import os
 import secrets
 import string
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from datetime import date, datetime
 
 import boto3
 import requests
+from crhelper import CfnResource
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.2.0'
+__version__ = '2.3.0'
 print('version: ' + __version__)
+
+logger = logging.getLogger(__name__)
+helper_domain = CfnResource(json_logging=False, log_level='DEBUG',
+                            boto_level='CRITICAL', sleep_on_delete=120)
+helper_config = CfnResource(json_logging=False, log_level='DEBUG',
+                            boto_level='CRITICAL', sleep_on_delete=120)
 
 client = boto3.client('es')
 
@@ -29,14 +34,42 @@ myaddress = os.environ['allow_source_address'].split()
 aes_admin_role = os.environ['aes_admin_role']
 es_loader_role = os.environ['es_loader_role']
 myiamarn = [accountid]
-kibanaadmin = 'aesadmin'
+KIBANAADMIN = 'aesadmin'
 vpc_subnet_id = os.environ['vpc_subnet_id']
 if vpc_subnet_id == 'None':
     vpc_subnet_id = None
 security_group_id = os.environ['security_group_id']
+LOGGROUP_RETENTIONS = [
+    ('/aws/aes/domains/aes-siem/application-logs', 14),
+    ('/aws/lambda/aes-siem-configure-aes', 90),
+    ('/aws/lambda/aes-siem-deploy-aes', 90),
+    ('/aws/lambda/aes-siem-es-loader', 90),
+    ('/aws/lambda/aes-siem-geoip-downloader', 90),
+]
 
 es_loader_ec2_role = (
     f'arn:aws:iam::{accountid}:role/aes-siem-es-loader-for-ec2')
+
+cwl_resource_policy = {
+    'Version': "2012-10-17",
+    'Statement': [
+        {
+            'Effect': 'Allow',
+            'Principal': {'Service': "es.amazonaws.com"},
+            "Action": [
+                'logs:PutLogEvents',
+                'logs:CreateLogStream',
+                'logs:CreateLogGroup'
+            ],
+            'Resource': [
+                (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes'
+                 f'/domains/aes-siem/*'),
+                (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes'
+                 f'/domains/aes-siem/*:*')
+            ]
+        }
+    ]
+}
 
 access_policies = {
     'Version': '2012-10-17',
@@ -84,9 +117,6 @@ config_domain = {
         'VolumeSize': 10,
     },
     'AccessPolicies': access_policies_json,
-    'SnapshotOptions': {
-        'AutomatedSnapshotStartHour': 16
-    },
     # VPCOptions={
     #     'SubnetIds': [
     #         'string',
@@ -111,12 +141,14 @@ config_domain = {
     # AdvancedOptions={
     #     'string': 'string'
     # },
-    # LogPublishingOptions={
-    #     'string': {
-    #         'CloudWatchLogsLogGroupArn': 'string',
-    #         'Enabled': True|False
-    #     }
-    # },
+    'LogPublishingOptions': {
+        'ES_APPLICATION_LOGS': {
+            'CloudWatchLogsLogGroupArn': (
+                f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes/'
+                f'domains/aes-siem/application-logs'),
+            'Enabled': True
+        }
+    },
     'DomainEndpointOptions': {
         'EnforceHTTPS': True,
         'TLSSecurityPolicy': 'Policy-Min-TLS-1-2-2019-07'
@@ -134,11 +166,6 @@ config_domain = {
 if vpc_subnet_id:
     config_domain['VPCOptions'] = {'SubnetIds': [vpc_subnet_id, ],
                                    'SecurityGroupIds': [security_group_id, ]}
-
-
-def create_es():
-    response = client.create_elasticsearch_domain(**config_domain)
-    return response
 
 
 def make_password(length):
@@ -160,7 +187,7 @@ def create_kibanaadmin(kibanapass):
             # 'Enabled': True,
             'InternalUserDatabaseEnabled': True,
             'MasterUserOptions': {
-                'MasterUserName': kibanaadmin,
+                'MasterUserName': KIBANAADMIN,
                 'MasterUserPassword': kibanapass
             }
         }
@@ -193,30 +220,31 @@ def query_aes(es_endpoint, awsauth, method=None, path=None, payload=None,
 
 
 def output_message(key, res):
-    return(f'  {key}: status={res.status_code}, message={res.text}')
+    return(f'{key}: status={res.status_code}, message={res.text}')
 
 
 def upsert_role_mapping(es_endpoint, role_name, es_app_data=None,
                         added_user=None, added_role=None, added_host=None):
     awsauth = auth_aes(es_endpoint)
+    logger.info('role_name: ' + role_name)
     path = '_opendistro/_security/api/rolesmapping/' + role_name
     res = query_aes(es_endpoint, awsauth, 'GET', path)
-    print(res.status_code)
     if res.status_code == 404:
+        logger.info('Create new role/mapping')
         # create role
         path_roles = '_opendistro/_security/api/roles/' + role_name
         payload = json.loads(es_app_data['security']['role_es_loader'])
-        print(json.dumps(payload, default=json_serial))
+        logger.debug(json.dumps(payload, default=json_serial))
         res_new = query_aes(es_endpoint, awsauth, 'PATCH', path_roles, payload)
-        print(output_message('Created' + role_name, res_new))
+        logger.info(output_message('role_' + role_name, res_new))
         time.sleep(3)
         # role mapping for new role
         payload = {'backend_roles': [es_loader_role, ]}
         res = query_aes(es_endpoint, awsauth, 'PATCH', path, payload)
-        print(output_message('Mapping' + role_name, res))
+        logger.info(output_message('role_mapping_' + role_name, res))
         return True
+    logger.debug('Current Configration: ' + res.text)
     res_json = json.loads(res.text)
-    print(res_json)
     current_conf = res_json[role_name]
     need_updating = 0
     if added_user and (added_user not in current_conf['users']):
@@ -237,18 +265,19 @@ def upsert_role_mapping(es_endpoint, role_name, es_app_data=None,
             del current_conf['hidden']
         if 'reserved' in current_conf:
             del current_conf['reserved']
-        print(json.dumps(current_conf))
+        logger.info('New configuration ' + json.dumps(current_conf))
         res = query_aes(es_endpoint, awsauth, 'PATCH', path, current_conf)
-        print(output_message('Mapping' + role_name, res))
+        logger.info(output_message('role_apping_' + role_name, res))
     else:
-        print("no update opendistro's role mapping")
+        logger.debug("no updating opendistro's role mapping")
 
 
 def configure_opendistro(es_endpoint, es_app_data):
+    logger.info("Create or Update role/mapping")
     upsert_role_mapping(es_endpoint, 'all_access',
-                        added_user=kibanaadmin, added_role=aes_admin_role)
+                        added_user=KIBANAADMIN, added_role=aes_admin_role)
     upsert_role_mapping(es_endpoint, 'security_manager',
-                        added_user=kibanaadmin, added_role=aes_admin_role)
+                        added_user=KIBANAADMIN, added_role=aes_admin_role)
     upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
                         added_role=es_loader_role)
     upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
@@ -258,26 +287,30 @@ def configure_opendistro(es_endpoint, es_app_data):
 def configure_siem(es_endpoint, es_app_data):
     awsauth = auth_aes(es_endpoint)
     # create cluster settings #48
-    print('Configure cluster setting')
+    logger.info('Configure default cluster setting of Amazon ES')
     cluster_settings = es_app_data['cluster-settings']
     for key in cluster_settings:
+        logger.info('system setting :' + key)
         payload = json.loads(cluster_settings[key])
         res = query_aes(
             es_endpoint, awsauth, 'PUT', '_cluster/settings', payload)
-        print(output_message(key, res))
-    # create index-template
-    print('Import kibana index patterns')
+        logger.debug(output_message(key, res))
+
+    logger.info('Create/Update index template')
     index_patterns = es_app_data['index-template']
     for key in index_patterns:
         payload = json.loads(index_patterns[key])
         path = f'_template/{key}'
         res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
-        print(output_message(key, res))
+        if res.status_code == 200:
+            logger.debug(output_message(key, res))
+        else:
+            logger.error(output_message(key, res))
 
 
 def configure_index_rollover(es_endpoint, es_app_data):
     awsauth = auth_aes(es_endpoint)
-    print('start to create IM policy for rollover')
+    logger.info('start to create IM policy for rollover')
     payload = {'policy': {
         'description': 'rollover by 100gb',
         'default_state': 'rollover',
@@ -285,25 +318,39 @@ def configure_index_rollover(es_endpoint, es_app_data):
                     'actions': [{'rollover': {'min_size': '100gb'}}],
                     'transitions': []}]}}
     path = '_opendistro/_ism/policies/rollover100gb'
-    res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
-    print(res)
-    # create intex-template for index rollover
+    res = query_aes(es_endpoint, awsauth, 'GET', path)
+    if res.status_code == 404:
+        res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
+        logger.info(output_message(path, res))
+
+    logger.info('create index template for rollover')
     index_patterns = es_app_data['index-rollover']
     for key in index_patterns:
-        # create index template for rollover
         payload = json.loads(index_patterns[key])
         path = f'_template/{key}'
         res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
-        print(output_message(key, res))
-    # wait to create rollover policy
-    time.sleep(10)
+        if res.status_code == 200:
+            logger.info(output_message(key, res))
+        else:
+            logger.error(output_message(key, res))
+
+    time.sleep(10)  # wait to create rollover policy
+
+    logger.info('Create initial index 000001 for rollover')
     for key in index_patterns:
-        # create initial index 000001
-        idx = key.replace('_rollover', '-000001')
         alias = key.replace('_rollover', '')
+        res_alias = query_aes(es_endpoint, awsauth, 'GET', alias)
+        if res_alias.status_code != 404:
+            logger.debug(output_message('Already exists ' + alias, res_alias))
+            continue
         payload = {'aliases': {alias: {}}}
+        idx = key.replace('_rollover', '-000001')
         res = query_aes(es_endpoint, awsauth, 'PUT', idx, payload)
-        print(output_message(idx, res))
+        if res.status_code == 200:
+            logger.info(output_message(idx, res))
+        else:
+            logger.error(output_message(idx, res))
+    logger.info('Finished creating initial index 000001 for rollover')
 
 
 def json_serial(obj):
@@ -316,133 +363,168 @@ def json_serial(obj):
         raise TypeError(f'Type {type(obj)} not serializable')
 
 
-def send(event, context, responseStatus, responseData, physicalResourceId=None,
-         noEcho=False):
-    # https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/cfn-lambda-function-code-cfnresponsemodule.html
-    responseUrl = event['ResponseURL']
-    print('Debug: resonponse URL')
-    print(responseUrl)
-
-    response_body = {}
-    response_body['Status'] = responseStatus
-    response_body['Reason'] = ('See the details in CloudWatch Log Stream: '
-                               '' + context.log_stream_name)
-    response_body['PhysicalResourceId'] = (
-        physicalResourceId or context.log_stream_name)
-    response_body['StackId'] = event['StackId']
-    response_body['RequestId'] = event['RequestId']
-    response_body['LogicalResourceId'] = event['LogicalResourceId']
-    response_body['NoEcho'] = noEcho
-    response_body['Data'] = responseData
-
-    print('DEBUG: ' + str(response_body))
-    json_response_body = json.dumps(response_body, default=json_serial)
-
-    print('Response body:\n' + json_response_body)
-
-    headers = {'content-type': 'application/json', }
-    req = urllib.request.Request(
-        event['ResponseURL'], json_response_body.encode(),
-        headers=headers, method='PUT')
-    try:
-        res = urllib.request.urlopen(req)
-        print('Status code: ' + str(res.status))
-    except Exception as e:
-        print('send(..) failed executing requests.put(..): ' + str(e))
+def create_loggroup_and_set_retention(cwl_client, log_group, retention):
+    response = cwl_client.describe_log_groups(logGroupNamePrefix=log_group)
+    if len(response['logGroups']) == 0:
+        logger.info(f'create log group {log_group}')
+        response = cwl_client.create_log_group(logGroupName=log_group)
+        logger.debug(response)
+    logger.info(
+        f'put retention policy as {retention} days for {log_group}')
+    response = cwl_client.put_retention_policy(
+        logGroupName=log_group, retentionInDays=retention)
+    logger.debug(response)
 
 
-def initial_event_check_and_exit(event, context, physicalResourceId):
+def setup_aes_system_log():
+    cwl_client = boto3.client('logs')
+    logger.info('put_resource_policy for Amazon ES system log')
+    response = cwl_client.put_resource_policy(
+        policyName='AES-aes-siem-logs',
+        policyDocument=json.dumps(cwl_resource_policy)
+    )
+    logger.debug('Response of put_resource_policy')
+    logger.debug(json.dumps(response, default=json_serial))
+    for LOGGROUP_RETENTION in LOGGROUP_RETENTIONS:
+        log_group = LOGGROUP_RETENTION[0]
+        retention = LOGGROUP_RETENTION[1]
+        create_loggroup_and_set_retention(cwl_client, log_group, retention)
+
+
+def aes_domain_handler(event, context):
+    helper_domain(event, context)
+
+
+@helper_domain.create
+def aes_domain_create(event, context):
+    logger.info("Got Create")
     if event:
-        print('Debug: Recieved event')
-        print(json.dumps(event, default=json_serial))
-    if event and 'RequestType' in event and 'Delete' in event['RequestType']:
-        # Response For CloudFormation Custome Resource
-        response = {}
-        send(event, context, 'SUCCESS', response, physicalResourceId)
-        return(json.dumps(response, default=json_serial))
+        logger.debug(json.dumps(event, default=json_serial))
+    setup_aes_system_log()
+    client.create_elasticsearch_domain(**config_domain)
+    logger.info("End Create. To be continue in poll create")
+    kibanapass = make_password(8)
+    helper_domain.Data.update({"kibanapass": kibanapass})
+    return True
 
 
-def aes_domain_handler(event=None, context=None):
-    physicalResourceId = 'aes_domain'
-    initial_event_check_and_exit(event, context, physicalResourceId)
-    global kibanaadmin
-    kibanaadmin = kibanaadmin
-    kibanapass = 'MASKED'
-    try:
-        domain_exist = True
-        while domain_exist:
-            response = create_es()
-            print('Creating domain is processing')
-            time.sleep(60)
-            print(json.dumps(response, default=json_serial))
-            domain_exist = response['DomainStatus']['Processing']
-        print('AES Domain is created')
+@helper_domain.poll_create
+def aes_domain_poll_create(event, context):
+    logger.info("Got create poll")
+    suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
+    physicalResourceId = 'aes-siem-domain-' + __version__ + '-' + suffix
+    kibanapass = helper_domain.Data.get('kibanapass')
+    if not kibanapass:
+        kibanapass = 'MASKED'
+    response = client.describe_elasticsearch_domain(DomainName=aesdomain)
+    logger.debug('Processing domain creation')
+    logger.debug(json.dumps(response, default=json_serial))
+    is_processing = response['DomainStatus']['Processing']
+    if is_processing:
+        return None
 
-        userdb_enabled = (response['DomainStatus']['AdvancedSecurityOptions']
-                          ['InternalUserDatabaseEnabled'])
-        if not userdb_enabled:
-            kibanapass = make_password(8)
-            print(f'ID: {kibanaadmin}, PASSWORD: {kibanapass}')
-            update_response = create_kibanaadmin(kibanapass)
-            print('Updating configuration is processing')
-            while not userdb_enabled:
-                userdb_enabled = (update_response['DomainConfig']
-                                  ['AdvancedSecurityOptions']
-                                  ['Options']['InternalUserDatabaseEnabled'])
-                time.sleep(3)
-        es_endpoint = None
-        # print(json.dumps(response, default=json_serial))
-        while not es_endpoint:
-            # wait to finish setup of endpoint
-            time.sleep(20)
-            response = client.describe_elasticsearch_domain(
-                DomainName=aesdomain)
-            es_endpoint = response['DomainStatus'].get('Endpoint')
-            if not es_endpoint and 'Endpoints' in response['DomainStatus']:
-                es_endpoint = response['DomainStatus']['Endpoints']['vpc']
-    except Exception as e:
-        print('Exception occured: ' + str(e))
-        response = {'failed_reason': e}
-        if event and 'RequestType' in event:
-            send(event, context, 'FAILED', response, physicalResourceId)
-            return(json.dumps(response))
+    logger.info('Amazon ES domain is created')
+
+    userdb_enabled = (response['DomainStatus']['AdvancedSecurityOptions']
+                      ['InternalUserDatabaseEnabled'])
+    if not userdb_enabled:
+        logger.info(f'ID: {KIBANAADMIN}, PASSWORD: {kibanapass}')
+        update_response = create_kibanaadmin(kibanapass)
+        while not userdb_enabled:
+            logger.debug('Processing domain configuration')
+            userdb_enabled = (update_response['DomainConfig']
+                              ['AdvancedSecurityOptions']['Options']
+                              ['InternalUserDatabaseEnabled'])
+            time.sleep(3)
+        logger.info('Finished doman configuration with new random password')
+
+    es_endpoint = None
+    while not es_endpoint:
+        time.sleep(10)  # wait to finish setup of endpoint
+        logger.debug('Processing ES endpoint creation')
+        response = client.describe_elasticsearch_domain(DomainName=aesdomain)
+        es_endpoint = response['DomainStatus'].get('Endpoint')
+        if not es_endpoint and 'Endpoints' in response['DomainStatus']:
+            es_endpoint = response['DomainStatus']['Endpoints']['vpc']
+    logger.debug('Finished ES endpoint creation')
 
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource
-        response = {'physicalResourceId': physicalResourceId,
-                    'es_endpoint': es_endpoint, 'kibanaadmin': kibanaadmin,
-                    'kibanapass': kibanapass}
-        send(event, context, 'SUCCESS', response, physicalResourceId)
-        return(json.dumps(response))
+        helper_domain.Data['es_endpoint'] = es_endpoint
+        helper_domain.Data['kibanaadmin'] = KIBANAADMIN
+        helper_domain.Data['kibanapass'] = kibanapass
+        logger.info("End create poll")
+        return physicalResourceId
 
 
-def aes_config_handler(event=None, context=None):
-    physicalResourceId = 'aes_config'
-    initial_event_check_and_exit(event, context, physicalResourceId)
+@helper_domain.update
+def aes_domain_update(event, context):
+    logger.info("Got Update")
+    response = client.describe_elasticsearch_domain(DomainName=aesdomain)
+    es_endpoint = response['DomainStatus'].get('Endpoint')
+    if not es_endpoint and 'Endpoints' in response['DomainStatus']:
+        es_endpoint = response['DomainStatus']['Endpoints']['vpc']
+
+    suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
+    physicalResourceId = 'aes-siem-domain-' + __version__ + '-' + suffix
+    if event and 'RequestType' in event:
+        # Response For CloudFormation Custome Resource
+        helper_domain.Data['es_endpoint'] = es_endpoint
+        helper_domain.Data['kibanaadmin'] = KIBANAADMIN
+        helper_domain.Data['kibanapass'] = 'MASKED'
+        logger.info("End Update")
+        return physicalResourceId
+
+
+@helper_domain.delete
+def aes_domain_delete(event, context):
+    logger.info('Got Delete')
+    # https://github.com/aws-cloudformation/custom-resource-helper/issues/5
+    cwe_client = boto3.client('events')
+    response = cwe_client.list_rules(NamePrefix='AesSiemDomainDeployed')
+    for rule in response['Rules']:
+        rule_name = rule['Name']
+        cwe_client.remove_targets(Rule=rule_name, Ids=['1', ])
+        cwe_client.delete_rule(Name=rule_name)
+        logger.info(f"Delete CWE {rule_name} created by crhelper")
+
+
+def aes_config_handler(event, context):
+    if 'ResourceType' in event \
+            and event['ResourceType'] == 'AWS::CloudFormation::CustomResource':
+        helper_config(event, context)
+    else:
+        aes_config_create_update(event, context)
+
+
+@helper_config.create
+@helper_config.update
+def aes_config_create_update(event, context):
+    logger.info("Got Create/Update")
+    suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
+    physicalResourceId = 'aes-siem-config-' + __version__ + '-' + suffix
+    if event:
+        logger.debug(json.dumps(event, default=json_serial))
     es_app_data = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
     es_app_data.read('data.ini')
     es_endpoint = os.environ['es_endpoint']
 
-    try:
-        # for debug
-        # print(json.dumps(es_endpoint, default=json_serial))
-        configure_opendistro(es_endpoint, es_app_data)
-        configure_siem(es_endpoint, es_app_data)
-        configure_index_rollover(es_endpoint, es_app_data)
-    except Exception as e:
-        print('Exception occured: ' + str(e))
-        response = {'failed_reason': e}
-        if event and 'RequestType' in event:
-            send(event, context, 'FAILED', response, physicalResourceId)
+    configure_opendistro(es_endpoint, es_app_data)
+    configure_siem(es_endpoint, es_app_data)
+    configure_index_rollover(es_endpoint, es_app_data)
 
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource
-        response = {'physicalResourceId': physicalResourceId}
-        send(event, context, 'SUCCESS', response, physicalResourceId)
-        return(json.dumps(response, default=json_serial))
+        logger.info("End create poll")
+        return physicalResourceId
+
+
+@helper_config.delete
+def aes_config_delete(event, context):
+    logger.info("Got Delete. Nothing to delete")
 
 
 if __name__ == '__main__':
-    aes_domain_handler()
-    aes_config_handler()
+    aes_domain_handler(None, None)
+    aes_config_handler(None, None)

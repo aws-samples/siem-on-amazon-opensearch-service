@@ -2,7 +2,7 @@
 
 [View this page in Japanese (日本語)](README_ja.md)
 
-SIEM on Amazon Elasticsearch Service (Amazon ES) is a solution for collecting multiple types of logs from multiple AWS accounts, correlating and visualizing the logs to help investigate security incidents. Deployment is easily done with the help of AWS CloudFormation or AWS Cloud Development Kit (AWS CDK), taking only about 20 minutes to complete. As soon as AWS services logs are put into a specified Amazon Simple Storage Service (Amazon S3) bucket, a purpose-built AWS Lambda function automatically loads those logs into SIEM on Amazon ES, enabling you to view visualized logs in the dashboard and correlate multiple logs to investigate security incidents.
+SIEM on Amazon Elasticsearch Service (Amazon ES) is a solution for collecting multiple types of logs from multiple AWS accounts, correlating and visualizing the logs to help investigate security incidents. Deployment is easily done with the help of AWS CloudFormation or AWS Cloud Development Kit (AWS CDK), taking only about 30 minutes to complete. As soon as AWS services logs are put into a specified Amazon Simple Storage Service (Amazon S3) bucket, a purpose-built AWS Lambda function automatically loads those logs into SIEM on Amazon ES, enabling you to view visualized logs in the dashboard and correlate multiple logs to investigate security incidents.
 
 Jump to | [Configuring AWS Services(Log Sources)](docs/configure_aws_service.md) | [Changing Configurations of SIEM on Amazon ES](docs/configure_siem.md) | [Advanced Deployment](docs/deployment.md) | [Dashboard](docs/dashboard.md) | [Supported Log Types](docs/suppoted_log_type.md) | [FAQ](docs/faq.md) | [Changelog](CHANGELOG.md) |
 
@@ -16,19 +16,24 @@ Jump to | [Configuring AWS Services(Log Sources)](docs/configure_aws_service.md)
 
 SIEM on Amazon ES can load and correlate the following log types.
 
-|AWS Service|Log|
-|-----------|---|
-|AWS CloudTrail|CloudTrail Log Event|
-|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs|
-|Amazon GuardDuty|GuardDuty findings|
-|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
-|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
-|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
-|Amazon CloudFront|Standard access log<br>Real-time log|
-|Amazon Simple Storage Service (Amazon S3)|Access log|
-|Amazon Route 53 Resolver|VPC DNS query log|
-|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
-|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
+|       |AWS Service|Log|
+|-------|-----------|---|
+|Security, Identity, & Compliance|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
+|Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
+|Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty findings|
+|Security, Identity, & Compliance|AWS Network Firewall|Flow logs<br>Alert logs|
+|Management & Governance|AWS CloudTrail|CloudTrail Log Event|
+|Networking & Content Delivery|Amazon CloudFront|Standard access log<br>Real-time log|
+|Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS query log|
+|Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
+|Networking & Content Delivery|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
+|Storage|Amazon Simple Storage Service (Amazon S3)|access log|
+|Database|Amazon Relational Database Service (Amazon RDS)<br>(**Experimental Support**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
+|Analytics|Amazon Managed Streaming for Apache Kafka (Amazon MSK)|Broker log|
+|Compute|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
+|Containers|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
+
+Experimental Support: We may change field type, normalization and something in the future.
 
 Supported logs are normalized in accordance with the [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html). Click [here](docs/suppoted_log_type.md) to see the correspondence table of the original and normalized field names for the logs.
 
@@ -72,7 +77,7 @@ You can skip this if you have already deployed SIEM on Amazon ES using one of th
 
 The following instance and tools need to be in place so that you can create a CloudFormation template:
 
-* Amazon EC2 instance running Amazon Linux 2
+* AWS CloudShell or Amazon EC2 instance running Amazon Linux 2
   * "Development Tools"
   * Python 3.8
   * Python 3.8 libraries and header files
@@ -81,7 +86,7 @@ The following instance and tools need to be in place so that you can create a Cl
 Run the following commands if the above tools have not been installed yet:
 
 ```shell
-sudo yum groupinstall -y "Development Tools"
+sudo yum groups mark install -y "Development Tools"
 sudo yum install -y amazon-linux-extras
 sudo amazon-linux-extras enable python3.8
 sudo yum install -y python38 python38-devel git jq
@@ -94,6 +99,7 @@ sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
 Clone SIEM on Amazon ES from our GitHub repository:
 
 ```shell
+cd
 git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git
 ```
 
@@ -109,7 +115,7 @@ export AWS_REGION=<AWS_REGION> # Region where the distribution is deployed
 #### 2-4. Packaging AWS Lambda functions and creating a template
 
 ```shell
-cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
+cd ~/siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
 chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
 chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
 ```
@@ -129,7 +135,7 @@ The uploaded template is now stored in `https://s3.amazonaws.com/$TEMPLATE_OUTPU
 
 ### 3. Configuring Kibana
 
-It will take about 20 mins for the deployment of SIEM on Amazon ES to complete. You can then continue to configure Kibana.
+It will take about 30 mins for the deployment of SIEM on Amazon ES to complete. You can then continue to configure Kibana.
 
 1. Navigate to the AWS CloudFormation console, choose the stack that you've just created, and then choose "Outputs" from the tab menu at the top right. You can find your username, password, and URL for Kibana. Log into Kibana using the credentials.
 1. To import Kibana's configuration files such as dashboard, download [saved_objects.zip](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip). Then unzip the file.
@@ -179,7 +185,7 @@ Updating is now complete.
 
 ### Changing the Amazon ES domain resources after deployment
 
-If you want to make changes to the Amazon ES domain itself such as changing the access policy of Amazon ES, changing the instance type, changing the Availability Zone or adding a new one, or changing to UltraWarm, perform the change from the AWS Management Console.
+If you want to make changes to the Amazon ES domain itself such as changing the access policy of Amazon ES, changing the instance type, changing the Availability Zone or adding a new one, or changing to UltraWarm, perform the change from the [Amazon ES console](https://console.aws.amazon.com/es/home?) of AWS Management Console.
 
 ### Managing the index and customizing SIEM
 

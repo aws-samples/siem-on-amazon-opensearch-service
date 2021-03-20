@@ -16,7 +16,7 @@ import botocore
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.2.0'
+__version__ = '2.3.0'
 
 logger = Logger(child=True)
 
@@ -27,7 +27,8 @@ logger = Logger(child=True)
 # REGEXP
 RE_INSTANCEID = re.compile(r'\W?(?P<instanceid>i-[0-9a-z]{8,17})\W?')
 RE_ACCOUNT = re.compile(r'/([0-9]{12})/')
-RE_REGION = re.compile('(global|(us|ap|ca|eu|me|sa|af)-[a-zA-Z]+-[0-9])')
+RE_REGION = re.compile(
+    r'(global|(us|ap|ca|eu|me|sa|af|cn)-(gov-)?[a-zA-Z]+-[0-9])')
 # for timestamp
 RE_WITH_NANOSECONDS = re.compile(r'(.*)([0-9]{2}\.[0-9]{1,9})(.*)')
 RE_SYSLOG_FORMAT = re.compile(r'([A-Z][a-z]{2})\s+(\d{1,2})\s+'
@@ -60,6 +61,57 @@ def extract_aws_instanceid_from_text(text):
         return(m.group(1))
     else:
         return None
+
+
+def cluster_instance_identifier(logdata):
+    try:
+        log_group = logdata['@log_group'].split('/')
+    except Exception:
+        log_group = [None, None, None, None]
+
+    if 'rds' not in logdata:
+        logdata['rds'] = dict()
+    identifier = {}
+    identifier['cluster'], identifier['instance'] = (
+        extract_rds_cluster_instance_identifier(
+            log_group[3], log_group[4], logdata['@log_stream']))
+
+    return identifier
+
+
+@lru_cache(maxsize=1024)
+def extract_rds_cluster_instance_identifier(
+        log_group_3, log_group_4, log_stream):
+    cluster_identifier = None
+    instance_identifier = None
+    if log_group_3 in ('instance', ):
+        # ex)
+        # dBInstanceIdentifier = database-1
+        instance_identifier = log_group_4
+    elif log_group_3 in ('cluster', ):
+        # ex)
+        # dBClusterIdentifier = database-1
+        # dBInstanceIdentifier = database-1-instance-1
+        cluster_identifier = log_group_4
+        instance_identifier = log_stream.split('.')[0]
+    return cluster_identifier, instance_identifier
+
+
+def convert_underscore_field_into_dot_notation(prefix, logdata):
+    if not prefix:
+        return logdata
+    if prefix not in logdata:
+        logdata[prefix] = dict()
+    prefix_underscore = prefix + '_'
+    underscore_fields = []
+    for field in logdata:
+        if field.startswith(prefix_underscore):
+            underscore_fields.append(field)
+    for underscore_field in underscore_fields:
+        new_key = underscore_field.replace(prefix_underscore, '')
+        logdata[prefix][new_key] = logdata[underscore_field]
+        del logdata[underscore_field]
+    return logdata
 
 
 #############################################################################
@@ -144,6 +196,8 @@ def convert_syslog_to_datetime(timestr, TZ):
 
 @lru_cache(maxsize=1024)
 def convert_iso8601_to_datetime(timestr, TZ, timestamp_key):
+    timestr = timestr.replace('+0000', '')
+    # Python datetime.fromisoformat can't parser +0000 format.
     try:
         dt = datetime.fromisoformat(timestr)
     except ValueError:
@@ -200,7 +254,8 @@ def create_logtype_s3key_dict(etl_config):
 
 
 def get_logtype_from_s3key(s3key, logtype_s3key_dict):
-    logtype = ''
+    if s3key[-1] == '/':
+        return 'nodata'
     for logtype, re_s3key in logtype_s3key_dict.items():
         m = re_s3key.search(s3key)
         if m:

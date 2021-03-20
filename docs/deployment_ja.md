@@ -2,6 +2,15 @@
 
 [In English](deployment.md) | [READMEに戻る](../README_ja.md)
 
+## 目次
+
+* [高度なデプロイが必要なケース](#高度なデプロイが必要なケース)
+* [既存の S3 バケットの取り込み](#既存の-S3-バケットの取り込み)
+* [AWS CDK によるデプロイ](#AWS-CDK-によるデプロイ)
+* [AWS CDK によるアップデート](#AWS-CDK-によるアップデート)
+
+## 高度なデプロイが必要なケース
+
 次のいずれかに該当する場合は AWS CloudFormation を使わずに AWS Cloud Development Kit (AWS CDK) を実行してデプロイしてください。
 
 * Amazon Elasticsearch Service (Amazon ES) を Amazon VPC の **Private Subnet** にデプロイする
@@ -39,18 +48,19 @@
 ### 注意事項
 
 * デプロイするサブネットは Private Subnet です
-* サブネットは 3つの異なる Availability Zone を選択してください。(デプロイするのは 1 AZ で 1インスタンスのみ)
+* サブネットは 3つの異なる Availability Zone を選択してください。(実際にデプロイするのは 1 つの AZ へ 1 インスタンスのみです)
 * Amazon VPC の [**DNS ホスト名**] と [**DNS ホスト解決**] の 2 つとも有効にしてください
-* デプロイ時に cdk.json の作成をしますが、このファイルを保存をしてください。SIEM on Amazon ES のデプロイで使用する CDK の再実行に必要です
+* デプロイ時に `cdk.json` の作成をしますが、このファイルと自動生成される `cdk.context.json` を保存をしてください。SIEM on Amazon ES のデプロイで使用する CDK の再実行に必要です
 
 ### 1. AWS CDK 実行環境の準備
 
-1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイする
-1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、Amazon EC2 インスタンスにアタッチする
-1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq をインストールし、ソースコードを GitHub から取得する
+1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください
+1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、インスタンスにアタッチします
+1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq をインストールし、ソースコードを GitHub から取得します
 
     ```shell
-    sudo yum groupinstall -y "Development Tools"
+    cd
+    sudo yum groups mark install -y "Development Tools"
     sudo yum install -y amazon-linux-extras
     sudo amazon-linux-extras enable python3.8
     sudo yum install -y python38 python38-devel git jq
@@ -101,7 +111,7 @@ source .env/bin/activate
 cdk bootstrap
 ```
 
-エラーで実行が失敗した場合、Amazon EC2 インスタンスに適切な権限のロールが割り当てられているかを確認してください。
+エラーで実行が失敗した場合、Amazon EC2 インスタンスに Admin 権限のロールが割り当てられているかを確認してください。
 
 #### 5-1. SIEM on Amazon ES を Amazon VPC 内にデプロイ
 
@@ -163,13 +173,7 @@ cdk context  --j
 
 ### 6. AWS CDK の実行
 
-AWS CDK によるデプロイを実行。
-
-```bash
-cdk deploy
-```
-
-CloudFormation テンプレートと同じパラーメーターを指定可能。
+CloudFormation テンプレートと同じパラーメーターを指定して CDK コマンドを実行します
 
 |パラメーター|説明|
 |------------|----|
@@ -189,27 +193,31 @@ cdk deploy \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
 
-約20分でデプロイが終わります。完了したら、READMEに戻って、「3. Kibana の設定」にお進みください。
+約30分でデプロイが終わります。完了したら、[READMEに戻って](../README_ja.md)、「3. Kibana の設定」にお進みください。
 
 ## AWS CDK によるアップデート
 
 SIEM のレポジトリを更新して、AWS CDK でアップデートします。初期インストール時に使用した cdk.json が CDK のディレクトリにあることを確認してください。
 
 ```sh
-# cd SIEMのレポジトリ
+cd ~/siem-on-amazon-elasticsearch/
 git pull --rebase
 ```
 
 [**AWS CDK によるデプロイ**] の [**2. 環境変数の設定**]、[**3. AWS Lambda デプロイパッケージの作成**]、「**4. AWS Cloud Development Kit (AWS CDK) の環境セットアップ**] を再実行してください。
 
-[5. AWS CDK によるインストールのオプション設定] 以降は **実行せず**、下記のコマンドを実行
+[5. AWS CDK によるインストールのオプション設定] 以降は **実行せず**、下記を実行
+
+インストール時に保存した `cdk.json` と `cdk.context.json` を `~/siem-on-amazon-elasticsearch/source/cdk/` にリストア。`cdk.context.json` はない場合があります。
 
 ```sh
-cd source/cdk/
+cd ~/siem-on-amazon-elasticsearch/source/cdk/
 source .env/bin/activate
 cdk deploy
 ```
 
 更新される差分が表示されるので確認して、[**y**] を入力。数分でアップデートは完了します。
+
+`cdk.json` と `cdk.context.json` を保存して終了です。
 
 [READMEに戻る](../README_ja.md)
