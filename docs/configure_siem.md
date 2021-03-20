@@ -2,12 +2,12 @@
 
 [View this page in Japanese (日本語)](configure_siem_ja.md) | [Back to README](../README.md)
 
-## Contents
+## Table of contents
 
 * [Customizing the log loading method](#customizing-the-log-loading-method)
 * [Adding an exclusion to log loading](#adding-an-exclusion-to-log-loading)
 * [Changing Amazon ES configuration settings (for advanced users)](#changing-amazon-es-configuration-settings-for-advanced-users)
-* [Loading Non-AWS services logs](#loading-non-aws-logs)
+* [Loading Non-AWS services logs](#loading-non-aws-services-logs)
 * [Loading past data stored in the S3 bucket](#loading-past-data-stored-in-the-s3-bucket)
 * [Monitoring](#monitoring)
 

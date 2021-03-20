@@ -18,20 +18,20 @@ SIEM on Amazon ES は以下のログを取り込むことができます。
 
 |       |AWS Service|Log|
 |-------|-----------|---|
-|Security, Identity, & Compliance|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
-|Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
-|Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty findings|
-|Security, Identity, & Compliance|AWS Network Firewall<br>(**Experimental Support**)|Flow logs<br>Alert logs|
-|Management & Governance|AWS CloudTrail|CloudTrail Log Event|
-|Networking & Content Delivery|Amazon CloudFront|Standard access log<br>Real-time log|
-|Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS query log|
-|Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
-|Networking & Content Delivery|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
-|Storage|Amazon Simple Storage Service (Amazon S3)|access log|
-|Database|Amazon Relational Database Service (Amazon RDS)<br>(**Experimental Support**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
-|Analytics|Amazon Managed Streaming for Apache Kafka (Amazon MSK)<br>(**Experimental Support**)|Broker log|
-|Compute|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
-|Containers|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
+|セキュリティ、ID、およびコンプライアンス|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
+|セキュリティ、ID、およびコンプライアンス|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
+|セキュリティ、ID、およびコンプライアンス|Amazon GuardDuty|GuardDuty findings|
+|セキュリティ、ID、およびコンプライアンス|AWS Network Firewall|Flow logs<br>Alert logs|
+|管理とガバナンス|AWS CloudTrail|CloudTrail Log Event|
+|ネットワーキングとコンテンツ配信|Amazon CloudFront|Standard access log<br>Real-time log|
+|ネットワーキングとコンテンツ配信|Amazon Route 53 Resolver|VPC DNS query log|
+|ネットワーキングとコンテンツ配信|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
+|ネットワーキングとコンテンツ配信|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
+|ストレージ|Amazon Simple Storage Service (Amazon S3)|access log|
+|データベース|Amazon Relational Database Service (Amazon RDS)<br>(**Experimental Support**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
+|分析|Amazon Managed Streaming for Apache Kafka (Amazon MSK)|Broker log|
+|コンピューティング|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
+|コンテナ|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
 
 Experimental Support はログフィールドの正規化等を大きく変更する可能性があります
 

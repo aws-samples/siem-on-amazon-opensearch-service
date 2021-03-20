@@ -16,13 +16,16 @@ SIEM on Amazon ES に AWS の各サービスのログを取り込みます。下
     * [AWS CloudTrail](#AWS-CloudTrail)
 1. [ネットワーキングとコンテンツ配信](#4-ネットワーキングとコンテンツ配信)
     * [Amazon CloudFront](#Amazon-CloudFront)
+    * [Route 53 Resolver VPC DNS Query Log](#Route-53-Resolver-VPC-DNS-Query-Log)
+    * [Amazon Virtual Private Cloud (Amazon VPC) Flow Logs](#Amazon-VPC-Flow-Logs)
+    * [Elastic Load Balancing (ELB)](#Elastic-Load-Balancing-ELB)
 1. [ストレージ](#5-ストレージ)
-    * [Amazon Simple Storage Service (Amazon S3) access log](#Amazon-Simple-Storage-Service-Amazon-S3-access-log)
+    * [Amazon Simple Storage Service (Amazon S3) access log](#Amazon-S3-access-log)
 1. [データベース](#6-データベース)
     * [RDS (Aurora MySQL互換 / MySQL / MariaDB)](#RDS-Aurora-MySQL互換--MySQL--MariaDB-Experimental-Support)
     * [RDS (Aurora PostgreSQL互換 / PostgreSQL)](#RDS-Aurora-PostgreSQL互換--PostgreSQL-Experimental-Support)
 1. [分析](#7-分析)
-    * [Amazon Managed Streaming for Apache Kafka (Amazon MSK) (Experimental Support)](#Amazon-Managed-Streaming-for-Apache-Kafka-Amazon-MSK-Experimental-Support)
+    * [Amazon Managed Streaming for Apache Kafka (Amazon MSK) (Experimental Support)](#Amazon-MSK-Experimental-Support)
 1. [コンピューティング](#8-コンピューティング)
     * [EC2 インスタンス (Amazon Linux 2)](#EC2-インスタンス-Amazon-Linux-2)
 1. [コンテナ](#9-コンテナ)
@@ -346,7 +349,7 @@ s3_key の初期値: `vpcdnsquerylogs` (デフォルト設定の出力パスの�
     * クエリをログ記録するVPC: [**任意のVPCを追加**]
 1. [**クエリログの設定**] を選択して設定完了です
 
-### Amazon Virtual Private Cloud (Amazon VPC) Flow Logs
+### Amazon VPC Flow Logs
 
 ![VPC flog logs to S3](images/vpc-to-s3.jpg)
 
@@ -403,7 +406,7 @@ s3_key の初期値はデフォルトの出力パスとファイル名を正規�
 
 ## 5. ストレージ
 
-### Amazon Simple Storage Service (Amazon S3) access log
+### Amazon S3 access log
 
 ![S3 to S3](images/s3-to-s3.jpg)
 
@@ -438,7 +441,7 @@ s3_key の初期値は以下です。Firehose の出力パスに指定してく�
 * エラーログ: `(MySQL|mysql|MariaDB|mariadb).*(error)`
 * スロークエリログ: `(MySQL|mysql|MariaDB|mariadb).*(slowquery)`
 * 一般ログ: `(MySQL|mysql|MariaDB|mariadb).*(general)`
-* 監査ログ `(MySQL|mysql|MariaDB|mariadb).*(audit)`
+* 監査ログ: `(MySQL|mysql|MariaDB|mariadb).*(audit)`
 
 監査ログを Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/123456789012/RDS/mysql/audit/ap-northeast-1`
 
@@ -573,7 +576,7 @@ Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/12
 
 ## 7. 分析
 
-### Amazon Managed Streaming for Apache Kafka (Amazon MSK) (Experimental Support)
+### Amazon MSK (Experimental Support)
 
 ![MSK to S3](images/msk-to-s3.jpg)
 
