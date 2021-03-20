@@ -396,30 +396,26 @@ def aes_domain_handler(event, context):
 
 
 @helper_domain.create
-def aes_domain_create_update(event, context):
+def aes_domain_create(event, context):
     logger.info("Got Create")
     if event:
         logger.debug(json.dumps(event, default=json_serial))
     setup_aes_system_log()
     client.create_elasticsearch_domain(**config_domain)
     logger.info("End Create. To be continue in poll create")
+    kibanapass = make_password(8)
+    helper_domain.Data.update({"kibanapass": kibanapass})
     return True
 
 
-@helper_domain.update
-def aes_domain_update(event, context):
-    logger.info("Got Update")
-    logger.info("End Create. To be continue in poll create")
-    return True
-
-
-@helper_domain.poll_update
 @helper_domain.poll_create
-def aes_domain_poll_create_update(event, context):
-    logger.info("Got create/update poll")
+def aes_domain_poll_create(event, context):
+    logger.info("Got create poll")
     suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
     physicalResourceId = 'aes-siem-domain-' + __version__ + '-' + suffix
-    kibanapass = 'MASKED'
+    kibanapass = helper_domain.Data.get('kibanapass')
+    if not kibanapass:
+        kibanapass = 'MASKED'
     response = client.describe_elasticsearch_domain(DomainName=aesdomain)
     logger.debug('Processing domain creation')
     logger.debug(json.dumps(response, default=json_serial))
@@ -432,7 +428,6 @@ def aes_domain_poll_create_update(event, context):
     userdb_enabled = (response['DomainStatus']['AdvancedSecurityOptions']
                       ['InternalUserDatabaseEnabled'])
     if not userdb_enabled:
-        kibanapass = make_password(8)
         logger.info(f'ID: {KIBANAADMIN}, PASSWORD: {kibanapass}')
         update_response = create_kibanaadmin(kibanapass)
         while not userdb_enabled:
@@ -445,11 +440,13 @@ def aes_domain_poll_create_update(event, context):
 
     es_endpoint = None
     while not es_endpoint:
-        time.sleep(20)  # wait to finish setup of endpoint
+        time.sleep(10)  # wait to finish setup of endpoint
+        logger.debug('Processing ES endpoint creation')
         response = client.describe_elasticsearch_domain(DomainName=aesdomain)
         es_endpoint = response['DomainStatus'].get('Endpoint')
         if not es_endpoint and 'Endpoints' in response['DomainStatus']:
             es_endpoint = response['DomainStatus']['Endpoints']['vpc']
+    logger.debug('Finished ES endpoint creation')
 
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource
@@ -460,18 +457,36 @@ def aes_domain_poll_create_update(event, context):
         return physicalResourceId
 
 
+@helper_domain.update
+def aes_domain_update(event, context):
+    logger.info("Got Update")
+    response = client.describe_elasticsearch_domain(DomainName=aesdomain)
+    es_endpoint = response['DomainStatus'].get('Endpoint')
+    if not es_endpoint and 'Endpoints' in response['DomainStatus']:
+        es_endpoint = response['DomainStatus']['Endpoints']['vpc']
+
+    suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
+    physicalResourceId = 'aes-siem-domain-' + __version__ + '-' + suffix
+    if event and 'RequestType' in event:
+        # Response For CloudFormation Custome Resource
+        helper_domain.Data['es_endpoint'] = es_endpoint
+        helper_domain.Data['kibanaadmin'] = KIBANAADMIN
+        helper_domain.Data['kibanapass'] = 'MASKED'
+        logger.info("End Update")
+        return physicalResourceId
+
+
 @helper_domain.delete
 def aes_domain_delete(event, context):
     logger.info('Got Delete')
     # https://github.com/aws-cloudformation/custom-resource-helper/issues/5
     cwe_client = boto3.client('events')
-    response = cwe_client.list_rules(NamePrefix='Aes')
+    response = cwe_client.list_rules(NamePrefix='AesSiemDomainDeployed')
     for rule in response['Rules']:
-        event_name = rule['Name']
-        print(event_name)
-        cwe_client.remove_targets(Rule=event_name, Ids=['1', ])
-        cwe_client.delete_rule(Name=event_name)
-        logger.info(f"Delete CWE {event_name} created by crhelper")
+        rule_name = rule['Name']
+        cwe_client.remove_targets(Rule=rule_name, Ids=['1', ])
+        cwe_client.delete_rule(Name=rule_name)
+        logger.info(f"Delete CWE {rule_name} created by crhelper")
 
 
 def aes_config_handler(event, context):

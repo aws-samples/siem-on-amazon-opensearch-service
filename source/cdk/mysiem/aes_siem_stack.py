@@ -686,6 +686,7 @@ class MyAesSiemStack(core.Stack):
             service_token=lambda_configure_es.function_arn,)
         aes_config.add_override('Properties.ConfigVersion', __version__)
         aes_config.add_depends_on(aes_domain)
+        aes_config.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
         es_arn = (f'arn:aws:es:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
                   f':domain/{aes_domain_name}')
