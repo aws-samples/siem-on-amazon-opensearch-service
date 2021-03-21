@@ -3,15 +3,15 @@
 
 import configparser
 import datetime
-from functools import lru_cache
 import os
 import re
+from functools import lru_cache
 
-from aws_lambda_powertools import Logger
 import boto3
 import geoip2.database
+from aws_lambda_powertools import Logger
 
-__version__ = '2.3.0'
+__version__ = '2.3.1-beta.1'
 
 logger = Logger(child=True)
 

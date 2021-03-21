@@ -2,21 +2,21 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-from functools import lru_cache, wraps
 import json
 import os
 import re
 import sys
 import time
+from functools import lru_cache, wraps
 
 import boto3
-from aws_lambda_powertools import Metrics, Logger
+from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
 import siem
-from siem import utils, geodb
+from siem import geodb, utils
 
-__version__ = '2.3.0'
+__version__ = '2.3.1-beta.1'
 
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
@@ -285,10 +285,10 @@ def lambda_handler(event, context):
 
 if __name__ == '__main__':
     import argparse
+    import traceback
     from datetime import datetime, timezone
     from functools import partial
     from multiprocessing import Pool
-    import traceback
 
     print(__version__)
 

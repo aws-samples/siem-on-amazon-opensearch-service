@@ -3,20 +3,20 @@
 
 import configparser
 import csv
-from datetime import datetime, timedelta, timezone
-from functools import lru_cache
 import importlib
 import os
 import re
 import sys
+from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 
-from aws_lambda_powertools import Logger
 import boto3
 import botocore
+from aws_lambda_powertools import Logger
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.3.0'
+__version__ = '2.3.1-beta.1'
 
 logger = Logger(child=True)
 

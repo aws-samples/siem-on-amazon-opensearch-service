@@ -1,10 +1,10 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-import urllib.parse
 import re
+import urllib.parse
 
-RE_CLOUDFRONT_DIST_ID = re.compile('/([0-9A-Z]{13,14})\.')
+RE_CLOUDFRONT_DIST_ID = re.compile(r'/([0-9A-Z]{13,14})\.')
 
 
 def transform(logdata):

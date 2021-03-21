@@ -1,9 +1,9 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-from siem.sf_linux_os_syslog import (
-    extract_instance_id, extract_from_sshd, extract_from_sudo)
 from siem import utils
+from siem.sf_linux_os_syslog import (extract_from_sshd, extract_from_sudo,
+                                     extract_instance_id)
 
 
 def transform(logdata):

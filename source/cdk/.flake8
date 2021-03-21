@@ -1,4 +1,0 @@
-[flake8]
-select=E,W,F841
-per-file-ignores=
-    ./foo.py:F401

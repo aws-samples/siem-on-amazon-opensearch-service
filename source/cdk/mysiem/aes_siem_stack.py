@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: MIT-0
 
 import boto3
-import botocore
-from botocore.exceptions import ClientError
 from aws_cdk import (
     aws_cloudformation,
     aws_ec2,
@@ -22,7 +20,7 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.3.0'
+__version__ = '2.3.1-beta.1'
 print(__version__)
 
 iam_client = boto3.client('iam')

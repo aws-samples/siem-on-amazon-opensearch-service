@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: MIT-0
 
 import bz2
-from datetime import datetime, timedelta, timezone
-from functools import cached_property
 import gzip
 import hashlib
 import io
@@ -12,12 +10,14 @@ import json
 import re
 import urllib.parse
 import zipfile
+from datetime import datetime, timedelta, timezone
+from functools import cached_property
 
 from aws_lambda_powertools import Logger
 
 from siem import utils
 
-__version__ = '2.3.0'
+__version__ = '2.3.1-beta.1'
 
 logger = Logger(child=True)
 
