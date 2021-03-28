@@ -10,6 +10,7 @@ import secrets
 import string
 import time
 from datetime import date, datetime
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import boto3
 import requests
@@ -26,6 +27,7 @@ helper_config = CfnResource(json_logging=False, log_level='DEBUG',
                             boto_level='CRITICAL', sleep_on_delete=120)
 
 client = boto3.client('es')
+s3_client = boto3.resource('s3')
 
 accountid = os.environ['accountid']
 region = os.environ['AWS_REGION']
@@ -35,7 +37,9 @@ aes_admin_role = os.environ['aes_admin_role']
 es_loader_role = os.environ['es_loader_role']
 myiamarn = [accountid]
 KIBANAADMIN = 'aesadmin'
+KIBANA_HEADERS = {'Content-Type': 'application/json', 'kbn-xsrf': 'true'}
 vpc_subnet_id = os.environ['vpc_subnet_id']
+s3_snapshot = os.environ['s3_snapshot']
 if vpc_subnet_id == 'None':
     vpc_subnet_id = None
 security_group_id = os.environ['security_group_id']
@@ -166,6 +170,8 @@ config_domain = {
 if vpc_subnet_id:
     config_domain['VPCOptions'] = {'SubnetIds': [vpc_subnet_id, ],
                                    'SecurityGroupIds': [security_group_id, ]}
+
+s3_snapshot_bucket = s3_client.Bucket(s3_snapshot)
 
 
 def make_password(length):
@@ -391,6 +397,82 @@ def setup_aes_system_log():
         create_loggroup_and_set_retention(cwl_client, log_group, retention)
 
 
+def set_tenant_get_cookies(es_endpoint, tenant, auth):
+    logger.debug(f'Set tenant as {tenant} and get cookies')
+    kibana_url = f'https://{es_endpoint}/_plugin/kibana'
+    if isinstance(auth, dict):
+        url = f'{kibana_url}/auth/login?security_tenant={tenant}'
+        response = requests.post(
+            url, headers=KIBANA_HEADERS, json=json.dumps(auth))
+    elif isinstance(auth, AWS4Auth):
+        url = f'{kibana_url}/app/dashboards?security_tenant={tenant}'
+        response = requests.get(url, headers=KIBANA_HEADERS, auth=auth)
+    else:
+        logger.error('There is no valid authentication')
+        return False
+    if response.status_code in (200, ):
+        logger.info('Authentication success to access kibana')
+        return response.cookies
+    else:
+        print(response.cookies)
+        logger.error("Authentication failed to access kibana")
+        logger.error(response.reason)
+        return False
+
+
+def get_saved_objects(es_endpoint, cookies, auth=None):
+    if not cookies:
+        logger.warn("No authentication. Skipped downloading dashboard")
+        return False
+    url = f'https://{es_endpoint}/_plugin/kibana/api/saved_objects/_export'
+    payload = {'type': ['config', 'dashboard', 'visualization',
+                        'index-pattern', 'search']}
+    if auth:
+        response = requests.post(url, cookies=cookies, headers=KIBANA_HEADERS,
+                                 json=json.dumps(payload), auth=auth)
+    else:
+        response = requests.post(url, cookies=cookies, headers=KIBANA_HEADERS,
+                                 json=json.dumps(payload))
+    logger.debug(response.status_code)
+    logger.debug(response.reason)
+    return response.content
+
+
+def backup_dashboard_to_s3(saved_objects, tenant):
+    now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+    dashboard_file = f'{tenant}-dashboard-{now_str}.ndjson'
+    if saved_objects and isinstance(saved_objects, bytes):
+        with open(f'/tmp/{dashboard_file}', 'wb') as ndjson_file:
+            ndjson_file.write(saved_objects)
+        with ZipFile(f'/tmp/{dashboard_file}.zip', 'w',
+                     compression=ZIP_DEFLATED) as bk_dashboard_zip:
+            bk_dashboard_zip.write(
+                f'/tmp/{dashboard_file}', arcname=dashboard_file)
+    else:
+        logging.error('failed to export dashboard')
+        return False
+    try:
+        s3_snapshot_bucket.upload_file(
+            Filename=f'/tmp/{dashboard_file}.zip',
+            Key=f'saved_objects/{dashboard_file}.zip')
+        return True
+    except Exception as err:
+        logging.error('failed to upload dashboard to S3')
+        logging.error(err)
+        return False
+
+
+def load_dashboard_into_aes(es_endpoint, auth, cookies):
+    with ZipFile('dashboard.ndjson.zip') as new_dashboard_zip:
+        new_dashboard_zip.extractall('/tmp/')
+    files = {'file': open('/tmp/dashboard.ndjson', 'rb')}
+    url = (f'https://{es_endpoint}/_plugin/kibana/api/saved_objects/_import'
+           f'?overwrite=true')
+    response = requests.post(url, cookies=cookies, files=files,
+                             headers={'kbn-xsrf': 'true'}, auth=auth)
+    logger.info(response.text)
+
+
 def aes_domain_handler(event, context):
     helper_domain(event, context)
 
@@ -402,9 +484,9 @@ def aes_domain_create(event, context):
         logger.debug(json.dumps(event, default=json_serial))
     setup_aes_system_log()
     client.create_elasticsearch_domain(**config_domain)
-    logger.info("End Create. To be continue in poll create")
     kibanapass = make_password(8)
     helper_domain.Data.update({"kibanapass": kibanapass})
+    logger.info("End Create. To be continue in poll create")
     return True
 
 
@@ -447,6 +529,12 @@ def aes_domain_poll_create(event, context):
         if not es_endpoint and 'Endpoints' in response['DomainStatus']:
             es_endpoint = response['DomainStatus']['Endpoints']['vpc']
     logger.debug('Finished ES endpoint creation')
+
+    # ToDo: import dashboard for aesadmin private tenant
+    # tenant = 'private'
+    # auth = {'username': 'aesadmin', 'password': kibanapass}
+    # cookies = set_tenant_get_cookies(es_endpoint, tenant, auth)
+    # load_dashboard_into_aes(es_endpoint, auth, cookies)
 
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource
@@ -513,6 +601,15 @@ def aes_config_create_update(event, context):
     configure_opendistro(es_endpoint, es_app_data)
     configure_siem(es_endpoint, es_app_data)
     configure_index_rollover(es_endpoint, es_app_data)
+
+    # Globalテナントのsaved_objects をバックアップする
+    tenant = 'global'
+    awsauth = auth_aes(es_endpoint)
+    cookies = set_tenant_get_cookies(es_endpoint, tenant, awsauth)
+    saved_objects = get_saved_objects(es_endpoint, cookies, auth=awsauth)
+    bk_response = backup_dashboard_to_s3(saved_objects, tenant)
+    if bk_response:
+        load_dashboard_into_aes(es_endpoint, awsauth, cookies)
 
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource

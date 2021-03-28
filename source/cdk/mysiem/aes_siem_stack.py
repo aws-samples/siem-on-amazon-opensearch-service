@@ -618,6 +618,8 @@ class MyAesSiemStack(core.Stack):
             },
             role=aes_siem_deploy_role_for_lambda,
         )
+        lambda_deploy_es.add_environment(
+            's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
             lambda_deploy_es.add_environment(
                 'vpc_subnet_id', subnet1.subnet_id)
@@ -666,6 +668,8 @@ class MyAesSiemStack(core.Stack):
             },
             role=aes_siem_deploy_role_for_lambda,
         )
+        lambda_configure_es.add_environment(
+            's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
             lambda_configure_es.add_environment(
                 'vpc_subnet_id', subnet1.subnet_id)

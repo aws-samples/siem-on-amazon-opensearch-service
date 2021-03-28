@@ -1747,6 +1747,9 @@
             "allow_source_address": {
               "Ref": "AllowedSourceIpAddresses"
             },
+            "s3_snapshot": {
+              "Ref": "S3BucketForSnapshot40E67D36"
+            },
             "vpc_subnet_id": "None",
             "security_group_id": "None"
           }
@@ -1822,6 +1825,9 @@
                 "AesSiemDomainDeployedR2",
                 "es_endpoint"
               ]
+            },
+            "s3_snapshot": {
+              "Ref": "S3BucketForSnapshot40E67D36"
             },
             "vpc_subnet_id": "None",
             "security_group_id": "None"
