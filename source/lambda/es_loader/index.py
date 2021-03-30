@@ -16,7 +16,7 @@ from aws_lambda_powertools.metrics import MetricUnit
 import siem
 from siem import geodb, utils
 
-__version__ = '2.3.1-beta.1'
+__version__ = '2.3.1-beta.2'
 
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
