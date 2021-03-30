@@ -1,6 +1,6 @@
 # SIEM on Amazon Elasticsearch Service
 
-[View this page in Japanese (日本語)](README_ja.md)
+[View this page in Japanese (日本語)](README_ja.md) | [Chinese (中文)](README_zh.md)
 
 SIEM on Amazon Elasticsearch Service (Amazon ES) is a solution for collecting multiple types of logs from multiple AWS accounts, correlating and visualizing the logs to help investigate security incidents. Deployment is easily done with the help of AWS CloudFormation or AWS Cloud Development Kit (AWS CDK), taking only about 30 minutes to complete. As soon as AWS services logs are put into a specified Amazon Simple Storage Service (Amazon S3) bucket, a purpose-built AWS Lambda function automatically loads those logs into SIEM on Amazon ES, enabling you to view visualized logs in the dashboard and correlate multiple logs to investigate security incidents.
 
