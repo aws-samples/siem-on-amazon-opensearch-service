@@ -1,6 +1,6 @@
 # SIEM on Amazon Elasticsearch Service
 
-[In English](README.md)
+[In English](README.md) | [Chinese (中文)](README_zh.md)
 
 SIEM on Amazon Elasticsearch Service (Amazon ES) は、セキュリティインシデントを調査するためのソリューションです。AWS のマルチアカウント環境下で、複数種類のログを収集し、ログの相関分析や可視化をすることができます。デプロイは、AWS CloudFormation または AWS Cloud Development Kit (AWS CDK) で行います。30分程度でデプロイは終わります。AWS サービスのログを Simple Storage Service (Amazon S3) のバケットに PUT すると、自動的に ETL 処理を行い、SIEM on Amazon ES に取り込まれます。ログを取り込んだ後は、ダッシュボードによる可視化や、複数ログの相関分析ができるようになります。
 
