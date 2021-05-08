@@ -32,4 +32,15 @@ ignore_container_stderr = False
 
 @timestamp is based on the time when the log is loaded because STDERR has many different log formats and some log formats do not even contain a time field.
 
+## I forgot my master user (aesadmin) password and can not login to Kibana
+
+You can set a new password with AWS Management Console.
+
+1. Navigate to the [Amazon ES console](https://console.aws.amazon.com/es/home?)
+1. Select [**aes-siem**] domain
+1. Select [**Actions**] at the top of screen and choose the [**Modify authnetication**] from the drop-down menu.
+1. Check [**Create master user**] from [Fine-grained access control - powered by Open Distro for Elasticsearch]
+1. Type [**aesadmin**] to [Master usernames] and [**any password**] to [Master password]/[Confirm master password]
+1. Select [**Submit**] at the bottom right of the screen
+
 [Back to README](../README.md)
