@@ -102,7 +102,7 @@ config_domain = {
     'DomainName': aesdomain,
     'ElasticsearchVersion': '7.9',
     'ElasticsearchClusterConfig': {
-        'InstanceType': 't3.small.elasticsearch',
+        'InstanceType': 't3.medium.elasticsearch',
         'InstanceCount': 1,
         'DedicatedMasterEnabled': False,
         'ZoneAwarenessEnabled': False,

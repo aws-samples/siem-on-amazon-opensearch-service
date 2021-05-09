@@ -48,7 +48,7 @@ SIEM on Amazon ES能夠加載並關聯以下日誌類型。
 
 您可以將國家/地區信息與緯度/經度位置信息添加至各個IP地址。要獲取位置信息，SIEM on Amazon ES將下載並使用 [MaxMind](https://www.maxmind.com) 提供的GeoLite2 Free。如果您希望添加其他位置信息，請從MaxMind獲取免費許可證。
 
-_注意：_ CloudFormation模板**將使用最低配置（t3.small.elasticsearch實例）部署Amazon ES。我們建議使用t2/t3以上的高性能類實例來架構你的生產環境SIEM，因為在日誌聚合過程中需要較為強大的處理性能。** 您可以使用Amazon管理控制臺更改實例類型、擴展存儲卷或使用經濟實惠的 [UltraWarm](https://docs.aws.amazon.com/zh_tw/elasticsearch-service/latest/developerguide/ultrawarm.html) 儲存節點。請注意，SIEM on Amazon ES的CloudFormation模板在設計上僅適用於初始部署目的，無法實現節點更改/刪除等管理操作。
+_注意：_ CloudFormation模板**將使用（t3.medium.elasticsearch實例）部署Amazon ES。我們建議使用t2/t3以上的高性能類實例來架構你的生產環境SIEM，因為在日誌聚合過程中需要較為強大的處理性能。** 您可以使用Amazon管理控制臺更改實例類型、擴展存儲卷或使用經濟實惠的 [UltraWarm](https://docs.aws.amazon.com/zh_tw/elasticsearch-service/latest/developerguide/ultrawarm.html) 儲存節點。請注意，SIEM on Amazon ES的CloudFormation模板在設計上僅適用於初始部署目的，無法實現節點更改/刪除等管理操作。
 
 
 ### 1. 快速入門

@@ -47,7 +47,7 @@ In this turorial, you will create a publicly accessible SIEM on Amazon ES domain
 
 You can add country information as well as latitude/longitude location information to each IP address. To get location information, SIEM on Amazon ES downloads and uses GeoLite2 Free by [MaxMind](https://www.maxmind.com). If you want to add location information, get your free licence from MaxMind.
 
-_Note:_ The CloudFormation template will deploy Amazon ES with **a minimal profile using a t3.small.elasticsearch instance. Change it to an instance type that can deliver higher performance than t2/t3 when using SIEM in the production environment as it requires higher processing power when aggregating many logs.** Use the AWS Management Console to change the instance type, extend the volume, or use UltraWarm. This is because the CloudFormation template for SIEM on Amazon ES is designed for the initial deployment purpose only, and cannot be used for managment purposes like changing/deleting nodes.
+_Note:_ The CloudFormation template will deploy Amazon ES with **a t3.medium.elasticsearch instance. It's not the AWS Free Tier. Change it to an instance type that can deliver higher performance than t2/t3 when using SIEM in the production environment as it requires higher processing power when aggregating many logs.** Use the AWS Management Console to change the instance type, extend the volume, or use UltraWarm. This is because the CloudFormation template for SIEM on Amazon ES is designed for the initial deployment purpose only, and cannot be used for managment purposes like changing/deleting nodes.
 
 ### 1. Quick Start
 
