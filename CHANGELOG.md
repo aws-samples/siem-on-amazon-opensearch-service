@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2021-05-09
+### Added
+- FAQ: How to reset password of master user #93
+- Chinese README #83
+- Automatically importing dashboard and saved objects into Global tenants #82
+
+### Changed
+- Change the default instance from t3.small to t3.medium #94
+
+### Fixed
+- Fixed parse issue: requestParameters.value, requestParameters.DescribeLaunchTemplateVersionsRequest.LaunchTemplateVersion.content, requestParameters.Tagging.TagSet.Tag.Value, requestParameters.content, requestParameters.groupDescription, requestParameters.logStreamNamePrefix, responseElements.availabilityZones of CloudTrail #84,#87,#88,#89,#90,#91,#92
+
+### Security
+- PR security vulnerability of urllib3 from 1.26.3 to 1.26.4 #85,#86
+
 ## [2.3.0] - 2021-03-20
 ### Added
 - Supported and normalized log: AWS Network Firewall, Amazon MSK(Blokder log), Amazon RDS(MariaDB/MySQL/PostgreSQL), vpc flow logs v5 format #5,#6,#17,#62,#67,#71

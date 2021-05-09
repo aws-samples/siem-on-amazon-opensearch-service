@@ -140,9 +140,11 @@ aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl b
 約30分で CloudFormation によるデプロイが完了します。次に、Kibana の設定をします。
 
 1. AWS CloudFormation コンソールで、作成したスタックを選択。画面右上のタブメニューから「出力」を選択。Kibana のユーザー名、パスワード、URL を確認できます。この認証情報を使って Kibana にログインしてください
-1. Kibana の Dashboard等 のファイルを[**ここ**](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip) からダウンロードします。ダウンロードしたファイルを解凍してください
-1. Kibana のコンソールに移動してください。画面左側に並んでいるアイコンから「Management」 を選択してください、「Saved Objects」、「Import」、「Import」の順に選択をして、先ほど解凍したZIPファイルの中ある「dashboard.ndjson」をインポートしてください
-1. インポートした設定ファイルを反映させるために一度ログアウトしてから、再ログインをしてください
+1. 最初のログイン時に [Select your tenant] と表示されるので、[**Global**] を選択してください。作成済みのダッシュボード等を利用できます。
+1. [Select your tenant] で [Global] を選択せずに、[**Private**] を選んで、各ユーザー専用のダッシュボード等を用意して、カスタマイズをすることもできます。以下は、その方法で、Global を選んだ場合は設定不要です。
+    1. Kibana の Dashboard等 のファイルを[**ここ**](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip) からダウンロードします。ダウンロードしたファイルを解凍してください
+    1. Kibana のコンソールに移動してください。画面左側に並んでいるアイコンから「Stack Management」 を選択してください、「Saved Objects」、「Import」、「Import」の順に選択をして、先ほど解凍したZIPファイルの中ある「dashboard.ndjson」をインポートしてください
+    1. インポートした設定ファイルを反映させるために一度ログアウトしてから、再ログインをしてください
 
 ### 4. ログの取り込み
 
@@ -153,6 +155,8 @@ AWS の各サービスのログを S3 バケットへの出力する方法は、
 ## SIEM のアップデート
 
 SIEM on Amazon ES を新しいバージョンにアップデートする時は、Amazon ES のドメインをアップグレードしてから、初期インストールと同じ方法 (CloudFormation or AWS CDK) でアップデートしてください。SIEM の変更履歴は [こちら](CHANGELOG.md) から確認できます。
+
+注) **Global tenant の 設定やダッシュボード等は自動で上書きされるのでご注意ください。アップデート前に使用していた設定ファイルやダッシュボード等は S3 バケットの aes-siem-[AWS_Account]-snapshot/saved_objects/ にバックアップされるので、元の設定にする場合は手動でリストアしてください。**
 
 ### Amazon ES のドメインのアップグレード
 
