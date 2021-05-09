@@ -47,7 +47,7 @@ In this turorial, you will create a publicly accessible SIEM on Amazon ES domain
 
 You can add country information as well as latitude/longitude location information to each IP address. To get location information, SIEM on Amazon ES downloads and uses GeoLite2 Free by [MaxMind](https://www.maxmind.com). If you want to add location information, get your free licence from MaxMind.
 
-_Note:_ The CloudFormation template will deploy Amazon ES with **a minimal profile using a t3.small.elasticsearch instance. Change it to an instance type that can deliver higher performance than t2/t3 when using SIEM in the production environment as it requires higher processing power when aggregating many logs.** Use the AWS Management Console to change the instance type, extend the volume, or use UltraWarm. This is because the CloudFormation template for SIEM on Amazon ES is designed for the initial deployment purpose only, and cannot be used for managment purposes like changing/deleting nodes.
+_Note:_ The CloudFormation template will deploy Amazon ES with **a t3.medium.elasticsearch instance. It's not the AWS Free Tier. Change it to an instance type that can deliver higher performance than t2/t3 when using SIEM in the production environment as it requires higher processing power when aggregating many logs.** Use the AWS Management Console to change the instance type, extend the volume, or use UltraWarm. This is because the CloudFormation template for SIEM on Amazon ES is designed for the initial deployment purpose only, and cannot be used for managment purposes like changing/deleting nodes.
 
 ### 1. Quick Start
 
@@ -139,8 +139,10 @@ The uploaded template is now stored in `https://s3.amazonaws.com/$TEMPLATE_OUTPU
 It will take about 30 mins for the deployment of SIEM on Amazon ES to complete. You can then continue to configure Kibana.
 
 1. Navigate to the AWS CloudFormation console, choose the stack that you've just created, and then choose "Outputs" from the tab menu at the top right. You can find your username, password, and URL for Kibana. Log into Kibana using the credentials.
-1. To import Kibana's configuration files such as dashboard, download [saved_objects.zip](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip). Then unzip the file.
-1. Navigate to the Kibana console. Click on "Management" in the left pane, then choose "Saved Objects" --> "Import" --> "Import". Choose dashboard.ndjson which is contained in the unzipped folder. Then log out and log in again so that the imported configurations take effect.
+1. When you login for the first time, [Select your tenant] is displayed. Select [**Global**]. You can use the prepared dashboard etc.
+1. You can also select [**Private**] instead of [Global] in [Select your tenant] and customize configuration and dashboard etc. for each user. The following is the procedure for each user. If you select Global, you do not need to set it.
+    1. To import Kibana's configuration files such as dashboard, download [saved_objects.zip](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip). Then unzip the file.
+    1. Navigate to the Kibana console. Click on "Stack Management" in the left pane, then choose "Saved Objects" --> "Import" --> "Import". Choose dashboard.ndjson which is contained in the unzipped folder. Then log out and log in again so that the imported configurations take effect.
 
 ### 4. Loading logs into Amazon ES
 
@@ -149,6 +151,8 @@ All you need to do to load logs into SIEM on Amazon ES is PUT logs to the S3 Buc
 ## Updating SIEM
 
 If you want to update SIEM on Amazon ES to the latest version, upgrade the Amazon ES domain and then update it in the same way as you did for the initial setup (using CloudFormation or AWS CDK.) You can view the changelog of SIEM [here.](CHANGELOG.md)
+
+_note_: **When you update SIEM, Global tenant settings, dashboards, etc. will be overwritten automatically. The configuration files and dashboards used before the update will be backed up to aes-siem-[AWS_Account]-snapshot/saved_objects/ in the S3 bucket, so restore them manually if you want to restore the original settings.**
 
 ### Upgrading the Amazon ES domain
 

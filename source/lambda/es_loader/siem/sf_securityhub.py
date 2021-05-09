@@ -1,8 +1,9 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-from datetime import datetime
 import re
+from datetime import datetime
+
 from siem import utils
 
 RE_GDTYPE = re.compile(r"/(?P<ThreatPurpose>\w*):(?P<ResourceTypeAffected>\w*)"

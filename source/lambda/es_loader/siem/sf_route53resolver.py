@@ -3,11 +3,13 @@
 
 def transform(logdata):
     try:
-        logdata['dns']['question']['name'] = logdata['dns']['question']['name'].rstrip('.')
+        logdata['dns']['question']['name'] = (
+            logdata['dns']['question']['name'].rstrip('.'))
     except KeyError:
         pass
     try:
-        logdata['dns']['answers']['data'] = logdata['dns']['answers']['data'].rstrip('.')
+        logdata['dns']['answers']['data'] = (
+            logdata['dns']['answers']['data'].rstrip('.'))
     except KeyError:
         pass
 

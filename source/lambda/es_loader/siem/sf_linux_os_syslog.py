@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 
 import re
+
 from siem import utils
 
 # REGEXP

@@ -1555,13 +1555,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderVersion23010A4F086": {
+    "LambdaEsLoaderVersion23146272680": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.3.0"
+        "Description": "2.3.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1703,13 +1703,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderVersion230A0974F50": {
+    "LambdaGeoipDownloaderVersion2311827F22C": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.3.0"
+        "Description": "2.3.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1747,6 +1747,9 @@
             "allow_source_address": {
               "Ref": "AllowedSourceIpAddresses"
             },
+            "s3_snapshot": {
+              "Ref": "S3BucketForSnapshot40E67D36"
+            },
             "vpc_subnet_id": "None",
             "security_group_id": "None"
           }
@@ -1761,13 +1764,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESVersion230A6A9B5D8": {
+    "LambdaDeployAESVersion2310193F65E": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.3.0"
+        "Description": "2.3.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1780,7 +1783,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.3.0"
+        "ConfigVersion": "2.3.1"
       }
     },
     "LambdaConfigureAESA0471961": {
@@ -1823,6 +1826,9 @@
                 "es_endpoint"
               ]
             },
+            "s3_snapshot": {
+              "Ref": "S3BucketForSnapshot40E67D36"
+            },
             "vpc_subnet_id": "None",
             "security_group_id": "None"
           }
@@ -1837,13 +1843,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESVersion23071111C53": {
+    "LambdaConfigureAESVersion231483C40D7": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.3.0"
+        "Description": "2.3.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1856,7 +1862,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.3.0"
+        "ConfigVersion": "2.3.1"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"

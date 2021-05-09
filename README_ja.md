@@ -47,7 +47,7 @@ CloudFormation テンプレートを使って、SIEM on Amazon ES のドメイ�
 
 IP アドレスに国情報や緯度・経度のロケーション情報を付与することができます。ロケーション情報は [MaxMind 社](https://www.maxmind.com)の GeoLite2 Free をダウンロードして活用します。ロケーション情報を付与したい方は MaxMind にて無料ライセンスを取得してください。
 
-注) CloudFormation テンプレートは Amazon ES を **t3.small.elasticsearch インスタンス の最小構成でデプロイします。SIEM は、多くのログを集約して負荷が高くなるため、小さい t2/t3 を避けて、メトリクスを確認しつつ最適なインスタンスを選択してください。** また、インスタンスの変更、ディスクの拡張、UltraWarm の使用等は、AWS マネジメントコンソールから直接行ってください。SIEM on Amazon ES の CloudFormation テンプレートは Amazon ES に対しては初期デプロイのみで、ノードの変更、削除等の管理はしません
+注) CloudFormation テンプレートは Amazon ES を **t3.medium.elasticsearch インスタンスでデプロイします。無料利用枠ではありません。また SIEM は、多くのログを集約して負荷が高くなるため、小さい t2/t3 を避けて、メトリクスを確認しつつ最適なインスタンスを選択してください。** インスタンスの変更、ディスクの拡張、UltraWarm の使用等は、AWS マネジメントコンソールから直接行ってください。SIEM on Amazon ES の CloudFormation テンプレートは Amazon ES に対しては初期デプロイのみで、ノードの変更、削除等の管理はしません
 
 ### 1. クイックスタート
 
@@ -140,9 +140,11 @@ aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl b
 約30分で CloudFormation によるデプロイが完了します。次に、Kibana の設定をします。
 
 1. AWS CloudFormation コンソールで、作成したスタックを選択。画面右上のタブメニューから「出力」を選択。Kibana のユーザー名、パスワード、URL を確認できます。この認証情報を使って Kibana にログインしてください
-1. Kibana の Dashboard等 のファイルを[**ここ**](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip) からダウンロードします。ダウンロードしたファイルを解凍してください
-1. Kibana のコンソールに移動してください。画面左側に並んでいるアイコンから「Management」 を選択してください、「Saved Objects」、「Import」、「Import」の順に選択をして、先ほど解凍したZIPファイルの中ある「dashboard.ndjson」をインポートしてください
-1. インポートした設定ファイルを反映させるために一度ログアウトしてから、再ログインをしてください
+1. 最初のログイン時に [Select your tenant] と表示されるので、[**Global**] を選択してください。作成済みのダッシュボード等を利用できます。
+1. [Select your tenant] で [Global] を選択せずに、[**Private**] を選んで、各ユーザー専用のダッシュボード等を用意して、カスタマイズをすることもできます。以下は、その方法で、Global を選んだ場合は設定不要です。
+    1. Kibana の Dashboard等 のファイルを[**ここ**](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip) からダウンロードします。ダウンロードしたファイルを解凍してください
+    1. Kibana のコンソールに移動してください。画面左側に並んでいるアイコンから「Stack Management」 を選択してください、「Saved Objects」、「Import」、「Import」の順に選択をして、先ほど解凍したZIPファイルの中ある「dashboard.ndjson」をインポートしてください
+    1. インポートした設定ファイルを反映させるために一度ログアウトしてから、再ログインをしてください
 
 ### 4. ログの取り込み
 
@@ -153,6 +155,8 @@ AWS の各サービスのログを S3 バケットへの出力する方法は、
 ## SIEM のアップデート
 
 SIEM on Amazon ES を新しいバージョンにアップデートする時は、Amazon ES のドメインをアップグレードしてから、初期インストールと同じ方法 (CloudFormation or AWS CDK) でアップデートしてください。SIEM の変更履歴は [こちら](CHANGELOG.md) から確認できます。
+
+注) **Global tenant の 設定やダッシュボード等は自動で上書きされるのでご注意ください。アップデート前に使用していた設定ファイルやダッシュボード等は S3 バケットの aes-siem-[AWS_Account]-snapshot/saved_objects/ にバックアップされるので、元の設定にする場合は手動でリストアしてください。**
 
 ### Amazon ES のドメインのアップグレード
 

@@ -43,6 +43,7 @@ aes.ini
 global-s3-assets
 regional-s3-assets
 Lambda*.zip
+dashboard.ndjson.zip
 
 # working files
 .DS_Store

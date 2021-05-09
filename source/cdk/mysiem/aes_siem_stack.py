@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: MIT-0
 
 import boto3
-import botocore
-from botocore.exceptions import ClientError
 from aws_cdk import (
     aws_cloudformation,
     aws_ec2,
@@ -22,7 +20,7 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.3.0'
+__version__ = '2.3.1'
 print(__version__)
 
 iam_client = boto3.client('iam')
@@ -620,6 +618,8 @@ class MyAesSiemStack(core.Stack):
             },
             role=aes_siem_deploy_role_for_lambda,
         )
+        lambda_deploy_es.add_environment(
+            's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
             lambda_deploy_es.add_environment(
                 'vpc_subnet_id', subnet1.subnet_id)
@@ -668,6 +668,8 @@ class MyAesSiemStack(core.Stack):
             },
             role=aes_siem_deploy_role_for_lambda,
         )
+        lambda_configure_es.add_environment(
+            's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
             lambda_configure_es.add_environment(
                 'vpc_subnet_id', subnet1.subnet_id)
