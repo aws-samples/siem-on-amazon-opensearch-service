@@ -260,19 +260,23 @@ class MyAesSiemStack(core.Stack):
             sg_vpc_opt = sg_vpc_aes_siem.node.default_child.cfn_options
             sg_vpc_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
-            # VPC Endpoint
-            vpc_aes_siem.add_gateway_endpoint(
-                'S3Endpoint', service=aws_ec2.GatewayVpcEndpointAwsService.S3,
-                subnets=subnets)
-            vpc_aes_siem.add_interface_endpoint(
-                'SQSEndpoint', security_groups=[sg_vpc_aes_siem],
-                service=aws_ec2.InterfaceVpcEndpointAwsService.SQS,)
-            vpc_aes_siem.add_interface_endpoint(
-                'KMSEndpoint', security_groups=[sg_vpc_aes_siem],
-                service=aws_ec2.InterfaceVpcEndpointAwsService.KMS,)
-            vpc_aes_siem.add_interface_endpoint(
-                'SNSEndpoint', security_groups=[sg_vpc_aes_siem],
-                service=aws_ec2.InterfaceVpcEndpointAwsService.SNS,)
+            # VPC Endpoint##########################
+            if not aws_ec2.GatewayVpcEndpointAwsService.S3:
+                vpc_aes_siem.add_gateway_endpoint(
+                    'S3Endpoint', service=aws_ec2.GatewayVpcEndpointAwsService.S3,
+                    subnets=subnets)
+            if not aws_ec2.InterfaceVpcEndpointAwsService.SQS:
+                vpc_aes_siem.add_interface_endpoint(
+                    'SQSEndpoint', security_groups=[sg_vpc_aes_siem],
+                    service=aws_ec2.InterfaceVpcEndpointAwsService.SQS,)
+            if not aws_ec2.InterfaceVpcEndpointAwsService.KMS:    
+                vpc_aes_siem.add_interface_endpoint(
+                    'KMSEndpoint', security_groups=[sg_vpc_aes_siem],
+                    service=aws_ec2.InterfaceVpcEndpointAwsService.KMS,)
+            if not aws_ec2.InterfaceVpcEndpointAwsService.SNS:        
+                vpc_aes_siem.add_interface_endpoint(
+                    'SNSEndpoint', security_groups=[sg_vpc_aes_siem],
+                    service=aws_ec2.InterfaceVpcEndpointAwsService.SNS,)
         else:
             is_vpc = False
 
