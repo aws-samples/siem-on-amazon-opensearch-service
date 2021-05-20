@@ -44,15 +44,15 @@ if vpc_subnet_id == 'None':
     vpc_subnet_id = None
 security_group_id = os.environ['security_group_id']
 LOGGROUP_RETENTIONS = [
-    ('/aws/aes/domains/aes-siem/application-logs', 14),
-    ('/aws/lambda/aes-siem-configure-aes', 90),
-    ('/aws/lambda/aes-siem-deploy-aes', 90),
-    ('/aws/lambda/aes-siem-es-loader', 90),
-    ('/aws/lambda/aes-siem-geoip-downloader', 90),
+    (f'/aws/aes/domains/{aesdomain}/application-logs', 14),
+    (f'/aws/lambda/{aesdomain}-configure-aes', 90),
+    (f'/aws/lambda/{aesdomain}-deploy-aes', 90),
+    (f'/aws/lambda/{aesdomain}-es-loader', 90),
+    (f'/aws/lambda/{aesdomain}-geoip-downloader', 90),
 ]
 
 es_loader_ec2_role = (
-    f'arn:aws:iam::{accountid}:role/aes-siem-es-loader-for-ec2')
+    f'arn:aws:iam::{accountid}:role/{aesdomain}-es-loader-for-ec2')
 
 cwl_resource_policy = {
     'Version': "2012-10-17",
@@ -67,9 +67,9 @@ cwl_resource_policy = {
             ],
             'Resource': [
                 (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes'
-                 f'/domains/aes-siem/*'),
+                 f'/domains/{aesdomain}/*'),
                 (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes'
-                 f'/domains/aes-siem/*:*')
+                 f'/domains/{aesdomain}/*:*')
             ]
         }
     ]
@@ -149,7 +149,7 @@ config_domain = {
         'ES_APPLICATION_LOGS': {
             'CloudWatchLogsLogGroupArn': (
                 f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes/'
-                f'domains/aes-siem/application-logs'),
+                f'domains/{aesdomain}/application-logs'),
             'Enabled': True
         }
     },
@@ -386,7 +386,7 @@ def setup_aes_system_log():
     cwl_client = boto3.client('logs')
     logger.info('put_resource_policy for Amazon ES system log')
     response = cwl_client.put_resource_policy(
-        policyName='AES-aes-siem-logs',
+        policyName=f'AES-{aesdomain}-logs',
         policyDocument=json.dumps(cwl_resource_policy)
     )
     logger.debug('Response of put_resource_policy')
@@ -494,7 +494,7 @@ def aes_domain_create(event, context):
 def aes_domain_poll_create(event, context):
     logger.info("Got create poll")
     suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
-    physicalResourceId = 'aes-siem-domain-' + __version__ + '-' + suffix
+    physicalResourceId = f'{aesdomain}-domain-' + __version__ + '-' + suffix
     kibanapass = helper_domain.Data.get('kibanapass')
     if not kibanapass:
         kibanapass = 'MASKED'
@@ -554,7 +554,7 @@ def aes_domain_update(event, context):
         es_endpoint = response['DomainStatus']['Endpoints']['vpc']
 
     suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
-    physicalResourceId = 'aes-siem-domain-' + __version__ + '-' + suffix
+    physicalResourceId = f'{aesdomain}-domain-' + __version__ + '-' + suffix
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource
         helper_domain.Data['es_endpoint'] = es_endpoint
@@ -590,7 +590,7 @@ def aes_config_handler(event, context):
 def aes_config_create_update(event, context):
     logger.info("Got Create/Update")
     suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
-    physicalResourceId = 'aes-siem-config-' + __version__ + '-' + suffix
+    physicalResourceId = f'{aesdomain}-config-' + __version__ + '-' + suffix
     if event:
         logger.debug(json.dumps(event, default=json_serial))
     es_app_data = configparser.ConfigParser(
