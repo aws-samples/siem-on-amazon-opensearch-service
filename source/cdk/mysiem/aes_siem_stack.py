@@ -182,22 +182,32 @@ class MyAesSiemStack(core.Stack):
             'organizations').get('member_ids')
         no_org_ids = self.node.try_get_context(
             'no_organizations').get('aws_accounts')
-
-        temp_geo = self.node.try_get_context('s3_bucket_name').get('geo')
-        if temp_geo:
-            s3bucket_name_geo = temp_geo
-        temp_log = self.node.try_get_context('s3_bucket_name').get('log')
-        if temp_log:
-            s3bucket_name_log = temp_log
-        elif org_id or no_org_ids:
-            s3bucket_name_log = f'{aes_domain_name}-{self.account}-log'
-        temp_snap = self.node.try_get_context('s3_bucket_name').get('snapshot')
-        if temp_snap:
-            s3bucket_name_snapshot = temp_snap
-
-        kms_cmk_alias = self.node.try_get_context('kms_cmk_alias')
-        if not kms_cmk_alias:
-            kms_cmk_alias = 'aes-siem-key'
+        try:
+            temp_geo = self.node.try_get_context('s3_bucket_name').get('geo')
+            if temp_geo:
+                s3bucket_name_geo = temp_geo
+        except:
+            print('Using default bucket names')
+        try:
+            temp_log = self.node.try_get_context('s3_bucket_name').get('log')
+            if temp_log:
+                s3bucket_name_log = temp_log
+            elif org_id or no_org_ids:
+                s3bucket_name_log = f'{aes_domain_name}-{self.account}-log'
+        except:
+            print('Using default bucket names')
+        try:
+            temp_snap = self.node.try_get_context('s3_bucket_name').get('snapshot')
+            if temp_snap:
+                s3bucket_name_snapshot = temp_snap
+        except:
+            print('Using default bucket names')
+        try:
+            kms_cmk_alias = self.node.try_get_context('kms_cmk_alias')
+            if not kms_cmk_alias:
+                kms_cmk_alias = f"{aes_domain_name}-key"
+        except:
+            print('Using default key alais')
 
         ######################################################################
         # deploy VPC when context is defined as using VPC
