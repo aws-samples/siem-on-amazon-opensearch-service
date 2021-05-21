@@ -729,7 +729,7 @@ class LogParser:
             logdata_dict = m.groupdict()
         else:
             msg_dict = {
-                'Exception': f'Invalid regex paasttern of {self.logtype}',
+                'Exception': f'Invalid regex pattern of {self.logtype}',
                 'rawdata': logdata, 'regex_pattern': re_log_pattern_prog}
             logger.error(msg_dict)
             raise Exception(repr(msg_dict))
