@@ -182,31 +182,28 @@ class MyAesSiemStack(core.Stack):
             'organizations').get('member_ids')
         no_org_ids = self.node.try_get_context(
             'no_organizations').get('aws_accounts')
-        try:
-            temp_geo = self.node.try_get_context('s3_bucket_name').get('geo')
-            if temp_geo:
-                s3bucket_name_geo = temp_geo
-        except:
+
+        # Overwrite default S3 bucket name as customer name
+        temp_geo = self.node.try_get_context('s3_bucket_name').get('geo')
+        if temp_geo:
+            s3bucket_name_geo = temp_geo
+        else:
             print('Using default bucket names')
-        try:
-            temp_log = self.node.try_get_context('s3_bucket_name').get('log')
-            if temp_log:
-                s3bucket_name_log = temp_log
-            elif org_id or no_org_ids:
-                s3bucket_name_log = f'{aes_domain_name}-{self.account}-log'
-        except:
+        temp_log = self.node.try_get_context('s3_bucket_name').get('log')
+        if temp_log:
+            s3bucket_name_log = temp_log
+        elif org_id or no_org_ids:
+            s3bucket_name_log = f'{aes_domain_name}-{self.account}-log'
+        else:
             print('Using default bucket names')
-        try:
-            temp_snap = self.node.try_get_context('s3_bucket_name').get('snapshot')
-            if temp_snap:
-                s3bucket_name_snapshot = temp_snap
-        except:
+        temp_snap = self.node.try_get_context('s3_bucket_name').get('snapshot')
+        if temp_snap:
+            s3bucket_name_snapshot = temp_snap
+        else:
             print('Using default bucket names')
-        try:
-            kms_cmk_alias = self.node.try_get_context('kms_cmk_alias')
-            if not kms_cmk_alias:
-                kms_cmk_alias = f"{aes_domain_name}-key"
-        except:
+        kms_cmk_alias = self.node.try_get_context('kms_cmk_alias')
+        if not kms_cmk_alias:
+            kms_cmk_alias = 'aes-siem-key'
             print('Using default key alais')
 
         ######################################################################
@@ -228,7 +225,7 @@ class MyAesSiemStack(core.Stack):
                 subnet_configuration=[
                     aws_ec2.SubnetConfiguration(
                         subnet_type=aws_ec2.SubnetType.ISOLATED,
-                        name=f"{aes_domain_name}-subnet", cidr_mask=subnet_cidr_mask)])
+                        name='aes-siem-subnet', cidr_mask=subnet_cidr_mask)])
             subnet1 = vpc_aes_siem.isolated_subnets[0]
             subnets = [{'subnet_type': aws_ec2.SubnetType.ISOLATED}]
             vpc_subnets = aws_ec2.SubnetSelection(
@@ -257,12 +254,12 @@ class MyAesSiemStack(core.Stack):
             # Security Group
             sg_vpc_noinbound_aes_siem = aws_ec2.SecurityGroup(
                 self, 'AesSiemVpcNoinboundSecurityGroup',
-                security_group_name=f"{aes_domain_name}-noinbound-vpc-sg",
+                security_group_name='aes-siem-noinbound-vpc-sg',
                 vpc=vpc_aes_siem)
 
             sg_vpc_aes_siem = aws_ec2.SecurityGroup(
                 self, 'AesSiemVpcSecurityGroup',
-                security_group_name= f"{aes_domain_name}-vpc-sg",
+                security_group_name='aes-siem-vpc-sg',
                 vpc=vpc_aes_siem)
             sg_vpc_aes_siem.add_ingress_rule(
                 peer=aws_ec2.Peer.ipv4(vpc_aes_siem.vpc_cidr_block),
@@ -270,23 +267,19 @@ class MyAesSiemStack(core.Stack):
             sg_vpc_opt = sg_vpc_aes_siem.node.default_child.cfn_options
             sg_vpc_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
-            # VPC Endpoint##########################
-            if not aws_ec2.GatewayVpcEndpointAwsService.S3:
-                vpc_aes_siem.add_gateway_endpoint(
-                    'S3Endpoint', service=aws_ec2.GatewayVpcEndpointAwsService.S3,
-                    subnets=subnets)
-            if not aws_ec2.InterfaceVpcEndpointAwsService.SQS:
-                vpc_aes_siem.add_interface_endpoint(
-                    'SQSEndpoint', security_groups=[sg_vpc_aes_siem],
-                    service=aws_ec2.InterfaceVpcEndpointAwsService.SQS,)
-            if not aws_ec2.InterfaceVpcEndpointAwsService.KMS:    
-                vpc_aes_siem.add_interface_endpoint(
-                    'KMSEndpoint', security_groups=[sg_vpc_aes_siem],
-                    service=aws_ec2.InterfaceVpcEndpointAwsService.KMS,)
-            if not aws_ec2.InterfaceVpcEndpointAwsService.SNS:        
-                vpc_aes_siem.add_interface_endpoint(
-                    'SNSEndpoint', security_groups=[sg_vpc_aes_siem],
-                    service=aws_ec2.InterfaceVpcEndpointAwsService.SNS,)
+            # VPC Endpoint
+            vpc_aes_siem.add_gateway_endpoint(
+                'S3Endpoint', service=aws_ec2.GatewayVpcEndpointAwsService.S3,
+                subnets=subnets)
+            vpc_aes_siem.add_interface_endpoint(
+                'SQSEndpoint', security_groups=[sg_vpc_aes_siem],
+                service=aws_ec2.InterfaceVpcEndpointAwsService.SQS,)
+            vpc_aes_siem.add_interface_endpoint(
+                'KMSEndpoint', security_groups=[sg_vpc_aes_siem],
+                service=aws_ec2.InterfaceVpcEndpointAwsService.KMS,)
+            vpc_aes_siem.add_interface_endpoint(
+                'SNSEndpoint', security_groups=[sg_vpc_aes_siem],
+                service=aws_ec2.InterfaceVpcEndpointAwsService.SNS,)
         else:
             is_vpc = False
 
@@ -403,6 +396,8 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         # delopyment policy for lambda deploy-aes
         arn_prefix = f'arn:aws:logs:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
+        loggroup_aes = f'log-group:/aws/aes/domains/{aes_domain_name}/*'
+        loggroup_lambda = 'log-group:/aws/lambda/aes-siem-*'
         policydoc_create_loggroup = aws_iam.PolicyDocument(
             statements=[
                 aws_iam.PolicyStatement(
@@ -418,8 +413,8 @@ class MyAesSiemStack(core.Stack):
                         'logs:CreateLogGroup', 'logs:CreateLogStream',
                         'logs:PutLogEvents', 'logs:PutRetentionPolicy'],
                     resources=[
-                        f'{arn_prefix}:log-group:/aws/aes/domains/{aes_domain_name}/*',
-                        f'{arn_prefix}:log-group:/aws/lambda/{aes_domain_name}-*',
+                        f'{arn_prefix}:{loggroup_aes}',
+                        f'{arn_prefix}:{loggroup_lambda}',
                     ],
                 )
             ]
@@ -457,7 +452,7 @@ class MyAesSiemStack(core.Stack):
         )
         aes_siem_snapshot_role = aws_iam.Role(
             self, 'AesSiemSnapshotRole',
-            role_name=f"{aes_domain_name}-snapshot-role",
+            role_name='aes-siem-snapshot-role',
             inline_policies=[policydoc_snapshot, ],
             assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
         )
@@ -473,7 +468,7 @@ class MyAesSiemStack(core.Stack):
 
         aes_siem_deploy_role_for_lambda = aws_iam.Role(
             self, 'AesSiemDeployRoleForLambda',
-            role_name=f"{aes_domain_name}-deploy-role-for-lambda",
+            role_name='aes-siem-deploy-role-for-lambda',
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
                     'AmazonESFullAccess'),
@@ -494,14 +489,14 @@ class MyAesSiemStack(core.Stack):
         # for alert from Amazon ES
         aes_siem_sns_role = aws_iam.Role(
             self, 'AesSiemSnsRole',
-            role_name= f"{aes_domain_name}-sns-role",
+            role_name='aes-siem-sns-role',
             assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
         )
 
         # EC2 role
         aes_siem_es_loader_ec2_role = aws_iam.Role(
             self, 'AesSiemEsLoaderEC2Role',
-            role_name= f"{aes_domain_name}-es-loader-for-ec2",
+            role_name='aes-siem-es-loader-for-ec2',
             assumed_by=aws_iam.ServicePrincipal('ec2.amazonaws.com'),
         )
 
@@ -527,12 +522,12 @@ class MyAesSiemStack(core.Stack):
         # SQS for es-laoder's DLQ
         ######################################################################
         sqs_aes_siem_dlq = aws_sqs.Queue(
-            self, 'AesSiemDlq', queue_name= f"{aes_domain_name}-dlq",
+            self, 'AesSiemDlq', queue_name='aes-siem-dlq',
             retention_period=core.Duration.days(14))
 
         sqs_aes_siem_splitted_logs = aws_sqs.Queue(
             self, 'AesSiemSqsSplitLogs',
-            queue_name= f"{aes_domain_name}-sqs-splitted-logs",
+            queue_name='aes-siem-sqs-splitted-logs',
             dead_letter_queue=aws_sqs.DeadLetterQueue(
                 max_receive_count=2, queue=sqs_aes_siem_dlq),
             visibility_timeout=core.Duration.seconds(ES_LOADER_TIMEOUT),
@@ -552,7 +547,7 @@ class MyAesSiemStack(core.Stack):
 
         lambda_es_loader = aws_lambda.Function(
             self, 'LambdaEsLoader', **lambda_es_loader_vpc_kwargs,
-            function_name=f'{aes_domain_name}-es-loader',
+            function_name='aes-siem-es-loader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             # code=aws_lambda.Code.asset('../lambda/es_loader.zip'),
             code=aws_lambda.Code.asset('../lambda/es_loader'),
@@ -595,7 +590,7 @@ class MyAesSiemStack(core.Stack):
 
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',
-            function_name=f'{aes_domain_name}-geoip-downloader',
+            function_name='aes-siem-geoip-downloader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             code=aws_lambda.Code.asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
@@ -616,7 +611,7 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         lambda_deploy_es = aws_lambda.Function(
             self, 'LambdaDeployAES',
-            function_name=f'{aes_domain_name}-deploy-aes',
+            function_name='aes-siem-deploy-aes',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             # code=aws_lambda.Code.asset('../lambda/deploy_es.zip'),
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
@@ -666,7 +661,7 @@ class MyAesSiemStack(core.Stack):
                 'vpc_subnets': aws_ec2.SubnetSelection(subnets=[subnet1, ]), }
         lambda_configure_es = aws_lambda.Function(
             self, 'LambdaConfigureAES', **lambda_configure_es_vpc_kwargs,
-            function_name=f'{aes_domain_name}-configure-aes',
+            function_name='aes-siem-configure-aes',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
@@ -708,8 +703,8 @@ class MyAesSiemStack(core.Stack):
                   f':domain/{aes_domain_name}')
         # grant permission to es_loader role
         inline_policy_to_load_entries_into_es = aws_iam.Policy(
-            self, f'{aes_domain_name}-policy-to-load-entries-to-es',
-            policy_name=f'{aes_domain_name}-policy-to-load-entries-to-es',
+            self, 'aes-siem-policy-to-load-entries-to-es',
+            policy_name='aes-siem-policy-to-load-entries-to-es',
             statements=[
                 aws_iam.PolicyStatement(
                     actions=['es:*'],
@@ -973,7 +968,7 @@ class MyAesSiemStack(core.Stack):
         # SNS topic for Amazon ES Alert
         ######################################################################
         sns_topic = aws_sns.Topic(
-            self, 'SnsTopic', topic_name=f'{aes_domain_name}-alert',
+            self, 'SnsTopic', topic_name='aes-siem-alert',
             display_name='AES SIEM')
 
         sns_topic.add_subscription(aws_sns_subscriptions.EmailSubscription(
