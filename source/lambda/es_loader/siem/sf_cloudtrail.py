@@ -32,6 +32,13 @@ def transform(logdata):
         else:
             logdata['responseElements']['credentials']['value'] = response_cred
 
+    # https://github.com/aws-samples/siem-on-amazon-elasticsearch/issues/108
+    try:
+        logdata['requestParameters']['tags'] = convert_text_into_dict(
+            logdata['requestParameters']['tags'])
+    except (KeyError, TypeError):
+        pass
+
     # https://github.com/aws-samples/siem-on-amazon-elasticsearch/issues/114
     try:
         logdata['responseElements']['policy'] = convert_text_into_dict(
