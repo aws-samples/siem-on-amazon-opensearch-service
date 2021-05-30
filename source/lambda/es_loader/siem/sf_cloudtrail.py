@@ -1,6 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
+def convert_text_into_dict(temp_value):
+    if isinstance(temp_value, str):
+        return {'value': temp_value}
+    else:
+        return temp_value
+
 
 def transform(logdata):
     if 'errorCode' in logdata or 'errorMessage' in logdata:
@@ -25,5 +31,12 @@ def transform(logdata):
             logdata['responseElements']['credentials']['iam'] = response_cred
         else:
             logdata['responseElements']['credentials']['value'] = response_cred
+
+    # https://github.com/aws-samples/siem-on-amazon-elasticsearch/issues/114
+    try:
+        logdata['responseElements']['policy'] = convert_text_into_dict(
+            logdata['responseElements']['policy'])
+    except (KeyError, TypeError):
+        pass
 
     return logdata
