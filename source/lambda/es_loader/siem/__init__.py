@@ -514,7 +514,12 @@ class LogParser:
     def json(self):
         # 内部で管理用のフィールドを削除
         self.__logdata_dict = self.del_none(self.__logdata_dict)
-        return json.dumps(self.__logdata_dict)
+        loaded_data = json.dumps(self.__logdata_dict)
+        # サイズが Lucene の最大値である 32766 Byte を超えてるかチェック
+        if len(loaded_data) >= 65536:
+            self.__logdata_dict = self.truncate_big_field(self.__logdata_dict)
+            loaded_data = json.dumps(self.__logdata_dict)
+        return loaded_data
 
     ###########################################################################
     # Method/Function - Main
@@ -770,6 +775,23 @@ class LogParser:
                 del d[key]
             elif isinstance(value, type(None)):
                 del d[key]
+        return d
+
+    def truncate_big_field(self, d):
+        """ truncate big field if size is bigger than 32,766 byte
+
+        field size が Lucene の最大値である 32766 Byte を超えてるかチェック
+        超えてれば切り捨て。このサイズは lucene の制限値
+        """
+        for key, value in list(d.items()):
+            if isinstance(value, dict):
+                self.truncate_big_field(value)
+            elif isinstance(value, str) and (len(value) >= 32766):
+                if key not in ("@message", ):
+                    d[key] = d[key][:32753] + '<<TRUNCATED>>'
+                    logger.warn(
+                        f'Data was trauncated because the size of {key} field '
+                        f'is bigger than 32,766. _id is {self.doc_id}')
         return d
 
 
