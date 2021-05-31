@@ -1555,13 +1555,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderVersion23146272680": {
+    "LambdaEsLoaderVersion232CC9DE7E3": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.3.1"
+        "Description": "2.3.2"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1703,13 +1703,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderVersion2311827F22C": {
+    "LambdaGeoipDownloaderVersion23270B5A5C9": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.3.1"
+        "Description": "2.3.2"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1764,13 +1764,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESVersion2310193F65E": {
+    "LambdaDeployAESVersion23232B10F5E": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.3.1"
+        "Description": "2.3.2"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1783,7 +1783,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.3.1"
+        "ConfigVersion": "2.3.2"
       }
     },
     "LambdaConfigureAESA0471961": {
@@ -1843,13 +1843,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESVersion231483C40D7": {
+    "LambdaConfigureAESVersion232C10A03D5": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.3.1"
+        "Description": "2.3.2"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1862,7 +1862,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.3.1"
+        "ConfigVersion": "2.3.2"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] - 2021-05-31
+### Changed
+- Truncate and load longer field than 32766 byte because of Lucene limitation #102,#117
+
+### Fixed
+- Fixed parse issue: additionalEventData.bytesTransferredOut,requestParameters.CreateFleetRequest.TagSpecification.Tag.Value,requestParameters.overrides.containerOverrides.environment.value,requestParameters.CreateLaunchTemplateVersionRequest.LaunchTemplateData.TagSpecification.Tag.Value,responseElements.CreateLaunchTemplateVersionResponse.launchTemplateVersion.launchTemplateData.tagSpecificationSet.item.tagSet.item.value,requestParameters.result,requestParameters.tags,requestParameters.containerOverrides.environment.value,requestParameters.CreateSnapshotsRequest.TagSpecification.Tag.Value,requestParameters.status,requestParameters.searchExpression.subExpressions.subExpressions.filters.value,responseElements.description,responseElements.policy of CloudTrail #95,#98,#99,#100,#101,#106,#108,#109,#110,#111,#112,#113,#114
+- Fixed regex pattern of ALB and CLb #115,#116
+
 ## [2.3.1] - 2021-05-09
 ### Added
 - FAQ: How to reset password of master user #93

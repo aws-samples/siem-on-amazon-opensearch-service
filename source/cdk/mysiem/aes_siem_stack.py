@@ -20,7 +20,7 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.3.1'
+__version__ = '2.3.2'
 print(__version__)
 
 iam_client = boto3.client('iam')
@@ -183,21 +183,28 @@ class MyAesSiemStack(core.Stack):
         no_org_ids = self.node.try_get_context(
             'no_organizations').get('aws_accounts')
 
+        # Overwrite default S3 bucket name as customer name
         temp_geo = self.node.try_get_context('s3_bucket_name').get('geo')
         if temp_geo:
             s3bucket_name_geo = temp_geo
+        else:
+            print('Using default bucket names')
         temp_log = self.node.try_get_context('s3_bucket_name').get('log')
         if temp_log:
             s3bucket_name_log = temp_log
         elif org_id or no_org_ids:
             s3bucket_name_log = f'{aes_domain_name}-{self.account}-log'
+        else:
+            print('Using default bucket names')
         temp_snap = self.node.try_get_context('s3_bucket_name').get('snapshot')
         if temp_snap:
             s3bucket_name_snapshot = temp_snap
-
+        else:
+            print('Using default bucket names')
         kms_cmk_alias = self.node.try_get_context('kms_cmk_alias')
         if not kms_cmk_alias:
             kms_cmk_alias = 'aes-siem-key'
+            print('Using default key alais')
 
         ######################################################################
         # deploy VPC when context is defined as using VPC
@@ -389,6 +396,8 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         # delopyment policy for lambda deploy-aes
         arn_prefix = f'arn:aws:logs:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
+        loggroup_aes = f'log-group:/aws/aes/domains/{aes_domain_name}/*'
+        loggroup_lambda = 'log-group:/aws/lambda/aes-siem-*'
         policydoc_create_loggroup = aws_iam.PolicyDocument(
             statements=[
                 aws_iam.PolicyStatement(
@@ -404,8 +413,8 @@ class MyAesSiemStack(core.Stack):
                         'logs:CreateLogGroup', 'logs:CreateLogStream',
                         'logs:PutLogEvents', 'logs:PutRetentionPolicy'],
                     resources=[
-                        f'{arn_prefix}:log-group:/aws/aes/domains/aes-siem/*',
-                        f'{arn_prefix}:log-group:/aws/lambda/aes-siem-*',
+                        f'{arn_prefix}:{loggroup_aes}',
+                        f'{arn_prefix}:{loggroup_lambda}',
                     ],
                 )
             ]
