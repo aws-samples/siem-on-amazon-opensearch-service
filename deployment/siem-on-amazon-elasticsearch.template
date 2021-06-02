@@ -1555,13 +1555,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderVersion232CC9DE7E3": {
+    "LambdaEsLoaderVersion240beta121912598": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.3.2"
+        "Description": "2.4.0-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1703,13 +1703,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderVersion23270B5A5C9": {
+    "LambdaGeoipDownloaderVersion240beta1E9311853": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.3.2"
+        "Description": "2.4.0-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1764,13 +1764,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESVersion23232B10F5E": {
+    "LambdaDeployAESVersion240beta1DAC90AAB": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.3.2"
+        "Description": "2.4.0-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1783,7 +1783,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.3.2"
+        "ConfigVersion": "2.4.0-beta.1"
       }
     },
     "LambdaConfigureAESA0471961": {
@@ -1843,13 +1843,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESVersion232C10A03D5": {
+    "LambdaConfigureAESVersion240beta1E6DC04B8": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.3.2"
+        "Description": "2.4.0-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1862,7 +1862,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.3.2"
+        "ConfigVersion": "2.4.0-beta.1"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"
