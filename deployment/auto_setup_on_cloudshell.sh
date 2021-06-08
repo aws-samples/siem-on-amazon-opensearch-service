@@ -6,10 +6,31 @@
 # helper Function
 ###############################################################################
 LOG_OUT="$HOME/auto_setup_on_cloudshell-$(date "+%Y%m%d_%H%M%S").log"
-exec 2> >(tee -a $LOG_OUT) 1>&2
+exec 2> >(tee -a "${LOG_OUT}") 1>&2
 
 export BASEDIR="$HOME/siem-on-amazon-elasticsearch-service"
 export OLDDIR="$HOME/siem-on-amazon-elasticsearch"
+
+function func_check_freespace() {
+  if [ -d "$BASEDIR" ];then
+    find "$BASEDIR" -name "*.zip" | xargs rm -f
+    rm -fr "${BASEDIR}/source/cdk/cdk.out"
+  fi
+  if [ -d "$OLDDIR" ];then
+    find "$OLDDIR" -name "*.zip" | xargs rm -f
+    rm -fr "${OLDDIR}/source/cdk/.env"
+    rm -fr "${OLDDIR}/source/cdk/cdk.out"
+  fi
+  free_space=$(df -m "$HOME" | awk '/[0-9]%/{print $(NF-2)}')
+  echo "Free space is ${free_space} MB"
+  if [ "${free_space}" -le 250 ]; then
+    echo "At least 250 MB of free space needed."
+    echo "Exit."
+    echo "Delete unnecessary files."
+    exit
+  fi
+  echo ""
+}
 
 function func_migrate_old_repo_to_new_repo () {
   if [ -s "${OLDDIR}/source/cdk/cdk.json" ]; then
@@ -202,16 +223,30 @@ function func_continue_or_exit () {
   done;
 }
 
+function func_delete_unnecessary_files() {
+  cd "$HOME"
+  if [ -d "$BASEDIR" ];then
+    find "$BASEDIR" -name "*.zip" | xargs rm -f
+    rm -fr "${BASEDIR}/source/cdk/cdk.out"
+  fi
+  if [ -d "$OLDDIR" ];then
+    if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
+      tar -zcf "${OLDDIR}.tgz" -C "$HOME/" $(echo $OLDDIR | sed -e "s@$HOME/@@") && rm -fr "$OLDDIR"
+    fi
+  fi
+}
+
 ###############################################################################
 # main script
 ###############################################################################
-
 echo "Auto Installtion Script Started"
 date
 
-echo "### 1. Setting Up the AWS CDK Execution Environment ###"
 cd ~/
+echo "func_check_freespace"
+func_check_freespace
 
+echo "### 1. Setting Up the AWS CDK Execution Environment ###"
 echo 'yum groups mark install -y "Development Tools"'
 sudo yum groups mark install -y "Development Tools" > /dev/null
 echo -e "Done\n"
@@ -332,7 +367,13 @@ func_continue_or_exit
 echo "cdk deploy"
 date
 cdk deploy
+date
 
+echo "func_update_param cdk.context.json"
 func_update_param cdk.context.json
-echo "All script was done"
+
+echo "func_delete_unnecessary_files"
+func_delete_unnecessary_files
+
+echo "The script was done"
 date
