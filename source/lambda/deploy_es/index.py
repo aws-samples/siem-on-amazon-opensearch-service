@@ -100,7 +100,7 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': aesdomain,
-    'ElasticsearchVersion': '7.9',
+    'ElasticsearchVersion': '7.10',
     'ElasticsearchClusterConfig': {
         'InstanceType': 't3.medium.elasticsearch',
         'InstanceCount': 1,
@@ -229,6 +229,14 @@ def output_message(key, res):
     return(f'{key}: status={res.status_code}, message={res.text}')
 
 
+def get_aes_domain_version(es_endpoint):
+    awsauth = auth_aes(es_endpoint)
+    res = query_aes(es_endpoint, awsauth, method='get', path='/')
+    logger.info(res.text)
+    aes_domain_ver = json.loads(res.text)['version']['number']
+    return aes_domain_ver
+
+
 def upsert_role_mapping(es_endpoint, role_name, es_app_data=None,
                         added_user=None, added_role=None, added_host=None):
     awsauth = auth_aes(es_endpoint)
@@ -314,32 +322,53 @@ def configure_siem(es_endpoint, es_app_data):
             logger.error(output_message(key, res))
 
 
-def configure_index_rollover(es_endpoint, es_app_data):
+def configure_index_rollover(es_endpoint, es_app_data, aes_domain_ver):
     awsauth = auth_aes(es_endpoint)
     logger.info('start to create IM policy for rollover')
-    payload = {'policy': {
-        'description': 'rollover by 100gb',
-        'default_state': 'rollover',
-        'states': [{'name': 'rollover',
-                    'actions': [{'rollover': {'min_size': '100gb'}}],
-                    'transitions': []}]}}
+    payload = {
+        'policy': {
+            'description': 'rollover by 100gb',
+            'default_state': 'rollover',
+            'states': [{
+                'name': 'rollover',
+                'actions': [{'rollover': {'min_size': '100gb'}}],
+            }]
+        }
+    }
+    if aes_domain_ver not in ('7.4.2', '7.7.0', '7.8.0'):
+        payload['policy']['ism_template'] = [
+            {"index_patterns": ["log-*-0*"], "priority": 0}
+        ]
     path = '_opendistro/_ism/policies/rollover100gb'
     res = query_aes(es_endpoint, awsauth, 'GET', path)
     if res.status_code == 404:
         res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
         logger.info(output_message(path, res))
 
-    logger.info('create index template for rollover')
     index_patterns = es_app_data['index-rollover']
+    logger.info('create index template for rollover')
     for key in index_patterns:
-        payload = json.loads(index_patterns[key])
-        path = f'_template/{key}'
+        if aes_domain_ver in ('7.4.2', '7.7.0', '7.8.0'):
+            path = f'_template/{key}'
+            payload = json.loads(index_patterns[key])
+        else:
+            path = f'_index_template/{key}'
+            alias = key.replace('_rollover', '')
+            payload = {
+                "index_patterns": [alias + "-0*"],
+                "priority": 0,
+                "template": {
+                    "settings": {
+                        "opendistro.index_state_management.rollover_alias":
+                        alias
+                    }
+                }
+            }
         res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
         if res.status_code == 200:
             logger.info(output_message(key, res))
         else:
             logger.error(output_message(key, res))
-
     time.sleep(10)  # wait to create rollover policy
 
     logger.info('Create initial index 000001 for rollover')
@@ -583,6 +612,7 @@ def aes_config_handler(event, context):
         helper_config(event, context)
     else:
         aes_config_create_update(event, context)
+    return {"statusCode": 200}
 
 
 @helper_config.create
@@ -598,9 +628,10 @@ def aes_config_create_update(event, context):
     es_app_data.read('data.ini')
     es_endpoint = os.environ['es_endpoint']
 
+    aes_domain_ver = get_aes_domain_version(es_endpoint)
     configure_opendistro(es_endpoint, es_app_data)
     configure_siem(es_endpoint, es_app_data)
-    configure_index_rollover(es_endpoint, es_app_data)
+    configure_index_rollover(es_endpoint, es_app_data, aes_domain_ver)
 
     # Globalテナントのsaved_objects をバックアップする
     tenant = 'global'
