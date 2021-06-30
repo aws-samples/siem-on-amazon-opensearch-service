@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # bash <(curl -s -o- https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/develop/deployment/auto_setup_on_cloudshell.sh)
+# or add git commit id at the end of line
+# bash <(curl -s -o- https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/develop/deployment/auto_setup_on_cloudshell.sh) develop
 
 ###############################################################################
 # helper Function
@@ -23,10 +25,13 @@ function func_check_freespace() {
   fi
   free_space=$(df -m "$HOME" | awk '/[0-9]%/{print $(NF-2)}')
   echo "Free space is ${free_space} MB"
+  if [ "${free_space}" -le 250 ] && [ -d ~/.nvm/versions/node/ ]; then
+    ls -d ~/.nvm/versions/node/* | grep -v $(ls -t ~/.nvm/versions/node/ | head -1) | xargs rm -rf
+  fi
   if [ "${free_space}" -le 250 ]; then
     echo "At least 250 MB of free space needed."
     echo "Exit."
-    echo "Delete unnecessary files."
+    echo "Delete unnecessary files, or Delete AWS CloudShell home directory."
     exit
   fi
   echo ""
@@ -242,6 +247,12 @@ function func_delete_unnecessary_files() {
 echo "Auto Installtion Script Started"
 date
 
+if [ ! $1 ]; then
+  commitid='main'
+else
+  commitid=$1
+fi
+
 cd ~/
 echo "func_check_freespace"
 func_check_freespace
@@ -272,12 +283,17 @@ fi
 if [ -d "$BASEDIR" ]; then
   echo "git rebase to get latest commit"
   cd $BASEDIR
-  git checkout main
-  git pull --rebase > /dev/null
+  git fetch > /dev/null
+  git checkout main && git pull --rebase > /dev/null
+  git checkout develop && git pull --rebase > /dev/null
+  git checkout $commitid
   cd $HOME
 else
   echo "git clone siem source code"
   git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch-service.git > /dev/null
+  cd $BASEDIR
+  git checkout $commitid
+  cd $HOME
 fi
 cd $BASEDIR && echo `git log | head -1` && cd $HOME
 echo -e "Done\n"
