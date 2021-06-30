@@ -16,7 +16,7 @@ from aws_lambda_powertools.metrics import MetricUnit
 import siem
 from siem import geodb, utils
 
-__version__ = '2.4.0-beta.1'
+__version__ = '2.4.0-beta.2'
 
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
@@ -106,8 +106,8 @@ def get_es_entries(logfile, exclude_log_patterns):
 
     logparser = siem.LogParser(
         logfile, logconfig, sf_module, geodb_instance, exclude_log_patterns)
-    for logdata in logfile:
-        logparser(logdata)
+    for logdata, logmeta in logfile:
+        logparser(logdata, logmeta)
         if logparser.is_ignored:
             logger.debug(f'Skipped log because {logparser.ignored_reason}')
             continue

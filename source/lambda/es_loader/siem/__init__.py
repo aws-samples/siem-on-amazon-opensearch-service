@@ -11,13 +11,13 @@ import re
 import urllib.parse
 import zipfile
 from datetime import datetime, timedelta, timezone
-from functools import cached_property
+from functools import cached_property, wraps
 
 from aws_lambda_powertools import Logger
 
 from siem import utils
 
-__version__ = '2.4.0-beta.1'
+__version__ = '2.4.0-beta.2'
 
 logger = Logger(child=True)
 
@@ -47,15 +47,7 @@ class LogS3:
         self.via_firelens = self.logconfig['via_firelens']
         self.file_format = self.logconfig['file_format']
         self.max_log_count = self.logconfig['max_log_count']
-
         self.__rawdata = self.extract_rawdata_from_s3obj()
-
-        if self.__rawdata and self.via_cwl:
-            self.loggroup, self.logstream, self.cwl_accountid = (
-                self.extract_header_from_cwl(self.__rawdata))
-            self.__rawdata.seek(0)
-            self.__rawdata = self.extract_messages_from_cwl(self.__rawdata)
-
         if self.file_format in ('multiline', ):
             self.re_multiline_firstline = self.logconfig['multiline_firstline']
 
@@ -72,6 +64,33 @@ class LogS3:
                                        f' pieces and sent to SQS.')
                 return
         yield from self.logdata_generator()
+
+    ###########################################################################
+    # Decoretor
+    ###########################################################################
+    def deco_cwl_logcount(func):
+        @wraps(func)
+        def _wrapper(inst, *args, **kargs):
+            if inst.via_cwl:
+                index: int = 0
+                line_num: int = 0
+                decoder = json.JSONDecoder()
+                body = inst.__rawdata
+                while True:
+                    try:
+                        obj, offset = decoder.raw_decode(body.read())
+                    except json.decoder.JSONDecodeError:
+                        break
+                    index = offset + index
+                    body.seek(index)
+                    if ('logEvents' in obj
+                            and obj['messageType'] == 'DATA_MESSAGE'):
+                        for logevent in obj['logEvents']:
+                            line_num += 1
+                return(line_num)
+            else:
+                return func(inst, *args, **kargs)
+        return _wrapper
 
     ###########################################################################
     # Property
@@ -95,6 +114,7 @@ class LogS3:
         return False
 
     @cached_property
+    @deco_cwl_logcount
     def log_count(self):
         if self.end_number == 0:
             if self.file_format in ('text', 'csv') or self.via_firelens:
@@ -130,9 +150,7 @@ class LogS3:
 
     @cached_property
     def accountid(self):
-        if hasattr(self, 'cwl_accountid') and self.cwl_accountid is not None:
-            return self.cwl_accountid
-        elif hasattr(self, 'cwe_accountid') and self.cwe_accountid is not None:
+        if hasattr(self, 'cwe_accountid') and self.cwe_accountid is not None:
             return self.cwe_accountid
         s3key_accountid = utils.extract_aws_account_from_text(self.s3key)
         if s3key_accountid:
@@ -175,13 +193,35 @@ class LogS3:
         return startmsg
 
     def logdata_generator(self):
-        if 'text' in self.file_format:
+        logmeta = {}
+        start, end = self.set_start_end_position()
+        self.total_log_count = end - start
+
+        if self.via_cwl:
+            yield from self.extract_cwl_log(start, end)
+        elif self.file_format in ('text', 'csv') or self.via_firelens:
+            for logdata in self.rawdata.readlines()[start:end]:
+                yield (logdata.strip(), logmeta)
+        elif self.file_format in ('json', ):
+            logobjs = self.extract_logobj_from_json('extract', start, end)
+            for logobj in logobjs:
+                yield (logobj, logmeta)
+        elif self.file_format in ('multiline', ):
+            yield from self.extract_multiline_log(start, end)
+        else:
+            raise Exception
+
+    def set_start_end_position(self):
+        if self.via_cwl:
+            ignore_header_line_number = 0
+        elif self.file_format in ('text', ):
             ignore_header_line_number = self.logconfig[
                 'text_header_line_number']
-        elif 'csv' in self.file_format:
+        elif self.file_format in ('csv', ):
             ignore_header_line_number = 1
         else:
             ignore_header_line_number = 0
+
         if self.start_number <= ignore_header_line_number:
             start = ignore_header_line_number
             if self.max_log_count >= self.log_count:
@@ -191,24 +231,14 @@ class LogS3:
         else:
             start = self.start_number - 1
             end = self.end_number
-        self.total_log_count = end - start
+        return start, end
 
-        if self.file_format in ('text', 'csv') or self.via_firelens:
-            for logdata in self.rawdata.readlines()[start:end]:
-                yield logdata.strip()
-        elif 'json' in self.file_format:
-            logobjs = self.extract_logobj_from_json('extract', start, end)
-            for logobj in logobjs:
-                yield logobj
-        elif self.file_format in ('multiline', ):
-            yield from self.extract_multiline_log(start, end)
-        else:
-            raise Exception
-
-    def extract_header_from_cwl(self, rawdata):
-        index = 0
-        body = rawdata
+    def extract_cwl_log(self, start, end):
+        index: int = 0
+        line_num: int = 0
         decoder = json.JSONDecoder()
+        self.__rawdata.seek(0)
+        body = self.__rawdata
         while True:
             try:
                 obj, offset = decoder.raw_decode(body.read())
@@ -216,28 +246,19 @@ class LogS3:
                 break
             index = offset + index
             body.seek(index)
-            if 'CONTROL_MESSAGE' in obj['messageType']:
-                continue
-            loggroup = obj['logGroup']
-            logstream = obj['logStream']
-            owner = obj['owner']
-            return loggroup, logstream, owner
-        return None, None, None
-
-    def extract_messages_from_cwl(self, rawlog_io_obj):
-        decoder = json.JSONDecoder()
-        rawlog = rawlog_io_obj.read()
-        size = len(rawlog)
-        index = 0
-        newlog_io_obj = io.StringIO()
-        while size > index:
-            obj, index = decoder.raw_decode(rawlog, index)
-            if 'CONTROL_MESSAGE' in obj['messageType']:
-                continue
-            for log in obj['logEvents']:
-                newlog_io_obj.write(log['message'] + "\n")
-        newlog_io_obj.seek(0)
-        return newlog_io_obj
+            if ('logEvents' in obj) and (obj['messageType'] == 'DATA_MESSAGE'):
+                logmeta = {'cwl_accountid': obj['owner'],
+                           'loggroup': obj['logGroup'],
+                           'logstream': obj['logStream']}
+                for logevent in obj['logEvents']:
+                    if start <= line_num < end:
+                        logmeta['cwl_id'] = logevent['id']
+                        logmeta['cwl_timestamp'] = logevent['timestamp']
+                        if self.file_format in ('json', ):
+                            yield json.loads(logevent['message']), logmeta
+                        else:
+                            yield logevent['message'], logmeta
+                    line_num += 1
 
     def extract_rawdata_from_s3obj(self):
         try:
@@ -323,6 +344,7 @@ class LogS3:
 
     def extract_multiline_log(self, start=0, end=0):
         count = 0
+        metadata = {}
         multilog = []
         is_in_scope = False
         for line in self.rawdata:
@@ -331,7 +353,7 @@ class LogS3:
                 if start < count <= end:
                     if len(multilog) > 0:
                         # yield previous log
-                        yield "".join(multilog).rstrip()
+                        yield("".join(multilog).rstrip(), metadata)
                     multilog = []
                     is_in_scope = True
                     multilog.append(line)
@@ -341,7 +363,7 @@ class LogS3:
                 multilog.append(line)
         if is_in_scope:
             # yield last log
-            yield "".join(multilog).rstrip()
+            yield("".join(multilog).rstrip(), metadata)
 
     def check_cwe_and_strip_header(self, dict_obj):
         if "detail-type" in dict_obj and "resources" in dict_obj:
@@ -413,8 +435,8 @@ class LogParser:
         self.header = logfile.csv_header
         self.accountid = logfile.accountid
         self.region = logfile.region
-        self.loggroup = logfile.loggroup
-        self.logstream = logfile.logstream
+        self.loggroup = None
+        self.logstream = None
         self.via_firelens = logfile.via_firelens
 
         self.timestamp_tz = timezone(
@@ -424,8 +446,14 @@ class LogParser:
                 timedelta(hours=float(self.logconfig['index_tz'])))
         self.has_nanotime = self.logconfig['timestamp_nano']
 
-    def __call__(self, logdata):
+    def __call__(self, logdata, logmeta):
         self.logdata = logdata
+        if logmeta:
+            self.logstream = logmeta.get('logstream')
+            self.loggroup = logmeta.get('loggroup')
+            self.accountid = logmeta.get('cwl_accountid', self.accountid)
+            self.cwl_id = logmeta.get('cwl_id')
+            self.cwl_timestamp = logmeta.get('cwl_timestamp')
         self.__logdata_dict = self.logdata_to_dict(logdata)
         if self.is_ignored:
             return
