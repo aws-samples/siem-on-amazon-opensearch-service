@@ -120,10 +120,8 @@ class LogS3:
             if self.file_format in ('text', 'csv') or self.via_firelens:
                 log_count = len(self.rawdata.readlines())
                 # log_count = sum(1 for line in self.rawdata)
-            elif 'json' in self.file_format:
-                log_count = 0
-                for x in self.extract_logobj_from_json(mode='count'):
-                    log_count = x
+            elif self.file_format in ('json', ):
+                log_count = self.count_logobj_in_json()
             elif self.file_format in ('multiline', ):
                 log_count = self.count_multiline_log()
             else:
@@ -150,8 +148,6 @@ class LogS3:
 
     @cached_property
     def accountid(self):
-        if hasattr(self, 'cwe_accountid') and self.cwe_accountid is not None:
-            return self.cwe_accountid
         s3key_accountid = utils.extract_aws_account_from_text(self.s3key)
         if s3key_accountid:
             return s3key_accountid
@@ -160,8 +156,6 @@ class LogS3:
 
     @cached_property
     def region(self):
-        if hasattr(self, 'cwe_region') and self.cwe_region is not None:
-            return self.cwe_region
         s3key_region = utils.extract_aws_region_from_text(self.s3key)
         if s3key_region:
             return s3key_region
@@ -203,8 +197,8 @@ class LogS3:
             for logdata in self.rawdata.readlines()[start:end]:
                 yield (logdata.strip(), logmeta)
         elif self.file_format in ('json', ):
-            logobjs = self.extract_logobj_from_json('extract', start, end)
-            for logobj in logobjs:
+            logobjs = self.extract_logobj_from_json(start, end)
+            for logobj, logmeta in logobjs:
                 yield (logobj, logmeta)
         elif self.file_format in ('multiline', ):
             yield from self.extract_multiline_log(start, end)
@@ -298,7 +292,7 @@ class LogS3:
             raise Exception('unknown file format')
         return body
 
-    def extract_logobj_from_json(self, mode='count', start=0, end=0):
+    def count_logobj_in_json(self):
         decoder = json.JSONDecoder()
         delimiter = self.logconfig['json_delimiter']
         count = 0
@@ -309,25 +303,46 @@ class LogS3:
             index = 0
             while index < size:
                 raw_event, offset = decoder.raw_decode(line, index)
-                raw_event = self.check_cwe_and_strip_header(raw_event)
+                raw_event, logmeta = self.check_cwe_and_strip_header(raw_event)
                 if delimiter and (delimiter in raw_event):
                     # multiple evets in 1 json
                     for record in raw_event[delimiter]:
                         count += 1
-                        if 'count' not in mode:
-                            if start <= count <= end:
-                                yield record
                 elif not delimiter:
                     count += 1
-                    if 'count' not in mode:
-                        if start <= count <= end:
-                            yield raw_event
                 search = json.decoder.WHITESPACE.search(line, offset)
                 if search is None:
                     break
                 index = search.end()
-            if 'count' in mode:
-                yield count
+        return count
+
+    def extract_logobj_from_json(self, start=0, end=0):
+        decoder = json.JSONDecoder()
+        delimiter = self.logconfig['json_delimiter']
+        count = 0
+        # For ndjson
+        for line in self.rawdata.readlines():
+            # for Firehose's json (multiple jsons in 1 line)
+            size = len(line)
+            index = 0
+            while index < size:
+                raw_event, offset = decoder.raw_decode(line, index)
+                raw_event, logmeta = self.check_cwe_and_strip_header(
+                    raw_event, need_meta=True)
+                if delimiter and (delimiter in raw_event):
+                    # multiple evets in 1 json
+                    for record in raw_event[delimiter]:
+                        count += 1
+                        if start <= count <= end:
+                            yield (record, logmeta)
+                elif not delimiter:
+                    count += 1
+                    if start <= count <= end:
+                        yield (raw_event, logmeta)
+                search = json.decoder.WHITESPACE.search(line, offset)
+                if search is None:
+                    break
+                index = search.end()
 
     def match_multiline_firstline(self, line):
         if self.re_multiline_firstline.match(line):
@@ -365,15 +380,20 @@ class LogS3:
             # yield last log
             yield("".join(multilog).rstrip(), metadata)
 
-    def check_cwe_and_strip_header(self, dict_obj):
+    def check_cwe_and_strip_header(self, dict_obj, need_meta=False):
+        logmeta = {}
         if "detail-type" in dict_obj and "resources" in dict_obj:
-            self.cwe_accountid = dict_obj['account']
-            self.cwe_region = dict_obj['region']
+            if need_meta:
+                logmeta = {'cwe_id': dict_obj['id'],
+                           'cwe_source': dict_obj['source'],
+                           'cwe_accountid': dict_obj['account'],
+                           'cwe_region': dict_obj['region'],
+                           'cwe_timestamp': dict_obj['time']}
             # source = dict_obj['source'] # eg) aws.securityhub
             # time = dict_obj['time'] #@ingested
-            return dict_obj['detail']
+            return dict_obj['detail'], logmeta
         else:
-            return dict_obj
+            return dict_obj, logmeta
 
     def split_logs(self, log_count, max_log_count):
         q, mod = divmod(log_count, max_log_count)
@@ -452,8 +472,12 @@ class LogParser:
             self.logstream = logmeta.get('logstream')
             self.loggroup = logmeta.get('loggroup')
             self.accountid = logmeta.get('cwl_accountid', self.accountid)
+            self.accountid = logmeta.get('cwe_accountid', self.accountid)
+            self.region = logmeta.get('cwe_region', self.region)
             self.cwl_id = logmeta.get('cwl_id')
             self.cwl_timestamp = logmeta.get('cwl_timestamp')
+            self.cwe_id = logmeta.get('cwe_id')
+            self.cwe_timestamp = logmeta.get('cwe_timestamp')
         self.__logdata_dict = self.logdata_to_dict(logdata)
         if self.is_ignored:
             return
