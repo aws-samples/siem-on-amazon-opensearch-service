@@ -354,7 +354,11 @@ echo "### 5. Setting Installation Options with the AWS CDK ###"
 cd $BASEDIR/source/cdk/
 source .env/bin/activate
 echo "cdk bootstrap"
-cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION
+cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION; status=$?
+if [ $status -ne 0 ]; then
+  echo "invalid configuration. exit"
+  exit
+fi
 echo -e "Done\n"
 
 echo "################################################"
@@ -382,7 +386,11 @@ func_continue_or_exit
 (sleep 120 && func_update_param cdk.context.json > /dev/null 2>&1 & )
 echo "cdk deploy"
 date
-cdk deploy
+cdk deploy; status=$?
+if [ $status -ne 0 ]; then
+  echo "invalid configuration. exit"
+  exit
+fi
 date
 
 echo "func_update_param cdk.context.json"
