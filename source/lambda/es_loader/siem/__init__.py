@@ -800,6 +800,10 @@ class LogParser:
 
     def get_timestamp(self):
         if self.logconfig['timestamp_key'] and not self.__skip_normalization:
+            if self.logconfig['timestamp_key'] == 'cwe_timestamp':
+                self.__logdata_dict['cwe_timestamp'] = self.cwe_timestamp
+            elif self.logconfig['timestamp_key'] == 'cwl_timestamp':
+                self.__logdata_dict['cwl_timestamp'] = self.cwl_timestamp
             timestr = utils.get_timestr_from_logdata_dict(
                 self.__logdata_dict, self.logconfig['timestamp_key'],
                 self.has_nanotime)
