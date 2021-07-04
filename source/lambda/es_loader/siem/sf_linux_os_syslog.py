@@ -52,18 +52,18 @@ def extract_from_sshd(logdata, linux_dict):
         if ('accept' in data['action'].lower()
                 or 'isconnect' in data['action'].lower()
                 or 'opened' in data['action'].lower()):
-            logdata['event']['outcome'] = 'success'
+            linux_dict['event']['outcome'] = 'success'
         elif ('fail' in data['action'].lower()
                 or 'invalid' in data['action'].lower()
                 or 'err' in data['action'].lower()):
-            logdata['event']['outcome'] = 'failure'
+            linux_dict['event']['outcome'] = 'failure'
         elif ('isconnect' in data['action'].lower()
                 or 'reset' in data['action'].lower()
                 or 'close' in data['action'].lower()):
-            # logdata['event']['outcome'] is empty for disconnection event
+            # linux_dict['event']['outcome'] is empty for disconnection event
             pass
         else:
-            logdata['event']['outcome'] = 'unknown'
+            linux_dict['event']['outcome'] = 'unknown'
     return linux_dict
 
 
