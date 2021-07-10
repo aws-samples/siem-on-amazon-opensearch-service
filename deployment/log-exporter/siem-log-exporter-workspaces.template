@@ -1,9 +1,25 @@
-Description: "SIEM on Amazon ES: Workspaces log exporter"
+Description: "SIEM: Workspaces log exporter"
 Parameters:
   cweRulesFrequency:
     Type: Number
     Default: 720
     Description: How often do you get WorkSpaces Inventory? (every minutes)
+  KdfWorkSpacesName:
+    Type: String
+    Default: siem-workspaces-event-to-s3
+    Description: Kinesis Data Firehose Name to deliver workspaces event
+  KdfBufferSize:
+    Type: Number
+    Default: 1
+    Description: Enter a buffer size between 1 - 128 (MiB)
+    MaxValue: 128
+    MinValue: 1
+  KdfBufferInterval:
+    Type: Number
+    Default: 60
+    Description: Enter a buffer interval between 60 - 900 (seconds.)
+    MaxValue: 900
+    MinValue: 60
 Resources:
   getWorkspacesInventoryRoleC66252C0:
     Type: AWS::IAM::Role
@@ -43,7 +59,7 @@ Resources:
                 Sid: FirehoseToS3PolicyGeneratedBySeimCfn
             Version: "2012-10-17"
           PolicyName: firehose-to-s3
-      RoleName: aes-siem-get-workspaces-inventory-role
+      RoleName: siem-get-workspaces-inventory-role
   lambdaGetWorkspacesInventory04954C41:
     Type: AWS::Lambda::Function
     Properties:
@@ -101,12 +117,12 @@ Resources:
         Fn::GetAtt:
           - getWorkspacesInventoryRoleC66252C0
           - Arn
-      Description: "Amazon ES: get workspaces inventory"
+      Description: "SIEM: get workspaces inventory"
       Environment:
         Variables:
           log_bucket_name:
             Fn::ImportValue: sime-log-bucket-name
-      FunctionName: aes-siem-get-workspaces-inventory
+      FunctionName: siem-get-workspaces-inventory
       Handler: index.lambda_handler
       Runtime: python3.8
       Timeout: 300
@@ -115,7 +131,7 @@ Resources:
   eventBridgeRuleWorkSpaceInventory93C397AF:
     Type: AWS::Events::Rule
     Properties:
-      Name: aes-siem-workspaces-inventory-to-lambda
+      Name: siem-workspaces-inventory-to-lambda
       ScheduleExpression:
         Fn::Join:
           - ""
@@ -129,7 +145,7 @@ Resources:
               - lambdaGetWorkspacesInventory04954C41
               - Arn
           Id: Target0
-  eventBridgeRuleWorkSpaceInventoryAllowEventRuleaessiemlogexporterworkspaceslambdaGetWorkspacesInventory915094998B735543:
+  eventBridgeRuleWorkSpaceInventoryAllowEventRulesiemlogexporterworkspaceslambdaGetWorkspacesInventory7C06DC3EA3096216:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
@@ -145,13 +161,19 @@ Resources:
   KDFForWorkSpacesEvent:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
-      DeliveryStreamName: aes-siem-workspaces-event-to-s3
+      DeliveryStreamName:
+        Ref: KdfWorkSpacesName
       S3DestinationConfiguration:
         BucketARN:
           Fn::Join:
             - ""
             - - "arn:aws:s3:::"
               - Fn::ImportValue: sime-log-bucket-name
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
         CompressionFormat: GZIP
         Prefix:
           Fn::Join:
@@ -201,7 +223,7 @@ Resources:
           - WorkSpaces Access
         source:
           - aws.workspaces
-      Name: aes-siem-workspaces-event-to-kdf
+      Name: siem-workspaces-event-to-kdf
       State: ENABLED
       Targets:
         - Arn:
