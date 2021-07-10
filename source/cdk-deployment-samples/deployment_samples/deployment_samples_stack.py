@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_events_targets,
     aws_kinesisfirehose,
     aws_lambda,
+    aws_logs,
     core as cdk
 )
 
@@ -61,6 +62,62 @@ def lambda_handler(event, context):
 '''
 
 
+class ADLogExporterStack(cdk.Stack):
+    def __init__(self, scope: cdk.Construct, construct_id: str,
+                 **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+        service_role_kdf_to_s3 = cdk.Fn.import_value(
+            'siem-kdf-to-s3-role-name')
+
+        kdf_ad_name = cdk.CfnParameter(
+            self, 'KdfAdName',
+            description='Kinesis Data Firehose Name to deliver AD event',
+            default='aes-siem-ad-event-to-s3')
+        cwl_ad_name = cdk.CfnParameter(
+            self, 'CwlAdName',
+            description='CloudWatch Logs group name',
+            default='/aws/directoryservice/d-XXXXXXXXXXXXXXXXX')
+
+        kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "KDFForAdEventLog",
+            delivery_stream_name=kdf_ad_name.value_as_string,
+            s3_destination_configuration=aws_kinesisfirehose.CfnDeliveryStream.S3DestinationConfigurationProperty(
+                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                prefix=f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/AD/',
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{service_role_kdf_to_s3}')
+            )
+        )
+
+        service_role_cwl_to_kdf = aws_iam.Role(
+            self, 'firehoseServiceRole',
+            role_name=f'aes-siem-CWLtoKinesisFirehoseRole-{cdk.Aws.REGION}',
+            inline_policies={
+                'cwl-to-firehose': aws_iam.PolicyDocument(
+                    statements=[
+                        aws_iam.PolicyStatement(
+                            actions=["firehose:*"],
+                            resources=[f"arn:aws:firehose:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}:*"],
+                            sid='CwlToFirehosePolicyGeneratedBySeimCfn'
+                        )
+                    ]
+                )
+            },
+            assumed_by=aws_iam.ServicePrincipal(
+                f'logs.{cdk.Aws.REGION}.amazonaws.com'))
+
+        aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscription',
+            destination_arn=kdf_to_s3.attr_arn,
+            filter_pattern='',
+            log_group_name=cwl_ad_name.value_as_string,
+            role_arn=service_role_cwl_to_kdf.role_arn
+        )
+
+
 class WorkSpacesLogExporterStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str,
                  **kwargs) -> None:
@@ -79,24 +136,24 @@ class WorkSpacesLogExporterStack(cdk.Stack):
         role_get_workspaces_inventory = aws_iam.Role(
             self, 'getWorkspacesInventoryRole',
             role_name='aes-siem-get-workspaces-inventory-role',
-            inline_policies=[
-                aws_iam.PolicyDocument(
+            inline_policies={
+                'describe-workspaces': aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
-                            actions=['workspaces:Describe*'], resources=['*'])
+                            actions=['workspaces:Describe*'], resources=['*'],
+                            sid='DescribeWorkSpacesPolicyGeneratedBySeimCfn')
                     ]
                 ),
-                aws_iam.PolicyDocument(
+                'firehose-to-s3': aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
                             actions=['s3:PutObject'],
-                            resources=[
-                                (f'arn:aws:s3:::'
-                                 f'{log_bucket_name}/*')]
+                            resources=[f'arn:aws:s3:::{log_bucket_name}/*'],
+                            sid='FirehoseToS3PolicyGeneratedBySeimCfn'
                         )
                     ]
                 )
-            ],
+            },
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
                     'service-role/AWSLambdaBasicExecutionRole'),
@@ -158,11 +215,11 @@ class BasicLogExporterStack(cdk.Stack):
         service_role_kdf_to_s3 = aws_iam.Role(
             self, 'firehoseServiceRole', path='/service-role/',
             role_name=f'aes-siem-firehose-to-s3-service-role-{cdk.Aws.REGION}',
-            inline_policies=[
-                aws_iam.PolicyDocument(
+            inline_policies={
+                'firehose-to-s3': aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
-                            sid='AAAAAAAAAA',
+                            sid='FirehoseToS3PolicyGeneratedBySiemCfn',
                             actions=["s3:AbortMultipartUpload",
                                      "s3:GetBucketLocation",
                                      "s3:GetObject",
@@ -171,14 +228,14 @@ class BasicLogExporterStack(cdk.Stack):
                                      "s3:PutObject"],
                             resources=[f'{bucket_arn}',
                                        f'{bucket_arn}/*'])]),
-                aws_iam.PolicyDocument(
+                'for-logigng': aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
-                            sid='BBBBBBBB',
+                            sid='LoggingPolicyGeneratedBySiemCfn',
                             actions=["logs:PutLogEvents"],
                             resources=[f"arn:aws:logs:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}:log-group:/aws/kinesisfirehose/*:log-stream:*"])],
                 ),
-            ],
+            },
             assumed_by=aws_iam.ServicePrincipal('firehose.amazonaws.com'))
 
         ######################################################################

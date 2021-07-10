@@ -6,6 +6,7 @@ from aws_cdk import core
 from deployment_samples.deployment_samples_stack import DeploymentSamplesStack
 from deployment_samples.deployment_samples_stack import WorkSpacesLogExporterStack
 from deployment_samples.deployment_samples_stack import BasicLogExporterStack
+from deployment_samples.deployment_samples_stack import ADLogExporterStack
 
 app = core.App()
 DeploymentSamplesStack(app, "DeploymentSamplesStack")
@@ -15,5 +16,8 @@ basic_logging = BasicLogExporterStack(
 workspaces_logging = WorkSpacesLogExporterStack(
     app, "aes-siem-log-exporter-workspaces",
     description='SIEM on Amazon ES: Workspaces log exporter')
+ad_logging = ADLogExporterStack(
+    app, "aes-siem-log-exporter-ad",
+    description='SIEM on Amazon ES: Active Directory log exporter')
 
 app.synth()

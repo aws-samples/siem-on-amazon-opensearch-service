@@ -27,8 +27,9 @@ Resources:
               - Action: workspaces:Describe*
                 Effect: Allow
                 Resource: "*"
+                Sid: DescribeWorkSpacesPolicyGeneratedBySeimCfn
             Version: "2012-10-17"
-          PolicyName: "0"
+          PolicyName: describe-workspaces
         - PolicyDocument:
             Statement:
               - Action: s3:PutObject
@@ -39,8 +40,9 @@ Resources:
                     - - "arn:aws:s3:::"
                       - Fn::ImportValue: sime-log-bucket-name
                       - /*
+                Sid: FirehoseToS3PolicyGeneratedBySeimCfn
             Version: "2012-10-17"
-          PolicyName: "1"
+          PolicyName: firehose-to-s3
       RoleName: aes-siem-get-workspaces-inventory-role
   lambdaGetWorkspacesInventory04954C41:
     Type: AWS::Lambda::Function

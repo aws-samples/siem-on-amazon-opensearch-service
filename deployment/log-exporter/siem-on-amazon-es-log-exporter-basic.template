@@ -37,9 +37,9 @@ Resources:
                       - - "arn:aws:s3:::"
                         - Ref: siemLogBucketName
                         - /*
-                Sid: AAAAAAAAAA
+                Sid: FirehoseToS3PolicyGeneratedBySiemCfn
             Version: "2012-10-17"
-          PolicyName: "0"
+          PolicyName: firehose-to-s3
         - PolicyDocument:
             Statement:
               - Action: logs:PutLogEvents
@@ -52,9 +52,9 @@ Resources:
                       - ":"
                       - Ref: AWS::AccountId
                       - :log-group:/aws/kinesisfirehose/*:log-stream:*
-                Sid: BBBBBBBB
+                Sid: LoggingPolicyGeneratedBySiemCfn
             Version: "2012-10-17"
-          PolicyName: "1"
+          PolicyName: for-logigng
       RoleName:
         Fn::Join:
           - ""
