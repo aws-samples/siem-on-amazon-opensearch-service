@@ -187,8 +187,8 @@ class WorkSpacesLogExporterStack(cdk.Stack):
                 bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
                 prefix=f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/WorkSpaces/Event/',
                 compression_format='GZIP',
-                #role_arn='arn:aws:iam::592623373705:role/service-role/KinesisFirehoseServiceRole-workspac-ap-northeast-1-1625121461407',
-                role_arn=f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/service-role/{service_role_kdf_to_s3}'
+                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{service_role_kdf_to_s3}')
             )
         )
 
