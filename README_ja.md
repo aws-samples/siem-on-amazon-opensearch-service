@@ -22,7 +22,7 @@ SIEM on Amazon ES は以下のログを取り込むことができます。
 |セキュリティ、ID、およびコンプライアンス|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |セキュリティ、ID、およびコンプライアンス|Amazon GuardDuty|GuardDuty findings|
 |セキュリティ、ID、およびコンプライアンス|AWS Network Firewall|Flow logs<br>Alert logs|
-|管理とガバナンス|AWS CloudTrail|CloudTrail Log Event|
+|管理とガバナンス|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
 |ネットワーキングとコンテンツ配信|Amazon CloudFront|Standard access log<br>Real-time log|
 |ネットワーキングとコンテンツ配信|Amazon Route 53 Resolver|VPC DNS query log|
 |ネットワーキングとコンテンツ配信|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|

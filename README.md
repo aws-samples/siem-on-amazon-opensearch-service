@@ -22,7 +22,7 @@ SIEM on Amazon ES can load and correlate the following log types.
 |Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty findings|
 |Security, Identity, & Compliance|AWS Network Firewall|Flow logs<br>Alert logs|
-|Management & Governance|AWS CloudTrail|CloudTrail Log Event|
+|Management & Governance|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
 |Networking & Content Delivery|Amazon CloudFront|Standard access log<br>Real-time log|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS query log|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|

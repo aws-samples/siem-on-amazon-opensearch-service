@@ -22,7 +22,7 @@ SIEM on Amazon ES能夠加載並關聯以下日誌類型。
 |Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL 流量信息<br>AWS WAF Classic Web ACL 流量信息|
 |Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty 問題清單|
 |Security, Identity, & Compliance|AWS Network Firewall|Flow logs<br>Alert logs|
-|Management & Governance|AWS CloudTrail|CloudTrail Log Event|
+|Management & Governance|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
 |Networking & Content Delivery|Amazon CloudFront|標準訪問日誌<br>實時日誌|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS 查詢日誌|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
