@@ -277,9 +277,6 @@ class MyAesSiemStack(core.Stack):
             vpc_aes_siem.add_interface_endpoint(
                 'KMSEndpoint', security_groups=[sg_vpc_aes_siem],
                 service=aws_ec2.InterfaceVpcEndpointAwsService.KMS,)
-            vpc_aes_siem.add_interface_endpoint(
-                'SNSEndpoint', security_groups=[sg_vpc_aes_siem],
-                service=aws_ec2.InterfaceVpcEndpointAwsService.SNS,)
         else:
             is_vpc = False
 
