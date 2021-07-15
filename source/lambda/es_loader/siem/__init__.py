@@ -833,6 +833,12 @@ class LogParser:
                 del d[key]
         return d
 
+    def truncate_txt(self, txt, num):
+        try:
+            return txt.encode('utf-8')[:num].decode()
+        except UnicodeDecodeError:
+            return self.truncate_txt(txt, num - 1)
+
     def truncate_big_field(self, d):
         """ truncate big field if size is bigger than 32,766 byte
 
@@ -844,7 +850,7 @@ class LogParser:
                 self.truncate_big_field(value)
             elif isinstance(value, str) and (len(value) >= 32766):
                 if key not in ("@message", ):
-                    d[key] = d[key][:32753] + '<<TRUNCATED>>'
+                    d[key] = self.truncate_txt(d[key], 32753) + '<<TRUNCATED>>'
                     logger.warn(
                         f'Data was trauncated because the size of {key} field '
                         f'is bigger than 32,766. _id is {self.doc_id}')
