@@ -151,9 +151,13 @@ def convert_timestr_to_datetime(timestr, timestamp_key, timestamp_format, TZ):
 @lru_cache(maxsize=1024)
 def convert_epoch_to_datetime(timestr, TZ):
     epoch = float(timestr)
-    if epoch > 1000000000000:
+    if 1000000000000000 > epoch > 1000000000000:
         # milli epoch
         epoch_seconds = epoch / 1000
+        dt = datetime.fromtimestamp(epoch_seconds, tz=TZ)
+    elif epoch > 1000000000000000:
+        # micro epoch
+        epoch_seconds = epoch / 1000000
         dt = datetime.fromtimestamp(epoch_seconds, tz=TZ)
     else:
         # normal epoch
