@@ -6,6 +6,7 @@ from aws_cdk import core
 from deployment_samples.deployment_samples_stack import (
     ADLogExporterStack,
     BasicLogExporterStack,
+    CWLNoCompressExporterStack,
     DeploymentSamplesStack,
     WorkSpacesLogExporterStack
 )
@@ -15,6 +16,9 @@ DeploymentSamplesStack(app, "DeploymentSamplesStack")
 basic_logging = BasicLogExporterStack(
     app, "siem-log-exporter-basic",
     description='SIEM: log export basic resource')
+cwl_nocompresss_logging = CWLNoCompressExporterStack(
+    app, "siem-log-exporter-cwl-nocompress",
+    description='SIEM: log export CWL resource without compress')
 workspaces_logging = WorkSpacesLogExporterStack(
     app, "siem-log-exporter-workspaces",
     description='SIEM: Workspaces log exporter')

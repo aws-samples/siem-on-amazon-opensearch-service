@@ -62,6 +62,63 @@ def lambda_handler(event, context):
 '''
 
 
+class CWLNoCompressExporterStack(cdk.Stack):
+    def __init__(self, scope: cdk.Construct, construct_id: str,
+                 **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+        role_name_cwl_to_kdf = cdk.Fn.import_value(
+            'siem-cwl-to-kdf-role-name')
+        role_name_kdf_to_s3 = cdk.Fn.import_value(
+            'siem-kdf-to-s3-role-name')
+
+        kdf_name = cdk.CfnParameter(
+            self, 'KdfName',
+            description='New Kinesis Data Firehose Name to deliver AD event',
+            default='siem-XXXXXXXXXXX-to-s3')
+        kdf_buffer_size = cdk.CfnParameter(
+            self, 'KdfBufferSize', type='Number',
+            description='Enter a buffer size between 1 - 128 (MiB)',
+            default=1, min_value=1, max_value=128)
+        kdf_buffer_interval = cdk.CfnParameter(
+            self, 'KdfBufferInterval', type='Number',
+            description='Enter a buffer interval between 60 - 900 (seconds.)',
+            default=60, min_value=60, max_value=900)
+        cwl_loggroup_name = cdk.CfnParameter(
+            self, 'CwlLogGroupName',
+            description='Existing CloudWatch Logs group name',
+            default='/aws/XXXXXXXXXXXXXXXXX')
+        s3_desitination_prefix = cdk.CfnParameter(
+            self, 'S3DestPrefix',
+            description='S3 destination prefix',
+            default='AWSLogs/YourAccuntId/LogType/Region/')
+
+        kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "Kdf",
+            delivery_stream_name=kdf_name.value_as_string,
+            s3_destination_configuration=CDS.S3DestinationConfigurationProperty(
+                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                prefix=s3_desitination_prefix.value_as_string,
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}')
+            )
+        )
+
+        aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscription',
+            destination_arn=kdf_to_s3.attr_arn,
+            filter_pattern='',
+            log_group_name=cwl_loggroup_name.value_as_string,
+            role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}')
+        )
+
+
 class ADLogExporterStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str,
                  **kwargs) -> None:
