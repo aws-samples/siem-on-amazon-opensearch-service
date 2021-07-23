@@ -1,4 +1,4 @@
-aws-cdk.core==1.114.0
+aws-cdk.core==1.115.0
 aws_cdk.aws_cloudformation
 aws_cdk.aws_events
 aws_cdk.aws_events_targets
