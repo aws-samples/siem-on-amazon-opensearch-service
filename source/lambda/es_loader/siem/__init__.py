@@ -16,8 +16,7 @@ from functools import cached_property, wraps
 import xmltodict
 from aws_lambda_powertools import Logger
 
-from siem import utils
-from siem import winevtxml
+from siem import utils, winevtxml
 
 __version__ = '2.4.0-beta.4'
 

@@ -154,7 +154,7 @@ class ADLogExporterStack(cdk.Stack):
             delivery_stream_name=kdf_ad_name.value_as_string,
             s3_destination_configuration=CDS.S3DestinationConfigurationProperty(
                 bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
-                prefix=f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/AD/',
+                prefix=f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/DirectoryService/MicrosoftAD/',
                 buffering_hints=CDS.BufferingHintsProperty(
                     interval_in_seconds=kdf_buffer_interval.value_as_number,
                     size_in_m_bs=kdf_buffer_size.value_as_number),

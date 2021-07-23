@@ -43,7 +43,7 @@ Resources:
             - ""
             - - AWSLogs/
               - Ref: AWS::AccountId
-              - /AD/
+              - /DirectoryService/MicrosoftAD/
         RoleARN:
           Fn::Join:
             - ""
