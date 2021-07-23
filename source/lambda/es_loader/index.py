@@ -73,7 +73,8 @@ def get_value_from_etl_config(logtype, key, keytype=None):
 
 @lru_cache(maxsize=128)
 def create_logconfig(logtype):
-    type_re = ['s3_key_ignored', 'log_pattern', 'multiline_firstline']
+    type_re = ['s3_key_ignored', 'log_pattern', 'multiline_firstline',
+               'xml_firstline', 'winevtxml_firstline']
     type_int = ['max_log_count', 'text_header_line_number',
                 'ignore_header_line_number']
     type_bool = ['via_cwl', 'via_firelens', 'ignore_container_stderr',
@@ -90,6 +91,10 @@ def create_logconfig(logtype):
             logconfig[key] = get_value_from_etl_config(logtype, key, 'bool')
         else:
             logconfig[key] = get_value_from_etl_config(logtype, key)
+    if logconfig['file_format'] in ('winevtxml', ):
+        logconfig['multiline_firstline'] = logconfig['winevtxml_firstline']
+    elif logconfig['file_format'] in ('xml', ):
+        logconfig['multiline_firstline'] = logconfig['xml_firstline']
     return logconfig
 
 

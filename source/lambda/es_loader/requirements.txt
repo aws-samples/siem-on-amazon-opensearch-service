@@ -3,6 +3,7 @@ requests-aws4auth==1.1.1
 elasticsearch==7.13.2
 geoip2==4.2.0
 aws-lambda-powertools==1.17.0
+git+https://github.com/martinblech/xmltodict.git@ae19c452ca000bf243bfc16274c060bf3bf7cf51  # v0.12.0 + some commits
 # in lambada env
 boto3==1.17.42
 botocore==1.20.42

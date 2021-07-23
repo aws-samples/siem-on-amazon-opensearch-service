@@ -13,9 +13,11 @@ import zipfile
 from datetime import datetime, timedelta, timezone
 from functools import cached_property, wraps
 
+import xmltodict
 from aws_lambda_powertools import Logger
 
 from siem import utils
+from siem import winevtxml
 
 __version__ = '2.4.0-beta.4'
 
@@ -48,7 +50,7 @@ class LogS3:
         self.file_format = self.logconfig['file_format']
         self.max_log_count = self.logconfig['max_log_count']
         self.__rawdata = self.extract_rawdata_from_s3obj()
-        if self.file_format in ('multiline', ):
+        if self.file_format in ('multiline', 'xml', 'winevtxml', ):
             self.re_multiline_firstline = self.logconfig['multiline_firstline']
 
     def __iter__(self):
@@ -122,7 +124,7 @@ class LogS3:
                 # log_count = sum(1 for line in self.rawdata)
             elif self.file_format in ('json', ):
                 log_count = self.count_logobj_in_json()
-            elif self.file_format in ('multiline', ):
+            elif self.file_format in ('multiline', 'xml', 'winevtxml'):
                 log_count = self.count_multiline_log()
             else:
                 log_count = 0
@@ -200,7 +202,7 @@ class LogS3:
             logobjs = self.extract_logobj_from_json(start, end)
             for logobj, logmeta in logobjs:
                 yield (logobj, logmeta)
-        elif self.file_format in ('multiline', ):
+        elif self.file_format in ('multiline', 'xml', 'winevtxml', ):
             yield from self.extract_multiline_log(start, end)
         else:
             raise Exception
@@ -591,6 +593,10 @@ class LogParser:
             logdata_dict = utils.convert_keyname_to_safe_field(logdata_dict)
         elif self.logformat in 'json':
             logdata_dict = logdata
+        elif self.logformat in ('winevtxml', ):
+            logdata_dict = winevtxml.to_dict(logdata)
+        elif self.logformat in ('xml', ):
+            logdata_dict = xmltodict.parse(logdata)
         elif self.logformat in ('text', 'multiline'):
             logdata_dict = self.text_logdata_to_dict(logdata)
         if self.via_firelens:
