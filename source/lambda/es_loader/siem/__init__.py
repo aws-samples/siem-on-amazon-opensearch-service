@@ -84,7 +84,8 @@ class LogS3:
                         break
                     index = offset + index
                     body.seek(index)
-                    if ('logEvents' in obj
+                    if (isinstance(obj, dict)
+                            and 'logEvents' in obj
                             and obj['messageType'] == 'DATA_MESSAGE'):
                         for logevent in obj['logEvents']:
                             line_num += 1
@@ -241,7 +242,9 @@ class LogS3:
                 break
             index = offset + index
             body.seek(index)
-            if ('logEvents' in obj) and (obj['messageType'] == 'DATA_MESSAGE'):
+            if (isinstance(obj, dict)
+                    and 'logEvents' in obj
+                    and obj['messageType'] == 'DATA_MESSAGE'):
                 logmeta = {'cwl_accountid': obj['owner'],
                            'loggroup': obj['logGroup'],
                            'logstream': obj['logStream']}
