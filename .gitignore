@@ -4,6 +4,8 @@ certifi*
 aiohttp*
 async_timeout*
 chardet*
+charset_normalizer*
+crhelper*
 elasticsearch*
 idna*
 requests*
@@ -24,7 +26,7 @@ libpasteurize*
 past*
 python_dateutil-2.8.1*
 wrapt*
-crhelper*
+xmltodict*
 
 # AWS CDK
 cdk.context.json

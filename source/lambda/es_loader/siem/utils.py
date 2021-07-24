@@ -153,16 +153,28 @@ def convert_epoch_to_datetime(timestr, TZ):
     epoch = float(timestr)
     if 1000000000000000 > epoch > 1000000000000:
         # milli epoch
-        epoch_seconds = epoch / 1000
+        epoch_seconds = epoch / 1000.0
         dt = datetime.fromtimestamp(epoch_seconds, tz=TZ)
     elif epoch > 1000000000000000:
         # micro epoch
-        epoch_seconds = epoch / 1000000
+        epoch_seconds = epoch / 1000000.0
         dt = datetime.fromtimestamp(epoch_seconds, tz=TZ)
     else:
         # normal epoch
         dt = datetime.fromtimestamp(epoch, tz=TZ)
     return dt
+
+
+@lru_cache(maxsize=1024)
+def convrt_micro_epoch_to_seconds_epoch(obj):
+    if isinstance(obj, str):
+        try:
+            obj_int = int(obj)
+        except ValueError:
+            return obj
+        if obj_int > 1000000000000000:
+            return int(obj) / 1000000.0
+    return obj
 
 
 @lru_cache(maxsize=10000)
