@@ -124,7 +124,9 @@ class LogS3:
                 # log_count = sum(1 for line in self.rawdata)
             elif self.file_format in ('json', ):
                 log_count = self.count_logobj_in_json()
-            elif self.file_format in ('multiline', 'xml', 'winevtxml'):
+            elif self.file_format in ('winevtxml', ):
+                log_count = winevtxml.count_event(self.rawdata)
+            elif self.file_format in ('multiline', 'xml', ):
                 log_count = self.count_multiline_log()
             else:
                 log_count = 0
@@ -202,7 +204,9 @@ class LogS3:
             logobjs = self.extract_logobj_from_json(start, end)
             for logobj, logmeta in logobjs:
                 yield (logobj, logmeta)
-        elif self.file_format in ('multiline', 'xml', 'winevtxml', ):
+        elif self.file_format in ('winevtxml', ):
+            yield from winevtxml.extract_event(self.rawdata, start, end)
+        elif self.file_format in ('multiline', 'xml', ):
             yield from self.extract_multiline_log(start, end)
         else:
             raise Exception
@@ -585,7 +589,6 @@ class LogParser:
         firelens_meta_dict = {}
         if self.via_firelens:
             logdata, firelens_meta_dict = self.get_log_and_meta_from_firelens()
-            self.logdata = logdata
             logdata, is_valid_log = self.validate_logdata_in_firelens(
                 logdata, firelens_meta_dict)
             if not is_valid_log:
