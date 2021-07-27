@@ -6,7 +6,7 @@ import xml
 import xmltodict
 
 re_firstword = re.compile(r'<Event xmlns=')
-re_endword = re.compile(r'.*</Event>$')
+re_lastword = re.compile(r'</Event>$')
 
 
 def count_event(rawdata):
@@ -29,16 +29,17 @@ def extract_event(rawdata, start=0, end=0):
             if not start < count <= end:
                 continue
 
-        end_match = re_endword.match(line)
-        if first_match and end_match:
+        last_match = re_lastword.search(line)
+        if first_match and last_match:
             # it means one line. not multiline
-            yield(line.rstrip(), metadata)
+            yield(line, metadata)
         elif first_match:
             multilog.append(line)
             is_in_scope = True
-        elif end_match:
+        elif last_match:
             multilog.append(line)
-            yield("".join(multilog).rstrip(), metadata)
+            yield("".join(multilog), metadata)
+            is_in_scope = False
             multilog = []
         elif is_in_scope:
             multilog.append(line)
