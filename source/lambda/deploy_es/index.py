@@ -640,6 +640,7 @@ def aes_config_create_update(event, context):
     saved_objects = get_saved_objects(es_endpoint, cookies, auth=awsauth)
     bk_response = backup_dashboard_to_s3(saved_objects, tenant)
     if bk_response:
+        # Load dashboard and configuration to Global tenant
         load_dashboard_into_aes(es_endpoint, awsauth, cookies)
 
     if event and 'RequestType' in event:

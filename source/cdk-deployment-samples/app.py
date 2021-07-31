@@ -7,6 +7,7 @@ from deployment_samples.deployment_samples_stack import (
     ADLogExporterStack,
     BasicLogExporterStack,
     CWLNoCompressExporterStack,
+    FirehoseExporterStack,
     DeploymentSamplesStack,
     WorkSpacesLogExporterStack
 )
@@ -19,6 +20,11 @@ basic_logging = BasicLogExporterStack(
 cwl_nocompresss_logging = CWLNoCompressExporterStack(
     app, "siem-log-exporter-cwl-nocompress",
     description='SIEM: log export CWL resource without compress')
+fsx_logging = FirehoseExporterStack(
+    app, "siem-log-exporter-fsx",
+    description='SIEM: log export CWL resource without compress',
+    default_firehose_name='aws-fsx-',
+    firehose_compression_format='GZIP')
 workspaces_logging = WorkSpacesLogExporterStack(
     app, "siem-log-exporter-workspaces",
     description='SIEM: Workspaces log exporter')
