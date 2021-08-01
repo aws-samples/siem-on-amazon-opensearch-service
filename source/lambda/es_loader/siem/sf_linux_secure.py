@@ -3,7 +3,8 @@
 
 from siem import utils
 from siem.sf_linux_os_syslog import (extract_from_sshd, extract_from_sudo,
-                                     extract_instance_id)
+                                     extract_instance_id,
+                                     extract_related_ip_user)
 
 
 def transform(logdata):
@@ -14,6 +15,7 @@ def transform(logdata):
         linux_dict = extract_from_sshd(logdata, linux_dict)
     elif 'sudo' in proc:
         linux_dict = extract_from_sudo(logdata, linux_dict)
+    linux_dict = extract_related_ip_user(linux_dict)
 
     if linux_dict:
         logdata = utils.merge_dicts(logdata, linux_dict)

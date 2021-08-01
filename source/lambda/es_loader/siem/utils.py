@@ -4,6 +4,7 @@
 import configparser
 import csv
 import importlib
+import ipaddress
 import os
 import re
 import sys
@@ -112,6 +113,18 @@ def convert_underscore_field_into_dot_notation(prefix, logdata):
         logdata[prefix][new_key] = logdata[underscore_field]
         del logdata[underscore_field]
     return logdata
+
+
+@lru_cache(maxsize=100000)
+def validate_ip(value, ecs_key):
+    if '.ip' in ecs_key:
+        try:
+            ipaddress.ip_address(value)
+            return value
+        except ValueError:
+            return None
+    else:
+        return value
 
 
 #############################################################################
@@ -549,24 +562,22 @@ def put_value_into_nesteddict(dotted_key, value):
 
     dictのkeyにドットが含まれている場合に入れ子になったdictを作成し、
     値としてvalueを返す。返値はdictタイプ。vが辞書ならさらに入れ子として代入。
-    値がlistなら、カンマ区切りのCSVにした文字列に変換
     >>> put_value_into_nesteddict('a', 123)
     {'a': '123'}
     >>> put_value_into_nesteddict('a.b.c.d.e', 123)
     {'a': {'b': {'c': {'d': {'e': '123'}}}}}
     >>> put_value_into_nesteddict('a.b.c', [123])
-    {'a': {'b': {'c': '123'}}}
+    {'a': {'b': {'c': [123]}}}
     >>> put_value_into_nesteddict('a.b.c', [123, 456])
-    {'a': {'b': {'c': '123, 456'}}}
+    {'a': {'b': {'c': [123, 456]}}}
     >>> put_value_into_nesteddict('a.b.c', {'x': 1, 'y': 2})
     {'a': {'b': {'c': {'x': 1, 'y': 2}}}}
     >>> put_value_into_nesteddict('a.b.c', '"')
     {'a': {'b': {'c': '"'}}}
     """
-    if isinstance(value, dict) or isinstance(value, str):
+    if (isinstance(value, dict) or isinstance(value, str)
+            or isinstance(value, list)):
         value = value
-    elif isinstance(value, list):
-        value = ", ".join(map(str, value))
     else:
         value = str(value)
     nested_dict = {}

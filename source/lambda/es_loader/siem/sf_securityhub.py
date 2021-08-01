@@ -47,7 +47,7 @@ def transform(logdata):
     if 'guardduty' in module:
         logdata['event']['category'] = 'intrusion_detection'
 
-        m = RE_GDTYPE.search(logdata['rule']['name'])
+        m = RE_GDTYPE.search(str(logdata['rule']['name']))
         logdata['ThreatPurpose'] = m['ThreatPurpose']
         logdata['ResourceTypeAffected'] = m['ResourceTypeAffected']
         logdata['ThreatFamilyName'] = m['ThreatFamilyName']

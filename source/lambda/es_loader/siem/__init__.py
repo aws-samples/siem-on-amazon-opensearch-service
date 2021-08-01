@@ -5,7 +5,6 @@ import bz2
 import gzip
 import hashlib
 import io
-import ipaddress
 import json
 import re
 import urllib.parse
@@ -657,24 +656,39 @@ class LogParser:
         self.__logdata_dict = utils.merge_dicts(
             self.__logdata_dict, clean_multi_type_dict)
 
+    def get_value_and_input_into_ecs_dict(self, ecs_dict):
+        new_ecs_dict = {}
+        ecs_keys = self.logconfig['ecs'].split()
+        for ecs_key in ecs_keys:
+            original_keys = self.logconfig[ecs_key]
+            if isinstance(original_keys, str):
+                v = utils.value_from_nesteddict_by_dottedkeylist(
+                    self.__logdata_dict, original_keys)
+                if isinstance(v, str):
+                    v = utils.validate_ip(v, ecs_key)
+                if v:
+                    new_ecs_dict = utils.put_value_into_nesteddict(ecs_key, v)
+            elif isinstance(original_keys, list):
+                temp_list = []
+                for original_key_list in original_keys:
+                    v = utils.value_from_nesteddict_by_dottedkeylist(
+                        self.__logdata_dict, original_key_list)
+                    if isinstance(v, str):
+                        v = utils.validate_ip(v, ecs_key)
+                    if v:
+                        temp_list.append(v)
+                if temp_list:
+                    new_ecs_dict = utils.put_value_into_nesteddict(
+                        ecs_key, list(set(temp_list)))
+            if new_ecs_dict:
+                new_ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
+        return ecs_dict
+
     def transform_to_ecs(self):
         ecs_dict = {'ecs': {'version': self.logconfig['ecs_version']}}
         if self.logconfig['cloud_provider']:
             ecs_dict['cloud'] = {'provider': self.logconfig['cloud_provider']}
-        ecs_keys = self.logconfig['ecs'].split()
-        for ecs_key in ecs_keys:
-            original_keys = self.logconfig[ecs_key]
-            v = utils.value_from_nesteddict_by_dottedkeylist(
-                self.__logdata_dict, original_keys)
-            if v:
-                new_ecs_dict = utils.put_value_into_nesteddict(ecs_key, v)
-                if '.ip' in ecs_key:
-                    # IPアドレスの場合は、validation
-                    try:
-                        ipaddress.ip_address(v)
-                    except ValueError:
-                        continue
-                ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
+        ecs_dict = self.get_value_and_input_into_ecs_dict(ecs_dict)
         if 'cloud' in ecs_dict:
             # Set AWS Account ID
             if ('account' in ecs_dict['cloud']

@@ -76,7 +76,9 @@ def to_dict(logdata):
         data_dict = {}
         for data in data_list:
             if isinstance(data, dict) and '#text' in data:
-                data_dict[data['Name']] = data['#text']
+                temp = data['#text']
+                if temp != '-':
+                    data_dict[data['Name']] = data['#text']
         logdata_dict['Event']['EventData']['Data'] = data_dict
 
     if isinstance(logdata_dict['Event']['System']['EventID'], dict):

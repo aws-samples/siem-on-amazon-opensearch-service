@@ -85,6 +85,16 @@ def extract_from_sudo(logdata, linux_dict):
     return linux_dict
 
 
+def extract_related_ip_user(linux_dict):
+    if ('user' in linux_dict) or ('source' in linux_dict):
+        linux_dict['related'] = {}
+        if 'user' in linux_dict:
+            linux_dict['related']['user'] = linux_dict['user']['name']
+        if 'source' in linux_dict:
+            linux_dict['related']['ip'] = linux_dict['source']['ip']
+    return linux_dict
+
+
 def transform(logdata):
     proc = logdata.get('proc', "")
     linux_dict = {}
@@ -102,6 +112,7 @@ def transform(logdata):
         logdata['__index_name'] = 'log-linux-secure'
     else:
         pass
+    linux_dict = extract_related_ip_user(linux_dict)
 
     if linux_dict:
         logdata = utils.merge_dicts(logdata, linux_dict)
