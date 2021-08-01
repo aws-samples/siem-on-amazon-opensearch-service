@@ -17,7 +17,7 @@ import requests
 from crhelper import CfnResource
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.4.0-beta.5'
+__version__ = '2.4.0-beta.6'
 print('version: ' + __version__)
 
 logger = logging.getLogger(__name__)
