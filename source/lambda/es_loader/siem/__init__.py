@@ -679,7 +679,7 @@ class LogParser:
                         temp_list.append(v)
                 if temp_list:
                     new_ecs_dict = utils.put_value_into_nesteddict(
-                        ecs_key, list(set(temp_list)))
+                        ecs_key, sorted(list(set(temp_list))))
             if new_ecs_dict:
                 new_ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
         return ecs_dict
