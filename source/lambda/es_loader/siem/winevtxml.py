@@ -1,10 +1,10 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 import csv
-from functools import lru_cache
 import os
 import re
 import xml
+from functools import lru_cache
 
 import xmltodict
 
@@ -27,6 +27,8 @@ def lookup_event_id(event_id, key):
 
 def initial_extract_action_outcome(logdata):
     win_dict = {'event': {}}
+    if 'EvnetID' not in logdata['Event']['System']:
+        return win_dict
     event_id = logdata['Event']['System']['EventID']
     action = lookup_event_id(event_id, 'action')
     if action:
@@ -109,6 +111,10 @@ def to_dict(logdata):
                     data_dict[data['Name']] = data['#text']
         logdata_dict['Event']['EventData']['Data'] = data_dict
 
+    try:
+        logdata_dict['Event']['System']['EventID']
+    except KeyError:
+        return logdata_dict
     if isinstance(logdata_dict['Event']['System']['EventID'], dict):
         Qualifiers = logdata_dict['Event']['System']['EventID']['Qualifiers']
         logdata_dict['Event']['System']['EventID'] = (
