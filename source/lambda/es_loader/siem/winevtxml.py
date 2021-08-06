@@ -1,5 +1,8 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+import csv
+from functools import lru_cache
+import os
 import re
 import xml
 
@@ -7,6 +10,31 @@ import xmltodict
 
 re_firstword = re.compile(r'<Event xmlns=')
 re_lastword = re.compile(r'</Event>$')
+
+with open(f'{os.path.dirname(__file__)}/winevtxml_eventid.tsv') as f:
+    event_id_dict = {}
+    reader = csv.DictReader(f, delimiter='\t')
+    for row_dict in reader:
+        event_id_dict[row_dict['event_id']] = row_dict
+
+
+@lru_cache(maxsize=100000)
+def lookup_event_id(event_id, key):
+    if event_id in event_id_dict:
+        return event_id_dict[event_id].get(key, None)
+    return None
+
+
+def initial_extract_action_outcome(logdata):
+    win_dict = {'event': {}}
+    event_id = logdata['Event']['System']['EventID']
+    action = lookup_event_id(event_id, 'action')
+    if action:
+        win_dict['event']['action'] = action
+    outcome = lookup_event_id(event_id, 'outcome')
+    if outcome:
+        win_dict['event']['outcome'] = outcome
+    return win_dict
 
 
 def count_event(rawdata):
@@ -95,7 +123,8 @@ def to_dict(logdata):
 
     try:
         logdata_dict['Event']['EventData']['Data']['PrivilegeList'] = (
-            logdata_dict['Event']['EventData']['Data']['PrivilegeList'].split())
+            (logdata_dict['Event']['EventData']['Data']
+             ['PrivilegeList'].split()))
     except (TypeError, KeyError):
         pass
 
