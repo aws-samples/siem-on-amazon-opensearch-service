@@ -1,6 +1,5 @@
-#-e .
 boto3
-aws-cdk.core==1.115.0
+aws-cdk.core==1.117.0
 aws_cdk.aws_apigateway
 aws_cdk.aws_cloudformation
 aws_cdk.aws_ec2
@@ -17,4 +16,3 @@ aws_cdk.aws_sns
 aws_cdk.aws_sns_subscriptions
 aws_cdk.aws_sqs
 aws_cdk.region_info
-
