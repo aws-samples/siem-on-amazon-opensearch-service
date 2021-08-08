@@ -27,9 +27,10 @@ def lookup_event_id(event_id, key):
 
 def initial_extract_action_outcome(logdata):
     win_dict = {'event': {}}
-    if 'EvnetID' not in logdata['Event']['System']:
+    try:
+        event_id = logdata['Event']['System']['EventID']
+    except KeyError:
         return win_dict
-    event_id = logdata['Event']['System']['EventID']
     action = lookup_event_id(event_id, 'action')
     if action:
         win_dict['event']['action'] = action
