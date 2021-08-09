@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2021-08-09
+### Added
+- Support Amazon ES 7.10 #103
+- Supported and normalized log: Windows on EC2(XML Event Log), Amazon FSx for Windows File Server(Audit log), AWS Directory Service, Amazon WorkSpaces #118,#120,#140,#145
+- Support Elastic Common Schema v1.10.0. related.* are usefull. #146
+- Added CloudTrail Insight to supported service list in document #130
+- Auto install script on CloudShell #65
+- Automatically parsing micro epoch time #137
+### Changed
+- Truncated log value more than 32,766 byte #138,
+- Enhanced logic of parsing MySQL/MariaDB ,multiple log patterns, using CloudWatch Log's timestamp insted of original log's timestamp, Aurota mysql v5.6 #134,#143
+### Removed
+- Unnecessary vpc endpoint for SNS service #132
+### Fixed
+- Fixed parse issue: responseElements.responseParameters.method.response.header.Access-Control-Allow-Methods, requestParameters.tableInput.parameters.projection.date.interval, requestParameters.FilterValues, requestParameters.CreateVpcEndpointRequest.TagSpecification.Tag.Value #124,#125,#136,#141
+- Set default index patterns as log-* #133
+- Enhanced for accurate parsing　CloudWatch log/EventBridge #127,#129,#142
+- Extracting event.outcome for linux OS #126
+### Security
+- PR security vulnerability of urllib3 from 1.26.4 to 1.26.5 #121,#122
+
 ## [2.3.2] - 2021-05-31
 ### Changed
 - Truncate and load longer field than 32766 byte because of Lucene limitation #102,#117
