@@ -35,7 +35,7 @@ SIEM on Amazon ES能夠加載並關聯以下日誌類型。
 |Compute|Linux OS<br>通過 CloudWatch Logs|/var/log/messages<br>/var/log/secure|
 |Compute|Windows Servver 2012/2016/2019<br>通過 CloudWatch Logs|System event log<br>Security event log|
 |Containers|Amazon Elastic Container Service (Amazon ECS)<br>通過 FireLens|僅框架|
-|End User Computing|Amazon WorkSpaces|Enventory<br>Event log|
+|End User Computing|Amazon WorkSpaces|Event log<br>Inventory|
 
 我們日後有機會修改 **Database (試驗中)** 日誌存放內容來優化功能。
 

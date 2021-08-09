@@ -8,9 +8,10 @@ On this page, we’ll walk you through how to load logs from each AWS service in
 
 1. [Common Configurations](#1-Common-Configurations)
 1. [Security, Identity, & Compliance](#2-Security-Identity--Compliance)
-    * [AWS Security Hub](#AWS-Security-Hub)
-    * [AWS WAF](#AWS-WAF)
     * [Amazon GuardDuty](#Amazon-GuardDuty)
+    * [AWS Directory Service](#AWS-Directory-Service)
+    * [AWS WAF](#AWS-WAF)
+    * [AWS Security Hub](#AWS-Security-Hub)
     * [AWS Network Firewall](#AWS-Network-Firewall)
 1. [Management & Governance](#3-Management--Governance)
     * [AWS CloudTrail](#AWS-CloudTrail)
@@ -20,6 +21,7 @@ On this page, we’ll walk you through how to load logs from each AWS service in
     * [Amazon Virtual Private Cloud (Amazon VPC) Flow Logs](#Amazon-VPC-Flow-Logs)
     * [Elastic Load Balancing (ELB)](#Elastic-Load-Balancing-ELB)
 1. [Storage](#5-Storage)
+    * [Amazon FSx for Windows File Server audit log](#Amazon-FSx-for-Windows-File-Server-audit-log)
     * [Amazon Simple Storage Service (Amazon S3) access logs](#Amazon-S3-access-logs)
 1. [Database](#6-Database)
     * [RDS (Aurora MySQL / MySQL / MariaDB)](#RDS-Aurora-MySQL--MySQL--MariaDB-Experimental-Support)
@@ -28,10 +30,13 @@ On this page, we’ll walk you through how to load logs from each AWS service in
     * [Amazon Managed Streaming for Apache Kafka (Amazon MSK)](#Amazon-MSK)
 1. [Compute](#8-Compute)
     * [EC2 Instance (Amazon Linux 2)](#EC2-Instance-Amazon-Linux-2)
+    * [EC2 Instance (Microsoft Windows Server 2012/2016/2019)](#EC2-Instance-Microsoft-Windows-Server-201220162019)
 1. [Containers](#9-Containers)
     * [FireLens for Amazon ECS](#FireLens-for-Amazon-ECS)
-1. [Multiple regions / multiple accounts](#10-Multiple-regions--multiple-accounts)
-1. [Loading logs from an existing S3 bucket](#11-Loading-logs-from-an-existing-S3-bucket)
+1. [End User Computing](#10End-User-Computing)
+    * [Amazon WorkSpaces](#Amazon-WorkSpaces)
+1. [Multiple regions / multiple accounts](#11-Multiple-regions--multiple-accounts)
+1. [Loading logs from an existing S3 bucket](#12-Loading-logs-from-an-existing-S3-bucket)
 
 ## 1. Common Configurations
 
@@ -45,59 +50,38 @@ The AWS account used here for instruction purpose is **123456789012** . Replace 
 
 ## 2. Security, Identity, & Compliance
 
-### AWS Security Hub
+### Amazon GuardDuty
 
-![SecurityHub to S3](images/securityhub-to-s3.jpg)
+![GuardDuty to S3](images/guardduty-to-s3.jpg)
 
-The initial value of s3_key: `SecurityHub` (specified in the Firehose output path)
+The initial value of s3_key: `GuardDuty` (part of the default output path)
 
-* Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose.
-* Create Firehose and EventEngine rules for each region when aggregating Security Hub findings from multiple regions
+1. Log in to the AWS Management Console
+1. Navigate to the [GuardDuty](https://console.aws.amazon.com/guardduty/home?) console
+1. Choose [**Settings**] from the left pane
+1. Scroll to [Findings export options] panel
+1. Frequency for updated findings: Choose [**Update CWE and S3 every 15 minutes**] and then choose [**Save**] (recommended)
+1. Choose [**Configure now**] for S3 bucket and enter the following parameters:
+   * Check [**Existing bucket  In your account**]
+   * Choose a bucket: Choose [**aes-siem-123456789012-log**]
+      * Replace 123456789012 with your AWS account ID
+   * Log file prefix: Leave blank
+   * KMS encryption: Check [**Choose key from your account**]
+   * Key alias: Choose [**aes-siem-key**]
+   * Choose [**Save**]
 
-Configuring Kinesis Data Firehose
+Configuration is now complete. Choose [**Generate sample findings**] on the same settings screen to verify that loading into SIEM on Amazon ES has been successfully set up.
 
-1. Navigate to the [Amazon Kinesis console](https://console.aws.amazon.com/kinesis/home?)
-1. Choose [**Delivery streams**] from the left pane
-1. Choose [**Create delivery stream**] at the top left of the screen
-1. On the [New delivery stream] screen, enter the following parameters:
-   * Delivery stream name: Enter [**aes-siem-firehose-securityhub**]
-   * Source: Check [**Direct PUT or other sources**]
-   * [Enable server-side encryption for source records in delivery stream] is optional
-   * Choose [**Next**]
-1. On the [Process records] screen, choose the following parameters:
-   * Data transformation: [**Disabled**]
-   * Record format conversion: [**Disabled**]
-   * Choose [**Next**]
-1. On the [Choose a destination] screen, choose/enter the following parameters:
-   * Destination: [**Amazon S3**]
-   * S3 bucket: [**aes-siem-123456789012-log**]
-   * S3 prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/**]
-   * S3 error prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/error/**]
-      * Replace 123456789012 with your AWS account and [region] with your region.
-1. On the [Configure settings] screen, enter the following parameters:
-   * Buffer size: Enter [**any number**]
-   * Buffer interval: Enter [**any number**]
-   * S3 compression: [**GZIP**]
-   * Leave the following parameters as default
-   * Choose [**Next**]
-1. Choose [**Create delivery stream**] to complete deployment of Kinesis Data Firehose
+### AWS Directory Service
 
-Configuring EventBridge
+![Directory Service to S3](images/directoryservice-to-s3.jpg)
 
-1. Navigate to the [EventBridge console](https://console.aws.amazon.com/events/home?)
-1. Choose [**Rules**] from the left pane => [**Create rule**]
-1. Enter the following parameters on the [Create rule] screen:
-   * Name: aes-siem-securityhub-to-firehose
-   * Define pattern: Choose Event pattern
-   * Event matching pattern: Pre-defined pattern by service
-   * Service provider: AWS
-   * Service Name: Security Hub
-   * Event Type: Security Hub Findings - Imported
-   * No change required for the “Select event bus” pane
-   * Target: Firehose delivery stream
-   * Stream: aes-siem-firehose-securityhub
-   * Choose any value for the rest
-   * Choose [**Create**] to complete the configuration
+The initial value of s3_key : `/DirectoryService/MicrosoftAD/` (specified in the Firehose output path)
+
+1. Navigate to the [Directory Service Console](https://console.aws.amazon.com/directoryservicev2/home?) and forward log to CloudWatch Logs.
+1. Configure with CloudFormation
+    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-ad.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-ad.template)
 
 ### AWS WAF
 
@@ -156,27 +140,59 @@ First, deploy Kinesis Data Firehose
 1. From the [Amazon Kinesis Data Firehose] drop-down menu, choose the [**Kinesis Firehose you created**]
 1. Choose [**Create**] to complete the configuration
 
-### Amazon GuardDuty
+### AWS Security Hub
 
-![GuardDuty to S3](images/guardduty-to-s3.jpg)
+![SecurityHub to S3](images/securityhub-to-s3.jpg)
 
-The initial value of s3_key: `GuardDuty` (part of the default output path)
+The initial value of s3_key: `SecurityHub` (specified in the Firehose output path)
 
-1. Log in to the AWS Management Console
-1. Navigate to the [GuardDuty](https://console.aws.amazon.com/guardduty/home?) console
-1. Choose [**Settings**] from the left pane
-1. Scroll to [Findings export options] panel
-1. Frequency for updated findings: Choose [**Update CWE and S3 every 15 minutes**] and then choose [**Save**] (recommended)
-1. Choose [**Configure now**] for S3 bucket and enter the following parameters:
-   * Check [**Existing bucket  In your account**]
-   * Choose a bucket: Choose [**aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * Log file prefix: Leave blank
-   * KMS encryption: Check [**Choose key from your account**]
-   * Key alias: Choose [**aes-siem-key**]
-   * Choose [**Save**]
+* Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose.
+* Create Firehose and EventEngine rules for each region when aggregating Security Hub findings from multiple regions
 
-Configuration is now complete. Choose [**Generate sample findings**] on the same settings screen to verify that loading into SIEM on Amazon ES has been successfully set up.
+Configuring Kinesis Data Firehose
+
+1. Navigate to the [Amazon Kinesis console](https://console.aws.amazon.com/kinesis/home?)
+1. Choose [**Delivery streams**] from the left pane
+1. Choose [**Create delivery stream**] at the top left of the screen
+1. On the [New delivery stream] screen, enter the following parameters:
+   * Delivery stream name: Enter [**aes-siem-firehose-securityhub**]
+   * Source: Check [**Direct PUT or other sources**]
+   * [Enable server-side encryption for source records in delivery stream] is optional
+   * Choose [**Next**]
+1. On the [Process records] screen, choose the following parameters:
+   * Data transformation: [**Disabled**]
+   * Record format conversion: [**Disabled**]
+   * Choose [**Next**]
+1. On the [Choose a destination] screen, choose/enter the following parameters:
+   * Destination: [**Amazon S3**]
+   * S3 bucket: [**aes-siem-123456789012-log**]
+   * S3 prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/**]
+   * S3 error prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/error/**]
+      * Replace 123456789012 with your AWS account and [region] with your region.
+1. On the [Configure settings] screen, enter the following parameters:
+   * Buffer size: Enter [**any number**]
+   * Buffer interval: Enter [**any number**]
+   * S3 compression: [**GZIP**]
+   * Leave the following parameters as default
+   * Choose [**Next**]
+1. Choose [**Create delivery stream**] to complete deployment of Kinesis Data Firehose
+
+Configuring EventBridge
+
+1. Navigate to the [EventBridge console](https://console.aws.amazon.com/events/home?)
+1. Choose [**Rules**] from the left pane => [**Create rule**]
+1. Enter the following parameters on the [Create rule] screen:
+   * Name: aes-siem-securityhub-to-firehose
+   * Define pattern: Choose Event pattern
+   * Event matching pattern: Pre-defined pattern by service
+   * Service provider: AWS
+   * Service Name: Security Hub
+   * Event Type: Security Hub Findings - Imported
+   * No change required for the “Select event bus” pane
+   * Target: Firehose delivery stream
+   * Stream: aes-siem-firehose-securityhub
+   * Choose any value for the rest
+   * Choose [**Create**] to complete the configuration
 
 ### AWS Network Firewall
 
@@ -394,6 +410,19 @@ The initial value of s3_key is determined by the default output path and file na
 
 ## 5. Storage
 
+### Amazon FSx for Windows File Server audit log
+
+![FSx to S3](images/fsx-to-s3.jpg)
+
+The initial value of s3_key: `aws-fsx-`
+
+Amazon FSx for Windows File Server audit logs are exported from Kinesis Data Firehose to the S3 bucket. Kinesis Data Firehose names must start with [**aws-fsx-**], and because this prefix is included in the file names when they are output to the S3 bucket, we are using it to determine the log type.
+
+1. Configure with CloudFormation
+    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-fsx.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-fsx.template)
+1. Navigate to the [FSx Console](https://console.aws.amazon.com/fsx/home?) and forward logs to Firehose.
+
 ### Amazon S3 access logs
 
 ![S3 to S3](images/s3-to-s3.jpg)
@@ -487,6 +516,25 @@ Here’s an outline of the steps:
    * Prefix to output logs as secure Log: [**AWSLogs/123456789012/EC2/Linux/Secure/[ region]/**]
       * Replace 123456789012 with your AWS account ID
 
+### EC2 Instance (Microsoft Windows Server 2012/2016/2019)
+
+![Win Server to S3](images/al2-to-s3.jpg)
+
+The initial value of s3_key : `/[Ww]indows.*[Ee]vent` (specified in the Firehose output path)
+
+Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose. Region information is not contained in the logs, so you can include it in your S3 key to capture it.
+
+Here’s an outline of the steps:
+
+1. Install CloudWatch Agent in the EC2 instance deployed as Windows Server
+1. Forward logs to CloudWatch Logs
+1. Configure with CloudFormation
+    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-cwl-nocompress.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-cwl-nocompress.template)
+   * Prefix to output logs : [**AWSLogs/123456789012/EC2/Windows/Event/[region]/**]
+      * Replace 123456789012 with your AWS account ID
+
+
 ## 9. Containers
 
 ### FireLens for Amazon ECS
@@ -521,12 +569,33 @@ via_firelens = True
 ignore_container_stderr = True
 ```
 
-## 10. Multiple regions / multiple accounts
+## 10. End User Computing
+
+### Amazon WorkSpaces
+
+#### Event
+
+![WorkSpaces event to S3](images/workspaces-event-to-s3.jpg)
+
+The initial value of s3_key : `(WorkSpaces|workspaces).*(Event|event)` (specified in the Firehose output path)
+
+#### Inventory
+
+![WorkSpaces inventory to S3](images/workspaces-inventory-to-s3.jpg)
+
+The initial value of s3_key : `(WorkSpaces|workspaces).*(Inventory|inventory)`
+
+1. Configure with CloudFormation
+    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-workspaces.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-workspaces.template)
+
+
+## 11. Multiple regions / multiple accounts
 
 You can load logs from other accounts or regions into SIEM on Amazon ES by using S3 replication or cross-account output to the S3 bucket that stores logs.
 The output paths should be follow the S3 keys configured above.
 
-## 11. Loading logs from an existing S3 bucket
+## 12. Loading logs from an existing S3 bucket
 
 You can also load logs into SIEM on Amazon ES from an already existing S3 bucket and/or by using an AWS KMS customer-managed key.
 To use an existing S3 bucket or AWS KMS customer-managed key, you must grant permissions to Lambda function es-loader. See [this](deployment.md) to deploy using AWS CDK.
