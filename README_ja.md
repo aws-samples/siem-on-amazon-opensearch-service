@@ -35,7 +35,7 @@ SIEM on Amazon ES は以下のログを取り込むことができます。
 |コンピューティング|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
 |コンピューティング|Windows Servver 2012/2016/2019<br>via CloudWatch Logs|System event log<br>Security event log|
 |コンテナ|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
-|エンドユーザーコンピューティング|Amazon WorkSpaces|Enventory<br>Event log|
+|エンドユーザーコンピューティング|Amazon WorkSpaces|Event log<br>Inventory|
 
 Experimental Support はログフィールドの正規化等を大きく変更する可能性があります
 

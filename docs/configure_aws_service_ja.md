@@ -8,9 +8,10 @@ SIEM on Amazon ES に AWS の各サービスのログを取り込みます。下
 
 1. [共通](#1-共通)
 1. [セキュリティ、ID、およびコンプライアンス](#2-セキュリティIDおよびコンプライアンス)
-    * [AWS Security Hub](#AWS-Security-Hub)
-    * [AWS WAF](#AWS-WAF)
     * [Amazon GuardDuty](#Amazon-GuardDuty)
+    * [AWS Directory Service](#AWS-Directory-Service)
+    * [AWS WAF](#AWS-WAF)
+    * [AWS Security Hub](#AWS-Security-Hub)
     * [AWS Network Firewall](#AWS-Network-Firewall-Experimental-Support)
 1. [管理とガバナンス](#3-管理とガバナンス)
     * [AWS CloudTrail](#AWS-CloudTrail)
@@ -20,6 +21,7 @@ SIEM on Amazon ES に AWS の各サービスのログを取り込みます。下
     * [Amazon Virtual Private Cloud (Amazon VPC) Flow Logs](#Amazon-VPC-Flow-Logs)
     * [Elastic Load Balancing (ELB)](#Elastic-Load-Balancing-ELB)
 1. [ストレージ](#5-ストレージ)
+    * [Amazon FSx for Windows File Server audit log](#Amazon-FSx-for-Windows-File-Server-audit-log)
     * [Amazon Simple Storage Service (Amazon S3) access log](#Amazon-S3-access-log)
 1. [データベース](#6-データベース)
     * [RDS (Aurora MySQL互換 / MySQL / MariaDB)](#RDS-Aurora-MySQL互換--MySQL--MariaDB-Experimental-Support)
@@ -28,10 +30,13 @@ SIEM on Amazon ES に AWS の各サービスのログを取り込みます。下
     * [Amazon Managed Streaming for Apache Kafka (Amazon MSK) (Experimental Support)](#Amazon-MSK-Experimental-Support)
 1. [コンピューティング](#8-コンピューティング)
     * [EC2 インスタンス (Amazon Linux 2)](#EC2-インスタンス-Amazon-Linux-2)
+    * [EC2 インスタンス (Microsoft Windows Server 2012/2016/2019)](#EC2-インスタンス-Microsoft-Windows-Server-201220162019)
 1. [コンテナ](#9-コンテナ)
     * [Amazon ECS 対応 FireLens](#Amazon-ECS-対応-FireLens)
-1. [マルチリージョン・マルチアカウント](#10-マルチリージョンマルチアカウント)
-1. [既存の S3 バケットからログからの取り込み](#11-既存の-S3-バケットからログからの取り込み)
+1. [エンドユーザーコンピューティング](#10-エンドユーザーコンピューティング)
+    * [Amazon WorkSpaces](#Amazon-WorkSpaces)
+1. [マルチリージョン・マルチアカウント](#11-マルチリージョンマルチアカウント)
+1. [既存の S3 バケットからログからの取り込み](#12-既存の-S3-バケットからログからの取り込み)
 
 ## 1. 共通
 
@@ -45,59 +50,40 @@ AWS Key Management Service (AWS KMS) による暗号化をして、S3 バケッ�
 
 ## 2. セキュリティ、ID、およびコンプライアンス
 
-### AWS Security Hub
+### Amazon GuardDuty
 
-![SecurityHub to S3](images/securityhub-to-s3.jpg)
+![GuardDuty to S3](images/guardduty-to-s3.jpg)
 
-s3_key の初期値: `SecurityHub` (Firehose の出力パスに指定)
+s3_key の初期値: `GuardDuty` (デフォルト設定の出力パスの一部)
 
-* ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先 S3 バケットのプレフィックスに指定します
-* 複数リージョンの Security Hub の findings を集約する時は、リージョン毎に、Firehose と EventBridge ルールを作成します
+1. [GuardDuty コンソール](https://console.aws.amazon.com/guardduty/home?) に移動します
+1. 画面左メニューの [**設定**] を選択します
+1. [結果のエクスポートオプション] パネルへスクロールをして移動します
+1. 更新された結果の頻度: [**15分ごとに CWE と S3 を更新する**] を選択して [**保存**] を選択します (推奨)
+1. S3 バケットの [**今すぐ設定**] を選択して下記のパラメーターを入力します
+    * [**既存のバケット お使いのアカウント内**] にチェックを入れます
+    * バケットの選択: [**aes-siem-123456789012-log**] を選択します
+        * 123456789012 は ご利用の AWS アカウント ID に置換してください
+    * ログファイルのプレフィックス: 空欄のまま
+    * KMS 暗号化: [**アカウントからキーを選択する**] にチェックを入れます
+    * キーエイリアス: [**aes-siem-key**] を選択します
+    * [**保存**] を選択します
 
-Kinesis Data Firehose の設定
+以上で、設定は完了です。同じ設定画面内の [**結果サンプルの生成**] を選択すると SIEM on Amazon ES への取り込み設定の成否を確認できます。
 
-1. [Kinesis コンソール](https://console.aws.amazon.com/kinesis/home?) に移動します
-1. 画面左メニューの [**配信ストリーム**] を選択します
-1. 画面左上の [**Create delivery stream**] を選択します
-1. [New delivery stream] 画面にて次のパラメーターを入力します
-    * Delivery stream name: [**aes-siem-firehose-securityhub**] を入力します
-    * Source: [**Direct PUT or other sources**] にチェックを入れます
-    * [Enable server-side encryption for source records in delivery stream] は任意です
-    * [**Next**] を選択します
-1. [Process records] 画面にて次のパラメーターを入力します
-    * Data transformation: [**Disabled**] を選択します
-    * Record format conversion: [**Disabled**] を選択します
-    * [**Next**] を選択します
-1. [Choose a destination] 画面にて次のパラメーターを入力します
-    * Destination: [**Amazon S3**] を選択します
-    * S3 bucket: [**aes-siem-123456789012-log**] を入力します
-    * S3 prefix: [**AWSLogs/123456789012/SecurityHub/[region]/**] を入力します
-    * S3 error prefix: [**AWSLogs/123456789012/SecurityHub/[region]/error/**] を入力します
-        * 123456789012 と [region] は ご利用の AWS アカウント ID と リージョンに、置換してください
-1. [Configure settings] 画面にて次のパラメーターを入力します
-    * Buffer size: [**任意の数字**] を入力します
-    * Buffer interval: [**任意の数字**] を入力します
-    * S3 compression: [**GZIP**] を選択します
-    * 次以降はデフォルトのまま
-    * [**Next**] を選択します
-1. [**Create delivery stream**] を選択して Kinesis Data Firehose のデプロイ完了です
+### AWS Directory Service
 
-EventBridge の設定
+![Directory Service to S3](images/directoryservice-to-s3.jpg)
 
-1. [EventBridge コンソール](https://console.aws.amazon.com/events/home?) に移動します
-1. 画面左メニューの [**ルール**] を選択 => [**ルールの作成**] を選択します
-1. [ルールを作成] 画面にて次のパラメーターを入力します
-    * 名前: aes-siem-securityhub-to-firehose
-    * パターンを定義: イベントパターンを選択します
-    * イベント一致パターン: サービスごとの事前定義パターン
-    * サービスプロバイダー: AWS
-    * サービス名: Security Hub
-    * イベントタイプ: Security Hub Findings - Imported
-    * [イベントバスを選択]パネルは変更なし
-    * ターゲット: Firehose 配信ストリーム
-    * ストリーム: aes-siem-firehose-securityhub
-    * 他は任意の値を選択します
-    * [**作成**] を選択を選択して完了です
+s3_key の初期値: `/DirectoryService/MicrosoftAD/` (Firehose の出力パスに指定)
+
+1. [Directory Serviceコンソール](https://console.aws.amazon.com/directoryservicev2/home?)から CloudWatch Logs にログを出力します
+1. 下記の CloudFormation を使って設定します
+    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+        * 基本設定の CloudFormation。ログ転送先のS3バケット名の取得やIAMロールを作成します。他の AWS サービス設定で共通に使用します
+    
+    * [siem-log-exporter-ad.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-ad.template)
+        * CloudWatch Logs から S3バケットに出力します
 
 ### AWS WAF
 
@@ -160,26 +146,59 @@ WAF をお使いの場合はこのタスクはスキップしてください
 1. [Amazon Kinesis Data Firehose] のプルダウンから [**作成した Kinesis Firehose**] を選択します
 1. [**Create**] を選択して設定完了です
 
-### Amazon GuardDuty
+### AWS Security Hub
 
-![GuardDuty to S3](images/guardduty-to-s3.jpg)
+![SecurityHub to S3](images/securityhub-to-s3.jpg)
 
-s3_key の初期値: `GuardDuty` (デフォルト設定の出力パスの一部)
+s3_key の初期値: `SecurityHub` (Firehose の出力パスに指定)
 
-1. [GuardDuty コンソール](https://console.aws.amazon.com/guardduty/home?) に移動します
-1. 画面左メニューの [**設定**] を選択します
-1. [結果のエクスポートオプション] パネルへスクロールをして移動します
-1. 更新された結果の頻度: [**15分ごとに CWE と S3 を更新する**] を選択して [**保存**] を選択します (推奨)
-1. S3 バケットの [**今すぐ設定**] を選択して下記のパラメーターを入力します
-    * [**既存のバケット お使いのアカウント内**] にチェックを入れます
-    * バケットの選択: [**aes-siem-123456789012-log**] を選択します
-        * 123456789012 は ご利用の AWS アカウント ID に置換してください
-    * ログファイルのプレフィックス: 空欄のまま
-    * KMS 暗号化: [**アカウントからキーを選択する**] にチェックを入れます
-    * キーエイリアス: [**aes-siem-key**] を選択します
-    * [**保存**] を選択します
+* ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先 S3 バケットのプレフィックスに指定します
+* 複数リージョンの Security Hub の findings を集約する時は、リージョン毎に、Firehose と EventBridge ルールを作成します
 
-以上で、設定は完了です。同じ設定画面内の [**結果サンプルの生成**] を選択すると SIEM on Amazon ES への取り込み設定の成否を確認できます。
+Kinesis Data Firehose の設定
+
+1. [Kinesis コンソール](https://console.aws.amazon.com/kinesis/home?) に移動します
+1. 画面左メニューの [**配信ストリーム**] を選択します
+1. 画面左上の [**Create delivery stream**] を選択します
+1. [New delivery stream] 画面にて次のパラメーターを入力します
+    * Delivery stream name: [**aes-siem-firehose-securityhub**] を入力します
+    * Source: [**Direct PUT or other sources**] にチェックを入れます
+    * [Enable server-side encryption for source records in delivery stream] は任意です
+    * [**Next**] を選択します
+1. [Process records] 画面にて次のパラメーターを入力します
+    * Data transformation: [**Disabled**] を選択します
+    * Record format conversion: [**Disabled**] を選択します
+    * [**Next**] を選択します
+1. [Choose a destination] 画面にて次のパラメーターを入力します
+    * Destination: [**Amazon S3**] を選択します
+    * S3 bucket: [**aes-siem-123456789012-log**] を入力します
+    * S3 prefix: [**AWSLogs/123456789012/SecurityHub/[region]/**] を入力します
+    * S3 error prefix: [**AWSLogs/123456789012/SecurityHub/[region]/error/**] を入力します
+        * 123456789012 と [region] は ご利用の AWS アカウント ID と リージョンに、置換してください
+1. [Configure settings] 画面にて次のパラメーターを入力します
+    * Buffer size: [**任意の数字**] を入力します
+    * Buffer interval: [**任意の数字**] を入力します
+    * S3 compression: [**GZIP**] を選択します
+    * 次以降はデフォルトのまま
+    * [**Next**] を選択します
+1. [**Create delivery stream**] を選択して Kinesis Data Firehose のデプロイ完了です
+
+EventBridge の設定
+
+1. [EventBridge コンソール](https://console.aws.amazon.com/events/home?) に移動します
+1. 画面左メニューの [**ルール**] を選択 => [**ルールの作成**] を選択します
+1. [ルールを作成] 画面にて次のパラメーターを入力します
+    * 名前: aes-siem-securityhub-to-firehose
+    * パターンを定義: イベントパターンを選択します
+    * イベント一致パターン: サービスごとの事前定義パターン
+    * サービスプロバイダー: AWS
+    * サービス名: Security Hub
+    * イベントタイプ: Security Hub Findings - Imported
+    * [イベントバスを選択]パネルは変更なし
+    * ターゲット: Firehose 配信ストリーム
+    * ストリーム: aes-siem-firehose-securityhub
+    * 他は任意の値を選択します
+    * [**作成**] を選択を選択して完了です
 
 ### AWS Network Firewall (Experimental Support)
 
@@ -406,6 +425,22 @@ s3_key の初期値はデフォルトの出力パスとファイル名を正規�
 
 ## 5. ストレージ
 
+### Amazon FSx for Windows File Server audit log
+
+![FSx to S3](images/fsx-to-s3.jpg)
+
+s3_key の初期値: `aws-fsx-`
+
+Amazon FSx 監査ログを Kinesis Data Firehose から S3 バケットにエクスポートします。Kinesis Data Firehose の名前は [**aws-fsx-**] から始まることが条件となっており、この名前が S3 バケット出力時のファイル名に含まれているため、これをログ種類の判別に使用しています。
+
+1. 下記の CloudFormation を使って設定します
+    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+        * 基本設定の CloudFormation。ログ転送先のS3バケット名の取得やIAMロールを作成します。他の AWS サービス設定で共通に使用します
+
+    * [siem-log-exporter-fsx.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-fsx.template)
+        * Firehose を作成してから S3 バケットに出力します。Firehoseの名前は、aws-fsx-XXXXXX としてください。XXXXXは任意の文字列です。
+1. [FSxコンソール](https://console.aws.amazon.com/fsx/home?)から Firehose にログを出力してください
+
 ### Amazon S3 access log
 
 ![S3 to S3](images/s3-to-s3.jpg)
@@ -625,6 +660,27 @@ s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
 
 ※※ **S3 バケットへの出力時に、圧縮設定はしないで下さい。** CloudWatch Logsから受信する場合はすでに gzip 圧縮されているので二重圧縮となり適切に処理ができません ※※
 
+### EC2 インスタンス (Microsoft Windows Server 2012/2016/2019)
+
+![Win Server to S3](images/al2-to-s3.jpg)
+
+s3_key の初期値: `/[Ww]indows.*[Ee]vent` (Firehose の出力パスに指定)
+
+ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先の S3 バケットのプレフィックスに指定してください。リージョン情報はログに含まれていないので、S3 キーに含めることで取得することができます。
+
+手順は概要のみです。
+
+1. Windows Servver をデプロイした EC2 インスタンスに CloudWatch Agent をインストールして、CloudWatch Logs にログを転送します
+    * [統合 CloudWatch エージェントをインストールして、メトリクスとログを EC2 インスタンスから CloudWatch にプッシュするように設定する方法を教えてください。](https://aws.amazon.com/jp/premiumsupport/knowledge-center/cloudwatch-push-metrics-unified-agent/)
+    * [Windows ログを CloudWatch にアップロードするにはどうすればよいですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/cloudwatch-upload-windows-logs/)
+1. 下記の CloudFormation を使って設定します
+    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+        * 基本設定の CloudFormation。ログ転送先のS3バケット名の取得やIAMロールを作成します。他の AWS サービス設定で共通に使用します
+    * [siem-log-exporter-cwl-nocompress.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-cwl-nocompress.template)
+        * Firehose を作成してから S3 バケットに出力します。
+        * 出力するプレフィックス: [**AWSLogs/123456789012/EC/Winodws/Event/[region]/**]
+            * 123456789012 は ご利用の AWS アカウント ID に置換してください
+
 ## 9. コンテナ
 
 ### Amazon ECS 対応 FireLens
@@ -659,12 +715,36 @@ via_firelens = True
 ignore_container_stderr = True
 ```
 
-## 10. マルチリージョン・マルチアカウント
+## 10. エンドユーザーコンピューティング
+
+### Amazon WorkSpaces
+
+#### イベント
+
+![WorkSpaces event to S3](images/workspaces-event-to-s3.jpg)
+
+s3_key の初期値: `(WorkSpaces|workspaces).*(Event|event)` (Firehose の出力パスに指定)
+
+#### インベントリ
+
+![WorkSpaces inventory to S3](images/workspaces-inventory-to-s3.jpg)
+
+s3_key の初期値: `(WorkSpaces|workspaces).*(Inventory|inventory)` Lambda functionにより固定値で出力されるので設定不要。
+
+1. 下記の CloudFormation を使って設定します
+    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+        * 基本設定の CloudFormation。ログ転送先のS3バケット名の取得やIAMロールを作成します。他の AWS サービス設定で共通に使用します
+    * [siem-log-exporter-workspaces.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-workspaces.template)
+        * WorkSpacesに必要な設定をします
+        * S3に出力するプレフィックス: [**AWSLogs/123456789012/WorkSpaces/Event/[region]/**]
+            * 123456789012 は ご利用の AWS アカウント ID に置換してください
+
+## 11. マルチリージョン・マルチアカウント
 
 他のアカウントや他リージョンのログを、S3 レプリケーションか、クロスアカウントで ログ用 S3 バケットに出力することで SIEM on Amazon ES にログを取り込むことができます。
 出力先のパスは上記で設定した S3 Key に基づいてください。
 
-## 11. 既存の S3 バケットからログからの取り込み
+## 12. 既存の S3 バケットからログからの取り込み
 
 すでに作成済みの S3 バケット に保存されログ、または AWS KMS カスタマーマネジメントキー を使って、SIEM on Amazon ES にログを取り込むこともできます。
 既存の S3 または AWS KMS を使うためには、Lambda 関数 es-loader に権限を付与する必要があります。[ここを](deployment_ja.md) を参照して、AWS CDK を使ってデプロイしてください。
