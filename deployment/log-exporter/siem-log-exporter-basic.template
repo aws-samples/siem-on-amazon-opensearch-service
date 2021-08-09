@@ -1,0 +1,117 @@
+Description: "SIEM: log export basic resource"
+Parameters:
+  siemLogBucketName:
+    Type: String
+    Default: aes-siem-111111111111-log
+    Description: S3 Bucket to put workspaces inventory
+  kdfToS3RoleName:
+    Type: String
+    Default: siem-role-cwl-to-firehose-YOUR-REGION
+    Description: role name for CloudWatch Logs to send data to Kinsis Data Firehose. Replace YOUR-REGION
+  roleNameKdfToS3:
+    Type: String
+    Default: siem-role-firehose-to-s3-YOUR-REGION
+    Description: role name for Kinesis Data Firehose to send data to S3. Replace YOUR-REGION
+Resources:
+  cwlRole94D20248:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                Fn::Join:
+                  - ""
+                  - - logs.
+                    - Ref: AWS::Region
+                    - .amazonaws.com
+        Version: "2012-10-17"
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action: firehose:*
+                Effect: Allow
+                Resource:
+                  Fn::Join:
+                    - ""
+                    - - "arn:aws:firehose:"
+                      - Ref: AWS::Region
+                      - ":"
+                      - Ref: AWS::AccountId
+                      - :*
+                Sid: CwlToFirehosePolicyGeneratedBySeimCfn
+            Version: "2012-10-17"
+          PolicyName: cwl-to-firehose
+      RoleName:
+        Ref: kdfToS3RoleName
+  firehoseRoleE5891AF8:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+        Version: "2012-10-17"
+      Path: /service-role/
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                Effect: Allow
+                Resource:
+                  - Fn::Join:
+                      - ""
+                      - - "arn:aws:s3:::"
+                        - Ref: siemLogBucketName
+                  - Fn::Join:
+                      - ""
+                      - - "arn:aws:s3:::"
+                        - Ref: siemLogBucketName
+                        - /*
+                Sid: FirehoseToS3PolicyGeneratedBySiemCfn
+            Version: "2012-10-17"
+          PolicyName: firehose-to-s3
+        - PolicyDocument:
+            Statement:
+              - Action: logs:PutLogEvents
+                Effect: Allow
+                Resource:
+                  Fn::Join:
+                    - ""
+                    - - "arn:aws:logs:"
+                      - Ref: AWS::Region
+                      - ":"
+                      - Ref: AWS::AccountId
+                      - :log-group:/aws/kinesisfirehose/*:log-stream:*
+                Sid: LoggingPolicyGeneratedBySiemCfn
+            Version: "2012-10-17"
+          PolicyName: for-logigng
+      RoleName:
+        Ref: roleNameKdfToS3
+Outputs:
+  logBucketName:
+    Value:
+      Ref: siemLogBucketName
+    Export:
+      Name: sime-log-bucket-name
+  cwlRoleName:
+    Value:
+      Ref: cwlRole94D20248
+    Export:
+      Name: siem-cwl-to-kdf-role-name
+  kdfRoleName:
+    Value:
+      Ref: firehoseRoleE5891AF8
+    Export:
+      Name: siem-kdf-to-s3-role-name
+

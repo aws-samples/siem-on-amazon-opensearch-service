@@ -158,7 +158,7 @@ log_type,field,pattern,pattern_type,comment
 ```csv
 log_type,field,pattern,pattern_type,comment
 vpcflowlogs,srcaddr,192.0.2.10,text,sample1
-vpcflowlogs,srcaddr,192\.0\.2\.10[0-9],regex,sample2
+vpcflowlogs,dstaddr,192\.0\.2\.10[0-9],regex,sample2
 cloudtrail,userIdentity.invokedBy,.*\.amazonaws\.com,regex,sample3
 ```
 
@@ -168,7 +168,7 @@ This excludes logs where the source IP address (srcaddr) matches 192.0.2.10 in V
 
 ##### Example 2
 
-This excludes logs where the source IP address (srcaddr) contains string 192.0.2.10. 192.0.2.100 is also excluded as it matches the regular expression. If pattern_type is regex, ensure to escape characters (dot, etc.) that have special meanings in regular expressions.
+This excludes logs where the destination IP address (dstaddr) contains string 192.0.2.10. 192.0.2.100 is also excluded as it matches the regular expression. If pattern_type is regex, ensure to escape characters (dot, etc.) that have special meanings in regular expressions.
 
 ##### Example 3
 

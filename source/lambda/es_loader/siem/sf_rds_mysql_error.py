@@ -18,7 +18,10 @@ def transform(logdata):
     logdata['rds']['cluster_identifier'] = identifier['cluster']
     logdata['rds']['instance_identifier'] = identifier['instance']
 
-    m_failed = RE_AUTH_FAILED.match(logdata['mysql_message'])
+    try:
+        m_failed = RE_AUTH_FAILED.match(logdata['mysql_message'])
+    except TypeError:
+        m_failed = None
     if m_failed:
         logdata['event']['category'] = 'authentication'
         logdata['event']['type'] = 'start'
@@ -41,7 +44,10 @@ def transform(logdata):
         except ValueError:
             pass
 
-    m_unknown_db = RE_UNKNOWN_DB.match(logdata['mysql_message'])
+    try:
+        m_unknown_db = RE_UNKNOWN_DB.match(logdata['mysql_message'])
+    except TypeError:
+        m_unknown_db = None
     if m_unknown_db:
         logdata['event']['category'] = 'authentication'
         logdata['event']['type'] = 'start'

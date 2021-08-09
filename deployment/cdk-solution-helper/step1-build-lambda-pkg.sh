@@ -14,7 +14,7 @@ fi
 echo "------------------------------------------------------------------------------"
 echo "[Packing] pip and Source Folder"
 echo "------------------------------------------------------------------------------"
-python3 -m pip install pip==20.3.3 --user
+python3 -m pip install wheel pip==21.1.3 --user
 function pip_zip_for_lambda () {
     if [ -e $1.zip ]; then
       echo "rm $1.zip"
@@ -34,8 +34,8 @@ function pip_zip_for_lambda () {
     rm -f .DS_Store
     #rm -fr *dist-info
     echo "# delete python libraries which are already installed in lambda environment"
-    echo "rm -fr boto* aiohttp* future* urllib3* dateutil* python_dateutil* s3transfer* six*"
-    rm -fr boto* aiohttp* future* urllib3* dateutil* python_dateutil* s3transfer* six*
+    echo "rm -fr boto* aiohttp* future* urllib3* dateutil* python_dateutil* s3transfer* six* jmespath* yarl*"
+    rm -fr boto* aiohttp* future* urllib3* dateutil* python_dateutil* s3transfer* six* jmespath* yarl*
     if [ -d requests_aws4auth ]; then
         mv LICENSE README.md HISTORY.md requests_aws4auth-*-info/
     fi

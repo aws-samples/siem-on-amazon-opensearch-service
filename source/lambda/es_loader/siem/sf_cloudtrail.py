@@ -46,4 +46,11 @@ def transform(logdata):
     except (KeyError, TypeError):
         pass
 
+    # https://github.com/aws-samples/siem-on-amazon-elasticsearch/issues/139
+    try:
+        logdata['requestParameters']['disableApiTermination'] = (
+            logdata['requestParameters']['disableApiTermination']['value'])
+    except (KeyError, TypeError):
+        pass
+
     return logdata

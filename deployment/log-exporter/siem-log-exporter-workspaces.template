@@ -1,0 +1,238 @@
+Description: "SIEM: Workspaces log exporter"
+Parameters:
+  cweRulesFrequency:
+    Type: Number
+    Default: 720
+    Description: How often do you get WorkSpaces Inventory? (every minutes)
+  KdfWorkSpacesName:
+    Type: String
+    Default: siem-workspaces-event-to-s3
+    Description: Kinesis Data Firehose Name to deliver workspaces event
+  KdfBufferSize:
+    Type: Number
+    Default: 1
+    Description: Enter a buffer size between 1 - 128 (MiB)
+    MaxValue: 128
+    MinValue: 1
+  KdfBufferInterval:
+    Type: Number
+    Default: 60
+    Description: Enter a buffer interval between 60 - 900 (seconds.)
+    MaxValue: 900
+    MinValue: 60
+Resources:
+  getWorkspacesInventoryRoleC66252C0:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action: workspaces:Describe*
+                Effect: Allow
+                Resource: "*"
+                Sid: DescribeWorkSpacesPolicyGeneratedBySeimCfn
+            Version: "2012-10-17"
+          PolicyName: describe-workspaces
+        - PolicyDocument:
+            Statement:
+              - Action: s3:PutObject
+                Effect: Allow
+                Resource:
+                  Fn::Join:
+                    - ""
+                    - - "arn:aws:s3:::"
+                      - Fn::ImportValue: sime-log-bucket-name
+                      - /*
+                Sid: FirehoseToS3PolicyGeneratedBySeimCfn
+            Version: "2012-10-17"
+          PolicyName: firehose-to-s3
+      RoleName: siem-get-workspaces-inventory-role
+  lambdaGetWorkspacesInventory04954C41:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+          # SPDX-License-Identifier: MIT-0
+          import datetime
+          import gzip
+          import json
+          import os
+
+          import boto3
+
+          ws_client = boto3.client('workspaces')
+          s3_resource = boto3.resource('s3')
+          bucket = s3_resource.Bucket(os.environ['log_bucket_name'])
+          AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
+          AWS_REGION = os.environ['AWS_DEFAULT_REGION']
+          paginator = ws_client.get_paginator('describe_workspaces')
+
+          def lambda_handler(event, context):
+              num = 0
+              now = datetime.datetime.now()
+              file_name = f'workspaces-inventory-{now.strftime("%Y%m%d_%H%M%S")}.json.gz'
+              s3file_name =(
+                  f'AWSLogs/{AWS_ID}/WorkSpaces/Inventory/{AWS_REGION}/'
+                  f'{now.strftime("%Y/%m/%d")}/{file_name}')
+              f = gzip.open(f'/tmp/{file_name}', 'tw')
+              response_iterator = paginator.paginate(PaginationConfig={'PageSize': 25})
+              for response in response_iterator:
+                  print(f'{response["ResponseMetadata"]["RequestId"]}: '
+                        f'{len(response["Workspaces"])}')
+                  dt = datetime.datetime.strptime(
+                      response['ResponseMetadata']['HTTPHeaders']['date'],
+                      "%a, %d %b %Y %H:%M:%S GMT")
+                  jsonobj = {
+                      'id': response['ResponseMetadata']['RequestId'],
+                      'time': dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                      'detail-type': 'WorkSpaces Fake',
+                      "source": "aws.fake.workspaces",
+                      "account": AWS_ID,
+                      'region': AWS_REGION,
+                      "resources": [],
+                      'detail': {}}
+                  jsonobj['detail']['Workspaces'] = response['Workspaces']
+                  num += len(response['Workspaces'])
+                  f.write(json.dumps(jsonobj))
+                  f.flush()
+              f.close()
+              print(f'Total nummber of WorkSpaces inventory: {num}')
+              print(f'Upload path: s3://{bucket}/{s3file_name}')
+              bucket.upload_file(f'/tmp/{file_name}', s3file_name)
+      Role:
+        Fn::GetAtt:
+          - getWorkspacesInventoryRoleC66252C0
+          - Arn
+      Description: "SIEM: get workspaces inventory"
+      Environment:
+        Variables:
+          log_bucket_name:
+            Fn::ImportValue: sime-log-bucket-name
+      FunctionName: siem-get-workspaces-inventory
+      Handler: index.lambda_handler
+      Runtime: python3.8
+      Timeout: 300
+    DependsOn:
+      - getWorkspacesInventoryRoleC66252C0
+  eventBridgeRuleWorkSpaceInventory93C397AF:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: siem-workspaces-inventory-to-lambda
+      ScheduleExpression:
+        Fn::Join:
+          - ""
+          - - rate(
+            - Ref: cweRulesFrequency
+            - " minutes)"
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - lambdaGetWorkspacesInventory04954C41
+              - Arn
+          Id: Target0
+  eventBridgeRuleWorkSpaceInventoryAllowEventRulesiemlogexporterworkspaceslambdaGetWorkspacesInventory7C06DC3EA3096216:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - lambdaGetWorkspacesInventory04954C41
+          - Arn
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+          - eventBridgeRuleWorkSpaceInventory93C397AF
+          - Arn
+  KDFForWorkSpacesEvent:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: KdfWorkSpacesName
+      S3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: GZIP
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/
+              - Ref: AWS::AccountId
+              - /WorkSpaces/Event/
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name
+  KDFForWorkSpacesEventEventsRole7D362B9D:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+        Version: "2012-10-17"
+  KDFForWorkSpacesEventEventsRoleDefaultPolicyDAA71A09:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - firehose:PutRecord
+              - firehose:PutRecordBatch
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - KDFForWorkSpacesEvent
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: KDFForWorkSpacesEventEventsRoleDefaultPolicyDAA71A09
+      Roles:
+        - Ref: KDFForWorkSpacesEventEventsRole7D362B9D
+  eventBridgeRuleWorkSpacesEvent4A62FE9E:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        detail-type:
+          - WorkSpaces Access
+        source:
+          - aws.workspaces
+      Name: siem-workspaces-event-to-kdf
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - KDFForWorkSpacesEvent
+              - Arn
+          Id: Target0
+          RoleArn:
+            Fn::GetAtt:
+              - KDFForWorkSpacesEventEventsRole7D362B9D
+              - Arn
+

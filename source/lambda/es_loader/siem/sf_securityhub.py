@@ -6,7 +6,8 @@ from datetime import datetime
 
 from siem import utils
 
-RE_GDTYPE = re.compile(r"/(?P<ThreatPurpose>\w*):(?P<ResourceTypeAffected>\w*)"
+RE_GDTYPE = re.compile(r"/(?P<ThreatPurpose>\w+)"
+                       r"(:|/)(?P<ResourceTypeAffected>\w*)"
                        r"(/|.|-)(?P<ThreatFamilyName>[\w\&]*)")
 
 
@@ -47,7 +48,7 @@ def transform(logdata):
     if 'guardduty' in module:
         logdata['event']['category'] = 'intrusion_detection'
 
-        m = RE_GDTYPE.search(logdata['rule']['name'])
+        m = RE_GDTYPE.search(str(logdata['rule']['name']))
         logdata['ThreatPurpose'] = m['ThreatPurpose']
         logdata['ResourceTypeAffected'] = m['ResourceTypeAffected']
         logdata['ThreatFamilyName'] = m['ThreatFamilyName']

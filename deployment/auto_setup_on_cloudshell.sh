@@ -1,15 +1,41 @@
 #!/bin/bash
 
 # bash <(curl -s -o- https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/develop/deployment/auto_setup_on_cloudshell.sh)
+# or add git commit id at the end of line
+# bash <(curl -s -o- https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/develop/deployment/auto_setup_on_cloudshell.sh) develop
 
 ###############################################################################
 # helper Function
 ###############################################################################
 LOG_OUT="$HOME/auto_setup_on_cloudshell-$(date "+%Y%m%d_%H%M%S").log"
-exec 2> >(tee -a $LOG_OUT) 1>&2
+exec 2> >(tee -a "${LOG_OUT}") 1>&2
 
 export BASEDIR="$HOME/siem-on-amazon-elasticsearch-service"
 export OLDDIR="$HOME/siem-on-amazon-elasticsearch"
+
+function func_check_freespace() {
+  if [ -d "$BASEDIR" ];then
+    find "$BASEDIR" -name "*.zip" | xargs rm -f
+    rm -fr "${BASEDIR}/source/cdk/cdk.out"
+  fi
+  if [ -d "$OLDDIR" ];then
+    find "$OLDDIR" -name "*.zip" | xargs rm -f
+    rm -fr "${OLDDIR}/source/cdk/.env"
+    rm -fr "${OLDDIR}/source/cdk/cdk.out"
+  fi
+  free_space=$(df -m "$HOME" | awk '/[0-9]%/{print $(NF-2)}')
+  echo "Free space is ${free_space} MB"
+  if [ "${free_space}" -le 250 ] && [ -d ~/.nvm/versions/node/ ]; then
+    ls -d ~/.nvm/versions/node/* | grep -v $(ls -t ~/.nvm/versions/node/ | head -1) | xargs rm -rf
+  fi
+  if [ "${free_space}" -le 250 ]; then
+    echo "At least 250 MB of free space needed."
+    echo "Exit."
+    echo "Delete unnecessary files, or Delete AWS CloudShell home directory."
+    exit
+  fi
+  echo ""
+}
 
 function func_migrate_old_repo_to_new_repo () {
   if [ -s "${OLDDIR}/source/cdk/cdk.json" ]; then
@@ -202,16 +228,36 @@ function func_continue_or_exit () {
   done;
 }
 
+function func_delete_unnecessary_files() {
+  cd "$HOME"
+  if [ -d "$BASEDIR" ];then
+    find "$BASEDIR" -name "*.zip" | xargs rm -f
+    rm -fr "${BASEDIR}/source/cdk/cdk.out"
+  fi
+  if [ -d "$OLDDIR" ];then
+    if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
+      tar -zcf "${OLDDIR}.tgz" -C "$HOME/" $(echo $OLDDIR | sed -e "s@$HOME/@@") && rm -fr "$OLDDIR"
+    fi
+  fi
+}
+
 ###############################################################################
 # main script
 ###############################################################################
-
 echo "Auto Installtion Script Started"
 date
 
-echo "### 1. Setting Up the AWS CDK Execution Environment ###"
-cd ~/
+if [ ! $1 ]; then
+  commitid='main'
+else
+  commitid=$1
+fi
 
+cd ~/
+echo "func_check_freespace"
+func_check_freespace
+
+echo "### 1. Setting Up the AWS CDK Execution Environment ###"
 echo 'yum groups mark install -y "Development Tools"'
 sudo yum groups mark install -y "Development Tools" > /dev/null
 echo -e "Done\n"
@@ -237,12 +283,17 @@ fi
 if [ -d "$BASEDIR" ]; then
   echo "git rebase to get latest commit"
   cd $BASEDIR
-  git checkout main
-  git pull --rebase > /dev/null
+  git fetch > /dev/null
+  git checkout main && git pull --rebase > /dev/null
+  git checkout develop && git pull --rebase > /dev/null
+  git checkout $commitid
   cd $HOME
 else
   echo "git clone siem source code"
   git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch-service.git > /dev/null
+  cd $BASEDIR
+  git checkout $commitid
+  cd $HOME
 fi
 cd $BASEDIR && echo `git log | head -1` && cd $HOME
 echo -e "Done\n"
@@ -303,7 +354,11 @@ echo "### 5. Setting Installation Options with the AWS CDK ###"
 cd $BASEDIR/source/cdk/
 source .env/bin/activate
 echo "cdk bootstrap"
-cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION
+cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION; status=$?
+if [ $status -ne 0 ]; then
+  echo "invalid configuration. exit"
+  exit
+fi
 echo -e "Done\n"
 
 echo "################################################"
@@ -331,8 +386,18 @@ func_continue_or_exit
 (sleep 120 && func_update_param cdk.context.json > /dev/null 2>&1 & )
 echo "cdk deploy"
 date
-cdk deploy
+cdk deploy; status=$?
+if [ $status -ne 0 ]; then
+  echo "invalid configuration. exit"
+  exit
+fi
+date
 
+echo "func_update_param cdk.context.json"
 func_update_param cdk.context.json
-echo "All script was done"
+
+echo "func_delete_unnecessary_files"
+func_delete_unnecessary_files
+
+echo "The script was done"
 date

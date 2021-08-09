@@ -4,6 +4,7 @@
 import configparser
 import csv
 import importlib
+import ipaddress
 import os
 import re
 import sys
@@ -16,7 +17,7 @@ from aws_lambda_powertools import Logger
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.3.2'
+__version__ = '2.4.0'
 
 logger = Logger(child=True)
 
@@ -114,6 +115,18 @@ def convert_underscore_field_into_dot_notation(prefix, logdata):
     return logdata
 
 
+@lru_cache(maxsize=100000)
+def validate_ip(value, ecs_key):
+    if '.ip' in ecs_key:
+        try:
+            ipaddress.ip_address(value)
+            return value
+        except ValueError:
+            return None
+    else:
+        return value
+
+
 #############################################################################
 # date time
 #############################################################################
@@ -151,14 +164,30 @@ def convert_timestr_to_datetime(timestr, timestamp_key, timestamp_format, TZ):
 @lru_cache(maxsize=1024)
 def convert_epoch_to_datetime(timestr, TZ):
     epoch = float(timestr)
-    if epoch > 1000000000000:
+    if 1000000000000000 > epoch > 1000000000000:
         # milli epoch
-        epoch_seconds = epoch / 1000
+        epoch_seconds = epoch / 1000.0
+        dt = datetime.fromtimestamp(epoch_seconds, tz=TZ)
+    elif epoch > 1000000000000000:
+        # micro epoch
+        epoch_seconds = epoch / 1000000.0
         dt = datetime.fromtimestamp(epoch_seconds, tz=TZ)
     else:
         # normal epoch
         dt = datetime.fromtimestamp(epoch, tz=TZ)
     return dt
+
+
+@lru_cache(maxsize=1024)
+def convrt_micro_epoch_to_seconds_epoch(obj):
+    if isinstance(obj, str):
+        try:
+            obj_int = int(obj)
+        except ValueError:
+            return obj
+        if obj_int > 1000000000000000:
+            return int(obj) / 1000000.0
+    return obj
 
 
 @lru_cache(maxsize=10000)
@@ -533,24 +562,22 @@ def put_value_into_nesteddict(dotted_key, value):
 
     dictのkeyにドットが含まれている場合に入れ子になったdictを作成し、
     値としてvalueを返す。返値はdictタイプ。vが辞書ならさらに入れ子として代入。
-    値がlistなら、カンマ区切りのCSVにした文字列に変換
     >>> put_value_into_nesteddict('a', 123)
     {'a': '123'}
     >>> put_value_into_nesteddict('a.b.c.d.e', 123)
     {'a': {'b': {'c': {'d': {'e': '123'}}}}}
     >>> put_value_into_nesteddict('a.b.c', [123])
-    {'a': {'b': {'c': '123'}}}
+    {'a': {'b': {'c': [123]}}}
     >>> put_value_into_nesteddict('a.b.c', [123, 456])
-    {'a': {'b': {'c': '123, 456'}}}
+    {'a': {'b': {'c': [123, 456]}}}
     >>> put_value_into_nesteddict('a.b.c', {'x': 1, 'y': 2})
     {'a': {'b': {'c': {'x': 1, 'y': 2}}}}
     >>> put_value_into_nesteddict('a.b.c', '"')
     {'a': {'b': {'c': '"'}}}
     """
-    if isinstance(value, dict) or isinstance(value, str):
+    if (isinstance(value, dict) or isinstance(value, str)
+            or isinstance(value, list)):
         value = value
-    elif isinstance(value, list):
-        value = ", ".join(map(str, value))
     else:
         value = str(value)
     nested_dict = {}

@@ -20,7 +20,7 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.3.2'
+__version__ = '2.4.0'
 print(__version__)
 
 iam_client = boto3.client('iam')
@@ -277,9 +277,6 @@ class MyAesSiemStack(core.Stack):
             vpc_aes_siem.add_interface_endpoint(
                 'KMSEndpoint', security_groups=[sg_vpc_aes_siem],
                 service=aws_ec2.InterfaceVpcEndpointAwsService.KMS,)
-            vpc_aes_siem.add_interface_endpoint(
-                'SNSEndpoint', security_groups=[sg_vpc_aes_siem],
-                service=aws_ec2.InterfaceVpcEndpointAwsService.SNS,)
         else:
             is_vpc = False
 

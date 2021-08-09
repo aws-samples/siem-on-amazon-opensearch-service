@@ -135,7 +135,7 @@ s3_key_ignored = (111111111111|222222222222)
 
 設定方法)
 
-GeoIP を保存している S3 バケット(デフォルトではaes-siem-1234567890-**geo**)に、除外条件を指定した CSV ファイルをアップロード。アップロード先はプレフィックスなしのルートパス。
+CSV ファイルを作成して、除外したいログのログタイプ、フィールド、除外条件を設定してください。1つのフィールドに対して複数の条件を設定する時は正規表現で指定してください。GeoIP を保存している S3 バケット(デフォルトではaes-siem-1234567890-**geo**)に、除外条件を指定した CSV ファイルをアップロード。アップロード先はプレフィックスなしのルートパス。
 
 * CSV ファイル名: [**exclude_log_patterns.csv**]
 * CSV ファイルの保存先: [s3://aes-siem-1234567890-**geo**/exclude_log_patterns.csv]
@@ -158,8 +158,9 @@ log_type,field,pattern,pattern_type,comment
 ```csv
 log_type,field,pattern,pattern_type,comment
 vpcflowlogs,srcaddr,192.0.2.10,text,sample1
-vpcflowlogs,srcaddr,192\.0\.2\.10[0-9],regex,sample2
-cloudtrail,userIdentity.invokedBy,.*\.amazonaws\.com,regex,sample3
+vpcflowlogs,dstaddr,192\.0\.2\.10[0-9],regex,sample2
+vpcflowlogs,dstport,80|443,regex,sample3
+cloudtrail,userIdentity.invokedBy,.*\.amazonaws\.com,regex,sample4
 ```
 
 ##### sample1
@@ -168,9 +169,13 @@ VPC Flow Logs で、送信元 IP アドレス(srcaddr) が 192.0.2.10 と一致�
 
 ##### sample2
 
-VPC Flow Logs で、送信元 IP アドレス(srcaddr) が 192.0.2.10 の文字列を含んだ IP アドレスを除外。正規表現で指定したことにより、192.0.2.100 も除外される。pattern_type を regex とした場合は、正規表現として意味のある文字列(ドット等)はエスケープしてください。
+VPC Flow Logs で、送信先 IP アドレス(dstaddr) が 192.0.2.10 の文字列を含んだ IP アドレスを除外。正規表現で指定したことにより、192.0.2.100 も除外される。pattern_type を regex とした場合は、正規表現として意味のある文字列(ドット等)はエスケープしてください。
 
 ##### sample3
+
+VPC Flow Logs で、送信先 IP ポート(dstport) が 80 または 443 の 2 つを含んだログを除外。1つのフィールドに複数条件を指定するために正規表現で設定。同じフィールドに対して、条件毎に複数行に指定することはできません。
+
+##### sample4
 
 CloudTrail で、{'userIdentity': {'invokedBy': '*.amazonaws.com'}} と一致した場合に除外する。フィールド名が入れ子になっているので、CSVではドット区切りで指定。この例は、Config や ログ配信などのAWS のサービスがリクエストしたAPI Callのログを取り込まない。
 

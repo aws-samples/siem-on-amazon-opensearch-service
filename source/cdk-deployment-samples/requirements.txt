@@ -1,0 +1,8 @@
+aws-cdk.core==1.117.0
+aws_cdk.aws_cloudformation
+aws_cdk.aws_events
+aws_cdk.aws_events_targets
+aws_cdk.aws_iam
+aws_cdk.aws_kinesisfirehose
+aws_cdk.aws_lambda
+aws_cdk.aws_logs

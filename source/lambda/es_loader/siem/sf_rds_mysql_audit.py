@@ -9,6 +9,9 @@ def transform(logdata):
     logdata['rds']['cluster_identifier'] = identifier['cluster']
     logdata['rds']['instance_identifier'] = identifier['instance']
 
+    logdata['mysql_timestamp'] = utils.convrt_micro_epoch_to_seconds_epoch(
+        logdata['mysql_timestamp'])
+
     if 'mysql_object' in logdata:
         logdata['rds']['query'] = logdata['mysql_object'].rstrip(';').encode(
             "utf-8").decode("unicode-escape")[1:-1]

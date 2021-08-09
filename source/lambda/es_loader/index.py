@@ -16,7 +16,7 @@ from aws_lambda_powertools.metrics import MetricUnit
 import siem
 from siem import geodb, utils
 
-__version__ = '2.3.2'
+__version__ = '2.4.0'
 
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
@@ -57,6 +57,9 @@ def get_value_from_etl_config(logtype, key, keytype=None):
                 value = re.compile(rawdata)
             else:
                 value = ''
+        elif keytype == 'list':
+            temp = etl_config[logtype][key]
+            value = [x.strip() for x in temp.strip('[|]').split(',')]
         else:
             value = ''
     except KeyError:
@@ -71,13 +74,38 @@ def get_value_from_etl_config(logtype, key, keytype=None):
     return value
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=1024)
 def create_logconfig(logtype):
-    type_re = ['s3_key_ignored', 'log_pattern', 'multiline_firstline']
+    type_re = ['s3_key_ignored', 'log_pattern', 'multiline_firstline',
+               'xml_firstline']
     type_int = ['max_log_count', 'text_header_line_number',
                 'ignore_header_line_number']
     type_bool = ['via_cwl', 'via_firelens', 'ignore_container_stderr',
                  'timestamp_nano']
+    type_list = ['base.tags', 'container.image.tag', 'dns.answers',
+                 'dns.header_flags', 'dns.resolved_ip', 'dns.type',
+                 'event.category', 'event.type', 'file.attributes',
+                 'host.ip', 'host.mac', 'observer.ip', 'observer.mac',
+                 'process.args', 'registry.data.strings',
+                 'related.hash', 'related.hosts', 'related.ip', 'related.user',
+                 'rule.author', 'threat.tactic.id', 'threat.tactic.name',
+                 'threat.tactic.reference', 'threat.technique.id',
+                 'threat.technique.name', 'threat.technique.reference',
+                 'threat.technique.subtechnique.id',
+                 'threat.technique.subtechnique.name',
+                 'threat.technique.subtechnique.reference',
+                 'tls.client.certificate_chain',
+                 'tls.client.supported_ciphers',
+                 'tls.server.certificate_chain',
+                 'user.roles', 'vulnerability.category',
+                 'x509.alternative_names', 'x509.alternative_names',
+                 'x509.issuer.country', 'x509.issuer.locality',
+                 'x509.issuer.organization', 'x509.issuer.organizational_unit',
+                 'x509.issuer.state_or_province', 'x509.subject.common_name',
+                 'x509.subject.country', 'x509.subject.locality',
+                 'x509.subject.organization',
+                 'x509.subject.organizational_unit',
+                 'x509.subject.state_or_province']
     logconfig = {}
     if logtype in ('unknown', 'nodata'):
         return logconfig
@@ -88,8 +116,12 @@ def create_logconfig(logtype):
             logconfig[key] = get_value_from_etl_config(logtype, key, 'int')
         elif key in type_bool:
             logconfig[key] = get_value_from_etl_config(logtype, key, 'bool')
+        elif key in type_list:
+            logconfig[key] = get_value_from_etl_config(logtype, key, 'list')
         else:
             logconfig[key] = get_value_from_etl_config(logtype, key)
+    if logconfig['file_format'] in ('xml', ):
+        logconfig['multiline_firstline'] = logconfig['xml_firstline']
     return logconfig
 
 
@@ -106,8 +138,8 @@ def get_es_entries(logfile, exclude_log_patterns):
 
     logparser = siem.LogParser(
         logfile, logconfig, sf_module, geodb_instance, exclude_log_patterns)
-    for logdata in logfile:
-        logparser(logdata)
+    for logdata, logmeta in logfile:
+        logparser(logdata, logmeta)
         if logparser.is_ignored:
             logger.debug(f'Skipped log because {logparser.ignored_reason}')
             continue

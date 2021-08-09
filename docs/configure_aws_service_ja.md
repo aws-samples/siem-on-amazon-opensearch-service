@@ -209,7 +209,7 @@ Amazon Network Firewall のログを下記の方法で [**S3 バケット**] に
 
 ![CloudTrail to S3](images/cloudtrail-to-s3.jpg)
 
-s3_key の初期値: `CloudTrail` (デフォルト設定の出力パスの一部)
+s3_key の初期値: `CloudTrail/` または `CloudTrail-Insight/` (デフォルト設定の出力パスの一部)
 
 CloudTrail のログを下記の方法で S3 バケットに出力してください。
 

@@ -18,20 +18,24 @@ SIEM on Amazon ES は以下のログを取り込むことができます。
 
 |       |AWS Service|Log|
 |-------|-----------|---|
-|セキュリティ、ID、およびコンプライアンス|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
-|セキュリティ、ID、およびコンプライアンス|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |セキュリティ、ID、およびコンプライアンス|Amazon GuardDuty|GuardDuty findings|
+|セキュリティ、ID、およびコンプライアンス|AWS Directory Service|Microsoft AD|
+|セキュリティ、ID、およびコンプライアンス|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
+|セキュリティ、ID、およびコンプライアンス|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
 |セキュリティ、ID、およびコンプライアンス|AWS Network Firewall|Flow logs<br>Alert logs|
-|管理とガバナンス|AWS CloudTrail|CloudTrail Log Event|
+|管理とガバナンス|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
 |ネットワーキングとコンテンツ配信|Amazon CloudFront|Standard access log<br>Real-time log|
 |ネットワーキングとコンテンツ配信|Amazon Route 53 Resolver|VPC DNS query log|
 |ネットワーキングとコンテンツ配信|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
 |ネットワーキングとコンテンツ配信|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
+|ストレージ|Amazon FSx for Windows File Server|audit log|
 |ストレージ|Amazon Simple Storage Service (Amazon S3)|access log|
 |データベース|Amazon Relational Database Service (Amazon RDS)<br>(**Experimental Support**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
 |分析|Amazon Managed Streaming for Apache Kafka (Amazon MSK)|Broker log|
 |コンピューティング|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
+|コンピューティング|Windows Servver 2012/2016/2019<br>via CloudWatch Logs|System event log<br>Security event log|
 |コンテナ|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
+|エンドユーザーコンピューティング|Amazon WorkSpaces|Enventory<br>Event log|
 
 Experimental Support はログフィールドの正規化等を大きく変更する可能性があります
 
@@ -93,7 +97,6 @@ sudo yum install -y amazon-linux-extras
 sudo amazon-linux-extras enable python3.8
 sudo yum install -y python38 python38-devel git jq
 sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
-sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
 ```
 
 #### 2-2. SIEM on Amazon ES の clone

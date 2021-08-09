@@ -192,7 +192,7 @@ Ref: [AWS Network Firewall - Developer Guide - Logging and monitoring in AWS Net
 
 ![CloudTrail to S3](images/cloudtrail-to-s3.jpg)
 
-The initial value of s3_key: `CloudTrail` (part of the default output path)
+The initial value of s3_key: `CloudTrail/` or `CloudTrail-Insight/` (part of the default output path)
 
 Follow the steps below to output CloudTrail logs to the S3 bucket:
 

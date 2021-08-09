@@ -18,20 +18,24 @@ SIEM on Amazon ES能夠加載並關聯以下日誌類型。
 
 |       |Amazon 服務|日誌|
 |-------|-----------|---|
-|Security, Identity, & Compliance|AWS Security Hub|Security Hub 問題清單<br>GuardDuty 問題清單<br>Amazon Macie 問題清單<br>Amazon Inspector 問題清單<br>AWS IAM Access Analyzer 問題清單|
-|Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL 流量信息<br>AWS WAF Classic Web ACL 流量信息|
 |Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty 問題清單|
+|Security, Identity, & Compliance|AWS Directory Service|Microsoft AD|
+|Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL 流量信息<br>AWS WAF Classic Web ACL 流量信息|
+|Security, Identity, & Compliance|AWS Security Hub|Security Hub 問題清單<br>GuardDuty 問題清單<br>Amazon Macie 問題清單<br>Amazon Inspector 問題清單<br>AWS IAM Access Analyzer 問題清單|
 |Security, Identity, & Compliance|AWS Network Firewall|Flow logs<br>Alert logs|
-|Management & Governance|AWS CloudTrail|CloudTrail Log Event|
+|Management & Governance|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
 |Networking & Content Delivery|Amazon CloudFront|標準訪問日誌<br>實時日誌|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS 查詢日誌|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
 |Networking & Content Delivery|Elastic Load Balancing|Application Load Balancer 訪問日誌<br>Network Load Balancer 訪問日誌<br>Classic Load Balancer 訪問日誌|
+|Storage|Amazon FSx for Windows File Server|audit log|
 |Storage|Amazon Simple Storage Service (Amazon S3)|訪問日誌|
 |Database|Amazon Relational Database Service (Amazon RDS)<br>(**試驗中**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
 |Analytics|Amazon Managed Streaming for Apache Kafka (Amazon MSK)|Broker log|
 |Compute|Linux OS<br>通過 CloudWatch Logs|/var/log/messages<br>/var/log/secure|
+|Compute|Windows Servver 2012/2016/2019<br>通過 CloudWatch Logs|System event log<br>Security event log|
 |Containers|Amazon Elastic Container Service (Amazon ECS)<br>通過 FireLens|僅框架|
+|End User Computing|Amazon WorkSpaces|Enventory<br>Event log|
 
 我們日後有機會修改 **Database (試驗中)** 日誌存放內容來優化功能。
 
@@ -93,7 +97,6 @@ sudo yum install -y amazon-linux-extras
 sudo amazon-linux-extras enable python3.8
 sudo yum install -y python38 python38-devel git jq
 sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
-sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
 ```
 
 #### 2-2. 複製SIEM on Amazon ES
