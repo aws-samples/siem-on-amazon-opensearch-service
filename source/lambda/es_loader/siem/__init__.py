@@ -878,7 +878,7 @@ class LogParser:
                 if key not in ("@message", ):
                     d[key] = self.truncate_txt(d[key], 32753) + '<<TRUNCATED>>'
                     logger.warn(
-                        f'Data was trauncated because the size of {key} field '
+                        f'Data was truncated because the size of {key} field '
                         f'is bigger than 32,766. _id is {self.doc_id}')
         return d
 
