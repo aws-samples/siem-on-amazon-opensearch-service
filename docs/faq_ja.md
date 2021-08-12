@@ -41,4 +41,39 @@ AWS マネジメントコンソールから新しいパスワードを設定で�
 1. [マスターユーザー名]に [**aesadmin**]、[マスターパスワード]/[マスターパスワードの確認] に [**任意のパスワード**] を入力します
 1. 画面右下の [**送信**] を選択します
 
+## 大量にログが出力されストレージを圧迫する
+
+特定の環境や特定のログのフィールドを除外することが可能です。
+
+※ 取り込みの除外をすると Amazon ES からは検索できなくなるので、Athena 等で検索をして下さい
+
+例1) 本番環境の AWSアカウント 111111111111 と 222222222222 だけを取り込んで、開発環境等の他の AWS アカウントは取り込まない
+
+対象ファイル: user.ini
+
+```ini
+[vpcflowlogs]
+s3_key_ignored = ^(?!.*(111111111111|222222222222)).*
+```
+
+user.ini の設定方法については[「SIEM on Amazon ES の設定変更」の 「AWS Lambda レイヤーによる追加方法(推奨)」](configure_siem_ja.md#AWS-Lambda-レイヤーによる追加方法推奨)で確認できます。
+
+例) 大量発生する傾向のあるログの除外の設定
+
+フィールド単位で除外
+
+対象ファイル: exclude_log_patterns.csv
+
+```
+log_type,field,pattern,pattern_type,comment
+cloudtrail,eventName,GenerateDataKey|Decrypt,regex,ignore Decyrpt and GenerateDataKey of KMS API
+cloudtrail,userIdentity.invokedBy,macie.amazonaws.com,text,ignore Macie scan
+vpcflowlogs,log_status,NODATA,text,ignore NODATA
+vpcflowlogs,subnet_id,subnet-aaaaaaaaaaaaaaaaa|subnet-bbbbbbbbbbbbbbbbb,regex,micro service works in these subnet
+```
+
+exclude_log_patterns.csv の設定方法については[「SIEM on Amazon ES の設定変更」の「ログのフィールドと値による除外」](configure_siem_ja.md#ログのフィールドと値による除外)で確認できます。
+
+ログのフィールドと値による除外
+
 [READMEに戻る](../README_ja.md)
