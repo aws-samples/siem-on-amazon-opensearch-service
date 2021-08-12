@@ -43,26 +43,26 @@ AWS マネジメントコンソールから新しいパスワードを設定で�
 
 ## 大量にログが出力されストレージを圧迫する
 
-特定の環境や特定のログのフィールドを除外することが可能です。
+AWS アカウントやログの特定フィールドと値を条件にして、Amazon ES へのログ取り込みを除外することが可能です。
 
-※ 取り込みの除外をすると Amazon ES からは検索できなくなるので、Athena 等で検索をして下さい
+※ ログ取り込みの除外をすると Amazon ES からは検索できなくなるので Athena 等で検索をして下さい。また、ログを時系列に並べても除外したフィールドが表示されないことで、ログ分析に影響が出る可能性があります。
 
 例1) 本番環境の AWSアカウント 111111111111 と 222222222222 だけを取り込んで、開発環境等の他の AWS アカウントは取り込まない
 
-対象ファイル: user.ini
+設定ファイル: user.ini
 
 ```ini
 [vpcflowlogs]
 s3_key_ignored = ^(?!.*(111111111111|222222222222)).*
 ```
 
-user.ini の設定方法については[「SIEM on Amazon ES の設定変更」の 「AWS Lambda レイヤーによる追加方法(推奨)」](configure_siem_ja.md#AWS-Lambda-レイヤーによる追加方法推奨)で確認できます。
+user.ini の設定方法と詳細については[「SIEM on Amazon ES の設定変更」の 「AWS Lambda レイヤーによる追加方法(推奨)」](configure_siem_ja.md#AWS-Lambda-レイヤーによる追加方法推奨)で確認できます。
 
-例) 大量発生する傾向のあるログの除外の設定
+例2) 大量発生する傾向のあるログの除外設定
 
-フィールド単位で除外
+ログの特定フィールドと値による除外をします。
 
-対象ファイル: exclude_log_patterns.csv
+設定ファイル: exclude_log_patterns.csv
 
 ```
 log_type,field,pattern,pattern_type,comment
@@ -72,8 +72,6 @@ vpcflowlogs,log_status,NODATA,text,ignore NODATA
 vpcflowlogs,subnet_id,subnet-aaaaaaaaaaaaaaaaa|subnet-bbbbbbbbbbbbbbbbb,regex,micro service works in these subnet
 ```
 
-exclude_log_patterns.csv の設定方法については[「SIEM on Amazon ES の設定変更」の「ログのフィールドと値による除外」](configure_siem_ja.md#ログのフィールドと値による除外)で確認できます。
-
-ログのフィールドと値による除外
+exclude_log_patterns.csv の設定方法と詳細については[「SIEM on Amazon ES の設定変更」の「ログのフィールドと値による除外」](configure_siem_ja.md#ログのフィールドと値による除外)で確認できます。
 
 [READMEに戻る](../README_ja.md)
