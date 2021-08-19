@@ -45,4 +45,8 @@
 
 ![Amazon RDS Dashboard](images/dashboard-rds.jpg)
 
+## Amazon WorkSpaces
+
+![Amazon WorkSpaces](images/dashboard-workspaces.jpg)
+
 [READMEに戻る](../README_ja.md)
