@@ -10,6 +10,7 @@
 * [Amazon VPC Flow Logs](#Amazon-VPC-Flow-Logs)
 * [Elastic Load Balancing](#Elastic-Load-Balancing)
 * [Amazon Relational Database Service (RDS)](#Amazon-RDS)
+* [Amazon WorkSpaces](#Amazon-WorkSpaces)
 
 ## AWS Security Hub
 
@@ -44,5 +45,9 @@ This dashboard was imported from [AWS WAF Dashboard](https://github.com/aws-samp
 ## Amazon RDS
 
 ![Amazon RDS Dashboard](images/dashboard-rds.jpg)
+
+## Amazon WorkSpaces
+
+![Amazon WorkSpaces](images/dashboard-workspaces.jpg)
 
 [Back To README](../README.md)
