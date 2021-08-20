@@ -29,6 +29,7 @@
     "additional_s3_buckets": [],
     "additional_s3_buckets_sample": ["bucket-log-name", "this-is-not-arn"],
     "additional_kms_cmks": [],
-    "additional_kms_cmks_sample": ["arn:aws:kms:ap-northeast-1:123456789012:key/abcd12345678-1234", "this-must-be-arn"]
+    "additional_kms_cmks_sample": ["arn:aws:kms:ap-northeast-1:123456789012:key/abcd12345678-1234", "this-must-be-arn"],
+    "resource_suffix": "test1"
   }
 }
