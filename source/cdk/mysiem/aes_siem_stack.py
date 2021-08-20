@@ -647,7 +647,7 @@ class MyAesSiemStack(core.Stack):
 
         # execute lambda_deploy_es to deploy Amaozon ES Domain
         aes_domain = aws_cloudformation.CfnCustomResource(
-            self, 'AesSiemDomainDeployedR2',
+            self, f'AesSiemDomainDeployedR2{RESOURCE_SUFFIX}',
             service_token=lambda_deploy_es.function_arn,)
         aes_domain.add_override('Properties.ConfigVersion', __version__)
 
