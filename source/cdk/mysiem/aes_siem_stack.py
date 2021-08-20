@@ -134,6 +134,7 @@ class MyAesSiemStack(core.Stack):
         if self.node.try_get_context('vpc_type'):
             validate_cdk_json(self)
 
+        RESOURCE_SUFFIX = self.node.try_get_context('resource_suffix')
         ES_LOADER_TIMEOUT = 600
         ######################################################################
         # ELB mapping
@@ -168,8 +169,8 @@ class MyAesSiemStack(core.Stack):
             self, 'ReservedConcurrency', default=10, type='Number',
             description=('Input reserved concurrency. Increase this value if '
                          'there are steady logs delay despite no errors'))
-        aes_domain_name = self.node.try_get_context('aes_domain_name')
-        bucket = f'{aes_domain_name}-{core.Aws.ACCOUNT_ID}'
+        aes_domain_name = self.node.try_get_context('aes_domain_name') + RESOURCE_SUFFIX
+        bucket = f'{aes_domain_name}-{core.Aws.ACCOUNT_ID}' + RESOURCE_SUFFIX
         s3bucket_name_geo = f'{bucket}-geo'
         s3bucket_name_log = f'{bucket}-log'
         s3bucket_name_snapshot = f'{bucket}-snapshot'
@@ -184,19 +185,19 @@ class MyAesSiemStack(core.Stack):
             'no_organizations').get('aws_accounts')
 
         # Overwrite default S3 bucket name as customer name
-        temp_geo = self.node.try_get_context('s3_bucket_name').get('geo')
+        temp_geo = self.node.try_get_context('s3_bucket_name').get('geo') + RESOURCE_SUFFIX
         if temp_geo:
             s3bucket_name_geo = temp_geo
         else:
             print('Using default bucket names')
-        temp_log = self.node.try_get_context('s3_bucket_name').get('log')
+        temp_log = self.node.try_get_context('s3_bucket_name').get('log') + RESOURCE_SUFFIX
         if temp_log:
             s3bucket_name_log = temp_log
         elif org_id or no_org_ids:
             s3bucket_name_log = f'{aes_domain_name}-{self.account}-log'
         else:
             print('Using default bucket names')
-        temp_snap = self.node.try_get_context('s3_bucket_name').get('snapshot')
+        temp_snap = self.node.try_get_context('s3_bucket_name').get('snapshot') + RESOURCE_SUFFIX
         if temp_snap:
             s3bucket_name_snapshot = temp_snap
         else:
@@ -205,6 +206,8 @@ class MyAesSiemStack(core.Stack):
         if not kms_cmk_alias:
             kms_cmk_alias = 'aes-siem-key'
             print('Using default key alais')
+
+        kms_cmk_alias = kms_cmk_alias + RESOURCE_SUFFIX
 
         ######################################################################
         # deploy VPC when context is defined as using VPC
@@ -452,7 +455,7 @@ class MyAesSiemStack(core.Stack):
         )
         aes_siem_snapshot_role = aws_iam.Role(
             self, 'AesSiemSnapshotRole',
-            role_name='aes-siem-snapshot-role',
+            role_name=f'aes-siem-snapshot-role{RESOURCE_SUFFIX}',
             inline_policies=[policydoc_snapshot, ],
             assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
         )
@@ -468,7 +471,7 @@ class MyAesSiemStack(core.Stack):
 
         aes_siem_deploy_role_for_lambda = aws_iam.Role(
             self, 'AesSiemDeployRoleForLambda',
-            role_name='aes-siem-deploy-role-for-lambda',
+            role_name=f'aes-siem-deploy-role-for-lambda{RESOURCE_SUFFIX}',
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
                     'AmazonESFullAccess'),
@@ -489,14 +492,14 @@ class MyAesSiemStack(core.Stack):
         # for alert from Amazon ES
         aes_siem_sns_role = aws_iam.Role(
             self, 'AesSiemSnsRole',
-            role_name='aes-siem-sns-role',
+            role_name=f'aes-siem-sns-role{RESOURCE_SUFFIX}',
             assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
         )
 
         # EC2 role
         aes_siem_es_loader_ec2_role = aws_iam.Role(
             self, 'AesSiemEsLoaderEC2Role',
-            role_name='aes-siem-es-loader-for-ec2',
+            role_name=f'aes-siem-es-loader-for-ec2{RESOURCE_SUFFIX}',
             assumed_by=aws_iam.ServicePrincipal('ec2.amazonaws.com'),
         )
 
@@ -522,12 +525,12 @@ class MyAesSiemStack(core.Stack):
         # SQS for es-laoder's DLQ
         ######################################################################
         sqs_aes_siem_dlq = aws_sqs.Queue(
-            self, 'AesSiemDlq', queue_name='aes-siem-dlq',
+            self, 'AesSiemDlq', queue_name=f'aes-siem-dlq{RESOURCE_SUFFIX}',
             retention_period=core.Duration.days(14))
 
         sqs_aes_siem_splitted_logs = aws_sqs.Queue(
             self, 'AesSiemSqsSplitLogs',
-            queue_name='aes-siem-sqs-splitted-logs',
+            queue_name=f'aes-siem-sqs-splitted-logs{RESOURCE_SUFFIX}',
             dead_letter_queue=aws_sqs.DeadLetterQueue(
                 max_receive_count=2, queue=sqs_aes_siem_dlq),
             visibility_timeout=core.Duration.seconds(ES_LOADER_TIMEOUT),
@@ -547,7 +550,7 @@ class MyAesSiemStack(core.Stack):
 
         lambda_es_loader = aws_lambda.Function(
             self, 'LambdaEsLoader', **lambda_es_loader_vpc_kwargs,
-            function_name='aes-siem-es-loader',
+            function_name=f'aes-siem-es-loader{RESOURCE_SUFFIX}',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             # code=aws_lambda.Code.asset('../lambda/es_loader.zip'),
             code=aws_lambda.Code.asset('../lambda/es_loader'),
@@ -590,7 +593,7 @@ class MyAesSiemStack(core.Stack):
 
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',
-            function_name='aes-siem-geoip-downloader',
+            function_name=f'aes-siem-geoip-downloader{RESOURCE_SUFFIX}',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             code=aws_lambda.Code.asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
@@ -611,7 +614,7 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         lambda_deploy_es = aws_lambda.Function(
             self, 'LambdaDeployAES',
-            function_name='aes-siem-deploy-aes',
+            function_name=f'aes-siem-deploy-aes{RESOURCE_SUFFIX}',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             # code=aws_lambda.Code.asset('../lambda/deploy_es.zip'),
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
@@ -661,7 +664,7 @@ class MyAesSiemStack(core.Stack):
                 'vpc_subnets': aws_ec2.SubnetSelection(subnets=[subnet1, ]), }
         lambda_configure_es = aws_lambda.Function(
             self, 'LambdaConfigureAES', **lambda_configure_es_vpc_kwargs,
-            function_name='aes-siem-configure-aes',
+            function_name=f'aes-siem-configure-aes{RESOURCE_SUFFIX}',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
@@ -704,7 +707,7 @@ class MyAesSiemStack(core.Stack):
         # grant permission to es_loader role
         inline_policy_to_load_entries_into_es = aws_iam.Policy(
             self, 'aes-siem-policy-to-load-entries-to-es',
-            policy_name='aes-siem-policy-to-load-entries-to-es',
+            policy_name=f'aes-siem-policy-to-load-entries-to-es{RESOURCE_SUFFIX}',
             statements=[
                 aws_iam.PolicyStatement(
                     actions=['es:*'],
@@ -721,7 +724,7 @@ class MyAesSiemStack(core.Stack):
         if additional_kms_cmks:
             inline_policy_access_to_additional_cmks = aws_iam.Policy(
                 self, 'access_to_additional_cmks',
-                policy_name='access_to_additional_cmks',
+                policy_name=f'access_to_additional_cmks{RESOURCE_SUFFIX}',
                 statements=[
                     aws_iam.PolicyStatement(
                         actions=['kms:Decrypt'],
@@ -742,7 +745,7 @@ class MyAesSiemStack(core.Stack):
                 buckets_list.append(f'arn:aws:s3:::{bucket}/*')
             inline_policy_access_to_additional_buckets = aws_iam.Policy(
                 self, 'access_to_additional_buckets',
-                policy_name='access_to_additional_buckets',
+                policy_name=f'access_to_additional_buckets{RESOURCE_SUFFIX}',
                 statements=[
                     aws_iam.PolicyStatement(
                         actions=['s3:GetObject*', 's3:GetBucket*', 's3:List*'],
@@ -968,7 +971,7 @@ class MyAesSiemStack(core.Stack):
         # SNS topic for Amazon ES Alert
         ######################################################################
         sns_topic = aws_sns.Topic(
-            self, 'SnsTopic', topic_name='aes-siem-alert',
+            self, 'SnsTopic', topic_name=f'aes-siem-alert{RESOURCE_SUFFIX}',
             display_name='AES SIEM')
 
         sns_topic.add_subscription(aws_sns_subscriptions.EmailSubscription(
@@ -982,14 +985,14 @@ class MyAesSiemStack(core.Stack):
         kibanaadmin = aes_domain.get_att('kibanaadmin').to_string()
         kibanapass = aes_domain.get_att('kibanapass').to_string()
 
-        core.CfnOutput(self, 'RoleDeploy', export_name='role-deploy',
+        core.CfnOutput(self, 'RoleDeploy', export_name=f'role-deploy{RESOURCE_SUFFIX}',
                        value=aes_siem_deploy_role_for_lambda.role_arn)
-        core.CfnOutput(self, 'KibanaUrl', export_name='kibana-url',
+        core.CfnOutput(self, 'KibanaUrl', export_name=f'kibana-url{RESOURCE_SUFFIX}',
                        value=kibanaurl)
-        core.CfnOutput(self, 'KibanaPassword', export_name='kibana-pass',
+        core.CfnOutput(self, 'KibanaPassword', export_name=f'kibana-pass{RESOURCE_SUFFIX}',
                        value=kibanapass,
                        description='Please change the password in Kibana ASAP')
-        core.CfnOutput(self, 'KibanaAdmin', export_name='kibana-admin',
+        core.CfnOutput(self, 'KibanaAdmin', export_name=f'kibana-admin{RESOURCE_SUFFIX}',
                        value=kibanaadmin)
 
     def list_without_none(self, *args):
