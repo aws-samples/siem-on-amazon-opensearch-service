@@ -696,7 +696,7 @@ class MyAesSiemStack(core.Stack):
         configure_es_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
         aes_config = aws_cloudformation.CfnCustomResource(
-            self, 'AesSiemDomainConfiguredR2',
+            self, f'AesSiemDomainConfiguredR2{RESOURCE_SUFFIX}',
             service_token=lambda_configure_es.function_arn,)
         aes_config.add_override('Properties.ConfigVersion', __version__)
         aes_config.add_depends_on(aes_domain)
