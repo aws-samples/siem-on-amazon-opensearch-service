@@ -189,3 +189,5 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# pycharm
+.idea/
