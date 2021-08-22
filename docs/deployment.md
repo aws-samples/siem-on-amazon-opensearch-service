@@ -163,6 +163,7 @@ You can change the following parameters as common configurations. No modificatio
 | .aws_accounts | Enter comma-separated AWS account IDs that are not managed by Oarganizations |
 | additional_s3_buckets | Enumerates S3 bucket names separated by commas |
 | additional_kms_cmks | Enumerates the ARNs of AWS KMS customer-managed keys, separated by commas |
+| resource_suffix |  | A suffix entry to prevent resource duplication, such as re-deploy. It is recommended to start with a hyphen like "-test"
 
 Finally, validate the JSON file. If JSON is displayed after execution and there is no error, the syntax of the JSON file is fine.
 
