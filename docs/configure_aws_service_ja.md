@@ -81,7 +81,7 @@ s3_key の初期値: `/DirectoryService/MicrosoftAD/` (Firehose の出力パス�
 1. 下記の CloudFormation を使って設定します
     * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
         * 基本設定の CloudFormation。ログ転送先のS3バケット名の取得やIAMロールを作成します。他の AWS サービス設定で共通に使用します
-    
+
     * [siem-log-exporter-ad.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-ad.template)
         * CloudWatch Logs から S3バケットに出力します
 

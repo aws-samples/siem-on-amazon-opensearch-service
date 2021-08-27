@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.1] - 2021-08-27
+### Added
+- Added Amazon WorkSpaces dashboard #150
+### Changed
+- Updated AWS Security Hub dashboard #2
+- Refactored ETL logic of firelens #149
+- Partically migrated from legacy index templates to new composable ones. rollover policy, workspaces and windows events index #152
+### Fixed
+- Fixed logic of truncating field value which is bigger than 32,766 byte #138
+
+
 ## [2.4.0] - 2021-08-09
 ### Added
 - Support Amazon ES 7.10 #103
