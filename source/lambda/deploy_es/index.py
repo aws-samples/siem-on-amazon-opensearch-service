@@ -17,7 +17,7 @@ import requests
 from crhelper import CfnResource
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.4.0'
+__version__ = '2.4.1'
 print('version: ' + __version__)
 
 logger = logging.getLogger(__name__)
@@ -222,6 +222,10 @@ def query_aes(es_endpoint, awsauth, method=None, path=None, payload=None,
         res = requests.put(url, auth=awsauth, json=payload, headers=headers)
     elif method.lower() == 'patch':
         res = requests.put(url, auth=awsauth, json=payload, headers=headers)
+    elif method.lower() == 'head':
+        res = requests.head(url, auth=awsauth, stream=True)
+    elif method.lower() == 'delete':
+        res = requests.delete(url, auth=awsauth, stream=True)
     return(res)
 
 
@@ -298,6 +302,46 @@ def configure_opendistro(es_endpoint, es_app_data):
                         added_role=es_loader_ec2_role)
 
 
+def upsert_policy(es_endpoint, awsauth, items):
+    for key in items:
+        path = f'_opendistro/_ism/policies/{key}'
+        res = query_aes(es_endpoint, awsauth, 'GET', path)
+        if res.status_code == 200:
+            seq_no = json.loads(res.content)['_seq_no']
+            primary_term = json.loads(res.content)['_primary_term']
+            path = f'{path}?if_seq_no={seq_no}&if_primary_term={primary_term}'
+        payload = json.loads(items[key])
+        res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
+        logger.info(output_message(path, res))
+
+
+def upsert_obj(es_endpoint, awsauth, items, api):
+    for key in items:
+        payload = json.loads(items[key])
+        path = f'{api}/{key}'
+        res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
+        if res.status_code == 200:
+            logger.debug(output_message(key, res))
+        else:
+            logger.error(output_message(key, res))
+
+
+def delete_obj(es_endpoint, awsauth, items, api):
+    for key in items:
+        path = f'{api}/{key}'
+        res = query_aes(es_endpoint, awsauth, 'HEAD', path)
+        if res.status_code == 200:
+            res = query_aes(es_endpoint, awsauth, 'DELETE', path)
+            if res.status_code == 200:
+                logger.debug(output_message(key, res))
+            else:
+                logger.error(output_message(key, res))
+        elif res.status_code == 404:
+            pass
+        else:
+            logger.error(output_message(key, res))
+
+
 def configure_siem(es_endpoint, es_app_data):
     awsauth = auth_aes(es_endpoint)
     # create cluster settings #48
@@ -310,81 +354,77 @@ def configure_siem(es_endpoint, es_app_data):
             es_endpoint, awsauth, 'PUT', '_cluster/settings', payload)
         logger.debug(output_message(key, res))
 
-    logger.info('Create/Update index template')
-    index_patterns = es_app_data['index-template']
-    for key in index_patterns:
-        payload = json.loads(index_patterns[key])
-        path = f'_template/{key}'
-        res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
-        if res.status_code == 200:
-            logger.debug(output_message(key, res))
-        else:
-            logger.error(output_message(key, res))
+    # new composable index template. v2.4.1-
+    logger.info('Create/Update component index templates')
+    upsert_obj(es_endpoint, awsauth, es_app_data['component-templates'],
+               api='_component_template')
+    logger.info('Create/Update index templates')
+    upsert_obj(es_endpoint, awsauth, es_app_data['index-templates'],
+               api='_index_template')
+
+    # create index_state_management_policies such as rollover policy
+    upsert_policy(
+        es_endpoint, awsauth, es_app_data['index_state_management_policies'])
+
+    # index template for rollover
+    upsert_obj(es_endpoint, awsauth, es_app_data['index-rollover'],
+               api='_index_template')
+
+    # delete legacy index template
+    logger.info('Delete legacy index templates')
+    delete_obj(es_endpoint, awsauth, es_app_data['deleted-old-index-template'],
+               api='_template')
+
+    # lagecy intex template. It will be deplecated
+    logger.info('Create/Update legacy index templates')
+    upsert_obj(es_endpoint, awsauth, es_app_data['legacy-index-template'],
+               api='_template')
 
 
 def configure_index_rollover(es_endpoint, es_app_data, aes_domain_ver):
     awsauth = auth_aes(es_endpoint)
-    logger.info('start to create IM policy for rollover')
-    payload = {
-        'policy': {
-            'description': 'rollover by 100gb',
-            'default_state': 'rollover',
-            'states': [{
-                'name': 'rollover',
-                'actions': [{'rollover': {'min_size': '100gb'}}],
-            }]
-        }
-    }
-    if aes_domain_ver not in ('7.4.2', '7.7.0', '7.8.0'):
-        payload['policy']['ism_template'] = [
-            {"index_patterns": ["log-*-0*"], "priority": 0}
-        ]
-    path = '_opendistro/_ism/policies/rollover100gb'
-    res = query_aes(es_endpoint, awsauth, 'GET', path)
-    if res.status_code == 404:
-        res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
-        logger.info(output_message(path, res))
-
     index_patterns = es_app_data['index-rollover']
-    logger.info('create index template for rollover')
-    for key in index_patterns:
-        if aes_domain_ver in ('7.4.2', '7.7.0', '7.8.0'):
-            path = f'_template/{key}'
-            payload = json.loads(index_patterns[key])
-        else:
-            path = f'_index_template/{key}'
-            alias = key.replace('_rollover', '')
-            payload = {
-                "index_patterns": [alias + "-0*"],
-                "priority": 0,
-                "template": {
-                    "settings": {
-                        "opendistro.index_state_management.rollover_alias":
-                        alias
-                    }
-                }
-            }
-        res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
-        if res.status_code == 200:
-            logger.info(output_message(key, res))
-        else:
-            logger.error(output_message(key, res))
-    time.sleep(10)  # wait to create rollover policy
-
     logger.info('Create initial index 000001 for rollover')
     for key in index_patterns:
         alias = key.replace('_rollover', '')
         res_alias = query_aes(es_endpoint, awsauth, 'GET', alias)
-        if res_alias.status_code != 404:
+        is_refresh = False
+        if res_alias.status_code == 200:
             logger.debug(output_message('Already exists ' + alias, res_alias))
-            continue
-        payload = {'aliases': {alias: {}}}
-        idx = key.replace('_rollover', '-000001')
-        res = query_aes(es_endpoint, awsauth, 'PUT', idx, payload)
-        if res.status_code == 200:
-            logger.info(output_message(idx, res))
+            idx = list(json.loads(res_alias.content).keys())[0]
+            res_count = query_aes(es_endpoint, awsauth, 'GET', f'{idx}/_count')
+            if res_count.status_code == 200:
+                doc_count = json.loads(res_count.content)['count']
+                if doc_count == 0:
+                    query_aes(es_endpoint, awsauth, 'DELETE', idx)
+                    logger.info(f'{idx} is deleted and refreshed')
+                    is_refresh = True
         else:
-            logger.error(output_message(idx, res))
+            is_refresh = True
+            idx = key.replace('_rollover', '-000001')
+        if is_refresh:
+            payload = {'aliases': {alias: {"is_write_index": True}}}
+            res = query_aes(es_endpoint, awsauth, 'PUT', idx, payload)
+            if res.status_code == 200:
+                logger.info(output_message(idx, res))
+            else:
+                logger.error(output_message(idx, res))
+        """
+        # check whether index alias has @timestamp field
+        timestamp_field = f'{idx}/_mapping/field/@timestamp'
+        res_timestamp = query_aes(es_endpoint, awsauth, 'GET', timestamp_field)
+        if '@timestamp' not in res_timestamp.text:
+            payload = {"@timestamp": "3000-01-01T00:00:00"}
+            res = query_aes(
+                es_endpoint, awsauth, 'POST', f'{idx}/_doc', payload)
+            time.sleep(1)
+            doc_id = json.loads(res.content)['_id']
+            res = query_aes(
+                es_endpoint, awsauth, 'DELETE', f'{idx}/_doc/{doc_id}')
+            logger.info('put and deleted dummy data')
+        else:
+            pass
+        """
     logger.info('Finished creating initial index 000001 for rollover')
 
 
@@ -629,6 +669,9 @@ def aes_config_create_update(event, context):
     es_endpoint = os.environ['es_endpoint']
 
     aes_domain_ver = get_aes_domain_version(es_endpoint)
+    if aes_domain_ver in ('7.4.2', '7.7.0', '7.8.0'):
+        raise Exception(f'Amazon ES Version is {aes_domain_ver}. Please update'
+                        f' Amazon ES to v7.10 or later')
     configure_opendistro(es_endpoint, es_app_data)
     configure_siem(es_endpoint, es_app_data)
     configure_index_rollover(es_endpoint, es_app_data, aes_domain_ver)

@@ -17,7 +17,7 @@ from aws_lambda_powertools import Logger
 
 from siem import utils, winevtxml
 
-__version__ = '2.4.0'
+__version__ = '2.4.1'
 
 logger = Logger(child=True)
 
@@ -196,7 +196,9 @@ class LogS3:
 
         if self.via_cwl:
             yield from self.extract_cwl_log(start, end)
-        elif self.file_format in ('text', 'csv') or self.via_firelens:
+        elif self.via_firelens:
+            yield from self.extract_firelens_log(start, end)
+        elif self.file_format in ('text', 'csv'):
             for logdata in self.rawdata.readlines()[start:end]:
                 yield (logdata.strip(), logmeta)
         elif self.file_format in ('json', ):
@@ -260,6 +262,45 @@ class LogS3:
                         else:
                             yield logevent['message'], logmeta
                     line_num += 1
+
+    def extract_firelens_log(self, start, end):
+        ignore_container_stderr_bool = (
+            self.logconfig['ignore_container_stderr'])
+        for logdata in self.rawdata.readlines()[start:end]:
+            obj = json.loads(logdata.strip())
+            firelens_meta_dict = {}
+            # basic firelens field
+            firelens_meta_dict['container_id'] = obj.get('container_id')
+            firelens_meta_dict['container_name'] = obj.get('container_name')
+            firelens_meta_dict['container_source'] = obj.get('source')
+            firelens_meta_dict['ecs_cluster'] = obj.get('ecs_cluster')
+            firelens_meta_dict['ecs_task_arn'] = obj.get('ecs_task_arn')
+            firelens_meta_dict['ecs_task_definition'] = obj.get(
+                'ecs_task_definition')
+            ec2_instance_id = obj.get('ec2_instance_id', False)
+            if ec2_instance_id:
+                firelens_meta_dict['ec2_instance_id'] = ec2_instance_id
+            # original log
+            logdata = obj['log']
+            # stderr
+            if firelens_meta_dict['container_source'] == 'stderr':
+                if ignore_container_stderr_bool:
+                    reason = "log is container's stderr"
+                    firelens_meta_dict['is_ignored'] = True
+                    firelens_meta_dict['ignored_reason'] = reason
+                else:
+                    firelens_meta_dict['__skip_normalization'] = True
+                    firelens_meta_dict['__error_message'] = logdata
+            if self.file_format in ('json', ):
+                try:
+                    logdata = json.loads(logdata)
+                except json.decoder.JSONDecodeError:
+                    error_message = 'Invalid file format found during parsing'
+                    firelens_meta_dict['__skip_normalization'] = True
+                    if '__error_message' in firelens_meta_dict:
+                        firelens_meta_dict['__error_message'] = error_message
+                    logger.warn(f'{error_message} {self.s3key}')
+            yield (logdata, firelens_meta_dict)
 
     def extract_rawdata_from_s3obj(self):
         try:
@@ -475,6 +516,7 @@ class LogParser:
 
     def __call__(self, logdata, logmeta):
         self.logdata = logdata
+        self.logmeta = logmeta
         if logmeta:
             self.logstream = logmeta.get('logstream')
             self.loggroup = logmeta.get('loggroup')
@@ -485,7 +527,10 @@ class LogParser:
             self.cwl_timestamp = logmeta.get('cwl_timestamp')
             self.cwe_id = logmeta.get('cwe_id')
             self.cwe_timestamp = logmeta.get('cwe_timestamp')
-        self.__logdata_dict = self.logdata_to_dict(logdata)
+        self.__logdata_dict = self.logdata_to_dict(logdata, logmeta)
+        if logmeta.get('container_name'):
+            # Firelens. for compatibility
+            self.__logdata_dict = dict(self.__logdata_dict, **logmeta)
         if self.is_ignored:
             return
         self.__event_ingested = datetime.now(timezone.utc)
@@ -583,15 +628,11 @@ class LogParser:
     ###########################################################################
     # Method/Function - Main
     ###########################################################################
-    def logdata_to_dict(self, logdata):
+    def logdata_to_dict(self, logdata, logmeta):
         logdata_dict = {}
-        firelens_meta_dict = {}
-        if self.via_firelens:
-            logdata, firelens_meta_dict = self.get_log_and_meta_from_firelens()
-            logdata, is_valid_log = self.validate_logdata_in_firelens(
-                logdata, firelens_meta_dict)
-            if not is_valid_log:
-                return logdata
+        if 'is_ignored' in logmeta or '__skip_normalization' in logmeta:
+            return logdata_dict
+
         if self.logformat in 'csv':
             logdata_dict = dict(zip(self.header.split(), logdata.split()))
             logdata_dict = utils.convert_keyname_to_safe_field(logdata_dict)
@@ -603,8 +644,6 @@ class LogParser:
             logdata_dict = xmltodict.parse(logdata)
         elif self.logformat in ('text', 'multiline'):
             logdata_dict = self.text_logdata_to_dict(logdata)
-        if self.via_firelens:
-            logdata_dict.update(firelens_meta_dict)
         return logdata_dict
 
     def add_basic_field(self):
@@ -710,16 +749,21 @@ class LogParser:
                 ecs_dict['cloud']['region'] = 'unknown'
 
         # get info from firelens metadata of Elastic Container Serivce
-        if 'ecs_task_arn' in self.__logdata_dict:
-            ecs_task_arn_taple = self.__logdata_dict['ecs_task_arn'].split(':')
+        if 'ecs_task_arn' in self.logmeta:
+            ecs_task_arn_taple = self.logmeta['ecs_task_arn'].split(':')
             ecs_dict['cloud']['account']['id'] = ecs_task_arn_taple[4]
             ecs_dict['cloud']['region'] = ecs_task_arn_taple[3]
-            if 'ec2_instance_id' in self.__logdata_dict:
+            if 'ec2_instance_id' in self.logmeta:
                 ecs_dict['cloud']['instance'] = {
-                    'id': self.__logdata_dict['ec2_instance_id']}
+                    'id': self.logmeta['ec2_instance_id']}
             ecs_dict['container'] = {
-                'id': self.__logdata_dict['container_id'],
-                'name': self.__logdata_dict['container_name']}
+                'id': self.logmeta['container_id'],
+                'name': self.logmeta['container_name']}
+
+        if '__error_message' in self.logmeta:
+            self.__logdata_dict['error'] = {
+                'message': self.logmeta['__error_message']}
+            del self.__logdata_dict['__error_message']
 
         static_ecs_keys = self.logconfig['static_ecs']
         if static_ecs_keys:
@@ -755,49 +799,6 @@ class LogParser:
     ###########################################################################
     # Method/Function - Support
     ###########################################################################
-    def get_log_and_meta_from_firelens(self):
-        obj = json.loads(self.logdata)
-        firelens_meta_dict = {}
-        # basic firelens field
-        firelens_meta_dict['container_id'] = obj.get('container_id')
-        firelens_meta_dict['container_name'] = obj.get('container_name')
-        firelens_meta_dict['container_source'] = obj.get('source')
-        # ecs meta data
-        firelens_meta_dict['ecs_cluster'] = obj.get('ecs_cluster')
-        firelens_meta_dict['ecs_task_arn'] = obj.get('ecs_task_arn')
-        firelens_meta_dict['ecs_task_definition'] = obj.get(
-            'ecs_task_definition')
-        ec2_instance_id = obj.get('ec2_instance_id', False)
-        if ec2_instance_id:
-            firelens_meta_dict['ec2_instance_id'] = ec2_instance_id
-        # original log
-        logdata = obj['log']
-        return logdata, firelens_meta_dict
-
-    def validate_logdata_in_firelens(self, logdata, firelens_meta_dict):
-        if firelens_meta_dict['container_source'] == 'stderr':
-            ignore_container_stderr_bool = (
-                self.logconfig['ignore_container_stderr'])
-            if ignore_container_stderr_bool:
-                reason = "log is container's stderr"
-                return({'is_ignored': True, 'ignored_reason': reason}, False)
-            else:
-                d = {'__skip_normalization': True,
-                     'error': {'message': logdata}}
-                firelens_meta_dict.update(d)
-                return(firelens_meta_dict, False)
-        if self.logformat in 'json':
-            try:
-                logdata = json.loads(logdata)
-            except json.JSONDecodeError:
-                error_message = 'Invalid file format found during parsing'
-                d = {'__skip_normalization': True,
-                     'error': {'message': error_message}}
-                firelens_meta_dict.update(d)
-                logger.warn(f'{error_message} {self.s3key}')
-                return(firelens_meta_dict, False)
-        return(logdata, True)
-
     def text_logdata_to_dict(self, logdata):
         re_log_pattern_prog = self.logconfig['log_pattern']
         try:
@@ -873,11 +874,12 @@ class LogParser:
         for key, value in list(d.items()):
             if isinstance(value, dict):
                 self.truncate_big_field(value)
-            elif isinstance(value, str) and (len(value) >= 32766):
+            elif (isinstance(value, str) and (len(value) >= 16383)
+                    and len(value.encode('utf-8')) >= 32766):
                 if key not in ("@message", ):
                     d[key] = self.truncate_txt(d[key], 32753) + '<<TRUNCATED>>'
                     logger.warn(
-                        f'Data was trauncated because the size of {key} field '
+                        f'Data was truncated because the size of {key} field '
                         f'is bigger than 32,766. _id is {self.doc_id}')
         return d
 
