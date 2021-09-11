@@ -70,5 +70,14 @@ def transform(logdata):
                         tableMetadata['parameters'].pop(old_field))
                 except KeyError:
                     pass
+    elif event_source == 'glue.amazonaws.com':
+        # #156
+        try:
+            configuration = logdata['requestParameters']['configuration']
+        except KeyError:
+            configuration = None
+        if configuration and isinstance(configuration, str):
+            logdata['requestParameters']['configuration'] = {
+                'text': configuration}
 
     return logdata
