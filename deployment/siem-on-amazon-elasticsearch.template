@@ -1,5 +1,5 @@
 {
-  "Description": "SIEM on Amazon ES",
+  "Description": "SIEM on Amazon OpenSearch Service v2.5.0-beta.1",
   "Mappings": {
     "ELBv2AccountMap": {
       "af-south-1": {
