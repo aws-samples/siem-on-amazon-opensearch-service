@@ -1,5 +1,5 @@
 {
-  "Description": "SIEM on Amazon OpenSearch Service v2.5.0-beta.1",
+  "Description": "SIEM on Amazon OpenSearch Service v2.5.0",
   "Mappings": {
     "ELBv2AccountMap": {
       "af-south-1": {
@@ -1515,7 +1515,7 @@
             ]
           }
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.5.0-beta.1 / es-loader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / es-loader",
         "Environment": {
           "Variables": {
             "GEOIP_BUCKET": {
@@ -1559,13 +1559,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderVersion250beta1D3602F5A": {
+    "LambdaEsLoaderVersion25050D964B0": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.5.0-beta.1"
+        "Description": "2.5.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1677,7 +1677,7 @@
             "Arn"
           ]
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.5.0-beta.1 / geoip-downloader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / geoip-downloader",
         "Environment": {
           "Variables": {
             "s3bucket_name": {
@@ -1708,13 +1708,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderVersion250beta1352A433D": {
+    "LambdaGeoipDownloaderVersion2509E2AF2E9": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.5.0-beta.1"
+        "Description": "2.5.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1731,7 +1731,7 @@
             "Arn"
           ]
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.5.0-beta.1 / opensearch domain deployment",
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / opensearch domain deployment",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -1770,13 +1770,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESVersion250beta1078CCFB0": {
+    "LambdaDeployAESVersion250A9965F7E": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.5.0-beta.1"
+        "Description": "2.5.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1789,7 +1789,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.5.0-beta.1"
+        "ConfigVersion": "2.5.0"
       }
     },
     "LambdaConfigureAESA0471961": {
@@ -1805,7 +1805,7 @@
             "Arn"
           ]
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.5.0-beta.1 / opensearch configuration",
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / opensearch configuration",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -1850,13 +1850,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESVersion250beta1EFBC0C6E": {
+    "LambdaConfigureAESVersion250C9F3A6F3": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.5.0-beta.1"
+        "Description": "2.5.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1869,7 +1869,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.5.0-beta.1"
+        "ConfigVersion": "2.5.0"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"
