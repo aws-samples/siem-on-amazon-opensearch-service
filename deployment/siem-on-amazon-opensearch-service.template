@@ -1515,6 +1515,7 @@
             ]
           }
         },
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0-beta.1 / es-loader",
         "Environment": {
           "Variables": {
             "GEOIP_BUCKET": {
@@ -1676,6 +1677,7 @@
             "Arn"
           ]
         },
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0-beta.1 / geoip-downloader",
         "Environment": {
           "Variables": {
             "s3bucket_name": {
@@ -1729,6 +1731,7 @@
             "Arn"
           ]
         },
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0-beta.1 / opensearch domain deployment",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -1802,6 +1805,7 @@
             "Arn"
           ]
         },
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0-beta.1 / opensearch configuration",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -2066,7 +2070,7 @@
         "Name": "role-deploy"
       }
     },
-    "KibanaUrl": {
+    "DashboardsUrl": {
       "Value": {
         "Fn::Join": [
           "",
@@ -2078,16 +2082,16 @@
                 "es_endpoint"
               ]
             },
-            "/_plugin/kibana/"
+            "/_dashboards/"
           ]
         ]
       },
       "Export": {
-        "Name": "kibana-url"
+        "Name": "dashboards-url"
       }
     },
-    "KibanaPassword": {
-      "Description": "Please change the password in Kibana ASAP",
+    "DashboardsPassword": {
+      "Description": "Please change the password in OpenSearch Dashboards ASAP",
       "Value": {
         "Fn::GetAtt": [
           "AesSiemDomainDeployedR2",
@@ -2095,10 +2099,10 @@
         ]
       },
       "Export": {
-        "Name": "kibana-pass"
+        "Name": "dashboards-pass"
       }
     },
-    "KibanaAdmin": {
+    "DashboardsAdminID": {
       "Value": {
         "Fn::GetAtt": [
           "AesSiemDomainDeployedR2",
@@ -2106,7 +2110,7 @@
         ]
       },
       "Export": {
-        "Name": "kibana-admin"
+        "Name": "dashboards-admin"
       }
     }
   }
