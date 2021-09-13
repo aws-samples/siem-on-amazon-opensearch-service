@@ -13,31 +13,31 @@
 
 次のいずれかに該当する場合は AWS CloudFormation を使わずに AWS Cloud Development Kit (AWS CDK) を実行してデプロイしてください。
 
-* Amazon Elasticsearch Service (Amazon ES) を Amazon VPC の **Private Subnet** にデプロイする
+* Amazon OpenSearch Service を Amazon VPC の **Private Subnet** にデプロイする
   * Amazon VPC の Public Subnet へのデプロイは未対応
 * マルチアカウント環境下でログを集約して分析する
 * 既存の Amazon Simple Storage Service (Amazon S3) の バケットを CloudFormation のスタックにインポートし、マルチアカウントのログ受信用に、**S3 バケットポリシーを AWS CDK で自動設定**をする。既存の S3 バケットポリシーは上書きされます
-* 既存の S3 バケットからログを SIEM on Amazon ES にロードする。**S3 バケットポリシーはご自身で管理する**
+* 既存の S3 バケットからログを SIEM on OpenSearch Service にロードする。**S3 バケットポリシーはご自身で管理する**
 * 既存の AWS Key Management Service (AWS KMS) カスタマーマネジメントキー で S3 バケットに暗号化して保存したログを復号する。**AWS KMS のキーポリシーはご自身で管理する**
-* S3 バケット名または SIEM on Amazon ES のドメイン名を初期値から変更してデプロイする
-  * SIEM on Amazon ESのドメイン名: aes-siem
+* S3 バケット名または SIEM on OpenSearch Service のドメイン名を初期値から変更してデプロイする
+  * SIEM on OpenSearch Serviceのドメイン名: aes-siem
   * ログ用 S3 バケット名: aes-siem-*[AWS アカウント ID]*-log
   * スナップショット用 S3 バケット名: aes-siem-*[AWS アカウント ID]*-snapshot
   * GeoIPダウンロード用 S3 バケット名: aes-siem-*[AWS アカウント ID]*-geo
 
 ## 既存の S3 バケットの取り込み
 
-すでにお持ちの S3 バケットを SIEM on Amazon ES の CloudFormation スタックに取り込み、AWS CDK で管理します。ログ取り込み用にS3 バケットポリシーを追加・修正します。**S3 のバケットポリシーやその他のバケット設定は上書きされる**のでご注意ください。SIEM on Amazon ES の初期インストール時にのみ設定可能です。
-既存の S3 バケットから SIEM on Amazon ES にログを送信しつつ、S3 バケットポリシー等はご自身で引き続き管理する場合は、この手順はスキップしてください。
+すでにお持ちの S3 バケットを SIEM on OpenSearch Service の CloudFormation スタックに取り込み、AWS CDK で管理します。ログ取り込み用にS3 バケットポリシーを追加・修正します。**S3 のバケットポリシーやその他のバケット設定は上書きされる**のでご注意ください。SIEM on OpenSearch Service の初期インストール時にのみ設定可能です。
+既存の S3 バケットから SIEM on OpenSearch Service にログを送信しつつ、S3 バケットポリシー等はご自身で引き続き管理する場合は、この手順はスキップしてください。
 
 ### 手順
 
 1. CloudFormation スタックに取り込みたい S3 バケットの名前を確認してください
-1. [Github](https://github.com/aws-samples/siem-on-amazon-elasticsearch) からソースコード一式を git clone するか、[ここ](https://aes-siem.s3.amazonaws.com/siem-on-amazon-elasticsearch-import-exist-s3bucket.template) からインポート用CloudFormationテンプレートをダウンロード
-1. GitHub から clone またはダウンロードした CloudFormationテンプレートの `deployment/siem-on-amazon-elasticsearch-import-exist-s3bucket.template` を編集する。BucketName の [change-me-to-your-bucket] をスタックに取り込みたい S3 バケット名に変更
+1. [Github](https://github.com/aws-samples/siem-on-amazon-opensearch-service) からソースコード一式を git clone するか、[ここ](https://aes-siem.s3.amazonaws.com/siem-on-amazon-opensearch-service-import-exist-s3bucket.template) からインポート用CloudFormationテンプレートをダウンロード
+1. GitHub から clone またはダウンロードした CloudFormationテンプレートの `deployment/siem-on-amazon-opensearch-service-import-exist-s3bucket.template` を編集する。BucketName の [change-me-to-your-bucket] をスタックに取り込みたい S3 バケット名に変更
 1. AWS マネジメントコンソールで CloudFormation に移動
 1. [スタック] のメニューから、右上のプルダウンメニューの [**スタックの作成**] から [**既存のリソースを使用(リソースをインポート)**] を選択
-1. [**次へ**]を選択して、[テンプレートの指定] 画面にて、編集したテンプレートの `siem-on-amazon-elasticsearch-import-exist-s3bucket.template` をアップロードし、[**次へ**] を選択
+1. [**次へ**]を選択して、[テンプレートの指定] 画面にて、編集したテンプレートの `siem-on-amazon-opensearch-service-import-exist-s3bucket.template` をアップロードし、[**次へ**] を選択
 1. [リソースを識別] 画面にて、[識別子の値] にスタックへ [**インポートしたい S3 バケット名**] を入力して、[**次へ**] を選択
 1. [スタックの詳細を指定] 画面にて、スタック名に [**aes-siem**] と入力して [**次へ**] を選択
 1. [概要をインポート] 画面にて、[**リソースのインポート**] を選択して完了
@@ -50,7 +50,7 @@
 * デプロイするサブネットは Private Subnet です
 * サブネットは 3つの異なる Availability Zone を選択してください。(実際にデプロイするのは 1 つの AZ へ 1 インスタンスのみです)
 * Amazon VPC の [**DNS ホスト名**] と [**DNS ホスト解決**] の 2 つとも有効にしてください
-* デプロイ時に `cdk.json` の作成をしますが、このファイルと自動生成される `cdk.context.json` を保存をしてください。SIEM on Amazon ES のデプロイで使用する CDK の再実行に必要です
+* デプロイ時に `cdk.json` の作成をしますが、このファイルと自動生成される `cdk.context.json` を保存をしてください。SIEM on OpenSearch Service のデプロイで使用する CDK の再実行に必要です
 
 ### 1. AWS CDK 実行環境の準備
 
@@ -65,7 +65,7 @@
     sudo amazon-linux-extras enable python3.8
     sudo yum install -y python38 python38-devel git jq
     sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
-    git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git
+    git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
     ```
 
 ### 2. 環境変数の設定
@@ -77,10 +77,10 @@ export AWS_DEFAULT_REGION=<AWS_REGION> # region where the distributable is deplo
 
 ### 3. AWS Lambda デプロイパッケージの作成
 
-SIEM on Amazon ES で使用する AWS Lambda 関数は 3rd Party のライブラリを利用します。ローカルにこれらのライブラリをダウンロードをしてデプロイパッケージを作成します。Python 3 がインストールされていることを確認してください。
+SIEM on OpenSearch Service で使用する AWS Lambda 関数は 3rd Party のライブラリを利用します。ローカルにこれらのライブラリをダウンロードをしてデプロイパッケージを作成します。Python 3 がインストールされていることを確認してください。
 
 ```shell
-cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
+cd siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
 chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh
 ```
 
@@ -112,9 +112,9 @@ cdk bootstrap
 
 エラーで実行が失敗した場合、Amazon EC2 インスタンスに Admin 権限のロールが割り当てられているかを確認してください。
 
-#### 5-1. SIEM on Amazon ES を Amazon VPC 内にデプロイ
+#### 5-1. SIEM on OpenSearch Service を Amazon VPC 内にデプロイ
 
-SIEM on Amazon ES を Amazon VPC 内にデプロイする場合は、Amazon VPC 用の AWS CDK のサンプルファイルをコピーして編集してください。
+SIEM on OpenSearch Service を Amazon VPC 内にデプロイする場合は、Amazon VPC 用の AWS CDK のサンプルファイルをコピーして編集してください。
 
 ```bash
 cp cdk.json.vpc.sample cdk.json
@@ -127,15 +127,15 @@ Amazon VPC に関するパラメーターと説明です。
 |パラメータ|説明|
 |----------|----|
 |vpc_typ|新しい Amazon VPC を作成する場合は [**new**] を、既存の Amazon VPC を利用する場合は [**import**] を入力。編集するパラメーターとして、新規の場合は new_vpc_XXXX、既存の利用は imported_vpc_XXXX を修正する|
-|imported_vpc_id|SIEM on Amazon ES をデプロイする Amazon VPC の ID を入力|
+|imported_vpc_id|SIEM on OpenSearch Service をデプロイする Amazon VPC の ID を入力|
 |imported_vpc_subnets|3つ以上の"VPC サブネット ID" をリスト形式で入力|
 |imported_vpc_subnetX|(deprecated) 3つの、[VPC サブネット ID]、[アベイラビリティーゾーン]、[ルートテーブル ID] を入力|
 |new_vpc_nw_cidr_block|新規に作成する Amazon VPC の IP と CIDR ブロックを入力。形式は、IP アドレス/サブネットマスク数。例) 192.0.2.0/24|
 |new_vpc_subnet_cidr_mask|サブネット CIDR ブロック。拡張性を考慮して 27 以上を推奨|
 
-#### 5-2. Amazon ES を パブリックアクセス (Amazon VPC 外)にデプロイ
+#### 5-2. OpenSearch Service を パブリックアクセス (Amazon VPC 外)にデプロイ
 
-SIEM on Amazon ES をパブリックアクセス環境にデプロイする場合
+SIEM on OpenSearch Service をパブリックアクセス環境にデプロイする場合
 
 ```bash
 cp cdk.json.public.sample cdk.json
@@ -149,7 +149,7 @@ cp cdk.json.public.sample cdk.json
 
 |パラメーター|初期値|説明|
 |------------|-------|-----|
-|aes_domain_name|aes-siem|SIEM on Amazon ES ドメインを変更する|
+|aes_domain_name|aes-siem|SIEM on OpenSearch Service ドメインを変更する|
 |s3_bucket_name||S3 バケット名を初期値から変更する|
 |log|aes-siem-*[AWS アカウント ID]*-log|ログ用 S3 バケット名|
 |snapshot|aes-siem-*[AWS アカウント ID]*-snapshot|スナップショット用 S3 バケット名|
@@ -176,10 +176,10 @@ CloudFormation テンプレートと同じパラーメーターを指定して C
 
 |パラメーター|説明|
 |------------|----|
-|AllowedSourceIpAddresses|Amazon VPC 外に SIEM on Amazon ES をデプロイした時に、アクセスを許可するIPアドレス。複数アドレスはスペース区切り|
+|AllowedSourceIpAddresses|Amazon VPC 外に SIEM on OpenSearch Service をデプロイした時に、アクセスを許可するIPアドレス。複数アドレスはスペース区切り|
 |GeoLite2LicenseKey|Maxmindのライセンスキー。IP アドレスに国情報を付与|
 |ReservedConcurrency|es-loaderの同時実行数の上限値。デフォルトは10。エラーがないにもかかわらずログ取り込み遅延やThrottleが常時発生する場合はこの値を増やしてください|
-|SnsEmail|メールアドレス。SIEM on Amazon ES で検知したアラートを SNS 経由で送信する|
+|SnsEmail|メールアドレス。SIEM on OpenSearch Service で検知したアラートを SNS 経由で送信する|
 
 文法) --parameters オプション1=パラメータ1 --parameters オプション2=パラメータ2
 複数のパラメーターがある場合は、--parametersを繰り返す
@@ -192,14 +192,17 @@ cdk deploy \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
 
-約30分でデプロイが終わります。完了したら、[READMEに戻って](../README_ja.md)、「3. Kibana の設定」にお進みください。
+約30分でデプロイが終わります。完了したら、[READMEに戻って](../README_ja.md)、「3. OpenSearch Dashboards の設定」にお進みください。
 
 ## AWS CDK によるアップデート
 
 SIEM のレポジトリを更新して、AWS CDK でアップデートします。初期インストール時に使用した cdk.json が CDK のディレクトリにあることを確認してください。
 
+> SIEM on Amazon ES からお使いの方は、ディレクトリを変更して下さい。
+> cd && mv siem-on-amazon-elasitcsearch siem-on-amazon-opensearch-service
+
 ```sh
-cd ~/siem-on-amazon-elasticsearch/
+cd ~/siem-on-amazon-opensearch-service/
 git pull --rebase
 ```
 
@@ -207,10 +210,10 @@ git pull --rebase
 
 [5. AWS CDK によるインストールのオプション設定] 以降は **実行せず**、下記を実行
 
-インストール時に保存した `cdk.json` と `cdk.context.json` を `~/siem-on-amazon-elasticsearch/source/cdk/` にリストア。`cdk.context.json` はない場合があります。
+インストール時に保存した `cdk.json` と `cdk.context.json` を `~/siem-on-amazon-opensearch-service/source/cdk/` にリストア。`cdk.context.json` はない場合があります。
 
 ```sh
-cd ~/siem-on-amazon-elasticsearch/source/cdk/
+cd ~/siem-on-amazon-opensearch-service/source/cdk/
 source .env/bin/activate
 cdk deploy
 ```

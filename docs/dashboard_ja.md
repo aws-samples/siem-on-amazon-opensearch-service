@@ -10,6 +10,7 @@
 * [Amazon VPC Flow Logs](#Amazon-VPC-Flow-Logs)
 * [Elastic Load Balancing](#Elastic-Load-Balancing)
 * [Amazon Relational Database Service (RDS)](#Amazon-RDS)
+* [Amazon WorkSpaces](#Amazon-WorkSpaces)
 
 ## AWS Security Hub
 

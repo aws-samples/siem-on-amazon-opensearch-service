@@ -2,7 +2,7 @@
 
 [View this page in Japanese (日本語)](configure_aws_service_ja.md) | [Back to README](../README.md)
 
-On this page, we’ll walk you through how to load logs from each AWS service into SIEM on Amazon ES. Follow the steps below to configure each AWS service.
+On this page, we’ll walk you through how to load logs from each AWS service into SIEM on Amazon OpenSearch Service. Follow the steps below to configure each AWS service.
 
 ## Table of contents
 
@@ -40,11 +40,11 @@ On this page, we’ll walk you through how to load logs from each AWS service in
 
 ## 1. Common Configurations
 
-SIEM on Amazon ES determines the log type based on the name and path of the file that is put into the Amazon Simple Storage Service (Amazon S3) bucket. The initial value used for this is either the default output path or file name of each service. Additional identifiable information is used for services where the log type cannot be determined using the default values only. If you want to output logs to S3 using a file path different from the initial value, create user.ini and add your own file name or S3 object key to the “s3_key” field. See [Changing Configurations of SIEM on Amazon ES](configure_siem.md) on how to edit user.ini.
+SIEM on OpenSearch Service determines the log type based on the name and path of the file that is put into the Amazon Simple Storage Service (Amazon S3) bucket. The initial value used for this is either the default output path or file name of each service. Additional identifiable information is used for services where the log type cannot be determined using the default values only. If you want to output logs to S3 using a file path different from the initial value, create user.ini and add your own file name or S3 object key to the “s3_key” field. See [Changing Configurations of SIEM on OpenSearch Service](configure_siem.md) on how to edit user.ini.
 
 If you have the privilege of setting an arbitrary output path to the S3 bucket, include your AWS account ID and region in the output path (as the prefix). This information will be attached to the loaded logs. However, if the information is already contained in the logs, the information in the logs will be prioritized.
 
-if you want to store files in the S3 bucket enabling AWS Key Management Service (AWS KMS) encryption, use the AWS KMS customer-managed key that is automatically created when deploying SIEM on Amazon ES. The default alias name is aes-siem-key. You can also use an existing AWS KMS customer-managed key. Click [here](deployment.md) to see how to do this.
+if you want to store files in the S3 bucket enabling AWS Key Management Service (AWS KMS) encryption, use the AWS KMS customer-managed key that is automatically created when deploying SIEM on OpenSearch Service. The default alias name is aes-siem-key. You can also use an existing AWS KMS customer-managed key. Click [here](deployment.md) to see how to do this.
 
 The AWS account used here for instruction purpose is **123456789012** . Replace this with your AWS account when following the steps.
 
@@ -70,7 +70,7 @@ The initial value of s3_key: `GuardDuty` (part of the default output path)
    * Key alias: Choose [**aes-siem-key**]
    * Choose [**Save**]
 
-Configuration is now complete. Choose [**Generate sample findings**] on the same settings screen to verify that loading into SIEM on Amazon ES has been successfully set up.
+Configuration is now complete. Choose [**Generate sample findings**] on the same settings screen to verify that loading into SIEM on OpenSearch Service has been successfully set up.
 
 ### AWS Directory Service
 
@@ -326,7 +326,7 @@ Configuring Amazon CloudFront:
 1. Enter the following parameters on the [Create real-time log configuration] screen
    * Name: Enter [**any name**]
    * Sampling rate: [**100**]
-      * Importing all logs into SIEM on Amazon ES
+      * Importing all logs into SIEM on OpenSearch Service
    * Fields: [**Check all fields**]
       * All are checked by default
    * Endpoint: Choose the [**Kinesis data stream created two steps previously**]
@@ -460,7 +460,7 @@ The initial value of s3_key (specified in the Firehose output path)
 * General log: `(MySQL|mysql|MariaDB|mariadb).*(general)`
 * Audit log: `(MySQL|mysql|MariaDB|mariadb).*(audit)`
 
-#### Reference
+#### Reference (Aurora MySQL / MySQL / MariaDB)
 
 * [Aurora User Guide / MySQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/USER_LogAccess.Concepts.MySQL.html)
 * [RDS User Guide / MySQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MySQL.html)
@@ -475,7 +475,7 @@ The initial value of s3_key (specified in the Firehose output path)
 
 The initial value of s3_key : `Postgre` or `postgres` (specified in the Firehose output path)
 
-#### Reference
+#### Reference (Aurora PostgreSQL / PostgreSQL)
 
 * [Aurora User Guide / PostgreSQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/USER_LogAccess.Concepts.PostgreSQL.html)
 * [RDS User Guide / PostgreSQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.PostgreSQL.html)
@@ -531,9 +531,8 @@ Here’s an outline of the steps:
 1. Configure with CloudFormation
     * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
     * [siem-log-exporter-cwl-nocompress.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-cwl-nocompress.template)
-   * Prefix to output logs : [**AWSLogs/123456789012/EC2/Windows/Event/[region]/**]
-      * Replace 123456789012 with your AWS account ID
-
+    * Prefix to output logs : [**AWSLogs/123456789012/EC2/Windows/Event/[region]/**]
+        * Replace 123456789012 with your AWS account ID
 
 ## 9. Containers
 
@@ -586,18 +585,17 @@ The initial value of s3_key : `(WorkSpaces|workspaces).*(Event|event)` (specifie
 The initial value of s3_key : `(WorkSpaces|workspaces).*(Inventory|inventory)`
 
 1. Configure with CloudFormation
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
-    * [siem-log-exporter-workspaces.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-workspaces.template)
-
+     * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+     * [siem-log-exporter-workspaces.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-workspaces.template)
 
 ## 11. Multiple regions / multiple accounts
 
-You can load logs from other accounts or regions into SIEM on Amazon ES by using S3 replication or cross-account output to the S3 bucket that stores logs.
+You can load logs from other accounts or regions into SIEM on OpenSearch Service by using S3 replication or cross-account output to the S3 bucket that stores logs.
 The output paths should be follow the S3 keys configured above.
 
 ## 12. Loading logs from an existing S3 bucket
 
-You can also load logs into SIEM on Amazon ES from an already existing S3 bucket and/or by using an AWS KMS customer-managed key.
+You can also load logs into SIEM on OpenSearch Service from an already existing S3 bucket and/or by using an AWS KMS customer-managed key.
 To use an existing S3 bucket or AWS KMS customer-managed key, you must grant permissions to Lambda function es-loader. See [this](deployment.md) to deploy using AWS CDK.
 
 [Back to README](../README.md)

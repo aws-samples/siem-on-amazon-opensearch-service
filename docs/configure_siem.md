@@ -1,4 +1,4 @@
-# Changing Configurations of SIEM on Amazon ES
+# Changing Configurations of SIEM on Amazon OpenSearch Service
 
 [View this page in Japanese (日本語)](configure_siem_ja.md) | [Back to README](../README.md)
 
@@ -6,18 +6,18 @@
 
 * [Customizing the log loading method](#customizing-the-log-loading-method)
 * [Adding an exclusion to log loading](#adding-an-exclusion-to-log-loading)
-* [Changing Amazon ES configuration settings (for advanced users)](#changing-amazon-es-configuration-settings-for-advanced-users)
+* [Changing OpenSearch Service configuration settings (for advanced users)](#changing-opensearch-service-configuration-settings-for-advanced-users)
 * [Loading Non-AWS services logs](#loading-non-aws-services-logs)
 * [Loading past data stored in the S3 bucket](#loading-past-data-stored-in-the-s3-bucket)
 * [Monitoring](#monitoring)
 
 ## Customizing the log loading method
 
-You can customize the log loading method into SIEM on Amazon ES. A log exported to the S3 bucket is normalized by Lambda function es-loader and loaded into SIEM on Amazon ES. The deployed Lambda function is named aes-siem-es-loader. And this Lambda function (es-loader) is triggered by an event notification (All object create events) from the S3 bucket. It then identifies the log type from the file name and the file path to the S3 bucket; extracts the field in a predefined manner for each log type; maps it to [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html); and finally loads it into SIEM on Amazon ES by specifying the index name.
+You can customize the log loading method into SIEM on OpenSearch Service. A log exported to the S3 bucket is normalized by Lambda function es-loader and loaded into SIEM on OpenSearch Service. The deployed Lambda function is named aes-siem-es-loader. And this Lambda function (es-loader) is triggered by an event notification (All object create events) from the S3 bucket. It then identifies the log type from the file name and the file path to the S3 bucket; extracts the field in a predefined manner for each log type; maps it to [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html); and finally loads it into SIEM on OpenSearch Service by specifying the index name.
 
 This process is based on the initial values defined in the configuration file (aws.ini). You may also change them to any values if you want to: export a log to an S3 bucket with a different file path than the initial value; rename the index; or change the index rotation interval, for example. To change the values, you need to create user.ini and define fields and values following the aws.ini structure. The values you set in user.ini are prioritized over those in aws.ini, overwriting the initial values internally.
 
-You can save user.ini either by adding it to a Lambda layer (recommended) or by editing it directly from the AWS Management Console. Note that whenever you update SIEM on Amazon ES, the Lambda function is replaced with a new one. While user.ini remains unchanged if you use a Lambda layer (as it is independent from the Lambda function), the file is deleted if edited directly from the AWS Management Console, so you’ll need to create it again.
+You can save user.ini either by adding it to a Lambda layer (recommended) or by editing it directly from the AWS Management Console. Note that whenever you update SIEM on OpenSearch Service, the Lambda function is replaced with a new one. While user.ini remains unchanged if you use a Lambda layer (as it is independent from the Lambda function), the file is deleted if edited directly from the AWS Management Console, so you’ll need to create it again.
 
 Note: The configuration file (aws.ini/user.ini) is loaded using configparser from the standard Python3 library. Syntax and other rules follow this library, so even when you find space between words in some set values, just describe them as they are. There is no need to enclose it in double or single quotes. For example, if you define a key with value “This is a sample value”, you should write like this:
 
@@ -92,11 +92,11 @@ Alternatively, you can edit user.ini directly from the AWS Management Console to
 1. In the [Function code] pane, a list of files for the Lambda function is displayed. Create user.ini in the root directory and add/edit configuration information
 1. Choose the [**Deploy**] button at the top right of the [Function code] pane
 
-Configuration is now complete. Note that Lambda function es-loader will be replaced with a new one and user.ini will be deleted whenever SIEM on Amazon ES is updated. In that case, repeat the process above.
+Configuration is now complete. Note that Lambda function es-loader will be replaced with a new one and user.ini will be deleted whenever SIEM on OpenSearch Service is updated. In that case, repeat the process above.
 
 ## Adding an exclusion to log loading
 
-Logs stored in the S3 bucket are automatically loaded into Amazon ES, but you can exclude some of them by specifying conditions. This will help save Amazon ES resources.
+Logs stored in the S3 bucket are automatically loaded into OpenSearch Service, but you can exclude some of them by specifying conditions. This will help save OpenSearch Service resources.
 
 There are two conditions you can specify:
 
@@ -174,15 +174,15 @@ This excludes logs where the destination IP address (dstaddr) contains string 19
 
 This excludes logs that match {'userIdentity': {'invokedBy': '*.amazonaws.com'}} in CloudTrail. Field names are nested, and should be dot-separated in CSV. In this example, logs of API calls invoked by AWS services (such as config or log delivery) are not loaded.
 
-## Changing Amazon ES Configuration Settings (for Advanced Users)
+## Changing OpenSearch Service Configuration Settings (for Advanced Users)
 
-You can change the application configurations of Amazon ES that are related to SIEM. The following items can be defined for each index.
+You can change the application configurations of OpenSearch Service that are related to SIEM. The following items can be defined for each index.
 
 * Number of replicas of the index, number of shards
 * Field mapping, type
 * Automatic migration (or deletion) of the index to UltraWarm using Index State Management
 
-While you can configure them freely, some items are pre-configured in SIEM on Amazon ES. You can check the pre-configured values from Dev Tools using the commands below:
+While you can configure them freely, some items are pre-configured in SIEM on OpenSearch Service. You can check the pre-configured values from Dev Tools using the commands below:
 
 ```http
 GET target_index_name/_settings
@@ -191,7 +191,7 @@ GET target_index_name/_mapping
 
 To add or change a setting, create an index template to save the value. Avoid using a template name that is already in use.
 
-Reserved words for templates in SIEM on Amazon ES:
+Reserved words for templates in SIEM on OpenSearch Service:
 
 * log[-aws][-service_name]_aws
 * log[-aws][-service_name]_rollover
@@ -217,7 +217,7 @@ POST _template/log-aws-cloudtrai_mine
 
 ## Loading non-AWS services logs
 
-You can load non-AWS services logs into SIEM on Amazon ES by exporting logs to the S3 bucket that stores logs. The supported file formats are text, JSON, and CSV formats. In case of text format, only single-line logs can be loaded, and multi-line logs are not supported. You can export logs to S3 using Logstash or Fluentd plug-ins.
+You can load non-AWS services logs into SIEM on OpenSearch Service by exporting logs to the S3 bucket that stores logs. The supported file formats are text, JSON, and CSV formats. In case of text format, only single-line logs can be loaded, and multi-line logs are not supported. You can export logs to S3 using Logstash or Fluentd plug-ins.
 
 Here is the basic configuration flow for Apache HTTP server logs:
 
@@ -251,7 +251,7 @@ Here is the basic configuration flow for Apache HTTP server logs:
    log_pattern = (?P<remotehost>.*) (?P<rfc931>.*) (?P<authuser>.*) \[(?P<datetime>.*?)\] \"(?P<request_method>.*) (?P<request_path>.*)(?P<request_version> HTTP/.*)\" (?P<status>.*) (?P<bytes>.*)
    ```
 
-1. Specify timestamp to tell SIEM on Amazon ES the time at which the event occurred. Define the [date format](https://docs.python.org/ja/3/library/datetime.html#strftime-and-strptime-format-codes) as well if it is not compliant with the ISO 8601 format
+1. Specify timestamp to tell SIEM on OpenSearch Service the time at which the event occurred. Define the [date format](https://docs.python.org/ja/3/library/datetime.html#strftime-and-strptime-format-codes) as well if it is not compliant with the ISO 8601 format
 
    ```ini
    timestamp = datetime
@@ -302,20 +302,20 @@ Create a zip file and register it to the Lambda layer and you're done
 
 ## Loading past data stored in the S3 bucket
 
-You can batch load logs stored in the S3 bucket into Amazon ES. Normally, logs are loaded in real time when they are stored in the preconfigured S3 bucket. On the other hand, backed-up data can also be loaded later for visualization or incident investigation purposes. Likewise, you can also load data that failed real-time loading and were trapped into SQS's dead letter queue.
+You can batch load logs stored in the S3 bucket into OpenSearch Service. Normally, logs are loaded in real time when they are stored in the preconfigured S3 bucket. On the other hand, backed-up data can also be loaded later for visualization or incident investigation purposes. Likewise, you can also load data that failed real-time loading and were trapped into SQS's dead letter queue.
 
 ### Setting up the environment
 
 #### Setting up the execution environment for the script (es-loader)
 
-1. Provision an Amazon EC2 instance with an Amazon Linux 2 AMI in a VPC that can communicate with Amazon ES
+1. Provision an Amazon EC2 instance with an Amazon Linux 2 AMI in a VPC that can communicate with OpenSearch Service
 1. Allow HTTP communication from Amazon Linux to GitHub and PyPI websites on the Internet
 1. Attach IAM role [**aes-siem-es-loader-for-ec2**] to EC2
-1. Connect to the Amazon Linux terminal and follow the steps in [README](../README.md) --> [2. Creating CloudFormation Templates] --> [2-1. Preparation] and [2-2. Cloning SIEM on Amazon ES]
+1. Connect to the Amazon Linux terminal and follow the steps in [README](../README.md) --> [2. Creating CloudFormation Templates] --> [2-1. Preparation] and [2-2. Cloning SIEM on OpenSearch Service]
 1. Install Python modules using the commands below:
 
    ```python
-   cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
+   cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
    pip3 install -r requirements.txt -U -t .
    ```
 
@@ -338,7 +338,7 @@ You can batch load logs stored in the S3 bucket into Amazon ES. Normally, logs a
 
    ```sh
    cd
-   cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
+   cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
    ```
 
 1. Create an object list (s3-list.txt) from the S3 bucket.
@@ -389,7 +389,7 @@ You can load messages from SQS's dead letter queue for SIEM (aes-siem-dlq). (The
    ```sh
    export AWS_DEFAULT_REGION=ap-northeast-1
    cd
-   cd siem-on-amazon-elasticsearch/source/lambda/es_loader/
+   cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
    ./index.py -q aes-siem-dlq
    ```
 
@@ -405,7 +405,7 @@ You can load messages from SQS's dead letter queue for SIEM (aes-siem-dlq). (The
 
 ### Metrics
 
-You can view the metrics of es-loader, which normalizes logs and sends data to Amazon ES, in CloudWatch Metrics.
+You can view the metrics of es-loader, which normalizes logs and sends data to OpenSearch Service, in CloudWatch Metrics.
 
 * Custom namespace: SIEM
 * Dimension: logtype
@@ -413,11 +413,11 @@ You can view the metrics of es-loader, which normalizes logs and sends data to A
 | Metric | Unit | Description |
 |------|-------|-----|
 | InputLogFileSize | Byte | Log file size that es-loader loaded from the S3 bucket |
-| OutputDataSize | Byte | Size of the data that es-loader sent to Amazon ES |
-| SuccessLogLoadCount | Count | The number of logs for which es-loader successfully sent data to Amazon ES |
-| ErrorLogLoadCount | Count | The number of logs for which es-loader failed to send data to Amazon ES |
+| OutputDataSize | Byte | Size of the data that es-loader sent to OpenSearch Service |
+| SuccessLogLoadCount | Count | The number of logs for which es-loader successfully sent data to OpenSearch Service |
+| ErrorLogLoadCount | Count | The number of logs for which es-loader failed to send data to OpenSearch Service |
 | TotalDurationTime | Millisecond | The amount of time between when es-loader started processing and when all processing was completed. Approximately the same as Lambda Duration |
-| EsResponseTime | Millisecond | The amount of time it took for es-loader to send data to Amazon ES and complete processing |
+| EsResponseTime | Millisecond | The amount of time it took for es-loader to send data to OpenSearch Service and complete processing |
 | TotalLogFileCount | Count | The number of log files processed by es-loader |
 | TotalLogCount | Count | The number of logs targeted for processing from the logs contained in the log files. This includes logs that were not actually loaded due to filtering |
 
