@@ -16,7 +16,7 @@ from aws_lambda_powertools.metrics import MetricUnit
 import siem
 from siem import geodb, utils
 
-__version__ = '2.4.1'
+__version__ = '2.5.0'
 
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
@@ -149,19 +149,22 @@ def get_es_entries(logfile, exclude_log_patterns):
         yield logparser.json
 
 
-def check_es_results(results):
+def check_es_results(results, total_count):
     duration = results['took']
     success, error = 0, 0
     error_reasons = []
+    count = total_count
     if not results['errors']:
         success = len(results['items'])
     else:
         for result in results['items']:
+            count += 1
             if result['index']['status'] >= 300:
                 # status code
                 # 200:OK, 201:Created, 400:NG
                 error += 1
                 error_reason = result['index'].get('error')
+                error_reason['log_number'] = count
                 if error_reason:
                     error_reasons.append(error_reason)
 
@@ -183,7 +186,8 @@ def bulkloads_into_elasticsearch(es_entries, collected_metrics):
         if isinstance(data, str) and output_size > 6000000:
             total_output_size += output_size
             results = es_conn.bulk(putdata_list, filter_path=filter_path)
-            es_took, success, error, error_reasons = check_es_results(results)
+            es_took, success, error, error_reasons = check_es_results(
+                results, total_count)
             success_count += success
             error_count += error
             es_response_time += es_took
@@ -196,7 +200,8 @@ def bulkloads_into_elasticsearch(es_entries, collected_metrics):
         total_output_size += output_size
         results = es_conn.bulk(putdata_list, filter_path=filter_path)
         # logger.debug(results)
-        es_took, success, error, error_reasons = check_es_results(results)
+        es_took, success, error, error_reasons = check_es_results(
+            results, total_count)
         success_count += success
         error_count += error
         es_response_time += es_took

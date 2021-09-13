@@ -17,7 +17,7 @@ from aws_lambda_powertools import Logger
 
 from siem import utils, winevtxml
 
-__version__ = '2.4.1'
+__version__ = '2.5.0'
 
 logger = Logger(child=True)
 

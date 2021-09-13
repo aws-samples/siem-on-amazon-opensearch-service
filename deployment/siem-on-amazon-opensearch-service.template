@@ -1,5 +1,5 @@
 {
-  "Description": "SIEM on Amazon ES",
+  "Description": "SIEM on Amazon OpenSearch Service v2.5.0",
   "Mappings": {
     "ELBv2AccountMap": {
       "af-south-1": {
@@ -1515,6 +1515,7 @@
             ]
           }
         },
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / es-loader",
         "Environment": {
           "Variables": {
             "GEOIP_BUCKET": {
@@ -1558,13 +1559,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderVersion24183D781FD": {
+    "LambdaEsLoaderVersion25050D964B0": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.4.1"
+        "Description": "2.5.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1676,6 +1677,7 @@
             "Arn"
           ]
         },
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / geoip-downloader",
         "Environment": {
           "Variables": {
             "s3bucket_name": {
@@ -1706,13 +1708,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderVersion2414DE3D7A8": {
+    "LambdaGeoipDownloaderVersion2509E2AF2E9": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.4.1"
+        "Description": "2.5.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1729,6 +1731,7 @@
             "Arn"
           ]
         },
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / opensearch domain deployment",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -1767,13 +1770,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESVersion241465962D2": {
+    "LambdaDeployAESVersion250A9965F7E": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.4.1"
+        "Description": "2.5.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1786,7 +1789,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.4.1"
+        "ConfigVersion": "2.5.0"
       }
     },
     "LambdaConfigureAESA0471961": {
@@ -1802,6 +1805,7 @@
             "Arn"
           ]
         },
+        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / opensearch configuration",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -1846,13 +1850,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESVersion2410374ABD4": {
+    "LambdaConfigureAESVersion250C9F3A6F3": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.4.1"
+        "Description": "2.5.0"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1865,7 +1869,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.4.1"
+        "ConfigVersion": "2.5.0"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"
@@ -2066,7 +2070,7 @@
         "Name": "role-deploy"
       }
     },
-    "KibanaUrl": {
+    "DashboardsUrl": {
       "Value": {
         "Fn::Join": [
           "",
@@ -2078,16 +2082,16 @@
                 "es_endpoint"
               ]
             },
-            "/_plugin/kibana/"
+            "/_dashboards/"
           ]
         ]
       },
       "Export": {
-        "Name": "kibana-url"
+        "Name": "dashboards-url"
       }
     },
-    "KibanaPassword": {
-      "Description": "Please change the password in Kibana ASAP",
+    "DashboardsPassword": {
+      "Description": "Please change the password in OpenSearch Dashboards ASAP",
       "Value": {
         "Fn::GetAtt": [
           "AesSiemDomainDeployedR2",
@@ -2095,10 +2099,10 @@
         ]
       },
       "Export": {
-        "Name": "kibana-pass"
+        "Name": "dashboards-pass"
       }
     },
-    "KibanaAdmin": {
+    "DashboardsAdminID": {
       "Value": {
         "Fn::GetAtt": [
           "AesSiemDomainDeployedR2",
@@ -2106,7 +2110,7 @@
         ]
       },
       "Export": {
-        "Name": "kibana-admin"
+        "Name": "dashboards-admin"
       }
     }
   }

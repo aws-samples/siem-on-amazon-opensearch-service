@@ -7,7 +7,7 @@ from siem import utils
 
 # REGEXP
 RE_LIST_SSHD = [
-    re.compile(r'(?P<action>Accepted|Failed|failure|Invalid user|invalid user)\s.*?(publickey for )?(?P<user>\S+)(\s+from.*?(?P<source_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}))?(\s+port\s+(?P<source_port>\S+))?'),
+    re.compile(r'(?P<action>Accepted|Failed|failure|Invalid user|invalid user)\s.*?((publickey|password|none) for )?(invalid user )?(?P<user>\S+)(\s+from.*?(?P<source_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}))?(\s+port\s+(?P<source_port>\S+))?'),
     re.compile(r'^(?P<action>(Disconnected|Received disconnect)) from (?P<source_ip>[^ ]*) port (?P<source_port>\d+)'),
     re.compile(r'^(?P<action>error): AuthorizedKeysCommand \S+ (?P<user>\S+) (SHA|RSA)'),
     re.compile(r'^pam_unix(\S+): (?P<action>session closed) for user (?P<user>\S+)'),
@@ -28,7 +28,8 @@ def extract_instance_id(logdata, linux_dict):
     instanceid = utils.extract_aws_instanceid_from_text(
         logdata.get('@log_stream', ""))
     if instanceid:
-        linux_dict = {'cloud': {'instance': {'id': instanceid}}}
+        linux_dict = {'cloud': {'instance': {'id': instanceid}},
+                      'related': {'hosts': [logdata['hostname'], instanceid]}}
     return linux_dict
 
 
@@ -49,17 +50,12 @@ def extract_from_sshd(logdata, linux_dict):
     if 'action' in data:
         linux_dict['event']['category'] = 'authentication'
         linux_dict['event']['action'] = data['action']
-        if ('accept' in data['action'].lower()
-                or 'isconnect' in data['action'].lower()
-                or 'opened' in data['action'].lower()):
+        action = data['action'].lower()
+        if 'accept' in action or 'opened' in action:
             linux_dict['event']['outcome'] = 'success'
-        elif ('fail' in data['action'].lower()
-                or 'invalid' in data['action'].lower()
-                or 'err' in data['action'].lower()):
+        elif 'fail' in action or 'invalid' in action or 'err' in action:
             linux_dict['event']['outcome'] = 'failure'
-        elif ('isconnect' in data['action'].lower()
-                or 'reset' in data['action'].lower()
-                or 'close' in data['action'].lower()):
+        elif 'disconnect' in action or 'reset' in action or 'close' in action:
             # linux_dict['event']['outcome'] is empty for disconnection event
             pass
         else:
@@ -86,12 +82,12 @@ def extract_from_sudo(logdata, linux_dict):
 
 
 def extract_related_ip_user(linux_dict):
-    if ('user' in linux_dict) or ('source' in linux_dict):
+    if 'related' not in linux_dict:
         linux_dict['related'] = {}
-        if 'user' in linux_dict:
-            linux_dict['related']['user'] = linux_dict['user']['name']
-        if 'source' in linux_dict:
-            linux_dict['related']['ip'] = linux_dict['source']['ip']
+    if 'user' in linux_dict:
+        linux_dict['related']['user'] = linux_dict['user']['name']
+    if 'source' in linux_dict:
+        linux_dict['related']['ip'] = linux_dict['source']['ip']
     return linux_dict
 
 

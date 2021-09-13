@@ -1,9 +1,20 @@
 # Change Log
+<!-- markdownlint-disable-file MD022 MD024 MD032-->
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.5.0] - 2021-09-13
+### Added
+- Extracetd WAF header #128
+- Error Log number when es-loader failed to load log into opensearch service #158
+- Enhanced related.* and /var/log/secure of linux log #159
+### Changed
+- Renamed Solution name from "SIEM on Amazon Elasticsearch Service" to "SIEM on Amazon OpenSearch Service" #157
+### Fixed
+- Fixed parse issue: responseElements.tableMetadataList.parameters.projection.date.interval, requestParameters.configuration. #153,#156
 
 ## [2.4.1] - 2021-08-27
 ### Added
@@ -14,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Partically migrated from legacy index templates to new composable ones. rollover policy, workspaces and windows events index #152
 ### Fixed
 - Fixed logic of truncating field value which is bigger than 32,766 byte #138
-
 
 ## [2.4.0] - 2021-08-09
 ### Added

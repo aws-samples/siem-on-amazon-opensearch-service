@@ -53,4 +53,31 @@ def transform(logdata):
     except (KeyError, TypeError):
         pass
 
+    event_source = logdata.get('eventSource', None)
+    if event_source == 'athena.amazonaws.com':
+        # #153
+        try:
+            tableMetadataList = (
+                logdata['responseElements']['tableMetadataList'])
+        except (KeyError, TypeError):
+            tableMetadataList = None
+        if tableMetadataList:
+            for tableMetadata in tableMetadataList:
+                old_field = 'projection.date.interval.unit'
+                new_field = 'projection.date.interval_unit'
+                try:
+                    tableMetadata['parameters'][new_field] = (
+                        tableMetadata['parameters'].pop(old_field))
+                except KeyError:
+                    pass
+    elif event_source == 'glue.amazonaws.com':
+        # #156
+        try:
+            configuration = logdata['requestParameters']['configuration']
+        except KeyError:
+            configuration = None
+        if configuration and isinstance(configuration, str):
+            logdata['requestParameters']['configuration'] = {
+                'text': configuration}
+
     return logdata

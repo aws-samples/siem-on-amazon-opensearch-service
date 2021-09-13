@@ -20,8 +20,10 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.4.1'
+__version__ = '2.5.0'
 print(__version__)
+
+SOLUTION_NAME = f'SIEM on Amazon OpenSearch Service v{__version__}'
 
 iam_client = boto3.client('iam')
 ec2_resource = boto3.resource('ec2')
@@ -545,6 +547,7 @@ class MyAesSiemStack(core.Stack):
         lambda_es_loader = aws_lambda.Function(
             self, 'LambdaEsLoader', **lambda_es_loader_vpc_kwargs,
             function_name='aes-siem-es-loader',
+            description=f'{SOLUTION_NAME} / es-loader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             # code=aws_lambda.Code.asset('../lambda/es_loader.zip'),
             code=aws_lambda.Code.asset('../lambda/es_loader'),
@@ -588,6 +591,7 @@ class MyAesSiemStack(core.Stack):
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',
             function_name='aes-siem-geoip-downloader',
+            description=f'{SOLUTION_NAME} / geoip-downloader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             code=aws_lambda.Code.asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
@@ -609,6 +613,7 @@ class MyAesSiemStack(core.Stack):
         lambda_deploy_es = aws_lambda.Function(
             self, 'LambdaDeployAES',
             function_name='aes-siem-deploy-aes',
+            description=f'{SOLUTION_NAME} / opensearch domain deployment',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             # code=aws_lambda.Code.asset('../lambda/deploy_es.zip'),
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
@@ -659,6 +664,7 @@ class MyAesSiemStack(core.Stack):
         lambda_configure_es = aws_lambda.Function(
             self, 'LambdaConfigureAES', **lambda_configure_es_vpc_kwargs,
             function_name='aes-siem-configure-aes',
+            description=f'{SOLUTION_NAME} / opensearch configuration',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
@@ -975,19 +981,20 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         # output of CFn
         ######################################################################
-        kibanaurl = f'https://{es_endpoint}/_plugin/kibana/'
+        kibanaurl = f'https://{es_endpoint}/_dashboards/'
         kibanaadmin = aes_domain.get_att('kibanaadmin').to_string()
         kibanapass = aes_domain.get_att('kibanapass').to_string()
 
         core.CfnOutput(self, 'RoleDeploy', export_name='role-deploy',
                        value=aes_siem_deploy_role_for_lambda.role_arn)
-        core.CfnOutput(self, 'KibanaUrl', export_name='kibana-url',
+        core.CfnOutput(self, 'DashboardsUrl', export_name='dashboards-url',
                        value=kibanaurl)
-        core.CfnOutput(self, 'KibanaPassword', export_name='kibana-pass',
-                       value=kibanapass,
-                       description='Please change the password in Kibana ASAP')
-        core.CfnOutput(self, 'KibanaAdmin', export_name='kibana-admin',
-                       value=kibanaadmin)
+        core.CfnOutput(self, 'DashboardsPassword',
+                       export_name='dashboards-pass', value=kibanapass,
+                       description=('Please change the password in OpenSearch '
+                                    'Dashboards ASAP'))
+        core.CfnOutput(self, 'DashboardsAdminID',
+                       export_name='dashboards-admin', value=kibanaadmin)
 
     def list_without_none(self, *args):
         list_args = []

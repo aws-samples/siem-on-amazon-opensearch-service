@@ -2,7 +2,7 @@
 
 [In English](configure_aws_service.md) | [READMEに戻る](../README_ja.md)
 
-SIEM on Amazon ES に AWS の各サービスのログを取り込みます。下記を参考にしてログを取り込む AWS サービスを設定してください。
+SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り込みます。下記を参考にしてログを取り込む AWS サービスを設定してください。
 
 ## 目次
 
@@ -40,11 +40,11 @@ SIEM on Amazon ES に AWS の各サービスのログを取り込みます。下
 
 ## 1. 共通
 
-SIEM on Amazon ES は Amazon Simple Storage Service (Amazon S3) の S3 バケットに出力されたファイル名とパス名からログ種別を判定しています。初期値は、各サービスのデフォルト設定による出力パスまたはファイル名です。デフォルト設定で判定できない場合は、判別可能な情報を付与した設定にしています。初期値とは異なるファイルパスで S3 に出力する場合は、user.ini を作成して "s3_key" の項目に独自のファイル名や S3 オブジェクトキーを追加してください。user.ini の編集方法は [SIEM on Amazon ES の設定変更](configure_siem_ja.md)を参照してください。
+SIEM on OpenSearch Service は Amazon Simple Storage Service (Amazon S3) の S3 バケットに出力されたファイル名とパス名からログ種別を判定しています。初期値は、各サービスのデフォルト設定による出力パスまたはファイル名です。デフォルト設定で判定できない場合は、判別可能な情報を付与した設定にしています。初期値とは異なるファイルパスで S3 に出力する場合は、user.ini を作成して "s3_key" の項目に独自のファイル名や S3 オブジェクトキーを追加してください。user.ini の編集方法は [SIEM on OpenSearch Service の設定変更](configure_siem_ja.md)を参照してください。
 
 S3 バケットへの出力パスを自由に設定できる場合は、出力パス(プレフィックス)に AWS アカウント ID とリージョンを含めてください。取り込んだログにこの情報を付与します。ログにこの情報が含まれている場合には、ログに含まれている情報を優先します。
 
-AWS Key Management Service (AWS KMS) による暗号化をして、S3 バケットにファイルを保存する場合は、SIEM on Amazon ESのデプロイ時に自動作成された AWS KMS カスタマーマネジメントキーをご利用ください。デフォルトではエイリアス名は aes-siem-key です。すでにある AWS KMS カスタマーマネジメントキーを利用することも可能で、その場合には [高度なデプロイ](deployment_ja.md) をご確認ください。
+AWS Key Management Service (AWS KMS) による暗号化をして、S3 バケットにファイルを保存する場合は、SIEM on OpenSearch Serviceのデプロイ時に自動作成された AWS KMS カスタマーマネジメントキーをご利用ください。デフォルトではエイリアス名は aes-siem-key です。すでにある AWS KMS カスタマーマネジメントキーを利用することも可能で、その場合には [高度なデプロイ](deployment_ja.md) をご確認ください。
 
 ここでの説明の AWS アカウントは **123456789012** としています。適宜、ご自身の AWS アカウントに置き換えてください。
 
@@ -69,7 +69,7 @@ s3_key の初期値: `GuardDuty` (デフォルト設定の出力パスの一部)
     * キーエイリアス: [**aes-siem-key**] を選択します
     * [**保存**] を選択します
 
-以上で、設定は完了です。同じ設定画面内の [**結果サンプルの生成**] を選択すると SIEM on Amazon ES への取り込み設定の成否を確認できます。
+以上で、設定は完了です。同じ設定画面内の [**結果サンプルの生成**] を選択すると SIEM on OpenSearch Service への取り込み設定の成否を確認できます。
 
 ### AWS Directory Service
 
@@ -343,7 +343,7 @@ CloudFront の設定
 1. [Create real-time log configuration] 画面に次のパラメーターを入力します
     * Name: [**任意の名前**] を入力します
     * Sampling rate: [**100**]
-        * 全てのログを SIEM on Amazon ES に取り込みます
+        * 全てのログを SIEM on OpenSearch Service に取り込みます
     * Fields: [**全てのフィールドにチェックを入れてください**]
         * デフォルトで全てがチェックされています
     * Endpoint:  [**2つ前で作成した Kinesis Data Stream**] を選択します
@@ -480,7 +480,7 @@ s3_key の初期値は以下です。Firehose の出力パスに指定してく�
 
 監査ログを Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/123456789012/RDS/mysql/audit/ap-northeast-1`
 
-#### RDS の設定
+#### RDS (Aurora MySQL互換 / MySQL / MariaDB) の設定
 
 1. [RDS コンソール](https://console.aws.amazon.com/rds/home?) に移動します
 1. RDS で Audit ログを有効にするためにオプショングループから監査プラグインの設定をします。設定できる Databae エンジンとバージョンは下記を参照して下さい。(Aurora は、パラメーターグループで設定するので、この設定は不要です)。
@@ -543,7 +543,7 @@ s3_key の初期値は以下です。Firehose の出力パスに指定してく�
 
 ※※ **S3 バケットへの出力時に、圧縮設定はしないで下さい。** CloudWatch Logsから受信する場合はすでに gzip 圧縮されているので二重圧縮となり適切に処理ができません ※※
 
-#### 参考サイト
+#### 参考サイト (Aurora MySQL互換 / MySQL / MariaDB)
 
 * [Auroraユーザーガイド MySQL データベースログファイル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/AuroraUserGuide/USER_LogAccess.Concepts.MySQL.html)
 * [RDS ユーザーガイド MySQL データベースログファイル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MySQL.html)
@@ -560,7 +560,7 @@ s3_key の初期値: `Postgre` or `postgres` (Firehose の出力パスに指定)
 
 Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/123456789012/RDS/postgresql/ap-northeast-1`
 
-#### RDS の設定
+#### RDS (Aurora PostgreSQL互換 / PostgreSQL) の設定
 
 1. [RDS コンソール](https://console.aws.amazon.com/rds/home?) に移動します
 1. 出力するログの種類をパラメーターグループで設定します
@@ -601,7 +601,7 @@ Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/12
 
 ※※ **S3 バケットへの出力時に、圧縮設定はしないで下さい。** CloudWatch Logsから受信する場合はすでに gzip 圧縮されているので二重圧縮となり適切に処理ができません ※※
 
-#### 参考サイト
+#### 参考サイト (Aurora PostgreSQL互換 / PostgreSQL)
 
 * [Auroraユーザーガイド PostgreSQL データベースのログファイル](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/USER_LogAccess.Concepts.PostgreSQL.html)
 * [RDS ユーザーガイド PostgreSQL データベースのログファイル](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.PostgreSQL.html)
@@ -653,7 +653,7 @@ s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
 1. CloudWatch Logs のサブスクリプションで Firehose に出力します
    * [CloudWatch Logs サブスクリプションフィルタの使用-例 3: Amazon Kinesis Data Firehose のサブスクリプションフィルタ](https://docs.aws.amazon.com/ja_jp/AmazonCloudWatch/latest/logs/SubscriptionFilters.html#FirehoseExample)
 1. Firehose の出力先に S3 バケットを選択します
-    *. S3 バケットの出力先を指定します
+    * S3 バケットの出力先を指定します
         * OS ログとして出力するプレフィックス: [**AWSLogs/123456789012/EC2/Linux/[region]/**]
         * Secure ログとして出力するプレフィックス: [**AWSLogs/123456789012/EC2/Linux/Secure/[region]/**]
             * 123456789012 は ご利用の AWS アカウント ID に置換してください
@@ -741,12 +741,12 @@ s3_key の初期値: `(WorkSpaces|workspaces).*(Inventory|inventory)` Lambda fun
 
 ## 11. マルチリージョン・マルチアカウント
 
-他のアカウントや他リージョンのログを、S3 レプリケーションか、クロスアカウントで ログ用 S3 バケットに出力することで SIEM on Amazon ES にログを取り込むことができます。
+他のアカウントや他リージョンのログを、S3 レプリケーションか、クロスアカウントで ログ用 S3 バケットに出力することで SIEM on OpenSearch Service にログを取り込むことができます。
 出力先のパスは上記で設定した S3 Key に基づいてください。
 
 ## 12. 既存の S3 バケットからログからの取り込み
 
-すでに作成済みの S3 バケット に保存されログ、または AWS KMS カスタマーマネジメントキー を使って、SIEM on Amazon ES にログを取り込むこともできます。
+すでに作成済みの S3 バケット に保存されログ、または AWS KMS カスタマーマネジメントキー を使って、SIEM on OpenSearch Service にログを取り込むこともできます。
 既存の S3 または AWS KMS を使うためには、Lambda 関数 es-loader に権限を付与する必要があります。[ここを](deployment_ja.md) を参照して、AWS CDK を使ってデプロイしてください。
 
 [READMEに戻る](../README_ja.md)

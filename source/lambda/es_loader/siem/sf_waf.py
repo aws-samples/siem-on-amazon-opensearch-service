@@ -4,14 +4,19 @@
 def transform(logdata):
     headers = logdata['httpRequest']['headers']
     if len(headers) > 0:
+        logdata['httpRequest']['header'] = {}
         for header in headers:
-            if header['name'] == "Host":
+            key = header['name'].lower().replace('-', '_')
+            logdata['httpRequest']['header'][key] = header['value']
+            if key == 'host':
                 logdata['url']['domain'] = header['value']
-            if header['name'] == "User-Agent":
+            elif key == 'user_agent':
                 logdata['user_agent'] = {}
                 logdata['user_agent']['original'] = header['value']
-            if header['name'] == "Referer":
+            elif key == 'referer':
                 logdata['http']['request']['referrer'] = header['value']
+            elif key == 'authorization':
+                del logdata['httpRequest']['header'][key]
     try:
         # WAFv2
         logdata['rule']['ruleset'] = logdata['webaclId'].split('/')[2]

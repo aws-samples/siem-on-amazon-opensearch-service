@@ -11,33 +11,33 @@
 
 ## Conditions that require advanced deployment
 
-Run the AWS Cloud Development Kit (AWS CDK) to deploy SIEM on Amazon ES without using AWS CloudFormation if any of the following is true:
+Run the AWS Cloud Development Kit (AWS CDK) to deploy SIEM on Amazon OpenSearch Service without using AWS CloudFormation if any of the following is true:
 
-* I want to deploy Amazon Elasticsearch Service (Amazon ES) to an Amazon VPC **private subnet**
-   * Deployment to an Amazon VPC public subnet is not supported
+* I want to deploy Amazon OpenSearch Service to an Amazon VPC **private subnet**
+  * Deployment to an Amazon VPC public subnet is not supported
 * I want to aggregate and analyze logs in a multi-account environment
 * I want to import an existing Amazon Simple Storage Service (Amazon S3) bucket into a CloudFormation stack to automatically configure the **S3 bucket policy** with the AWS CDK for receiving multi-account logs. (Existing S3 bucket policy will be overwritten)
-* I want to load logs from an existing S3 bucket into SIEM on Amazon ES. **I manage the S3 bucket policy myself**
+* I want to load logs from an existing S3 bucket into SIEM on OpenSearch Service. **I manage the S3 bucket policy myself**
 * I want to decrypt logs that are stored encrypted in an S3 bucket with an existing AWS Key Management Service (AWS KMS) customer-managed key. **I manage the key policy for AWS KMS myself**
-* I want to change the default S3 bucket name or SIEM on Amazon ES domain name when deploying it
-   * SIEM on Amazon ES domain name: aes-siem
-   * S3 bucket name for logs: aes-siem-*[AWS Account ID]*-log
-   * S3 bucket name for snapshots: aes-siem-*[AWS Account ID]*-snapshot
-   * S3 bucket name for GeoIP download: aes-siem-*[AWS Account ID]*-geo
+* I want to change the default S3 bucket name or SIEM on OpenSearch Service domain name when deploying it
+  * SIEM on OpenSearch Service domain name: aes-siem
+  * S3 bucket name for logs: aes-siem-*[AWS Account ID]*-log
+  * S3 bucket name for snapshots: aes-siem-*[AWS Account ID]*-snapshot
+  * S3 bucket name for GeoIP download: aes-siem-*[AWS Account ID]*-geo
 
 ## Loading an existing S3 bucket
 
-You can load your existing S3 bucket into the CloudFormation stack of SIEM on Amazon ES and manage it with the AWS CDK. To do this, you need to add or modify the S3 bucket policy. Note that by following the steps below, **the S3 bucket policy and other bucket configurations** will be overwritten. Also, you can perform the steps below only during the initial installation of SIEM on Amazon ES.
-Skip these steps if you want to send logs from your existing S3 bucket to SIEM on Amazon ES, but still want to manage your S3 bucket policy, etc. by yourself.
+You can load your existing S3 bucket into the CloudFormation stack of SIEM on OpenSearch Service and manage it with the AWS CDK. To do this, you need to add or modify the S3 bucket policy. Note that by following the steps below, **the S3 bucket policy and other bucket configurations** will be overwritten. Also, you can perform the steps below only during the initial installation of SIEM on OpenSearch Service.
+Skip these steps if you want to send logs from your existing S3 bucket to SIEM on OpenSearch Service, but still want to manage your S3 bucket policy, etc. by yourself.
 
 ### Steps
 
 1. Check the name of the S3 bucket you want to load into the CloudFormation stack
-1. You can either git clone a set of source code from [Github](https://github.com/aws-samples/siem-on-amazon-elasticsearch), or download a CloudFormation template that imports a bucket from [here](https://aes-siem.s3.amazonaws.com/siem-on-amazon-elasticsearch-import-exist-s3bucket.template)
-1. Edit `deployment/siem-on-amazon-elasticsearch-import-exist-s3bucket.template` in the CloudFormation template that you have cloned from GitHub or downloaded. Change [change-me-to-your-bucket] in BucketName to the name of the S3 bucket you want to load into the stack
+1. You can either git clone a set of source code from [Github](https://github.com/aws-samples/siem-on-amazon-opensearch-service), or download a CloudFormation template that imports a bucket from [here](https://aes-siem.s3.amazonaws.com/siem-on-amazon-opensearch-service-import-exist-s3bucket.template)
+1. Edit `deployment/siem-on-amazon-opensearch-service-import-exist-s3bucket.template` in the CloudFormation template that you have cloned from GitHub or downloaded. Change [change-me-to-your-bucket] in BucketName to the name of the S3 bucket you want to load into the stack
 1. Navigate to CloudFormation in the AWS Management Console
 1. From the [Stacks] menu, choose [**Create stack**] --> [**With existing resources (import resources)**] from the top-right drop-down menu.
-1. Chooose [**Next**], and on the [Specify template] screen, upload the edited template `siem-on-amazon-elasticsearch-import-exist-s3bucket.template`, and choose [**Next**]
+1. Chooose [**Next**], and on the [Specify template] screen, upload the edited template `siem-on-amazon-opensearch-service-import-exist-s3bucket.template`, and choose [**Next**]
 1. On the [Identify resources] screen, navigate to [Identifier value] and enter [**the name of the S3 bucket you want to import**] into the stack and choose [**Next**]
 1. On the [Specify stack details] screen, enter the stack name [**aes-siem**] and then choose [**Next**]
 1. On the [Import overview] screen, choose [**Import resources**] to complete
@@ -50,7 +50,7 @@ Skip these steps if you want to send logs from your existing S3 bucket to SIEM o
 * The subnet you deploy is a private subnet
 * Select three different Availability Zones for the subnet. (Only one instance is deployed per AZ)
 * In Amazon VPC, enable both [**DNS hostnames**] and [**DNS resolution**]
-* `cdk.json` and `cdk.context.json` are created during the deployment, and ensure to save this file. It will be required to rerun the CDK used for the deployment of SIEM on Amazon ES
+* `cdk.json` and `cdk.context.json` are created during the deployment, and ensure to save this file. It will be required to rerun the CDK used for the deployment of SIEM on OpenSearch Service
 
 ### 1. Setting Up the AWS CDK Execution Environment
 
@@ -64,7 +64,7 @@ Skip these steps if you want to send logs from your existing S3 bucket to SIEM o
    sudo amazon-linux-extras enable python3.8
    sudo yum install -y python38 python38-devel git jq
    sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
-   git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch.git
+   git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
    ```
 
 ### 2. Setting Environment Variables
@@ -76,10 +76,10 @@ export AWS_DEFAULT_REGION=<AWS_REGION> # region where the distributable is deplo
 
 ### 3. Creating an AWS Lambda Deployment Package
 
-The AWS Lambda functions that you use in SIEM on Amazon ES make use of third party libraries. The script below will download these libraries and create a deployment package locally. Ensure that you have Python 3 installed.
+The AWS Lambda functions that you use in SIEM on OpenSearch Service make use of third party libraries. The script below will download these libraries and create a deployment package locally. Ensure that you have Python 3 installed.
 
 ```shell
-cd siem-on-amazon-elasticsearch/deployment/cdk-solution-helper/
+cd siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
 chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh
 ```
 
@@ -111,9 +111,9 @@ cdk bootstrap
 
 If the execution fails with an error, verify that your Amazon EC2 instance has the appropriate permissions role assigned.
 
-#### 5-1. Deploying SIEM on Amazon ES in an Amazon VPC
+#### 5-1. Deploying SIEM on OpenSearch Service in an Amazon VPC
 
-If you are deploying SIEM on Amazon ES in an Amazon VPC, copy and edit the AWS CDK sample file for Amazon VPC:
+If you are deploying SIEM on OpenSearch Service in an Amazon VPC, copy and edit the AWS CDK sample file for Amazon VPC:
 
 ```bash
 cp cdk.json.vpc.sample cdk.json
@@ -126,15 +126,15 @@ Parameters and descriptions for Amazon VPC:
 | Parameter | Description |
 |----------|----|
 | vpc_typ | If you create a new Amazon VPC, enter [**new**], and if you use an existing Amazon VPC, enter [**import**]. The parameter to edit is new_vpc_xxxx for a new VPC and imported_vpc_xxxx for an existing VPC |
-| imported_vpc_id | Enter the ID of the Amazon VPC where you want to deploy SIEM on Amazon ES |
+| imported_vpc_id | Enter the ID of the Amazon VPC where you want to deploy SIEM on OpenSearch Service |
 | imported_vpc_subnets | Enter three or more “VPC subnet IDs” in list form |
 | imported_vpc_subnetX | (Deprecated) Enter three parameters, namely [VPC subnet ID], [Availability Zone], and [route table ID] |
 | new_vpc_nw_cidr_block | Enter the IP and CIDR block for the new Amazon VPC that you create. The format is the IP address/the number of subnet masks. Example) 192.0.2.0/24 |
 | new_vpc_subnet_cidr_mask | Subnet CIDR block. For scalability, we recommend /27 or larger. |
 
-#### 5-2. Deploying Amazon ES for public access (outside of Amazon VPC)
+#### 5-2. Deploying OpenSearch Service for public access (outside of Amazon VPC)
 
-If you want to deploy SIEM on Amazon ES in a public access environment:
+If you want to deploy SIEM on OpenSearch Service in a public access environment:
 
 ```bash
 cp cdk.json.public.sample cdk.json
@@ -148,7 +148,7 @@ You can change the following parameters as common configurations. No modificatio
 
 | Parameter | Initial value | Description |
 |------------|-------|-----|
-| aes_domain_name | aes-siem | Changes the SIEM on Amazon ES domain |
+| aes_domain_name | aes-siem | Changes the SIEM on OpenSearch Service domain |
 | s3_bucket_name | Changes the S3 bucket name from the initial value |
 | log | aes-siem-*[AWS Account ID]*-log | S3 bucket name for logs |
 | snapshot | aes-siem-*[AWS Account ID]*-snapshot | S3 bucket name for snapshots |
@@ -181,10 +181,10 @@ You can specify the same parameters as for the CloudFormation template.
 
 | Parameter | Description |
 |------------|----|
-| AllowedSourceIpAddresses | The IP addresses that you want to allow access from when deploying SIEM on Amazon ES outside of your Amazon VPC. Multiple addresses are space-separated |
+| AllowedSourceIpAddresses | The IP addresses that you want to allow access from when deploying SIEM on OpenSearch Service outside of your Amazon VPC. Multiple addresses are space-separated |
 | GeoLite2LicenseKey | Maxmind license key. It will add country information to each IP address |
 | ReservedConcurrency | The maximum number of concurrency executions for es-loader. The default value is 10. Increase this value if you see delays in loading logs or if you see constant throttling occur even though there are no errors |
-| SnsEmail | Email address. Alerts detected by SIEM on Amazon ES will be sent to this email address via SNS |
+| SnsEmail | Email address. Alerts detected by SIEM on OpenSearch Service will be sent to this email address via SNS |
 
 Syntax) --parameters Option1=Parameter1 --parameters Option2=Parameter2
 If you have more than one parameter, repeat --parameters
@@ -197,7 +197,7 @@ cdk deploy \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
 
-The deployment takes about 20 minutes. When you're done, go back to README and proceed to “3. Configuring Kibana.”
+The deployment takes about 30 minutes. When you're done, go back to README and proceed to “3. Configuring OpenSearch Dashboards.”
 
 ## Updating SIEM with the AWS CDK
 

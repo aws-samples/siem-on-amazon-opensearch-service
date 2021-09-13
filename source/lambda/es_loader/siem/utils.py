@@ -17,7 +17,7 @@ from aws_lambda_powertools import Logger
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.4.1'
+__version__ = '2.5.0'
 
 logger = Logger(child=True)
 

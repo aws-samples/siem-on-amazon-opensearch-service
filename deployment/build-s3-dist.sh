@@ -46,7 +46,7 @@ fi
 if [ "$SOLUTION_NAME" ]; then
   solution_name="$SOLUTION_NAME"
 else
-  solution_name="siem-on-amazon-elasticsearch"
+  solution_name="siem-on-amazon-opensearch-service"
 fi
 
 echo "------------------------------------------------------------------------------"

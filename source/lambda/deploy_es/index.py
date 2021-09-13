@@ -17,7 +17,7 @@ import requests
 from crhelper import CfnResource
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.4.1'
+__version__ = '2.5.0'
 print('version: ' + __version__)
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,7 @@ es_loader_role = os.environ['es_loader_role']
 myiamarn = [accountid]
 KIBANAADMIN = 'aesadmin'
 KIBANA_HEADERS = {'Content-Type': 'application/json', 'kbn-xsrf': 'true'}
+DASHBOARDS_HEADERS = {'Content-Type': 'application/json', 'osd-xsrf': 'true'}
 vpc_subnet_id = os.environ['vpc_subnet_id']
 s3_snapshot = os.environ['s3_snapshot']
 if vpc_subnet_id == 'None':
@@ -100,7 +101,7 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': aesdomain,
-    'ElasticsearchVersion': '7.10',
+    'ElasticsearchVersion': 'OpenSearch_1.0',
     'ElasticsearchClusterConfig': {
         'InstanceType': 't3.medium.elasticsearch',
         'InstanceCount': 1,
@@ -233,12 +234,17 @@ def output_message(key, res):
     return(f'{key}: status={res.status_code}, message={res.text}')
 
 
-def get_aes_domain_version(es_endpoint):
+def get_dist_version(es_endpoint):
     awsauth = auth_aes(es_endpoint)
     res = query_aes(es_endpoint, awsauth, method='get', path='/')
     logger.info(res.text)
-    aes_domain_ver = json.loads(res.text)['version']['number']
-    return aes_domain_ver
+    version = json.loads(res.text)['version']
+    domain_version = version['number']
+    lucene_version = version['lucene_version']
+    dist_name = version.get('distribution', 'elasticsearch')
+    if domain_version == '7.10.2' and lucene_version != '8.7.0':
+        dist_name = 'opensearch'
+    return dist_name, domain_version
 
 
 def upsert_role_mapping(es_endpoint, role_name, es_app_data=None,
@@ -381,7 +387,7 @@ def configure_siem(es_endpoint, es_app_data):
                api='_template')
 
 
-def configure_index_rollover(es_endpoint, es_app_data, aes_domain_ver):
+def configure_index_rollover(es_endpoint, es_app_data):
     awsauth = auth_aes(es_endpoint)
     index_patterns = es_app_data['index-rollover']
     logger.info('Create initial index 000001 for rollover')
@@ -466,16 +472,21 @@ def setup_aes_system_log():
         create_loggroup_and_set_retention(cwl_client, log_group, retention)
 
 
-def set_tenant_get_cookies(es_endpoint, tenant, auth):
+def set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth):
     logger.debug(f'Set tenant as {tenant} and get cookies')
-    kibana_url = f'https://{es_endpoint}/_plugin/kibana'
+    if dist_name == 'opensearch':
+        base_url = f'https://{es_endpoint}/_dashboards'
+        headers = DASHBOARDS_HEADERS
+    else:
+        base_url = f'https://{es_endpoint}/_plugin/kibana'
+        headers = KIBANA_HEADERS
     if isinstance(auth, dict):
-        url = f'{kibana_url}/auth/login?security_tenant={tenant}'
+        url = f'{base_url}/auth/login?security_tenant={tenant}'
         response = requests.post(
-            url, headers=KIBANA_HEADERS, json=json.dumps(auth))
+            url, headers=headers, json=json.dumps(auth))
     elif isinstance(auth, AWS4Auth):
-        url = f'{kibana_url}/app/dashboards?security_tenant={tenant}'
-        response = requests.get(url, headers=KIBANA_HEADERS, auth=auth)
+        url = f'{base_url}/app/dashboards?security_tenant={tenant}'
+        response = requests.get(url, headers=headers, auth=auth)
     else:
         logger.error('There is no valid authentication')
         return False
@@ -489,18 +500,23 @@ def set_tenant_get_cookies(es_endpoint, tenant, auth):
         return False
 
 
-def get_saved_objects(es_endpoint, cookies, auth=None):
+def get_saved_objects(es_endpoint, dist_name, cookies, auth=None):
     if not cookies:
         logger.warn("No authentication. Skipped downloading dashboard")
         return False
-    url = f'https://{es_endpoint}/_plugin/kibana/api/saved_objects/_export'
+    if dist_name == 'opensearch':
+        url = f'https://{es_endpoint}/_dashboards/api/saved_objects/_export'
+        headers = DASHBOARDS_HEADERS
+    else:
+        url = f'https://{es_endpoint}/_plugin/kibana/api/saved_objects/_export'
+        headers = KIBANA_HEADERS
     payload = {'type': ['config', 'dashboard', 'visualization',
                         'index-pattern', 'search']}
     if auth:
-        response = requests.post(url, cookies=cookies, headers=KIBANA_HEADERS,
+        response = requests.post(url, cookies=cookies, headers=headers,
                                  json=json.dumps(payload), auth=auth)
     else:
-        response = requests.post(url, cookies=cookies, headers=KIBANA_HEADERS,
+        response = requests.post(url, cookies=cookies, headers=headers,
                                  json=json.dumps(payload))
     logger.debug(response.status_code)
     logger.debug(response.reason)
@@ -531,14 +547,20 @@ def backup_dashboard_to_s3(saved_objects, tenant):
         return False
 
 
-def load_dashboard_into_aes(es_endpoint, auth, cookies):
+def load_dashboard_into_aes(es_endpoint, dist_name, auth, cookies):
     with ZipFile('dashboard.ndjson.zip') as new_dashboard_zip:
         new_dashboard_zip.extractall('/tmp/')
     files = {'file': open('/tmp/dashboard.ndjson', 'rb')}
-    url = (f'https://{es_endpoint}/_plugin/kibana/api/saved_objects/_import'
-           f'?overwrite=true')
+    if dist_name == 'opensearch':
+        url = (f'https://{es_endpoint}/_dashboards/api/saved_objects/'
+               f'_import?overwrite=true')
+        headers = {'osd-xsrf': 'true'}
+    else:
+        url = (f'https://{es_endpoint}/_plugin/kibana/api/saved_objects/'
+               f'_import?overwrite=true')
+        headers = {'kbn-xsrf': 'true'}
     response = requests.post(url, cookies=cookies, files=files,
-                             headers={'kbn-xsrf': 'true'}, auth=auth)
+                             headers=headers, auth=auth)
     logger.info(response.text)
 
 
@@ -602,8 +624,8 @@ def aes_domain_poll_create(event, context):
     # ToDo: import dashboard for aesadmin private tenant
     # tenant = 'private'
     # auth = {'username': 'aesadmin', 'password': kibanapass}
-    # cookies = set_tenant_get_cookies(es_endpoint, tenant, auth)
-    # load_dashboard_into_aes(es_endpoint, auth, cookies)
+    # cookies = set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth)
+    # load_dashboard_into_aes(es_endpoint, dist_name, auth, cookies)
 
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource
@@ -668,23 +690,25 @@ def aes_config_create_update(event, context):
     es_app_data.read('data.ini')
     es_endpoint = os.environ['es_endpoint']
 
-    aes_domain_ver = get_aes_domain_version(es_endpoint)
-    if aes_domain_ver in ('7.4.2', '7.7.0', '7.8.0'):
-        raise Exception(f'Amazon ES Version is {aes_domain_ver}. Please update'
-                        f' Amazon ES to v7.10 or later')
+    dist_name, domain_version = get_dist_version(es_endpoint)
+    if domain_version in ('7.4.2', '7.7.0', '7.8.0', '7.9.1'):
+        raise Exception(f'Your domain version is Amazon ES {domain_version}. '
+                        f'Please upgrade the domain to OpenSearch or '
+                        f'Amazon ES v7.10')
     configure_opendistro(es_endpoint, es_app_data)
     configure_siem(es_endpoint, es_app_data)
-    configure_index_rollover(es_endpoint, es_app_data, aes_domain_ver)
+    configure_index_rollover(es_endpoint, es_app_data)
 
     # Globalテナントのsaved_objects をバックアップする
     tenant = 'global'
     awsauth = auth_aes(es_endpoint)
-    cookies = set_tenant_get_cookies(es_endpoint, tenant, awsauth)
-    saved_objects = get_saved_objects(es_endpoint, cookies, auth=awsauth)
+    cookies = set_tenant_get_cookies(es_endpoint, dist_name, tenant, awsauth)
+    saved_objects = get_saved_objects(
+        es_endpoint, dist_name, cookies, auth=awsauth)
     bk_response = backup_dashboard_to_s3(saved_objects, tenant)
     if bk_response:
         # Load dashboard and configuration to Global tenant
-        load_dashboard_into_aes(es_endpoint, awsauth, cookies)
+        load_dashboard_into_aes(es_endpoint, dist_name, awsauth, cookies)
 
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource
