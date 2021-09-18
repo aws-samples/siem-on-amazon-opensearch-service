@@ -141,7 +141,7 @@ def get_timestr_from_logdata_dict(logdata_dict, timestamp_key, has_nanotime):
     if has_nanotime:
         m = RE_WITH_NANOSECONDS.match(timestr)
         if m and m.group(3):
-            microsec = m.group(2)[:9].ljust(6, '0')
+            microsec = m.group(2)[:9].ljust(9, '0')
             timestr = m.group(1) + microsec + m.group(3)
     return timestr
 
