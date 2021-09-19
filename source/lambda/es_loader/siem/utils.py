@@ -13,6 +13,7 @@ from functools import lru_cache
 
 import boto3
 import botocore
+import requests
 from aws_lambda_powertools import Logger
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
@@ -275,6 +276,87 @@ def get_es_hostname():
     return es_hostname
 
 
+def create_awsauth(es_hostname):
+    es_region = es_hostname.split('.')[1]
+    # For Debug
+    # boto3.set_stream_logger('botocore', level='DEBUG')
+    credentials = boto3.Session().get_credentials()
+    service = 'es'
+    awsauth = AWS4Auth(
+        credentials.access_key, credentials.secret_key, es_region, service,
+        session_token=credentials.token)
+    return awsauth
+
+
+def create_es_conn(awsauth, es_hostname):
+    es_conn = Elasticsearch(
+        hosts=[{'host': es_hostname, 'port': 443}], http_auth=awsauth,
+        use_ssl=True, http_compress=True, verify_certs=True,
+        retry_on_timeout=True, connection_class=RequestsHttpConnection,
+        timeout=60)
+    return es_conn
+
+
+def get_read_only_indices(es_conn, awsauth, ES_HOSTNAME):
+    read_only_indices = []
+    # cold tier
+    # GET _cold/indices/_search?page_size=100
+    url = f'https://{ES_HOSTNAME}/_cold/indices/_search'
+    headers = {'Content-Type': 'application/json'}
+    try:
+        res = requests.get(
+            url, params={'page_size': 1}, auth=awsauth, timeout=3.0)
+    except requests.exceptions.Timeout:
+        logger.warning('timeout: impossible to get cold index')
+        return tuple(read_only_indices)
+    while res.status_code == 200 and len(res.json()['indices']) > 0:
+        for obj in res.json()['indices']:
+            idx = obj['index']
+            if idx.startswith('log-'):
+                read_only_indices.append(idx)
+        pagination_id = res.json()['pagination_id']
+        body = f'{{"pagination_id": "{pagination_id}"}}'
+        try:
+            res = requests.post(
+                url, data=body, auth=awsauth, headers=headers, timeout=3.0)
+        except requests.exceptions.Timeout:
+            logger.warning('timeout: impossible to get all cold index')
+            break
+
+    # close index
+    # params = {'index': 'log-*', 'h': 'index,status'}
+    # indices = es_conn.cat.indices(params=params)
+
+    # close index and ultrawarm tier
+    indices = es_conn.cluster.state(metric='blocks')
+    if ('blocks' in indices) and ('indices' in indices['blocks']):
+        for idx in indices['blocks']['indices']:
+            if idx.startswith('log-'):
+                read_only_indices.append(idx)
+    return tuple(sorted(list(set(read_only_indices))))
+
+
+@lru_cache(maxsize=1024)
+def get_writable_indexname(indexname, READ_ONLY_INDICES):
+    if indexname not in READ_ONLY_INDICES:
+        return indexname
+    else:
+        m = re.match('(log-.*)_([0-9]{2})', indexname)
+        if m:
+            org_indexname = m.group(1)
+            suffix = int(m.group(2))
+        else:
+            org_indexname = indexname
+            suffix = 1
+        new_indexname = f'{org_indexname}_{suffix:02}'
+        while new_indexname in READ_ONLY_INDICES:
+            suffix += 1
+            new_indexname = f'{org_indexname}_{suffix:02}'
+        logger.warning(f'{indexname} is close, ultrawarm or cold index. '
+                       f'New index name is {new_indexname}')
+        return new_indexname
+
+
 def create_logtype_s3key_dict(etl_config):
     logtype_s3key_dict = {}
     for logtype in etl_config.sections():
@@ -307,23 +389,6 @@ def sqs_queue(queue_url):
 #############################################################################
 # Lambda initialization
 #############################################################################
-def initialize_es_connection(es_hostname):
-    es_region = es_hostname.split('.')[1]
-    # For Debug
-    # boto3.set_stream_logger('botocore', level='DEBUG')
-    credentials = boto3.Session().get_credentials()
-    service = 'es'
-    awsauth = AWS4Auth(
-        credentials.access_key, credentials.secret_key, es_region, service,
-        session_token=credentials.token)
-    es_conn = Elasticsearch(
-        hosts=[{'host': es_hostname, 'port': 443}], http_auth=awsauth,
-        use_ssl=True, http_compress=True, verify_certs=True,
-        retry_on_timeout=True, connection_class=RequestsHttpConnection,
-        timeout=60)
-    return es_conn
-
-
 def find_user_custom_libs():
     # /opt is mounted by lambda layer
     user_libs = []

@@ -143,8 +143,9 @@ def get_es_entries(logfile, exclude_log_patterns):
         if logparser.is_ignored:
             logger.debug(f'Skipped log because {logparser.ignored_reason}')
             continue
-        yield {'index': {'_index': logparser.indexname,
-                         '_id': logparser.doc_id}}
+        indexname = utils.get_writable_indexname(
+            logparser.indexname, READ_ONLY_INDICES)
+        yield {'index': {'_index': indexname, '_id': logparser.doc_id}}
         # logger.debug(logparser.json)
         yield logparser.json
 
@@ -267,7 +268,12 @@ def observability_decorator_switcher(func):
         return decorator
 
 
-es_conn = utils.initialize_es_connection(ES_HOSTNAME)
+awsauth = utils.create_awsauth(ES_HOSTNAME)
+es_conn = utils.create_es_conn(awsauth, ES_HOSTNAME)
+DOMAIN_INFO = es_conn.info()
+logger.info(DOMAIN_INFO)
+READ_ONLY_INDICES = utils.get_read_only_indices(es_conn, awsauth, ES_HOSTNAME)
+logger.info(json.dumps({'READ_ONLY_INDICES': READ_ONLY_INDICES}))
 user_libs_list = utils.find_user_custom_libs()
 etl_config = utils.get_etl_config()
 utils.load_modules_on_memory(etl_config, user_libs_list)

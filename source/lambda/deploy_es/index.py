@@ -267,6 +267,14 @@ def upsert_role_mapping(es_endpoint, role_name, es_app_data=None,
         res = query_aes(es_endpoint, awsauth, 'PATCH', path, payload)
         logger.info(output_message('role_mapping_' + role_name, res))
         return True
+    elif (res.status_code == 200
+            and role_name not in ('all_access', 'security_manager')):
+        logger.info('Update role')
+        path_roles = '_opendistro/_security/api/roles/' + role_name
+        payload = json.loads(es_app_data['security']['role_es_loader'])
+        logger.debug(json.dumps(payload, default=json_serial))
+        res_new = query_aes(es_endpoint, awsauth, 'PATCH', path_roles, payload)
+        logger.info(output_message('role_' + role_name, res_new))
     logger.debug('Current Configration: ' + res.text)
     res_json = json.loads(res.text)
     current_conf = res_json[role_name]
