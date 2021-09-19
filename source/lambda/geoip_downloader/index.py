@@ -11,7 +11,7 @@ import urllib.request
 
 import boto3
 
-__version__ = '2.5.0'
+__version__ = '2.5.1-beta.1'
 
 # get var from lambda environment
 try:

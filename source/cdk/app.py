@@ -8,7 +8,7 @@ from aws_cdk import core
 
 from mysiem.aes_siem_stack import MyAesSiemStack
 
-__version__ = '2.5.0'
+__version__ = '2.5.1-beta.1'
 
 app = core.App()
 MyAesSiemStack(app, "aes-siem",
