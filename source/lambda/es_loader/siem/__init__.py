@@ -50,6 +50,7 @@ class LogS3:
         self.__rawdata = self.extract_rawdata_from_s3obj()
         if self.file_format in ('multiline', 'xml', 'winevtxml', ):
             self.re_multiline_firstline = self.logconfig['multiline_firstline']
+        self.__file_timestamp = self.extract_file_timestamp()
 
     def __iter__(self):
         if self.is_ignored:
@@ -191,6 +192,8 @@ class LogS3:
 
     def logdata_generator(self):
         logmeta = {}
+        if self.__file_timestamp:
+            logmeta['file_timestamp'] = self.__file_timestamp
         start, end = self.set_start_end_position()
         self.total_log_count = end - start
 
@@ -202,7 +205,7 @@ class LogS3:
             for logdata in self.rawdata.readlines()[start:end]:
                 yield (logdata.strip(), logmeta)
         elif self.file_format in ('json', ):
-            logobjs = self.extract_logobj_from_json(start, end)
+            logobjs = self.extract_logobj_from_json(start, end, logmeta)
             for logobj, logmeta in logobjs:
                 yield (logobj, logmeta)
         elif self.file_format in ('winevtxml', ):
@@ -233,6 +236,29 @@ class LogS3:
             start = self.start_number - 1
             end = self.end_number
         return start, end
+
+    def extract_file_timestamp(self):
+        re_file_timestamp_format = self.logconfig['file_timestamp_format']
+        if re_file_timestamp_format:
+            m = re_file_timestamp_format.search(self.s3key)
+            if m:
+                year = int(m.groupdict().get('year', 2000))
+                month = int(m.groupdict().get('month', 1))
+                day = int(m.groupdict().get('day', 1))
+                hour = int(m.groupdict().get('hour', 0))
+                minute = int(m.groupdict().get('minute', 0))
+                second = int(m.groupdict().get('second', 0))
+                microsecond = int(m.groupdict().get('microsecond', 0))
+                dt = datetime(year, month, day, hour, minute, second,
+                              microsecond, tzinfo=timezone.utc)
+            else:
+                msg = (f'invalid file timestamp format regex, '
+                       f're_file_timestamp_format, for {self.s3key}')
+                logger.exception(msg)
+                raise Exception(msg) from None
+            return dt
+        else:
+            return None
 
     def extract_cwl_log(self, start, end):
         index: int = 0
@@ -364,7 +390,7 @@ class LogS3:
                 index = search.end()
         return count
 
-    def extract_logobj_from_json(self, start=0, end=0):
+    def extract_logobj_from_json(self, start=0, end=0, logmeta={}):
         decoder = json.JSONDecoder()
         delimiter = self.logconfig['json_delimiter']
         count = 0
@@ -376,7 +402,7 @@ class LogS3:
             while index < size:
                 raw_event, offset = decoder.raw_decode(line, index)
                 raw_event, logmeta = self.check_cwe_and_strip_header(
-                    raw_event, need_meta=True)
+                    raw_event, logmeta, need_meta=True)
                 if delimiter and (delimiter in raw_event):
                     # multiple evets in 1 json
                     for record in raw_event[delimiter]:
@@ -428,8 +454,8 @@ class LogS3:
             # yield last log
             yield("".join(multilog).rstrip(), metadata)
 
-    def check_cwe_and_strip_header(self, dict_obj, need_meta=False):
-        logmeta = {}
+    def check_cwe_and_strip_header(
+            self, dict_obj, logmeta={}, need_meta=False):
         if "detail-type" in dict_obj and "resources" in dict_obj:
             if need_meta:
                 logmeta = {'cwe_id': dict_obj['id'],
@@ -527,6 +553,7 @@ class LogParser:
             self.cwl_timestamp = logmeta.get('cwl_timestamp')
             self.cwe_id = logmeta.get('cwe_id')
             self.cwe_timestamp = logmeta.get('cwe_timestamp')
+            self.file_timestamp = logmeta.get('file_timestamp')
         self.__logdata_dict = self.logdata_to_dict(logdata, logmeta)
         if logmeta.get('container_name'):
             # Firelens. for compatibility
@@ -830,6 +857,8 @@ class LogParser:
                 self.__logdata_dict['cwe_timestamp'] = self.cwe_timestamp
             elif self.logconfig['timestamp_key'] == 'cwl_timestamp':
                 self.__logdata_dict['cwl_timestamp'] = self.cwl_timestamp
+            elif self.logconfig['timestamp_key'] == 'file_timestamp':
+                return self.file_timestamp
             timestr = utils.get_timestr_from_logdata_dict(
                 self.__logdata_dict, self.logconfig['timestamp_key'],
                 self.has_nanotime)

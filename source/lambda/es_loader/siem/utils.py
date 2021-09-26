@@ -249,7 +249,7 @@ def convert_custom_timeformat_to_datetime(timestr, TZ, timestamp_format,
         msg = f'timestamp key {timestamp_key} is wrong'
         logger.exception(msg)
         raise ValueError(msg) from None
-    if not dt.tzinfo:
+    if TZ and not dt.tzinfo:
         dt = dt.replace(tzinfo=TZ)
     return dt
 
