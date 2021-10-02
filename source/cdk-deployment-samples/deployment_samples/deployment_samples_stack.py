@@ -11,7 +11,7 @@ from aws_cdk import (
 )
 from aws_cdk.aws_kinesisfirehose import CfnDeliveryStream as CDS
 
-__version__ = '2.5.1-beta.1'
+__version__ = '2.5.1-beta.2'
 
 LAMBDA_GET_WORKSPACES_INVENTORY = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0

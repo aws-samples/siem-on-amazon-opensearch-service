@@ -20,7 +20,7 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.5.1-beta.1'
+__version__ = '2.5.1-beta.2'
 print(__version__)
 
 SOLUTION_NAME = f'SIEM on Amazon OpenSearch Service v{__version__}'
