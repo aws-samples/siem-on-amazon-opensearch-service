@@ -50,3 +50,38 @@ event.count = cnt
 rule.category = cs1
 host.id = cn1
 event.original = msg
+
+[okta]
+s3_key = okta-logs
+index_rotation = monthly
+index_time = @timestamp
+index_tz = +09:00
+timestamp_key = published
+timestamp_format = iso8601
+index_name = log-intra-audit-okta
+file_format = json
+script_ecs = user.name user.domain user.email event.outcome client.user.full_name client.user.id source.user.full_name source.user.id related.user
+
+ecs = user_agent.original client.ip source.ip event.action client.as.number client.as.organization.name client.domain source.domain log.level client.geo.location client.geo.city_name client.geo.region_name client.geo.country_name source.address client.address
+
+client.ip = client.ipAddress
+client.address = ${client.ip}
+client.as.number = securityContext.asNumber
+client.as.organization.name = securityContext.asOrg
+client.domain = securityContext.domain
+client.geo.location = client.geographicalContext.geolocation
+client.geo.city_name = client.geographicalContext.city
+client.geo.region_name = client.geographicalContext.state
+client.geo.country_name = client.geographicalContext.country
+event.action = eventType
+log.level = severity
+source.ip = client.ipAddress
+source.address = ${source.ip}
+source.domain = securityContext.domain
+user_agent.original = client.userAgent.rawUserAgent
+
+static_ecs = event.kind event.category
+event.kind = event
+event.category = web
+
+geoip = source
