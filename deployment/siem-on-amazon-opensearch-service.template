@@ -1,81 +1,106 @@
 {
   "Description": "SIEM on Amazon OpenSearch Service v2.5.1-beta.2",
   "Mappings": {
-    "ELBv2AccountMap": {
+    "RegionMap": {
       "af-south-1": {
-        "accountid": "098369216593"
+        "ElbV2AccountId": "098369216593",
+        "LambdaArch": "x86_64"
       },
       "ap-east-1": {
-        "accountid": "754344448648"
+        "ElbV2AccountId": "754344448648",
+        "LambdaArch": "x86_64"
       },
       "ap-northeast-1": {
-        "accountid": "582318560864"
+        "ElbV2AccountId": "582318560864",
+        "LambdaArch": "arm64"
       },
       "ap-northeast-2": {
-        "accountid": "600734575887"
+        "ElbV2AccountId": "600734575887",
+        "LambdaArch": "x86_64"
       },
       "ap-northeast-3": {
-        "accountid": "383597477331"
+        "ElbV2AccountId": "383597477331",
+        "LambdaArch": "x86_64"
       },
       "ap-south-1": {
-        "accountid": "718504428378"
+        "ElbV2AccountId": "718504428378",
+        "LambdaArch": "arm64"
       },
       "ap-southeast-1": {
-        "accountid": "114774131450"
+        "ElbV2AccountId": "114774131450",
+        "LambdaArch": "arm64"
       },
       "ap-southeast-2": {
-        "accountid": "783225319266"
+        "ElbV2AccountId": "783225319266",
+        "LambdaArch": "arm64"
       },
       "ca-central-1": {
-        "accountid": "985666609251"
+        "ElbV2AccountId": "985666609251",
+        "LambdaArch": "x86_64"
       },
       "cn-north-1": {
-        "accountid": "638102146993"
+        "ElbV2AccountId": "638102146993",
+        "LambdaArch": "x86_64"
       },
       "cn-northwest-1": {
-        "accountid": "037604701340"
+        "ElbV2AccountId": "037604701340",
+        "LambdaArch": "x86_64"
       },
       "eu-central-1": {
-        "accountid": "054676820928"
+        "ElbV2AccountId": "054676820928",
+        "LambdaArch": "arm64"
       },
       "eu-north-1": {
-        "accountid": "897822967062"
+        "ElbV2AccountId": "897822967062",
+        "LambdaArch": "x86_64"
       },
       "eu-south-1": {
-        "accountid": "635631232127"
+        "ElbV2AccountId": "635631232127",
+        "LambdaArch": "x86_64"
       },
       "eu-west-1": {
-        "accountid": "156460612806"
+        "ElbV2AccountId": "156460612806",
+        "LambdaArch": "arm64"
       },
       "eu-west-2": {
-        "accountid": "652711504416"
+        "ElbV2AccountId": "652711504416",
+        "LambdaArch": "arm64"
       },
       "eu-west-3": {
-        "accountid": "009996457667"
+        "ElbV2AccountId": "009996457667",
+        "LambdaArch": "x86_64"
       },
       "me-south-1": {
-        "accountid": "076674570225"
+        "ElbV2AccountId": "076674570225",
+        "LambdaArch": "x86_64"
       },
       "sa-east-1": {
-        "accountid": "507241528517"
+        "ElbV2AccountId": "507241528517",
+        "LambdaArch": "x86_64"
       },
       "us-east-1": {
-        "accountid": "127311923021"
+        "ElbV2AccountId": "127311923021",
+        "LambdaArch": "arm64"
       },
       "us-east-2": {
-        "accountid": "033677994240"
+        "ElbV2AccountId": "033677994240",
+        "LambdaArch": "arm64"
       },
       "us-gov-east-1": {
-        "accountid": "190560391635"
+        "ElbV2AccountId": "190560391635",
+        "LambdaArch": "x86_64"
       },
       "us-gov-west-1": {
-        "accountid": "048591011584"
+        "ElbV2AccountId": "048591011584",
+        "LambdaArch": "x86_64"
       },
       "us-west-1": {
-        "accountid": "027434742980"
+        "ElbV2AccountId": "027434742980",
+        "LambdaArch": "x86_64"
       },
       "us-west-2": {
-        "accountid": "797873946194"
+        "ElbV2AccountId": "797873946194",
+        "LambdaArch": "arm64"
       }
     }
   },
@@ -550,11 +575,11 @@
                       ":iam::",
                       {
                         "Fn::FindInMap": [
-                          "ELBv2AccountMap",
+                          "RegionMap",
                           {
                             "Ref": "AWS::Region"
                           },
-                          "accountid"
+                          "ElbV2AccountId"
                         ]
                       },
                       ":root"
@@ -1507,6 +1532,9 @@
             "Arn"
           ]
         },
+        "Architectures": [
+          "x86_64"
+        ],
         "DeadLetterConfig": {
           "TargetArn": {
             "Fn::GetAtt": [
@@ -1677,6 +1705,9 @@
             "Arn"
           ]
         },
+        "Architectures": [
+          "x86_64"
+        ],
         "Description": "SIEM on Amazon OpenSearch Service v2.5.1-beta.2 / geoip-downloader",
         "Environment": {
           "Variables": {
@@ -1731,6 +1762,9 @@
             "Arn"
           ]
         },
+        "Architectures": [
+          "x86_64"
+        ],
         "Description": "SIEM on Amazon OpenSearch Service v2.5.1-beta.2 / opensearch domain deployment",
         "Environment": {
           "Variables": {
@@ -1805,6 +1839,9 @@
             "Arn"
           ]
         },
+        "Architectures": [
+          "x86_64"
+        ],
         "Description": "SIEM on Amazon OpenSearch Service v2.5.1-beta.2 / opensearch configuration",
         "Environment": {
           "Variables": {

@@ -138,15 +138,26 @@ class MyAesSiemStack(core.Stack):
 
         ES_LOADER_TIMEOUT = 600
         ######################################################################
-        # ELB mapping
+        # REGION mapping / ELB & Lambda Arch
         ######################################################################
         elb_id_temp = region_info.FactName.ELBV2_ACCOUNT
         elb_map_temp = region_info.RegionInfo.region_map(elb_id_temp)
-        elb_mapping = {}
-        for key in elb_map_temp:
-            elb_mapping[key] = {'accountid': elb_map_temp[key]}
-        elb_accounts = core.CfnMapping(
-            scope=self, id='ELBv2AccountMap', mapping=elb_mapping)
+        region_dict = {}
+        for region in elb_map_temp:
+            # ELB account ID
+            region_dict[region] = {'ElbV2AccountId': elb_map_temp[region]}
+            # Lambda Arch
+            if region in ('us-east-1', 'us-east-2', 'us-west-2', 'ap-south-1',
+                          'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1',
+                          'eu-central-1', 'eu-west-1', 'eu-west-2'):
+                region_dict[region]['LambdaArch'] = (
+                    aws_lambda.Architecture.ARM_64.name)
+            else:
+                region_dict[region]['LambdaArch'] = (
+                    aws_lambda.Architecture.X86_64.name)
+        region_mapping = core.CfnMapping(
+            scope=self, id='RegionMap', mapping=region_dict)
+
         ######################################################################
         # get params
         ######################################################################
@@ -549,6 +560,9 @@ class MyAesSiemStack(core.Stack):
             function_name='aes-siem-es-loader',
             description=f'{SOLUTION_NAME} / es-loader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
+            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=region_mapping.find_in_map(
+            #    core.Aws.REGION, 'LambdaArm'),
             # code=aws_lambda.Code.asset('../lambda/es_loader.zip'),
             code=aws_lambda.Code.asset('../lambda/es_loader'),
             handler='index.lambda_handler',
@@ -593,6 +607,9 @@ class MyAesSiemStack(core.Stack):
             function_name='aes-siem-geoip-downloader',
             description=f'{SOLUTION_NAME} / geoip-downloader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
+            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=region_mapping.find_in_map(
+            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
             memory_size=320,
@@ -615,6 +632,9 @@ class MyAesSiemStack(core.Stack):
             function_name='aes-siem-deploy-aes',
             description=f'{SOLUTION_NAME} / opensearch domain deployment',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
+            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=region_mapping.find_in_map(
+            #    core.Aws.REGION, 'LambdaArm'),
             # code=aws_lambda.Code.asset('../lambda/deploy_es.zip'),
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
             handler='index.aes_domain_handler',
@@ -666,6 +686,9 @@ class MyAesSiemStack(core.Stack):
             function_name='aes-siem-configure-aes',
             description=f'{SOLUTION_NAME} / opensearch configuration',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
+            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=region_mapping.find_in_map(
+            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
             memory_size=128,
@@ -803,8 +826,8 @@ class MyAesSiemStack(core.Stack):
         bucket_policy_common1 = aws_iam.PolicyStatement(
             sid='ELB Policy',
             principals=[aws_iam.AccountPrincipal(
-                account_id=elb_accounts.find_in_map(
-                    core.Aws.REGION, 'accountid'))],
+                account_id=region_mapping.find_in_map(
+                    core.Aws.REGION, 'ElbV2AccountId'))],
             actions=['s3:PutObject'], resources=[s3_awspath + '/*'],)
         # NLB / ALB / R53resolver / VPC Flow Logs
         bucket_policy_elb1 = aws_iam.PolicyStatement(

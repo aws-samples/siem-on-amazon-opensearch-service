@@ -1,5 +1,5 @@
 boto3
-aws-cdk.core==1.122.0
+aws-cdk.core==1.128.0
 aws_cdk.aws_apigateway
 aws_cdk.aws_cloudformation
 aws_cdk.aws_ec2
