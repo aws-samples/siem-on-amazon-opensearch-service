@@ -1,5 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.5.1-beta.2'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import configparser
 import csv
@@ -18,8 +24,6 @@ from aws_lambda_powertools import Logger
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.5.1-beta.2'
-
 logger = Logger(child=True)
 
 
@@ -27,7 +31,8 @@ logger = Logger(child=True)
 # text utils
 #############################################################################
 # REGEXP
-RE_INSTANCEID = re.compile(r'\W?(?P<instanceid>i-[0-9a-z]{8,17})\W?')
+RE_INSTANCEID = re.compile(
+    r'(\W|_|^)(?P<instanceid>i-([0-9a-z]{8}|[0-9a-z]{17}))(\W|_|$)')
 RE_ACCOUNT = re.compile(r'/([0-9]{12})/')
 RE_REGION = re.compile(
     r'(global|(us|ap|ca|eu|me|sa|af|cn)-(gov-)?[a-zA-Z]+-[0-9])')
@@ -41,27 +46,32 @@ NOW = datetime.now(timezone.utc)
 TD_OFFSET12 = timedelta(hours=12)
 
 
+@lru_cache(maxsize=1024)
 def extract_aws_account_from_text(text):
-    m = RE_ACCOUNT.search(text)
-    if m:
-        return(m.group(1))
-    else:
-        return None
+    if text:
+        m = RE_ACCOUNT.search(text)
+        if m:
+            return(m.group(1))
+        else:
+            return None
 
 
+@lru_cache(maxsize=1024)
 def extract_aws_region_from_text(text):
-    m = RE_REGION.search(text)
-    if m:
-        return(m.group(1))
-    else:
-        return None
+    if text:
+        m = RE_REGION.search(text)
+        if m:
+            return(m.group(1))
+        else:
+            return None
 
 
+@lru_cache(maxsize=1024)
 def extract_aws_instanceid_from_text(text):
-    m = RE_INSTANCEID.search(text)
-    if m:
-        return(m.group(1))
-    else:
+    if text:
+        m = RE_INSTANCEID.search(text)
+        if m:
+            return(m.group(2))
         return None
 
 
@@ -255,7 +265,7 @@ def convert_custom_timeformat_to_datetime(timestr, TZ, timestamp_format,
 
 
 #############################################################################
-# Amazon ES / AWS Resouce
+# Amazon OpenSearch Service / AWS Resouce
 #############################################################################
 def get_es_hostname():
     # get ES_ENDPOINT
@@ -414,10 +424,11 @@ def timestr_to_hours(timestr):
 def get_etl_config():
     etl_config = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
-    etl_config.read('aws.ini')
+    siem_dir = os.path.dirname(__file__)
+    etl_config.read(f'{siem_dir}/../aws.ini')
     # overwride with user configration
     etl_config.read('/opt/user.ini')
-    etl_config.read('user.ini')
+    etl_config.read(f'{siem_dir}/../user.ini')
     etl_config.sections()
     if 'doc_id' not in etl_config['DEFAULT']:
         logger.error('invalid config file: aws.ini. exit')
@@ -679,7 +690,7 @@ def match_log_with_exclude_patterns(log_dict, log_patterns, ex_pattern=None):
     """match log with exclude patterns.
 
     ログと、log_patterns を比較させる
-    一つでもマッチングされれば、Amazon ESにLoadしない
+    一つでもマッチングされれば、OpenSearch ServiceにLoadしない
 
     >>> pattern1 = 111
     >>> RE_BINGO = re.compile('^'+str(pattern1)+'$')

@@ -1,3 +1,5 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 event_id	action	outcome
 1074	system-shutdown	success
 1100	logging-service-shutdown	success

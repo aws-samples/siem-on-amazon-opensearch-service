@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.5.1-beta.2'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import json
 import os
@@ -15,8 +21,6 @@ from aws_lambda_powertools.metrics import MetricUnit
 
 import siem
 from siem import geodb, utils
-
-__version__ = '2.5.1-beta.2'
 
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
@@ -128,8 +132,8 @@ def create_logconfig(logtype):
 def get_es_entries(logfile, exclude_log_patterns):
     """get elasticsearch entries.
 
-    To return json to load AmazonES, extract log, map fields to ecs fields and
-    enrich ip addresses with geoip. Most important process.
+    To return json to load OpenSearch Service, extract log, map fields to ecs
+     fields and enrich ip addresses with geoip. Most important process.
     """
     # ETL対象のログタイプのConfigだけを限定して定義する
     logconfig = create_logconfig(logfile.logtype)
@@ -138,8 +142,8 @@ def get_es_entries(logfile, exclude_log_patterns):
 
     logparser = siem.LogParser(
         logfile, logconfig, sf_module, geodb_instance, exclude_log_patterns)
-    for logdata, logmeta in logfile:
-        logparser(logdata, logmeta)
+    for lograw, logdata, logmeta in logfile:
+        logparser(lograw, logdata, logmeta)
         if logparser.is_ignored:
             logger.debug(f'Skipped log because {logparser.ignored_reason}')
             continue
@@ -315,13 +319,13 @@ def lambda_handler(event, context):
         if logfile.is_ignored:
             logger.warn(f'Skipped S3 object because {logfile.ignored_reason}')
         elif collected_metrics['error_count']:
-            error_message = (f"{collected_metrics['error_count']}"
-                             " of logs were NOT loaded into Amazon ES")
+            error_message = (f"{collected_metrics['error_count']} of logs "
+                             "were NOT loaded into OpenSearch Service")
             logger.error(error_message)
             logger.error(error_reason_list[:5])
             raise Exception(error_message)
         elif collected_metrics['total_log_load_count'] > 0:
-            logger.info('All logs were loaded into Amazon ES')
+            logger.info('All logs were loaded into OpenSearch Service')
         else:
             logger.warn('No entries were successed to load')
 
@@ -342,7 +346,8 @@ if __name__ == '__main__':
             '-b', '--s3bucket', help='s3 bucket where logs are storeed')
         parser.add_argument(
             '-l', '--s3list', help=('s3 object list which you want to load to '
-                                    'AmazonES. You can create the list by '
+                                    'OpenSearch Service. You can create the '
+                                    'list by '
                                     '"aws s3 ls S3BUCKET --recursive"'))
         group.add_argument('-q', '--sqs', help='SQS queue name of DLQ')
         args = parser.parse_args()
