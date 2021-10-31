@@ -78,10 +78,10 @@ def transform(logdata):
                 except KeyError:
                     pass
     elif event_source == 'glue.amazonaws.com':
-        # #156
+        # #156, #166
         try:
             configuration = logdata['requestParameters']['configuration']
-        except KeyError:
+        except (KeyError, TypeError):
             configuration = None
         if configuration and isinstance(configuration, str):
             logdata['requestParameters']['configuration'] = {
