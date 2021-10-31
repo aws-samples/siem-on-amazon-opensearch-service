@@ -5,7 +5,7 @@
 
 SIEM on Amazon OpenSearch Service は、セキュリティインシデントを調査するためのソリューションです。Amazon OpenSearch Service (Amazon Elasticsearch Service の後継) を活用して、AWS のマルチアカウント環境下で、複数種類のログを収集し、ログの相関分析や可視化をすることができます。デプロイは、AWS CloudFormation または AWS Cloud Development Kit (AWS CDK) で行います。30分程度でデプロイは終わります。AWS サービスのログを Simple Storage Service (Amazon S3) のバケットに PUT すると、自動的に ETL 処理を行い、SIEM on OpenSearch Service に取り込まれます。ログを取り込んだ後は、ダッシュボードによる可視化や、複数ログの相関分析ができるようになります。
 
-> Amazon OpenSearch Service のサービス名変更に伴い、SIEM on Amazon OpenSearch Service から SIEM on Amazon OpenSearch Service に名前を変更しました。
+> Amazon OpenSearch Service のサービス名変更に伴い、SIEM on Amazon Elasticsearch Service から SIEM on Amazon OpenSearch Service に名前を変更しました。
 
 Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_service_ja.md) | [SIEM の設定](docs/configure_siem_ja.md) | [高度なデプロイ](docs/deployment_ja.md) | [ダッシュボード](docs/dashboard_ja.md) | [サポートログタイプ](docs/suppoted_log_type.md) | [よくある質問](docs/faq_ja.md) | [変更履歴](CHANGELOG.md) |
 
