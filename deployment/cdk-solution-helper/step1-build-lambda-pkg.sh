@@ -26,6 +26,12 @@ function pip_zip_for_lambda () {
     for dir in `ls -v -r -d *.dist-info 2>/dev/null`; do
         echo "rm -r" $(echo "${dir}" | sed -e 's/-.*.dist-info/*/')
         rm -r $(echo "${dir}" | sed -e 's/-.*.dist-info/*/')
+        echo "rm -r" $(echo "${dir}" | sed -e 's/-.*.dist-info/*/' | sed -e 's/_//')
+        rm -r $(echo "${dir}" | sed -e 's/-.*.dist-info/*/' | sed -e 's/_//')
+    done
+    for dir in `ls -v -r -d *.egg-info 2>/dev/null`; do
+        echo "rm -r" $(echo "${dir}" | sed -e 's/-.*.egg-info/*/')
+        rm -r $(echo "${dir}" | sed -e 's/-.*.egg-info/*/')
     done
     if [ -e requirements.txt ]; then
         python3 -m pip install -t . -r requirements.txt -U

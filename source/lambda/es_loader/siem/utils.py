@@ -21,7 +21,7 @@ import boto3
 import botocore
 import requests
 from aws_lambda_powertools import Logger
-from elasticsearch import Elasticsearch, RequestsHttpConnection
+from opensearchpy import OpenSearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
 logger = Logger(child=True)
@@ -299,7 +299,7 @@ def create_awsauth(es_hostname):
 
 
 def create_es_conn(awsauth, es_hostname):
-    es_conn = Elasticsearch(
+    es_conn = OpenSearch(
         hosts=[{'host': es_hostname, 'port': 443}], http_auth=awsauth,
         use_ssl=True, http_compress=True, verify_certs=True,
         retry_on_timeout=True, connection_class=RequestsHttpConnection,

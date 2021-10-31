@@ -1,32 +1,34 @@
 # python libs
 bin/
-certifi*
 aiohttp*
 async_timeout*
+attr*
+aws_lambda_powertools*
+aws_xray_sdk*
+certifi*
 chardet*
 charset_normalizer*
 crhelper*
 elasticsearch*
-idna*
-requests*
-urllib3*
-maxminddb*
-yarl*
-multidict*
-geoip2*
-attr*
-typing_extensions*
-aws_lambda_powertools*
-aws_xray_sdk*
 fastjsonschema*
+geoip2*
+idna*
 jmespath*
 jsonpickle*
 libfuturize*
 libpasteurize*
+maxminddb*
+multidict*
+opensearch_py*
+opensearchpy
 past*
 python_dateutil-2.8.1*
+requests*
+typing_extensions*
+urllib3*
 wrapt*
 xmltodict*
+yarl*
 
 # AWS CDK
 cdk.context.json

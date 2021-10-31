@@ -22,7 +22,6 @@ from aws_lambda_powertools.metrics import MetricUnit
 import siem
 from siem import geodb, utils
 
-
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
 logger.info('version: ' + __version__)
 metrics = Metrics()
@@ -130,7 +129,7 @@ def create_logconfig(logtype):
 
 
 def get_es_entries(logfile, exclude_log_patterns):
-    """get elasticsearch entries.
+    """get opensearch entries.
 
     To return json to load OpenSearch Service, extract log, map fields to ecs
      fields and enrich ip addresses with geoip. Most important process.
@@ -176,7 +175,7 @@ def check_es_results(results, total_count):
     return duration, success, error, error_reasons
 
 
-def bulkloads_into_elasticsearch(es_entries, collected_metrics):
+def bulkloads_into_opensearch(es_entries, collected_metrics):
     output_size, total_output_size = 0, 0
     total_count, success_count, error_count, es_response_time = 0, 0, 0, 0
     results = False
@@ -311,7 +310,7 @@ def lambda_handler(event, context):
         # 抽出したログからESにPUTするデータを作成する
         es_entries = get_es_entries(logfile, exclude_log_patterns)
         # 作成したデータをESにPUTしてメトリクスを収集する
-        collected_metrics, error_reason_list = bulkloads_into_elasticsearch(
+        collected_metrics, error_reason_list = bulkloads_into_opensearch(
             es_entries, collected_metrics)
         output_metrics(metrics, record=record, logfile=logfile,
                        collected_metrics=collected_metrics)
