@@ -17,18 +17,26 @@ export OLDDIR="$HOME/siem-on-amazon-elasticsearch"
 
 function func_check_freespace() {
   if [ -d "$BASEDIR" ];then
-    find "$BASEDIR" -name "*.zip" | xargs rm -f
+    find "$BASEDIR" -name "*.zip" -print0 | xargs rm -f
     rm -fr "${BASEDIR}/source/cdk/cdk.out"
   fi
   if [ -d "$OLDDIR" ];then
-    find "$OLDDIR" -name "*.zip" | xargs rm -f
+    find "$OLDDIR" -name "*.zip" -print0 | xargs rm -f
     rm -fr "${OLDDIR}/source/cdk/.env"
     rm -fr "${OLDDIR}/source/cdk/cdk.out"
   fi
   free_space=$(df -m "$HOME" | awk '/[0-9]%/{print $(NF-2)}')
   echo "Free space is ${free_space} MB"
-  if [ "${free_space}" -le 250 ] && [ -d ~/.nvm/versions/node/ ]; then
-    ls -d ~/.nvm/versions/node/* | grep -v $(ls -t ~/.nvm/versions/node/ | head -1) | xargs rm -rf
+  if [ "${free_space}" -le 250 ]; then
+    # pip cache
+    rm -fr ~/.cache/pip
+    # npm cache
+    npm cache clean --force
+    # multiple node
+    num_of_nodes=$(find  ~/.nvm/versions/node/ -maxdepth 1 -type d 2>/dev/null | wc -l)
+    if [ "$num_of_nodes" -gt 2 ]; then
+      rm -fr ~/.nvm/versions/node/*
+    fi
   fi
   if [ "${free_space}" -le 250 ]; then
     echo "At least 250 MB of free space needed."
@@ -53,19 +61,19 @@ function func_migrate_old_repo_to_new_repo () {
 }
 
 function func_put_to_ssm_param () {
-  cd $BASEDIR/source/cdk
+  cd "$BASEDIR/source/cdk" || exit
   put_obj=$1
   aws ssm put-parameter \
     --name "/aes-siem/cdk/$put_obj" \
     --overwrite \
     --region "$AWS_DEFAULT_REGION" \
-    --value "$(cat ${put_obj})" \
+    --value "$(cat "${put_obj}")" \
     --type String
   echo "PUT $put_obj to SSM Parameter store"
 }
 
 function func_get_from_param_store () {
-  cd $BASEDIR/source/cdk
+  cd "$BASEDIR/source/cdk" || exit
   get_obj=$1
   aws ssm get-parameter \
     --name "/aes-siem/cdk/$get_obj" \
@@ -80,7 +88,7 @@ function func_get_from_param_store () {
 }
 
 function func_update_param () {
-  cd $BASEDIR/source/cdk
+  cd "$BASEDIR/source/cdk" || exit
   file_obj=$1
   func_get_from_param_store "${file_obj}"
   if [ ! -s "$file_obj.ssm" ]; then
@@ -90,21 +98,21 @@ function func_update_param () {
     fi
   else
     if [ -s "$file_obj" ]; then
-      is_changed=`diff $file_obj $file_obj.ssm| wc -l`
-      if [ $is_changed != "0" ]; then
-        func_put_to_ssm_param $file_obj
+      is_changed=$(diff "$file_obj" "$file_obj".ssm| wc -l)
+      if [ "$is_changed" != "0" ]; then
+        func_put_to_ssm_param "$file_obj"
       fi
     fi
-    rm $file_obj.ssm
+    rm "$file_obj.ssm"
   fi
 }
 
 function func_check_or_get_exiting_cdk_json () {
-  suffix=`date "+%Y%m%d_%H%M%S"`
+  suffix=$(date "+%Y%m%d_%H%M%S")
   func_get_from_param_store cdk.json
   if [ -s "cdk.json" ]; then
     if [ -s "cdk.json.ssm" ]; then
-      file_diff=`diff cdk.json.ssm cdk.json | wc -l`
+      file_diff=$(diff cdk.json.ssm cdk.json | wc -l)
       if [ "$file_diff" != "0" ]; then
         # different file
         echo "cdk.json on local and downloaded cdk.json from SSM parameter store are different."
@@ -135,7 +143,7 @@ function func_check_or_get_exiting_cdk_json () {
   func_get_from_param_store cdk.context.json
   if [ -s "cdk.context.json" ]; then
     if [ -s "cdk.context.json.ssm" ]; then
-      file_diff=`diff cdk.context.json.ssm cdk.context.json | wc -l`
+      file_diff=$(diff cdk.context.json.ssm cdk.context.json | wc -l)
       if [ "$file_diff" != "0" ]; then
         mv cdk.context.json "cdk.context.json-$suffix"
         mv cdk.context.json.ssm cdk.context.json
@@ -152,10 +160,10 @@ function func_check_or_get_exiting_cdk_json () {
 }
 
 function func_ask_and_set_env {
-  cd $BASEDIR/source/cdk
+  cd "$BASEDIR/source/cdk" || exit
   AES_ENV="vpc"
   while true; do
-    read -p "Where do you deploy your system? Enter pulic or vpc: default is [vpc]: " AES_ENV
+    read -rp "Where do you deploy your system? Enter pulic or vpc: default is [vpc]: " AES_ENV
     case $AES_ENV in
       '' | 'vpc' )
         echo deply Amazon ES in VPC
@@ -182,11 +190,11 @@ function func_ask_and_set_env {
 
 function func_validate_json () {
   echo "func_validate_json"
-  cd $BASEDIR/source/cdk
+  cd "$BASEDIR/source/cdk" || exit
   file_obj=$1
   while true; do
     echo ""
-    read -p 'Have you modified cdk.json? [Y(=continue) / n(=exit)]: ' ANSWER
+    read -pr 'Have you modified cdk.json? [Y(=continue) / n(=exit)]: ' ANSWER
     case $ANSWER in
       [Nn]* )
         echo exit. bye;
@@ -195,7 +203,7 @@ function func_validate_json () {
       [Yy]* )
         func_get_from_param_store cdk.json
         cp -f cdk.json.ssm cdk.json
-        ERROR_MSG="$(cat ${file_obj} | jq empty 2>&1 > /dev/null)"
+        ERROR_MSG="$(je empty < "${file_obj}" 2>&1 > /dev/null)"
         RESULT="$?"
         case $RESULT in
           0 )
@@ -214,7 +222,7 @@ function func_validate_json () {
 
 function func_continue_or_exit () {
   while true; do
-    read -p 'Do you continue or exit? [Y(=continue) / n(=exit)]: ' Answer
+    read -pr 'Do you continue or exit? [Y(=continue) / n(=exit)]: ' Answer
     case $Answer in
       [Yy]* )
         echo Continue
@@ -231,14 +239,14 @@ function func_continue_or_exit () {
 }
 
 function func_delete_unnecessary_files() {
-  cd "$HOME"
+  cd "$HOME" || exit
   if [ -d "$BASEDIR" ];then
-    find "$BASEDIR" -name "*.zip" | xargs rm -f
+    find "$BASEDIR" -name "*.zip" -print0 | xargs rm -f
     rm -fr "${BASEDIR}/source/cdk/cdk.out"
   fi
   if [ -d "$OLDDIR" ];then
     if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
-      tar -zcf "${OLDDIR}.tgz" -C "$HOME/" $(echo $OLDDIR | sed -e "s@$HOME/@@") && rm -fr "$OLDDIR"
+      tar -zcf "${OLDDIR}.tgz" -C "$HOME/" "${OLDDIR##*/}" && rm -fr "$OLDDIR"
     fi
   fi
 }
@@ -249,13 +257,13 @@ function func_delete_unnecessary_files() {
 echo "Auto Installtion Script Started"
 date
 
-if [ ! $1 ]; then
+if [ ! "$1" ]; then
   commitid='main'
 else
   commitid=$1
 fi
 
-cd ~/
+cd ~/ || exit
 echo "func_check_freespace"
 func_check_freespace
 
@@ -284,26 +292,26 @@ fi
 #if [ -d "siem-on-amazon-elasticsearch" ]; then
 if [ -d "$BASEDIR" ]; then
   echo "git rebase to get latest commit"
-  cd $BASEDIR
+  cd "$BASEDIR" || exit
   git fetch > /dev/null
   git checkout main && git pull --rebase > /dev/null
   git checkout develop && git pull --rebase > /dev/null
-  git checkout $commitid
-  cd $HOME
+  git checkout "$commitid"
+  cd "$HOME" || exit
 else
   echo "git clone siem source code"
   git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch-service.git > /dev/null
-  cd $BASEDIR
-  git checkout $commitid
-  cd $HOME
+  cd "$BASEDIR" || exit
+  git checkout "$commitid"
+  cd "$HOME" || exit
 fi
-cd $BASEDIR && echo `git log | head -1` && cd $HOME
+cd "$BASEDIR" && git log | head -4 && cd "$HOME" || exit
 echo -e "Done\n"
 
 echo "### 2. Setting Environment Variables ###"
 ### set AWS Accont ###
-GUESS_CDK_DEFAULT_ACCOUNT=`aws sts get-caller-identity --query 'Account' --output text`
-read -p "Enter CDK_DEFAULT_ACCOUNT: default is [$GUESS_CDK_DEFAULT_ACCOUNT]: " TEMP_CDK_DEFAULT_ACCOUNT
+GUESS_CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text)
+read -pr "Enter CDK_DEFAULT_ACCOUNT: default is [$GUESS_CDK_DEFAULT_ACCOUNT]: " TEMP_CDK_DEFAULT_ACCOUNT
 export CDK_DEFAULT_ACCOUNT=${TEMP_CDK_DEFAULT_ACCOUNT:-$GUESS_CDK_DEFAULT_ACCOUNT}
 
 ### set AWS Region ###
@@ -311,9 +319,9 @@ if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
   GUESS_AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
   unset AWS_REGION
 else
-  GUESS_AWS_DEFAULT_REGION=`curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e s/.$//`
+  GUESS_AWS_DEFAULT_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e s/.$//)
 fi
-read -p "Enter AWS_DEFAULT_REGION to deploy Amazon ES: default is [$GUESS_AWS_DEFAULT_REGION]: " TEMP_AWS_DEFAULT_REGION
+read -pr "Enter AWS_DEFAULT_REGION to deploy Amazon ES: default is [$GUESS_AWS_DEFAULT_REGION]: " TEMP_AWS_DEFAULT_REGION
 export AWS_DEFAULT_REGION=${TEMP_AWS_DEFAULT_REGION:-$GUESS_AWS_DEFAULT_REGION}
 export CDK_DEFAULT_REGION=$AWS_DEFAULT_REGION
 
@@ -338,7 +346,7 @@ if [ ! -f "cdk.json" ]; then
 fi
 
 echo "### 3. Creating an AWS Lambda Deployment Package ###"
-cd $BASEDIR/deployment/cdk-solution-helper/
+cd "$BASEDIR"/deployment/cdk-solution-helper/ || exit
 echo "./step1-build-lambda-pkg.sh"
 date
 chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh > /dev/null
@@ -348,15 +356,17 @@ echo "### 4. Setting Up the Environment for AWS Cloud Development Kit (AWS CDK) 
 echo "./step2-setup-cdk-env.sh"
 date
 chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh> /dev/null
+# shellcheck disable=SC1090
 source ~/.bash_profile
 nvm use lts/*
 echo -e "Done\n"
 
 echo "### 5. Setting Installation Options with the AWS CDK ###"
-cd $BASEDIR/source/cdk/
+cd "$BASEDIR"/source/cdk/ || exit
+# shellcheck disable=SC1091
 source .env/bin/activate
 echo "cdk bootstrap"
-cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION; status=$?
+cdk bootstrap "aws://$CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION"; status=$?
 if [ $status -ne 0 ]; then
   echo "invalid configuration. exit"
   exit
