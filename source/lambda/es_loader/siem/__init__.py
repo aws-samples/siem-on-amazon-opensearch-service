@@ -445,6 +445,7 @@ class LogParser:
         self.lograw = lograw
         self.__logdata_dict = logdict
         self.logmeta = logmeta
+        self.original_fields = set(logdict.keys())
         self.additional_id = None
         if logmeta:
             self.additional_id = logmeta.get('file_timestamp')
@@ -554,6 +555,13 @@ class LogParser:
     def json(self):
         # 内部で管理用のフィールドを削除
         self.__logdata_dict = self.del_none(self.__logdata_dict)
+        # add field prefix
+        if self.logconfig.get('field_prefix'):
+            self.__logdata_dict[self.logconfig.get('field_prefix')] = {}
+            for field in self.original_fields:
+                self.__logdata_dict[self.logconfig.get(
+                    'field_prefix')][field] = self.__logdata_dict[field]
+                del self.__logdata_dict[field]
         loaded_data = json.dumps(self.__logdata_dict)
         # サイズが Lucene の最大値である 32766 Byte を超えてるかチェック
         if len(loaded_data) >= 65536:
@@ -603,6 +611,9 @@ class LogParser:
                     self.__logdata_dict[field] = (
                         self.__logdata_dict[self.logconfig[field]])
                     del self.__logdata_dict[self.logconfig[field]]
+                # fix oroginal field name list
+                self.original_fields.add(field)
+                self.original_fields.remove(self.logconfig[field])
 
     def clean_multi_type_field(self):
         clean_multi_type_dict = {}
