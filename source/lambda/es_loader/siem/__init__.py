@@ -475,10 +475,10 @@ class LogParser:
 
         # idなどの共通的なフィールドを追加する
         self.add_basic_field()
+        self.rename_fields()
         # logger.debug({'doc_id': self.doc_id})
         # 同じフィールド名で複数タイプがあるとESにロードするとエラーになるので
         # 該当フィールドだけテキスト化する
-        self.rename_fields()
         self.clean_multi_type_field()
         # フィールドをECSにマッピングして正規化する
         self.transform_to_ecs()
@@ -639,7 +639,7 @@ class LogParser:
 
     def get_value_and_input_into_ecs_dict(self, ecs_dict):
         new_ecs_dict = {}
-        ecs_keys = self.logconfig['ecs'].split()
+        ecs_keys = self.logconfig['ecs']
         for ecs_key in ecs_keys:
             original_keys = self.logconfig[ecs_key]
             if isinstance(original_keys, str):
@@ -708,11 +708,10 @@ class LogParser:
             del self.__logdata_dict['__error_message']
 
         static_ecs_keys = self.logconfig['static_ecs']
-        if static_ecs_keys:
-            for static_ecs_key in static_ecs_keys.split():
-                new_ecs_dict = utils.put_value_into_nesteddict(
-                    static_ecs_key, self.logconfig[static_ecs_key])
-                ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
+        for static_ecs_key in static_ecs_keys:
+            new_ecs_dict = utils.put_value_into_nesteddict(
+                static_ecs_key, self.logconfig[static_ecs_key])
+            ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
         self.__logdata_dict = utils.merge_dicts(self.__logdata_dict, ecs_dict)
 
     def transform_by_script(self):

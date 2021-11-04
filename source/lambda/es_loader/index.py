@@ -90,6 +90,7 @@ def create_logconfig(logtype):
                  'timestamp_nano']
     type_list = ['base.tags', 'container.image.tag', 'dns.answers',
                  'dns.header_flags', 'dns.resolved_ip', 'dns.type',
+                 'ecs', 'static_ecs',
                  'event.category', 'event.type', 'file.attributes',
                  'host.ip', 'host.mac', 'observer.ip', 'observer.mac',
                  'process.args', 'registry.data.strings',

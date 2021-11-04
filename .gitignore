@@ -1,6 +1,7 @@
 # python libs
 bin/
 aiohttp*
+aiosignal*
 async_timeout*
 attr*
 aws_lambda_powertools*
@@ -11,6 +12,7 @@ charset_normalizer*
 crhelper*
 elasticsearch*
 fastjsonschema*
+frozenlist*
 geoip2*
 idna*
 jmespath*
