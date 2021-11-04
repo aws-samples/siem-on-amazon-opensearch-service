@@ -424,6 +424,7 @@ def timestr_to_hours(timestr):
 def get_etl_config():
     etl_config = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
+    etl_config.optionxform = str
     siem_dir = os.path.dirname(__file__)
     etl_config.read(f'{siem_dir}/../aws.ini')
     # overwride with user configration

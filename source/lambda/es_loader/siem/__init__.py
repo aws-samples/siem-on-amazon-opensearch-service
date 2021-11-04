@@ -477,6 +477,7 @@ class LogParser:
         # logger.debug({'doc_id': self.doc_id})
         # 同じフィールド名で複数タイプがあるとESにロードするとエラーになるので
         # 該当フィールドだけテキスト化する
+        self.rename_fields()
         self.clean_multi_type_field()
         # フィールドをECSにマッピングして正規化する
         self.transform_to_ecs()
@@ -594,6 +595,14 @@ class LogParser:
             del unique_text
         self.__logdata_dict = utils.merge_dicts(
             self.__logdata_dict, basic_dict)
+
+    def rename_fields(self):
+        if self.logconfig.get('renamed_newfileds'):
+            for field in self.logconfig['renamed_newfileds']:
+                if self.logconfig[field] in self.__logdata_dict:
+                    self.__logdata_dict[field] = (
+                        self.__logdata_dict[self.logconfig[field]])
+                    del self.__logdata_dict[self.logconfig[field]]
 
     def clean_multi_type_field(self):
         clean_multi_type_dict = {}

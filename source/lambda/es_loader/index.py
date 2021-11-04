@@ -62,7 +62,10 @@ def get_value_from_etl_config(logtype, key, keytype=None):
                 value = ''
         elif keytype == 'list':
             temp = etl_config[logtype][key]
-            value = [x.strip() for x in temp.strip('[|]').split(',')]
+            if temp.startswith('['):
+                value = [x.strip() for x in temp.strip('[|]').split(',')]
+            else:
+                value = temp.split()
         else:
             value = ''
     except KeyError:
@@ -91,6 +94,7 @@ def create_logconfig(logtype):
                  'host.ip', 'host.mac', 'observer.ip', 'observer.mac',
                  'process.args', 'registry.data.strings',
                  'related.hash', 'related.hosts', 'related.ip', 'related.user',
+                 'renamed_newfileds',
                  'rule.author', 'threat.tactic.id', 'threat.tactic.name',
                  'threat.tactic.reference', 'threat.technique.id',
                  'threat.technique.name', 'threat.technique.reference',
