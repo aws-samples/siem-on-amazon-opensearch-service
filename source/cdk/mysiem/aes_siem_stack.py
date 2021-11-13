@@ -172,8 +172,8 @@ class MyAesSiemStack(core.Stack):
             default='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16')
         sns_email = core.CfnParameter(
             self, 'SnsEmail', allowed_pattern=r'^[0-9a-zA-Z@_\-\+\.]*',
-            description=('Input your email as SNS topic, where Amazon ES will '
-                         'send alerts to'),
+            description=('Input your email as SNS topic, where Amazon '
+                         'OpenSearch Service will send alerts to'),
             default='user+sns@example.com')
         geoip_license_key = core.CfnParameter(
             self, 'GeoLite2LicenseKey', allowed_pattern=r'^[0-9a-zA-Z]{16}$',
@@ -412,6 +412,8 @@ class MyAesSiemStack(core.Stack):
         # delopyment policy for lambda deploy-aes
         arn_prefix = f'arn:aws:logs:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
         loggroup_aes = f'log-group:/aws/aes/domains/{aes_domain_name}/*'
+        loggroup_opensearch = (
+            f'log-group:/aws/OpenSearchService/domains/{aes_domain_name}/*')
         loggroup_lambda = 'log-group:/aws/lambda/aes-siem-*'
         policydoc_create_loggroup = aws_iam.PolicyDocument(
             statements=[
@@ -429,6 +431,7 @@ class MyAesSiemStack(core.Stack):
                         'logs:PutLogEvents', 'logs:PutRetentionPolicy'],
                     resources=[
                         f'{arn_prefix}:{loggroup_aes}',
+                        f'{arn_prefix}:{loggroup_opensearch}',
                         f'{arn_prefix}:{loggroup_lambda}',
                     ],
                 )
@@ -486,7 +489,7 @@ class MyAesSiemStack(core.Stack):
             role_name='aes-siem-deploy-role-for-lambda',
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
-                    'AmazonESFullAccess'),
+                    'AmazonOpenSearchServiceFullAccess'),
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
                     'service-role/AWSLambdaBasicExecutionRole'),
             ],
@@ -501,7 +504,7 @@ class MyAesSiemStack(core.Stack):
                     'service-role/AWSLambdaVPCAccessExecutionRole')
             )
 
-        # for alert from Amazon ES
+        # for alert from Amazon OpenSearch Service
         aes_siem_sns_role = aws_iam.Role(
             self, 'AesSiemSnsRole',
             role_name='aes-siem-sns-role',
@@ -527,9 +530,9 @@ class MyAesSiemStack(core.Stack):
         aes_role_exist = check_iam_role('/aws-service-role/es.amazonaws.com/')
         if vpc_type and not aes_role_exist:
             slr_aes = aws_iam.CfnServiceLinkedRole(
-                self, 'AWSServiceRoleForAmazonElasticsearchService',
+                self, 'AWSServiceRoleForAmazonOpenSearchService',
                 aws_service_name='es.amazonaws.com',
-                description='Created by cloudformation of aes-siem stack'
+                description='Created by cloudformation of siem stack'
             )
             slr_aes.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
@@ -630,7 +633,7 @@ class MyAesSiemStack(core.Stack):
         lamba_geo_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
         ######################################################################
-        # setup elasticsearch
+        # setup OpenSearch Service
         ######################################################################
         lambda_deploy_es = aws_lambda.Function(
             self, 'LambdaDeployAES',
@@ -996,7 +999,7 @@ class MyAesSiemStack(core.Stack):
             s3_log.add_to_resource_policy(bucket_policy_rep2)
 
         ######################################################################
-        # SNS topic for Amazon ES Alert
+        # SNS topic for Amazon OpenSearch Service Alert
         ######################################################################
         sns_topic = aws_sns.Topic(
             self, 'SnsTopic', topic_name='aes-siem-alert',
