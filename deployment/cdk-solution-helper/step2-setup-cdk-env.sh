@@ -6,7 +6,7 @@ source_template_dir="$PWD/../"
 source_dir="$source_template_dir/../source"
 cdk_version=$(grep aws-cdk.core "${source_dir}/cdk/requirements.txt" | awk -F'==' '{print $2}')
 
-is_ami2=$(grep -oi Karoo /etc/system-release 2> /dev/nul)
+is_ami2=$(grep -oi Karoo /etc/system-release 2> /dev/null)
 if [ -z "$is_ami2" ]; then
     echo "Not AMI2."
     read -rp "Do you realy continue? (y/N): " yn

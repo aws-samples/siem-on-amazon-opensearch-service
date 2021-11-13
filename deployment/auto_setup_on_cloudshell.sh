@@ -17,11 +17,11 @@ export OLDDIR="$HOME/siem-on-amazon-elasticsearch"
 
 function func_check_freespace() {
   if [ -d "$BASEDIR" ];then
-    find "$BASEDIR" -name "*.zip" -print0 | xargs rm -f
+    find "$BASEDIR" -name "*.zip" -print0 | xargs --null rm -f
     rm -fr "${BASEDIR}/source/cdk/cdk.out"
   fi
   if [ -d "$OLDDIR" ];then
-    find "$OLDDIR" -name "*.zip" -print0 | xargs rm -f
+    find "$OLDDIR" -name "*.zip" -print0 | xargs --null rm -f
     rm -fr "${OLDDIR}/source/cdk/.env"
     rm -fr "${OLDDIR}/source/cdk/cdk.out"
   fi
@@ -163,16 +163,16 @@ function func_ask_and_set_env {
   cd "$BASEDIR/source/cdk" || exit
   AES_ENV="vpc"
   while true; do
-    read -rp "Where do you deploy your system? Enter pulic or vpc: default is [vpc]: " AES_ENV
+    read -r -p "Where do you deploy your system? Enter pulic or vpc: default is [vpc]: " AES_ENV
     case $AES_ENV in
       '' | 'vpc' )
-        echo deply Amazon ES in VPC
+        echo deply OpenSearch Service ES in VPC
         export AES_ENV="vpc"
         cp cdk.json.vpc.sample cdk.json
         break;
         ;;
       'public' )
-        echo deply Amazon ES on public environment
+        echo deply OpenSearch Service on public environment
         export AES_ENV="public"
         cp cdk.json.public.sample cdk.json
         break;
@@ -194,7 +194,7 @@ function func_validate_json () {
   file_obj=$1
   while true; do
     echo ""
-    read -pr 'Have you modified cdk.json? [Y(=continue) / n(=exit)]: ' ANSWER
+    read -r -p 'Have you modified cdk.json? [Y(=continue) / n(=exit)]: ' ANSWER
     case $ANSWER in
       [Nn]* )
         echo exit. bye;
@@ -203,7 +203,7 @@ function func_validate_json () {
       [Yy]* )
         func_get_from_param_store cdk.json
         cp -f cdk.json.ssm cdk.json
-        ERROR_MSG="$(je empty < "${file_obj}" 2>&1 > /dev/null)"
+        ERROR_MSG="$(jq empty < "${file_obj}" 2>&1 > /dev/null)"
         RESULT="$?"
         case $RESULT in
           0 )
@@ -222,7 +222,7 @@ function func_validate_json () {
 
 function func_continue_or_exit () {
   while true; do
-    read -pr 'Do you continue or exit? [Y(=continue) / n(=exit)]: ' Answer
+    read -r -p 'Do you continue or exit? [Y(=continue) / n(=exit)]: ' Answer
     case $Answer in
       [Yy]* )
         echo Continue
@@ -241,7 +241,7 @@ function func_continue_or_exit () {
 function func_delete_unnecessary_files() {
   cd "$HOME" || exit
   if [ -d "$BASEDIR" ];then
-    find "$BASEDIR" -name "*.zip" -print0 | xargs rm -f
+    find "$BASEDIR" -name "*.zip" -print0 | xargs --null rm -f
     rm -fr "${BASEDIR}/source/cdk/cdk.out"
   fi
   if [ -d "$OLDDIR" ];then
@@ -311,7 +311,7 @@ echo -e "Done\n"
 echo "### 2. Setting Environment Variables ###"
 ### set AWS Accont ###
 GUESS_CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query 'Account' --output text)
-read -pr "Enter CDK_DEFAULT_ACCOUNT: default is [$GUESS_CDK_DEFAULT_ACCOUNT]: " TEMP_CDK_DEFAULT_ACCOUNT
+read -r -p "Enter CDK_DEFAULT_ACCOUNT: default is [$GUESS_CDK_DEFAULT_ACCOUNT]: " TEMP_CDK_DEFAULT_ACCOUNT
 export CDK_DEFAULT_ACCOUNT=${TEMP_CDK_DEFAULT_ACCOUNT:-$GUESS_CDK_DEFAULT_ACCOUNT}
 
 ### set AWS Region ###
@@ -321,7 +321,7 @@ if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
 else
   GUESS_AWS_DEFAULT_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e s/.$//)
 fi
-read -pr "Enter AWS_DEFAULT_REGION to deploy Amazon ES: default is [$GUESS_AWS_DEFAULT_REGION]: " TEMP_AWS_DEFAULT_REGION
+read -r -p "Enter AWS_DEFAULT_REGION to deploy OpenSearch Service: default is [$GUESS_AWS_DEFAULT_REGION]: " TEMP_AWS_DEFAULT_REGION
 export AWS_DEFAULT_REGION=${TEMP_AWS_DEFAULT_REGION:-$GUESS_AWS_DEFAULT_REGION}
 export CDK_DEFAULT_REGION=$AWS_DEFAULT_REGION
 
