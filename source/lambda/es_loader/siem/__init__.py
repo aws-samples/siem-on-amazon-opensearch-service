@@ -471,11 +471,11 @@ class LogParser:
             return
         self.__event_ingested = datetime.now(timezone.utc)
         self.__skip_normalization = self.set_skip_normalization()
-        self.__timestamp = self.get_timestamp()
 
+        self.rename_fields()
+        self.__timestamp = self.get_timestamp()
         # idなどの共通的なフィールドを追加する
         self.add_basic_field()
-        self.rename_fields()
         # logger.debug({'doc_id': self.doc_id})
         # 同じフィールド名で複数タイプがあるとESにロードするとエラーになるので
         # 該当フィールドだけテキスト化する
@@ -486,6 +486,8 @@ class LogParser:
         self.transform_by_script()
         # ログにgeoipなどの情報をエンリッチ
         self.enrich()
+        # add filed prefix to original log
+        self.add_field_prefix()
 
     ###########################################################################
     # Property
@@ -555,13 +557,6 @@ class LogParser:
     def json(self):
         # 内部で管理用のフィールドを削除
         self.__logdata_dict = self.del_none(self.__logdata_dict)
-        # add field prefix
-        if self.logconfig.get('field_prefix'):
-            self.__logdata_dict[self.logconfig.get('field_prefix')] = {}
-            for field in self.original_fields:
-                self.__logdata_dict[self.logconfig.get(
-                    'field_prefix')][field] = self.__logdata_dict[field]
-                del self.__logdata_dict[field]
         loaded_data = json.dumps(self.__logdata_dict)
         # サイズが Lucene の最大値である 32766 Byte を超えてるかチェック
         if len(loaded_data) >= 65536:
@@ -736,6 +731,17 @@ class LogParser:
                 enrich_dict[geoip_ecs] = {'as': asn}
         self.__logdata_dict = utils.merge_dicts(
             self.__logdata_dict, enrich_dict)
+
+    def add_field_prefix(self):
+        if self.logconfig.get('field_prefix'):
+            self.__logdata_dict[self.logconfig.get('field_prefix')] = {}
+            for field in self.original_fields:
+                try:
+                    self.__logdata_dict[self.logconfig.get(
+                        'field_prefix')][field] = self.__logdata_dict[field]
+                    del self.__logdata_dict[field]
+                except KeyError:
+                    pass
 
     ###########################################################################
     # Method/Function - Support
