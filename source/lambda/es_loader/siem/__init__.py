@@ -8,6 +8,7 @@ __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import bz2
+import copy
 import gzip
 import hashlib
 import io
@@ -600,7 +601,9 @@ class LogParser:
             self.__logdata_dict, basic_dict)
 
     def rename_fields(self):
-        if self.logconfig.get('renamed_newfileds'):
+        if self.__skip_normalization:
+            return False
+        elif self.logconfig.get('renamed_newfileds'):
             for field in self.logconfig['renamed_newfileds']:
                 if self.logconfig[field] in self.__logdata_dict:
                     self.__logdata_dict[field] = (
@@ -709,8 +712,8 @@ class LogParser:
 
         static_ecs_keys = self.logconfig['static_ecs']
         for static_ecs_key in static_ecs_keys:
-            new_ecs_dict = utils.put_value_into_nesteddict(
-                static_ecs_key, self.logconfig[static_ecs_key])
+            v = copy.copy(self.logconfig[static_ecs_key])
+            new_ecs_dict = utils.put_value_into_nesteddict(static_ecs_key, v)
             ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
         self.__logdata_dict = utils.merge_dicts(self.__logdata_dict, ecs_dict)
 
@@ -779,6 +782,10 @@ class LogParser:
             if self.file_timestamp:
                 # This may be firelens and error log
                 return self.file_timestamp
+            elif hasattr(self, 'cwl_timestamp'):
+                # This may be CWL and truncated JSON such as opensearch audit
+                return utils.convert_epoch_to_datetime(
+                    self.cwl_timestamp, utils.TIMEZONE_UTC)
             dt = datetime.now(timezone.utc)
         return dt
 

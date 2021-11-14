@@ -115,7 +115,7 @@
       "Type": "String",
       "Default": "user+sns@example.com",
       "AllowedPattern": "^[0-9a-zA-Z@_\\-\\+\\.]*",
-      "Description": "Input your email as SNS topic, where Amazon ES will send alerts to"
+      "Description": "Input your email as SNS topic, where Amazon OpenSearch Service will send alerts to"
     },
     "GeoLite2LicenseKey": {
       "Type": "String",
@@ -969,7 +969,7 @@
                 {
                   "Ref": "AWS::Partition"
                 },
-                ":iam::aws:policy/AmazonESFullAccess"
+                ":iam::aws:policy/AmazonOpenSearchServiceFullAccess"
               ]
             ]
           },
@@ -1094,6 +1094,22 @@
                             "Ref": "AWS::AccountId"
                           },
                           ":log-group:/aws/aes/domains/aes-siem/*"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws:logs:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":log-group:/aws/OpenSearchService/domains/aes-siem/*"
                         ]
                       ]
                     },

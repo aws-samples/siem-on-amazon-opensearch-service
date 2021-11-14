@@ -156,6 +156,7 @@ def get_es_entries(logfile, exclude_log_patterns):
         yield {'index': {'_index': indexname, '_id': logparser.doc_id}}
         # logger.debug(logparser.json)
         yield logparser.json
+    del logparser
 
 
 def check_es_results(results, total_count):

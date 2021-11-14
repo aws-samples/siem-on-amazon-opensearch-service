@@ -75,7 +75,14 @@ class FileFormatJson(FileFormatBase):
                 index = search.end()
 
     def convert_lograw_to_dict(self, lograw, logconfig=None):
-        return json.loads(lograw)
+        try:
+            logdict = json.loads(lograw)
+        except json.decoder.JSONDecodeError:
+            # this is probablly CWL log and trauncated by original log sender
+            # such as opensearch audit log
+            logger.warning('This log is not parsed because of invalid json')
+            logdict = {'__skip_normalization': True}
+        return logdict
 
     def _check_cwe_and_strip_header(
             self, dict_obj, logmeta={}, need_meta=False):
