@@ -520,7 +520,7 @@ def set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth):
 
 def get_saved_objects(es_endpoint, dist_name, cookies, auth=None):
     if not cookies:
-        logger.warn("No authentication. Skipped downloading dashboard")
+        logger.warning("No authentication. Skipped downloading dashboard")
         return False
     if dist_name == 'opensearch':
         url = f'https://{es_endpoint}/_dashboards/api/saved_objects/_export'

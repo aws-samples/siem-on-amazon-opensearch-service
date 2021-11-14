@@ -309,7 +309,8 @@ def lambda_handler(event, context):
         # S3からファイルを取得してログを抽出する
         logfile = extract_logfile_from_s3(record)
         if logfile.is_ignored:
-            logger.warn(f'Skipped S3 object because {logfile.ignored_reason}')
+            logger.warning(
+                f'Skipped S3 object because {logfile.ignored_reason}')
             continue
 
         # 抽出したログからESにPUTするデータを作成する
@@ -321,7 +322,8 @@ def lambda_handler(event, context):
                        collected_metrics=collected_metrics)
         # raise error to retry if error has occuered
         if logfile.is_ignored:
-            logger.warn(f'Skipped S3 object because {logfile.ignored_reason}')
+            logger.warning(
+                f'Skipped S3 object because {logfile.ignored_reason}')
         elif collected_metrics['error_count']:
             error_message = (f"{collected_metrics['error_count']} of logs "
                              "were NOT loaded into OpenSearch Service")
@@ -331,7 +333,8 @@ def lambda_handler(event, context):
         elif collected_metrics['total_log_load_count'] > 0:
             logger.info('All logs were loaded into OpenSearch Service')
         else:
-            logger.warn('No entries were successed to load')
+            logger.warning('No entries were successed to load')
+        del logfile
 
 
 if __name__ == '__main__':

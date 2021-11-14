@@ -330,7 +330,7 @@ class LogS3:
                 firelens_meta_dict['__error_message'] = logdata
                 if firelens_meta_dict['container_source'] != 'stderr':
                     firelens_meta_dict['__error_message'] = err
-                    logger.warn(f'{err} {self.s3key}')
+                    logger.warning(f'{err} {self.s3key}')
             yield (logdata, logdict, firelens_meta_dict)
 
     def extract_rawdata_from_s3obj(self):
@@ -805,7 +805,7 @@ class LogParser:
                     and len(value.encode('utf-8')) >= 32766):
                 if key not in ("@message", ):
                     d[key] = self.truncate_txt(d[key], 32753) + '<<TRUNCATED>>'
-                    logger.warn(
+                    logger.warning(
                         f'Data was truncated because the size of {key} field '
                         f'is bigger than 32,766. _id is {self.doc_id}')
         return d
