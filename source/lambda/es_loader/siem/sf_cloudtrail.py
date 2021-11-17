@@ -86,5 +86,10 @@ def transform(logdata):
         if configuration and isinstance(configuration, str):
             logdata['requestParameters']['configuration'] = {
                 'text': configuration}
+    elif event_source == 'cognito-idp.amazonaws.com':
+        # #163
+        session = logdata.get('responseElements', {}).get('session', None)
+        if session and isinstance(session, str):
+            logdata['responseElements']['session'] = {'value': session}
 
     return logdata
