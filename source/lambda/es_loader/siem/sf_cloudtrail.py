@@ -94,5 +94,13 @@ def transform(logdata):
             session = None
         if session and isinstance(session, str):
             logdata['responseElements']['session'] = {'value': session}
+    elif event_source == 'ecs.amazonaws.com':
+        # #167
+        try:
+            command = logdata['requestParameters']['command']
+        except (KeyError, TypeError):
+            command = None
+        if command and isinstance(command, str):
+            logdata['requestParameters']['command'] = {'command': command}
 
     return logdata
