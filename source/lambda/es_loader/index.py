@@ -95,7 +95,7 @@ def create_logconfig(logtype):
                  'host.ip', 'host.mac', 'observer.ip', 'observer.mac',
                  'process.args', 'registry.data.strings',
                  'related.hash', 'related.hosts', 'related.ip', 'related.user',
-                 'renamed_newfileds',
+                 'renamed_newfields',
                  'rule.author', 'threat.tactic.id', 'threat.tactic.name',
                  'threat.tactic.reference', 'threat.technique.id',
                  'threat.technique.name', 'threat.technique.reference',

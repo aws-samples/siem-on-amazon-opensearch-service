@@ -449,8 +449,7 @@ class LogParser:
         self.original_fields = set(logdict.keys())
         self.additional_id = None
         if logmeta:
-            self.additional_id = logmeta.get('file_timestamp')
-            self.additional_id = logmeta.get('cwl_id', self.additional_id)
+            self.additional_id = logmeta.get('cwl_id')
             self.additional_id = logmeta.get('cwe_id', self.additional_id)
             self.logstream = logmeta.get('logstream')
             self.loggroup = logmeta.get('loggroup')
@@ -463,11 +462,11 @@ class LogParser:
             self.cwe_timestamp = logmeta.get('cwe_timestamp')
             self.file_timestamp = logmeta.get('file_timestamp')
         if logmeta.get('container_name'):
-            self.additional_id = (f"{str(logmeta.get('file_timestamp'))}"
-                                  f"{logmeta.get('container_name')}")
+            self.additional_id = logmeta['container_name']
             # Firelens. for compatibility
             self.__logdata_dict = dict(self.__logdata_dict, **logmeta)
-            del self.__logdata_dict['file_timestamp']
+            if 'file_timestamp' in self.__logdata_dict:
+                del self.__logdata_dict['file_timestamp']
         if self.is_ignored:
             return
         self.__event_ingested = datetime.now(timezone.utc)
@@ -585,6 +584,11 @@ class LogParser:
             basic_dict['@id'] = hashlib.md5(
                 unique_text.encode('utf-8')).hexdigest()
             del unique_text
+            if '__error_message' in self.__logdata_dict:
+                self.__logdata_dict['error'] = {
+                    'message': self.__logdata_dict['__error_message']}
+                del self.__logdata_dict['__error_message']
+
         elif self.logconfig['doc_id']:
             basic_dict['@id'] = self.__logdata_dict[self.logconfig['doc_id']]
         elif self.additional_id:
@@ -603,15 +607,15 @@ class LogParser:
     def rename_fields(self):
         if self.__skip_normalization:
             return False
-        elif self.logconfig.get('renamed_newfileds'):
-            for field in self.logconfig['renamed_newfileds']:
-                if self.logconfig[field] in self.__logdata_dict:
-                    self.__logdata_dict[field] = (
-                        self.__logdata_dict[self.logconfig[field]])
+        elif self.logconfig.get('renamed_newfields'):
+            for field in self.logconfig['renamed_newfields']:
+                v = self.__logdata_dict.get(self.logconfig[field])
+                if v:
+                    self.__logdata_dict[field] = v
                     del self.__logdata_dict[self.logconfig[field]]
-                # fix oroginal field name list
-                self.original_fields.add(field)
-                self.original_fields.remove(self.logconfig[field])
+                    # fix oroginal field name list
+                    self.original_fields.add(field)
+                    self.original_fields.remove(self.logconfig[field])
 
     def clean_multi_type_field(self):
         clean_multi_type_dict = {}
@@ -708,7 +712,7 @@ class LogParser:
         if '__error_message' in self.logmeta:
             self.__logdata_dict['error'] = {
                 'message': self.logmeta['__error_message']}
-            del self.__logdata_dict['__error_message']
+            del self.logmeta['__error_message']
 
         static_ecs_keys = self.logconfig['static_ecs']
         for static_ecs_key in static_ecs_keys:
@@ -782,7 +786,7 @@ class LogParser:
             if self.file_timestamp:
                 # This may be firelens and error log
                 return self.file_timestamp
-            elif hasattr(self, 'cwl_timestamp'):
+            elif hasattr(self, 'cwl_timestamp') and self.cwl_timestamp:
                 # This may be CWL and truncated JSON such as opensearch audit
                 return utils.convert_epoch_to_datetime(
                     self.cwl_timestamp, utils.TIMEZONE_UTC)
