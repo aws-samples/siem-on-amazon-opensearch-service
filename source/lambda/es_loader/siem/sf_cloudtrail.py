@@ -88,7 +88,10 @@ def transform(logdata):
                 'text': configuration}
     elif event_source == 'cognito-idp.amazonaws.com':
         # #163
-        session = logdata.get('responseElements', {}).get('session', None)
+        try:
+            session = logdata['responseElements']['session']
+        except (KeyError, TypeError):
+            session = None
         if session and isinstance(session, str):
             logdata['responseElements']['session'] = {'value': session}
 
