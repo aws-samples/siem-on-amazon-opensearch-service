@@ -284,17 +284,18 @@ class LogS3:
             if (isinstance(obj, dict)
                     and 'logEvents' in obj
                     and obj['messageType'] == 'DATA_MESSAGE'):
-                logmeta['cwl_accountid'] = obj['owner']
-                logmeta['loggroup'] = obj['logGroup']
-                logmeta['logstream'] = obj['logStream']
+                cwl_logmeta = copy.copy(logmeta)
+                cwl_logmeta['cwl_accountid'] = obj['owner']
+                cwl_logmeta['loggroup'] = obj['logGroup']
+                cwl_logmeta['logstream'] = obj['logStream']
                 for logevent in obj['logEvents']:
                     line_num += 1
                     if start <= line_num <= end:
-                        logmeta['cwl_id'] = logevent['id']
-                        logmeta['cwl_timestamp'] = logevent['timestamp']
-                        yield (logevent['message'], logmeta)
+                        cwl_logmeta['cwl_id'] = logevent['id']
+                        cwl_logmeta['cwl_timestamp'] = logevent['timestamp']
+                        yield (logevent['message'], cwl_logmeta)
 
-    def extract_firelens_log(self, start, end, firelens_meta_dict={}):
+    def extract_firelens_log(self, start, end, logmeta={}):
         ignore_container_stderr_bool = (
             self.logconfig['ignore_container_stderr'])
         start_index = start - 1
@@ -302,37 +303,38 @@ class LogS3:
         for logdata in self.rawdata.readlines()[start_index:end_index]:
             obj = json.loads(logdata.strip())
             logdict = {}
+            firelens_logmeta = copy.copy(logmeta)
             # basic firelens field
-            firelens_meta_dict['container_id'] = obj.get('container_id')
-            firelens_meta_dict['container_name'] = obj.get('container_name')
-            firelens_meta_dict['container_source'] = obj.get('source')
-            firelens_meta_dict['ecs_cluster'] = obj.get('ecs_cluster')
-            firelens_meta_dict['ecs_task_arn'] = obj.get('ecs_task_arn')
-            firelens_meta_dict['ecs_task_definition'] = obj.get(
+            firelens_logmeta['container_id'] = obj.get('container_id')
+            firelens_logmeta['container_name'] = obj.get('container_name')
+            firelens_logmeta['container_source'] = obj.get('source')
+            firelens_logmeta['ecs_cluster'] = obj.get('ecs_cluster')
+            firelens_logmeta['ecs_task_arn'] = obj.get('ecs_task_arn')
+            firelens_logmeta['ecs_task_definition'] = obj.get(
                 'ecs_task_definition')
             ec2_instance_id = obj.get('ec2_instance_id', False)
             if ec2_instance_id:
-                firelens_meta_dict['ec2_instance_id'] = ec2_instance_id
+                firelens_logmeta['ec2_instance_id'] = ec2_instance_id
             # original log
             logdata = obj['log']
             # stderr
-            if firelens_meta_dict['container_source'] == 'stderr':
+            if firelens_logmeta['container_source'] == 'stderr':
                 if ignore_container_stderr_bool:
                     reason = "log is container's stderr"
-                    firelens_meta_dict['is_ignored'] = True
-                    firelens_meta_dict['ignored_reason'] = reason
-                    yield (logdata, logdict, firelens_meta_dict)
+                    firelens_logmeta['is_ignored'] = True
+                    firelens_logmeta['ignored_reason'] = reason
+                    yield (logdata, logdict, firelens_logmeta)
                     continue
             try:
                 logdict = (
                     self.rawfile_instacne.convert_lograw_to_dict(logdata))
             except Exception as err:
-                firelens_meta_dict['__skip_normalization'] = True
-                firelens_meta_dict['__error_message'] = logdata
-                if firelens_meta_dict['container_source'] != 'stderr':
-                    firelens_meta_dict['__error_message'] = err
+                firelens_logmeta['__skip_normalization'] = True
+                firelens_logmeta['__error_message'] = logdata
+                if firelens_logmeta['container_source'] != 'stderr':
+                    firelens_logmeta['__error_message'] = err
                     logger.warning(f'{err} {self.s3key}')
-            yield (logdata, logdict, firelens_meta_dict)
+            yield (logdata, logdict, firelens_logmeta)
 
     def extract_rawdata_from_s3obj(self):
         try:
@@ -443,6 +445,7 @@ class LogParser:
         self.has_nanotime = self.logconfig['timestamp_nano']
 
     def __call__(self, lograw, logdict, logmeta):
+        self.__skip_normalization = False
         self.lograw = lograw
         self.__logdata_dict = logdict
         self.logmeta = logmeta

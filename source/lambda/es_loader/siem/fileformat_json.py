@@ -80,9 +80,10 @@ class FileFormatJson(FileFormatBase):
         except json.decoder.JSONDecodeError as e:
             # this is probablly CWL log and trauncated by original log sender
             # such as opensearch audit log
-            logger.warning(
-                'This log is loaded, but not parsed because of invalid json')
-            logdict = {'__skip_normalization': True, '__error_message': str(e)}
+            logger.warning('This log will be loaded, '
+                           'but not parsed because of invalid json')
+            logdict = {'__skip_normalization': True,
+                       '__error_message': f'invalid json file: {str(e)}'}
         return logdict
 
     def _check_cwe_and_strip_header(

@@ -102,5 +102,13 @@ def transform(logdata):
             command = None
         if command and isinstance(command, str):
             logdata['requestParameters']['command'] = {'command': command}
+    elif event_source in ('compute-optimizer.amazonaws.com',
+                          'auditmanager.amazonaws.com'):
+        try:
+            status = logdata['responseElements']['status']
+        except (KeyError, TypeError):
+            status = None
+        if status and isinstance(status, str):
+            logdata['responseElements']['status'] = {'status': status}
 
     return logdata

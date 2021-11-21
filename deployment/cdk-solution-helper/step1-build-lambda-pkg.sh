@@ -47,7 +47,7 @@ function pip_zip_for_lambda () {
         python3 -m pip install -t . -r requirements.txt -U
     fi
 
-    find . -name __pycache__ -print0 | xargs --null rm -fr
+    find . -name __pycache__ -print0 | xargs -0 rm -fr
     rm -f .DS_Store
     echo "# delete python libraries which are already installed in lambda environment"
     echo "rm -fr boto* future* urllib3* dateutil* python_dateutil* s3transfer* six* jmespath*"
