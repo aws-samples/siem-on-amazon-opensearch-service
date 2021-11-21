@@ -22,14 +22,16 @@ def transform(logdata):
     if action in ('FAILED_LOGIN', 'AUTHENTICATED'):
         logdata['event']['category'].append('authentication')
 
-    if not logdata.get('audit_request_layer'):
-        if 'error' not in logdata:
-            logdata['error'] = {}
-        logdata['error']['message'] = (
-            'The maximum size of each audit log message is 10,000 characters. '
-            'The audit log message is truncated if it exceeds this limit.')
+    if not logdata.get('rule', {}).get('name'):
         if 'rule' not in logdata:
             logdata['rule'] = {}
         logdata['rule']['name'] = 'ParsingError'
+        if len(logdata['@message']) == 10000:
+            if 'error' not in logdata:
+                logdata['error'] = {}
+            logdata['error']['message'] = (
+                'The maximum size of each audit log message is 10,000 '
+                'characters. The audit log message exceeds this limit and '
+                'is truncated.')
 
     return logdata
