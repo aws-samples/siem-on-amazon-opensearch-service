@@ -25,6 +25,7 @@ SIEM on OpenSearch Service 能夠加載並關聯以下日誌類型。
 |Security, Identity, & Compliance|AWS Security Hub|Security Hub 問題清單<br>GuardDuty 問題清單<br>Amazon Macie 問題清單<br>Amazon Inspector 問題清單<br>AWS IAM Access Analyzer 問題清單|
 |Security, Identity, & Compliance|AWS Network Firewall|Flow logs<br>Alert logs|
 |Management & Governance|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
+|Management & Governance|AWS Config|Configuration History<br>Configuration Snapshot<br>Config Rules|
 |Networking & Content Delivery|Amazon CloudFront|標準訪問日誌<br>實時日誌|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS 查詢日誌|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
@@ -32,15 +33,24 @@ SIEM on OpenSearch Service 能夠加載並關聯以下日誌類型。
 |Storage|Amazon FSx for Windows File Server|audit log|
 |Storage|Amazon Simple Storage Service (Amazon S3)|訪問日誌|
 |Database|Amazon Relational Database Service (Amazon RDS)<br>(**試驗中**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
+|Database|Amazon ElastiCache|ElastiCache for Redis SLOWLOG|
+|Analytics|Amazon OpenSearch Service|Audit logs|
 |Analytics|Amazon Managed Streaming for Apache Kafka (Amazon MSK)|Broker log|
 |Compute|Linux OS<br>通過 CloudWatch Logs|/var/log/messages<br>/var/log/secure|
-|Compute|Windows Servver 2012/2016/2019<br>通過 CloudWatch Logs|System event log<br>Security event log|
+|Compute|Windows Server 2012/2016/2019<br>通過 CloudWatch Logs|System event log<br>Security event log|
 |Containers|Amazon Elastic Container Service (Amazon ECS)<br>通過 FireLens|僅框架|
 |End User Computing|Amazon WorkSpaces|Event log<br>Inventory|
 
 我們日後有機會修改 **Database (試驗中)** 日誌存放內容來優化功能。
 
 以上日誌將根據 [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html) 進行標準化。請[瀏覽此處](docs/suppoted_log_type.md)瀏覽此處去了解相關字段名稱對照表。
+
+### Contribution
+
+| Product/Service | Pull Request | Doc | Contributor |
+|--------------------|----|------|-----------|
+| TrendMicro Deep Security | [#27](//github.com/aws-samples/siem-on-amazon-opensearch-service/pull/27) | [README](docs/contributed/deepsecurity_ja.md) | [@EijiSugiura](//github.com/EijiSugiura) |
+| Okta audit log | [#168](//github.com/aws-samples/siem-on-amazon-opensearch-service/pull/168) | [README](docs/contributed/okta_ja.md) | [@yopiyama](//github.com/yopiyama) |
 
 ## 儀表板
 
@@ -58,13 +68,13 @@ SIEM on OpenSearch Service 能夠加載並關聯以下日誌類型。
 
 通過以下選項，選擇SIEM on OpenSearch Service部署所在的區域：
 
-| 區域 | CloudFormation |
-|--------|----------------|
-| 北弗吉尼亞州  (us-east-1) |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 俄勒岡州 (us-west-2) |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 東京 (ap-northeast-1) |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 法蘭克福  (eu-central-1) |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 倫敦 (eu-west-2) |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
+| 區域 | CloudFormation | Template URL |
+|--------|----------------|-----------|
+| 北弗吉尼亞州  (us-east-1) |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 俄勒岡州 (us-west-2) |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 東京 (ap-northeast-1) |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 法蘭克福  (eu-central-1) |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 倫敦 (eu-west-2) |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 
 如果以上列表未包含您希望使用的區域，請手動選擇以下模板：
 
@@ -86,7 +96,7 @@ https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-opensearch-service.tem
   * "Development Tools"
   * Python 3.8
   * Python 3.8 庫與頭文件
-  * git
+  * Git
 
 如果尚未安裝以上工具，請運行下列命令：
 
@@ -151,6 +161,10 @@ SIEM on OpenSearch Service大概需要30分鐘來完成部署。隨後即可着�
 
 要將日誌加載至SIEM on OpenSearch Service，我們只需要將日誌PUT進名爲 **aes-siem-<YOUR_AWS_ACCOUNT>-log**.的S3存儲桶內。在此之後，各日誌將自動被加載至SIEM on OpenSearch Service。關於如何將Amazon服務日誌輸出至S3存儲桶的更多操作細節，請參閱[此處](docs/configure_aws_service.md)。
 
+## Workshop
+
+We have published the workshop, [SIEM on Amazon OpenSearch Service Workshop](https://security-log-analysis-platform.workshop.aws/en/). In this workshop, we will build the SIEM, ingest AWS resource logs, learn OpenSearch Dashboards / Kibana, investigate security incident, create dashboard, configure alerts and ingest logs of Apache HTTPD server.
+
 ## 更新SIEM
 
 如果您希望將SIEM on OpenSearch Service更新爲最新版本，請升級OpenSearch/Elasticsearch域，而後按初始設置方式（使用CloudFormation或AWS CDK）進行更新。您可以在[此處](CHANGELOG.md)查看SIEM變更日誌。
@@ -206,7 +220,7 @@ SIEM on OpenSearch Service將日誌保存在索引當中，並每月輪換一次
 
 |AWS 資源|資源名稱|用途|
 |------------|----|----|
-|penSearch Service 1.0 or Elasticsearch 7.X|aes-siem|SIEM 本體|
+|OpenSearch Service 1.0 or Elasticsearch 7.X|aes-siem|SIEM 本體|
 |S3 存儲桶|aes-siem-[AWS_Account]-log|用於收集日誌|
 |S3 存儲桶|aes-siem-[AWS_Account]-snapshot|用於捕捉OpenSearch Service手動快照|
 |S3 存儲桶|aes-siem-[AWS_Account]-geo|用於存儲下載得到的GeoIP|
@@ -240,7 +254,7 @@ SIEM on OpenSearch Service將日誌保存在索引當中，並每月輪換一次
 
 ```shell
 export AWS_DEFAULT_REGION=<AWS_REGION>
-aws kms delete-alias  --alias-name  "alias/aes-siem-key"
+aws kms delete-alias --alias-name  "alias/aes-siem-key"
 ```
 
 ## 安全性

@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 from aws_cdk import core
 from deployment_samples.deployment_samples_stack import (

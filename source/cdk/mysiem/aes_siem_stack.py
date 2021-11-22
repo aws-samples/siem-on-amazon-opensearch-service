@@ -1,5 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import boto3
 from aws_cdk import (
@@ -20,7 +26,6 @@ from aws_cdk import (
     region_info,
 )
 
-__version__ = '2.5.0'
 print(__version__)
 
 SOLUTION_NAME = f'SIEM on Amazon OpenSearch Service v{__version__}'
@@ -138,15 +143,26 @@ class MyAesSiemStack(core.Stack):
 
         ES_LOADER_TIMEOUT = 600
         ######################################################################
-        # ELB mapping
+        # REGION mapping / ELB & Lambda Arch
         ######################################################################
         elb_id_temp = region_info.FactName.ELBV2_ACCOUNT
         elb_map_temp = region_info.RegionInfo.region_map(elb_id_temp)
-        elb_mapping = {}
-        for key in elb_map_temp:
-            elb_mapping[key] = {'accountid': elb_map_temp[key]}
-        elb_accounts = core.CfnMapping(
-            scope=self, id='ELBv2AccountMap', mapping=elb_mapping)
+        region_dict = {}
+        for region in elb_map_temp:
+            # ELB account ID
+            region_dict[region] = {'ElbV2AccountId': elb_map_temp[region]}
+            # Lambda Arch
+            if region in ('us-east-1', 'us-east-2', 'us-west-2', 'ap-south-1',
+                          'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1',
+                          'eu-central-1', 'eu-west-1', 'eu-west-2'):
+                region_dict[region]['LambdaArch'] = (
+                    aws_lambda.Architecture.ARM_64.name)
+            else:
+                region_dict[region]['LambdaArch'] = (
+                    aws_lambda.Architecture.X86_64.name)
+        region_mapping = core.CfnMapping(
+            scope=self, id='RegionMap', mapping=region_dict)
+
         ######################################################################
         # get params
         ######################################################################
@@ -156,8 +172,8 @@ class MyAesSiemStack(core.Stack):
             default='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16')
         sns_email = core.CfnParameter(
             self, 'SnsEmail', allowed_pattern=r'^[0-9a-zA-Z@_\-\+\.]*',
-            description=('Input your email as SNS topic, where Amazon ES will '
-                         'send alerts to'),
+            description=('Input your email as SNS topic, where Amazon '
+                         'OpenSearch Service will send alerts to'),
             default='user+sns@example.com')
         geoip_license_key = core.CfnParameter(
             self, 'GeoLite2LicenseKey', allowed_pattern=r'^[0-9a-zA-Z]{16}$',
@@ -396,6 +412,8 @@ class MyAesSiemStack(core.Stack):
         # delopyment policy for lambda deploy-aes
         arn_prefix = f'arn:aws:logs:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
         loggroup_aes = f'log-group:/aws/aes/domains/{aes_domain_name}/*'
+        loggroup_opensearch = (
+            f'log-group:/aws/OpenSearchService/domains/{aes_domain_name}/*')
         loggroup_lambda = 'log-group:/aws/lambda/aes-siem-*'
         policydoc_create_loggroup = aws_iam.PolicyDocument(
             statements=[
@@ -413,6 +431,7 @@ class MyAesSiemStack(core.Stack):
                         'logs:PutLogEvents', 'logs:PutRetentionPolicy'],
                     resources=[
                         f'{arn_prefix}:{loggroup_aes}',
+                        f'{arn_prefix}:{loggroup_opensearch}',
                         f'{arn_prefix}:{loggroup_lambda}',
                     ],
                 )
@@ -470,7 +489,7 @@ class MyAesSiemStack(core.Stack):
             role_name='aes-siem-deploy-role-for-lambda',
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
-                    'AmazonESFullAccess'),
+                    'AmazonOpenSearchServiceFullAccess'),
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
                     'service-role/AWSLambdaBasicExecutionRole'),
             ],
@@ -485,7 +504,7 @@ class MyAesSiemStack(core.Stack):
                     'service-role/AWSLambdaVPCAccessExecutionRole')
             )
 
-        # for alert from Amazon ES
+        # for alert from Amazon OpenSearch Service
         aes_siem_sns_role = aws_iam.Role(
             self, 'AesSiemSnsRole',
             role_name='aes-siem-sns-role',
@@ -511,9 +530,9 @@ class MyAesSiemStack(core.Stack):
         aes_role_exist = check_iam_role('/aws-service-role/es.amazonaws.com/')
         if vpc_type and not aes_role_exist:
             slr_aes = aws_iam.CfnServiceLinkedRole(
-                self, 'AWSServiceRoleForAmazonElasticsearchService',
+                self, 'AWSServiceRoleForAmazonOpenSearchService',
                 aws_service_name='es.amazonaws.com',
-                description='Created by cloudformation of aes-siem stack'
+                description='Created by cloudformation of siem stack'
             )
             slr_aes.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
@@ -549,6 +568,9 @@ class MyAesSiemStack(core.Stack):
             function_name='aes-siem-es-loader',
             description=f'{SOLUTION_NAME} / es-loader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
+            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=region_mapping.find_in_map(
+            #    core.Aws.REGION, 'LambdaArm'),
             # code=aws_lambda.Code.asset('../lambda/es_loader.zip'),
             code=aws_lambda.Code.asset('../lambda/es_loader'),
             handler='index.lambda_handler',
@@ -593,6 +615,9 @@ class MyAesSiemStack(core.Stack):
             function_name='aes-siem-geoip-downloader',
             description=f'{SOLUTION_NAME} / geoip-downloader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
+            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=region_mapping.find_in_map(
+            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
             memory_size=320,
@@ -608,13 +633,16 @@ class MyAesSiemStack(core.Stack):
         lamba_geo_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
         ######################################################################
-        # setup elasticsearch
+        # setup OpenSearch Service
         ######################################################################
         lambda_deploy_es = aws_lambda.Function(
             self, 'LambdaDeployAES',
             function_name='aes-siem-deploy-aes',
             description=f'{SOLUTION_NAME} / opensearch domain deployment',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
+            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=region_mapping.find_in_map(
+            #    core.Aws.REGION, 'LambdaArm'),
             # code=aws_lambda.Code.asset('../lambda/deploy_es.zip'),
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
             handler='index.aes_domain_handler',
@@ -666,6 +694,9 @@ class MyAesSiemStack(core.Stack):
             function_name='aes-siem-configure-aes',
             description=f'{SOLUTION_NAME} / opensearch configuration',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
+            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=region_mapping.find_in_map(
+            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
             memory_size=128,
@@ -803,8 +834,8 @@ class MyAesSiemStack(core.Stack):
         bucket_policy_common1 = aws_iam.PolicyStatement(
             sid='ELB Policy',
             principals=[aws_iam.AccountPrincipal(
-                account_id=elb_accounts.find_in_map(
-                    core.Aws.REGION, 'accountid'))],
+                account_id=region_mapping.find_in_map(
+                    core.Aws.REGION, 'ElbV2AccountId'))],
             actions=['s3:PutObject'], resources=[s3_awspath + '/*'],)
         # NLB / ALB / R53resolver / VPC Flow Logs
         bucket_policy_elb1 = aws_iam.PolicyStatement(
@@ -968,7 +999,7 @@ class MyAesSiemStack(core.Stack):
             s3_log.add_to_resource_policy(bucket_policy_rep2)
 
         ######################################################################
-        # SNS topic for Amazon ES Alert
+        # SNS topic for Amazon OpenSearch Service Alert
         ######################################################################
         sns_topic = aws_sns.Topic(
             self, 'SnsTopic', topic_name='aes-siem-alert',

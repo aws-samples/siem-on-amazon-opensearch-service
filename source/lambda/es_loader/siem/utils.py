@@ -1,5 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import configparser
 import csv
@@ -13,11 +19,10 @@ from functools import lru_cache
 
 import boto3
 import botocore
+import requests
 from aws_lambda_powertools import Logger
-from elasticsearch import Elasticsearch, RequestsHttpConnection
+from opensearchpy import OpenSearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
-
-__version__ = '2.5.0'
 
 logger = Logger(child=True)
 
@@ -26,7 +31,8 @@ logger = Logger(child=True)
 # text utils
 #############################################################################
 # REGEXP
-RE_INSTANCEID = re.compile(r'\W?(?P<instanceid>i-[0-9a-z]{8,17})\W?')
+RE_INSTANCEID = re.compile(
+    r'(\W|_|^)(?P<instanceid>i-([0-9a-z]{8}|[0-9a-z]{17}))(\W|_|$)')
 RE_ACCOUNT = re.compile(r'/([0-9]{12})/')
 RE_REGION = re.compile(
     r'(global|(us|ap|ca|eu|me|sa|af|cn)-(gov-)?[a-zA-Z]+-[0-9])')
@@ -38,29 +44,35 @@ MONTH_TO_INT = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
                 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
 NOW = datetime.now(timezone.utc)
 TD_OFFSET12 = timedelta(hours=12)
+TIMEZONE_UTC = timezone(timedelta(hours=0))
 
 
+@lru_cache(maxsize=1024)
 def extract_aws_account_from_text(text):
-    m = RE_ACCOUNT.search(text)
-    if m:
-        return(m.group(1))
-    else:
-        return None
+    if text:
+        m = RE_ACCOUNT.search(text)
+        if m:
+            return(m.group(1))
+        else:
+            return None
 
 
+@lru_cache(maxsize=1024)
 def extract_aws_region_from_text(text):
-    m = RE_REGION.search(text)
-    if m:
-        return(m.group(1))
-    else:
-        return None
+    if text:
+        m = RE_REGION.search(text)
+        if m:
+            return(m.group(1))
+        else:
+            return None
 
 
+@lru_cache(maxsize=1024)
 def extract_aws_instanceid_from_text(text):
-    m = RE_INSTANCEID.search(text)
-    if m:
-        return(m.group(1))
-    else:
+    if text:
+        m = RE_INSTANCEID.search(text)
+        if m:
+            return(m.group(2))
         return None
 
 
@@ -141,7 +153,7 @@ def get_timestr_from_logdata_dict(logdata_dict, timestamp_key, has_nanotime):
     if has_nanotime:
         m = RE_WITH_NANOSECONDS.match(timestr)
         if m and m.group(3):
-            microsec = m.group(2)[:9].ljust(6, '0')
+            microsec = m.group(2)[:9].ljust(9, '0')
             timestr = m.group(1) + microsec + m.group(3)
     return timestr
 
@@ -248,13 +260,13 @@ def convert_custom_timeformat_to_datetime(timestr, TZ, timestamp_format,
         msg = f'timestamp key {timestamp_key} is wrong'
         logger.exception(msg)
         raise ValueError(msg) from None
-    if not dt.tzinfo:
+    if TZ and not dt.tzinfo:
         dt = dt.replace(tzinfo=TZ)
     return dt
 
 
 #############################################################################
-# Amazon ES / AWS Resouce
+# Amazon OpenSearch Service / AWS Resouce
 #############################################################################
 def get_es_hostname():
     # get ES_ENDPOINT
@@ -273,6 +285,87 @@ def get_es_hostname():
                          'or modify aes.ini. exit')
             raise Exception('No ES_ENDPOINT in Environemnt')
     return es_hostname
+
+
+def create_awsauth(es_hostname):
+    es_region = es_hostname.split('.')[1]
+    # For Debug
+    # boto3.set_stream_logger('botocore', level='DEBUG')
+    credentials = boto3.Session().get_credentials()
+    service = 'es'
+    awsauth = AWS4Auth(
+        credentials.access_key, credentials.secret_key, es_region, service,
+        session_token=credentials.token)
+    return awsauth
+
+
+def create_es_conn(awsauth, es_hostname):
+    es_conn = OpenSearch(
+        hosts=[{'host': es_hostname, 'port': 443}], http_auth=awsauth,
+        use_ssl=True, http_compress=True, verify_certs=True,
+        retry_on_timeout=True, connection_class=RequestsHttpConnection,
+        timeout=60)
+    return es_conn
+
+
+def get_read_only_indices(es_conn, awsauth, ES_HOSTNAME):
+    read_only_indices = []
+    # cold tier
+    # GET _cold/indices/_search?page_size=100
+    url = f'https://{ES_HOSTNAME}/_cold/indices/_search'
+    headers = {'Content-Type': 'application/json'}
+    try:
+        res = requests.get(
+            url, params={'page_size': 1}, auth=awsauth, timeout=3.0)
+    except requests.exceptions.Timeout:
+        logger.warning('timeout: impossible to get cold index')
+        return tuple(read_only_indices)
+    while res.status_code == 200 and len(res.json()['indices']) > 0:
+        for obj in res.json()['indices']:
+            idx = obj['index']
+            if idx.startswith('log-'):
+                read_only_indices.append(idx)
+        pagination_id = res.json()['pagination_id']
+        body = f'{{"pagination_id": "{pagination_id}"}}'
+        try:
+            res = requests.post(
+                url, data=body, auth=awsauth, headers=headers, timeout=3.0)
+        except requests.exceptions.Timeout:
+            logger.warning('timeout: impossible to get all cold index')
+            break
+
+    # close index
+    # params = {'index': 'log-*', 'h': 'index,status'}
+    # indices = es_conn.cat.indices(params=params)
+
+    # close index and ultrawarm tier
+    indices = es_conn.cluster.state(metric='blocks')
+    if ('blocks' in indices) and ('indices' in indices['blocks']):
+        for idx in indices['blocks']['indices']:
+            if idx.startswith('log-'):
+                read_only_indices.append(idx)
+    return tuple(sorted(list(set(read_only_indices))))
+
+
+@lru_cache(maxsize=1024)
+def get_writable_indexname(indexname, READ_ONLY_INDICES):
+    if indexname not in READ_ONLY_INDICES:
+        return indexname
+    else:
+        m = re.match('(log-.*)_([0-9]{2})', indexname)
+        if m:
+            org_indexname = m.group(1)
+            suffix = int(m.group(2))
+        else:
+            org_indexname = indexname
+            suffix = 1
+        new_indexname = f'{org_indexname}_{suffix:02}'
+        while new_indexname in READ_ONLY_INDICES:
+            suffix += 1
+            new_indexname = f'{org_indexname}_{suffix:02}'
+        logger.warning(f'{indexname} is close, ultrawarm or cold index. '
+                       f'New index name is {new_indexname}')
+        return new_indexname
 
 
 def create_logtype_s3key_dict(etl_config):
@@ -307,23 +400,6 @@ def sqs_queue(queue_url):
 #############################################################################
 # Lambda initialization
 #############################################################################
-def initialize_es_connection(es_hostname):
-    es_region = es_hostname.split('.')[1]
-    # For Debug
-    # boto3.set_stream_logger('botocore', level='DEBUG')
-    credentials = boto3.Session().get_credentials()
-    service = 'es'
-    awsauth = AWS4Auth(
-        credentials.access_key, credentials.secret_key, es_region, service,
-        session_token=credentials.token)
-    es_conn = Elasticsearch(
-        hosts=[{'host': es_hostname, 'port': 443}], http_auth=awsauth,
-        use_ssl=True, http_compress=True, verify_certs=True,
-        retry_on_timeout=True, connection_class=RequestsHttpConnection,
-        timeout=60)
-    return es_conn
-
-
 def find_user_custom_libs():
     # /opt is mounted by lambda layer
     user_libs = []
@@ -349,10 +425,12 @@ def timestr_to_hours(timestr):
 def get_etl_config():
     etl_config = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
-    etl_config.read('aws.ini')
+    etl_config.optionxform = str
+    siem_dir = os.path.dirname(__file__)
+    etl_config.read(f'{siem_dir}/../aws.ini')
     # overwride with user configration
     etl_config.read('/opt/user.ini')
-    etl_config.read('user.ini')
+    etl_config.read(f'{siem_dir}/../user.ini')
     etl_config.sections()
     if 'doc_id' not in etl_config['DEFAULT']:
         logger.error('invalid config file: aws.ini. exit')
@@ -614,7 +692,7 @@ def match_log_with_exclude_patterns(log_dict, log_patterns, ex_pattern=None):
     """match log with exclude patterns.
 
     ログと、log_patterns を比較させる
-    一つでもマッチングされれば、Amazon ESにLoadしない
+    一つでもマッチングされれば、OpenSearch ServiceにLoadしない
 
     >>> pattern1 = 111
     >>> RE_BINGO = re.compile('^'+str(pattern1)+'$')

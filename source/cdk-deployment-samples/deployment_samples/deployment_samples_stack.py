@@ -1,5 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
+
 from aws_cdk import (
     aws_iam,
     aws_events,
@@ -11,10 +18,15 @@ from aws_cdk import (
 )
 from aws_cdk.aws_kinesisfirehose import CfnDeliveryStream as CDS
 
-__version__ = '2.5.0'
-
 LAMBDA_GET_WORKSPACES_INVENTORY = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
+
 import datetime
 import gzip
 import json

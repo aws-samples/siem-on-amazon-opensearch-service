@@ -1,5 +1,12 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
+
 
 def convert_text_into_dict(temp_value):
     if isinstance(temp_value, str):
@@ -71,13 +78,37 @@ def transform(logdata):
                 except KeyError:
                     pass
     elif event_source == 'glue.amazonaws.com':
-        # #156
+        # #156, #166
         try:
             configuration = logdata['requestParameters']['configuration']
-        except KeyError:
+        except (KeyError, TypeError):
             configuration = None
         if configuration and isinstance(configuration, str):
             logdata['requestParameters']['configuration'] = {
                 'text': configuration}
+    elif event_source == 'cognito-idp.amazonaws.com':
+        # #163
+        try:
+            session = logdata['responseElements']['session']
+        except (KeyError, TypeError):
+            session = None
+        if session and isinstance(session, str):
+            logdata['responseElements']['session'] = {'value': session}
+    elif event_source == 'ecs.amazonaws.com':
+        # #167
+        try:
+            command = logdata['requestParameters']['command']
+        except (KeyError, TypeError):
+            command = None
+        if command and isinstance(command, str):
+            logdata['requestParameters']['command'] = {'command': command}
+    elif event_source in ('compute-optimizer.amazonaws.com',
+                          'auditmanager.amazonaws.com'):
+        try:
+            status = logdata['responseElements']['status']
+        except (KeyError, TypeError):
+            status = None
+        if status and isinstance(status, str):
+            logdata['responseElements']['status'] = {'status': status}
 
     return logdata

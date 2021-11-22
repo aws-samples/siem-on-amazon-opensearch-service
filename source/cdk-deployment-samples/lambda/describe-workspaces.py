@@ -1,5 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = 'Amazon.com, Inc. or its affiliates'
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
+
 import datetime
 import gzip
 import json
@@ -19,7 +25,7 @@ def lambda_handler(event, context):
     num = 0
     now = datetime.datetime.now()
     file_name = f'workspaces-inventory-{now.strftime("%Y%m%d_%H%M%S")}.json.gz'
-    s3file_name =(
+    s3file_name = (
         f'AWSLogs/{AWS_ID}/WorkSpaces/Inventory/{AWS_REGION}/'
         f'{now.strftime("%Y/%m/%d")}/{file_name}')
     f = gzip.open(f'/tmp/{file_name}', 'tw')

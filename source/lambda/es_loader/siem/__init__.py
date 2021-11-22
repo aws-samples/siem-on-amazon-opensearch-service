@@ -1,7 +1,14 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import bz2
+import copy
 import gzip
 import hashlib
 import io
@@ -10,14 +17,19 @@ import re
 import urllib.parse
 import zipfile
 from datetime import datetime, timedelta, timezone
-from functools import cached_property, wraps
+from functools import cached_property
+from typing import Tuple
 
-import xmltodict
 from aws_lambda_powertools import Logger
 
-from siem import utils, winevtxml
-
-__version__ = '2.5.0'
+from siem import utils
+from siem.fileformat_base import FileFormatBase
+from siem.fileformat_csv import FileFormatCsv
+from siem.fileformat_json import FileFormatJson
+from siem.fileformat_multiline import FileFormatMultiline
+from siem.fileformat_text import FileFormatText
+from siem.fileformat_winevtxml import FileFormatWinEvtXml
+from siem.fileformat_xml import FileFormatXml
 
 logger = Logger(child=True)
 
@@ -48,13 +60,13 @@ class LogS3:
         self.file_format = self.logconfig['file_format']
         self.max_log_count = self.logconfig['max_log_count']
         self.__rawdata = self.extract_rawdata_from_s3obj()
-        if self.file_format in ('multiline', 'xml', 'winevtxml', ):
-            self.re_multiline_firstline = self.logconfig['multiline_firstline']
+        self.__file_timestamp = self.extract_file_timestamp()
+        self.rawfile_instacne = self.set_rawfile_instance()
 
     def __iter__(self):
         if self.is_ignored:
             return
-        if self.log_count >= self.max_log_count:
+        if self.log_count > self.max_log_count:
             if self.sqs_queue:
                 metadata = self.split_logs(self.log_count, self.max_log_count)
                 sent_count = self.send_meta_to_sqs(metadata)
@@ -63,35 +75,8 @@ class LogS3:
                 self.ignored_reason = (f'Log file was split into {sent_count}'
                                        f' pieces and sent to SQS.')
                 return
-        yield from self.logdata_generator()
 
-    ###########################################################################
-    # Decoretor
-    ###########################################################################
-    def deco_cwl_logcount(func):
-        @wraps(func)
-        def _wrapper(inst, *args, **kargs):
-            if inst.via_cwl:
-                index: int = 0
-                line_num: int = 0
-                decoder = json.JSONDecoder()
-                body = inst.__rawdata
-                while True:
-                    try:
-                        obj, offset = decoder.raw_decode(body.read())
-                    except json.decoder.JSONDecodeError:
-                        break
-                    index = offset + index
-                    body.seek(index)
-                    if (isinstance(obj, dict)
-                            and 'logEvents' in obj
-                            and obj['messageType'] == 'DATA_MESSAGE'):
-                        for logevent in obj['logEvents']:
-                            line_num += 1
-                return(line_num)
-            else:
-                return func(inst, *args, **kargs)
-        return _wrapper
+        yield from self.logdata_generator()
 
     ###########################################################################
     # Property
@@ -115,39 +100,27 @@ class LogS3:
         return False
 
     @cached_property
-    @deco_cwl_logcount
     def log_count(self):
         if self.end_number == 0:
-            if self.file_format in ('text', 'csv') or self.via_firelens:
+            if self.via_cwl:
+                log_count = self.log_count_cwl_log()
+            elif self.via_firelens:
                 log_count = len(self.rawdata.readlines())
-                # log_count = sum(1 for line in self.rawdata)
-            elif self.file_format in ('json', ):
-                log_count = self.count_logobj_in_json()
-            elif self.file_format in ('winevtxml', ):
-                log_count = winevtxml.count_event(self.rawdata)
-            elif self.file_format in ('multiline', 'xml', ):
-                log_count = self.count_multiline_log()
             else:
-                log_count = 0
+                # text, json, csv, winevtxml, multiline, xml
+                log_count = self.rawfile_instacne.log_count
             if log_count == 0:
                 self.is_ignored = True
                 self.ignored_reason = (
                     'there are not any valid logs in S3 object')
             return log_count
         else:
-            return (self.end_number - self.start_number)
+            return (self.end_number - self.start_number + 1)
 
     @property
     def rawdata(self):
         self.__rawdata.seek(0)
         return self.__rawdata
-
-    @cached_property
-    def csv_header(self):
-        if 'csv' in self.file_format:
-            return self.rawdata.readlines()[0].strip()
-        else:
-            return None
 
     @cached_property
     def accountid(self):
@@ -189,118 +162,179 @@ class LogS3:
                     'end_number': self.end_number}
         return startmsg
 
-    def logdata_generator(self):
+    def set_rawfile_instance(self):
+        if self.file_format == 'text':
+            return FileFormatText(self.rawdata, self.logconfig, self.logtype)
+        elif self.file_format == 'json':
+            return FileFormatJson(self.rawdata, self.logconfig, self.logtype)
+        elif self.file_format == 'csv':
+            return FileFormatCsv(self.rawdata, self.logconfig, self.logtype)
+        elif self.file_format == 'winevtxml':
+            return FileFormatWinEvtXml(
+                self.rawdata, self.logconfig, self.logtype)
+        elif self.file_format == 'multiline':
+            return FileFormatMultiline(
+                self.rawdata, self.logconfig, self.logtype)
+        elif self.file_format == 'xml':
+            return FileFormatXml(self.rawdata, self.logconfig, self.logtype)
+        else:
+            return FileFormatBase(self.rawdata, self.logconfig, self.logtype)
+
+    def logdata_generator(self) -> Tuple[str, dict, dict]:
         logmeta = {}
+        if self.__file_timestamp:
+            logmeta['file_timestamp'] = self.__file_timestamp
         start, end = self.set_start_end_position()
-        self.total_log_count = end - start
+        self.total_log_count = end - start + 1
 
         if self.via_cwl:
-            yield from self.extract_cwl_log(start, end)
+            for lograw, logmeta in self.extract_cwl_log(start, end, logmeta):
+                logdict = self.rawfile_instacne.convert_lograw_to_dict(lograw)
+                yield (lograw, logdict, logmeta)
         elif self.via_firelens:
-            yield from self.extract_firelens_log(start, end)
-        elif self.file_format in ('text', 'csv'):
-            for logdata in self.rawdata.readlines()[start:end]:
-                yield (logdata.strip(), logmeta)
-        elif self.file_format in ('json', ):
-            logobjs = self.extract_logobj_from_json(start, end)
-            for logobj, logmeta in logobjs:
-                yield (logobj, logmeta)
-        elif self.file_format in ('winevtxml', ):
-            yield from winevtxml.extract_event(self.rawdata, start, end)
-        elif self.file_format in ('multiline', 'xml', ):
-            yield from self.extract_multiline_log(start, end)
+            for lograw, logdict, logmeta in self.extract_firelens_log(
+                    start, end, logmeta):
+                if logmeta.get('is_ignored'):
+                    yield (lograw, {}, logmeta)
+                elif logmeta.get('__skip_normalization'):
+                    yield (lograw, {}, logmeta)
+                else:
+                    yield (lograw, logdict, logmeta)
         else:
-            raise Exception
+            # json, text, csv, multiline, xml, winevtxml
+            yield from self.rawfile_instacne.extract_log(start, end, logmeta)
 
-    def set_start_end_position(self):
-        if self.via_cwl:
-            ignore_header_line_number = 0
-        elif self.file_format in ('text', ):
-            ignore_header_line_number = self.logconfig[
-                'text_header_line_number']
-        elif self.file_format in ('csv', ):
-            ignore_header_line_number = 1
-        else:
-            ignore_header_line_number = 0
+    def set_start_end_position(self, ignore_header_line_number=None):
+        if not ignore_header_line_number:
+            # if self.via_cwl:
+            #    ignore_header_line_number = 0
+            ignore_header_line_number = (
+                self.rawfile_instacne.ignore_header_line_number)
 
         if self.start_number <= ignore_header_line_number:
-            start = ignore_header_line_number
+            start = ignore_header_line_number + 1
             if self.max_log_count >= self.log_count:
                 end = self.log_count
             else:
                 end = self.max_log_count
         else:
-            start = self.start_number - 1
+            start = self.start_number
             end = self.end_number
         return start, end
 
-    def extract_cwl_log(self, start, end):
-        index: int = 0
+    def extract_file_timestamp(self):
+        re_file_timestamp_format = self.logconfig['file_timestamp_format']
+        if re_file_timestamp_format:
+            m = re_file_timestamp_format.search(self.s3key)
+            if m:
+                year = int(m.groupdict().get('year', 2000))
+                month = int(m.groupdict().get('month', 1))
+                day = int(m.groupdict().get('day', 1))
+                hour = int(m.groupdict().get('hour', 0))
+                minute = int(m.groupdict().get('minute', 0))
+                second = int(m.groupdict().get('second', 0))
+                microsecond = int(m.groupdict().get('microsecond', 0))
+                dt = datetime(year, month, day, hour, minute, second,
+                              microsecond, tzinfo=timezone.utc)
+            else:
+                msg = (f'invalid file timestamp format regex, '
+                       f're_file_timestamp_format, for {self.s3key}')
+                logger.exception(msg)
+                raise Exception(msg) from None
+            return dt
+        else:
+            return None
+
+    def log_count_cwl_log(self):
+        idx: int = 0
         line_num: int = 0
         decoder = json.JSONDecoder()
-        self.__rawdata.seek(0)
-        body = self.__rawdata
+        body: str = self.__rawdata.read()
+        body_size: int = len(body)
+        _w = json.decoder.WHITESPACE.match
+
         while True:
-            try:
-                obj, offset = decoder.raw_decode(body.read())
-            except json.decoder.JSONDecodeError:
+            # skip leading whitespace
+            idx = _w(body, idx).end()
+            if idx >= body_size:
                 break
-            index = offset + index
-            body.seek(index)
+            obj, idx = decoder.raw_decode(body, idx=idx)
             if (isinstance(obj, dict)
                     and 'logEvents' in obj
                     and obj['messageType'] == 'DATA_MESSAGE'):
-                logmeta = {'cwl_accountid': obj['owner'],
-                           'loggroup': obj['logGroup'],
-                           'logstream': obj['logStream']}
-                for logevent in obj['logEvents']:
-                    if start <= line_num < end:
-                        logmeta['cwl_id'] = logevent['id']
-                        logmeta['cwl_timestamp'] = logevent['timestamp']
-                        if self.file_format in ('json', ):
-                            yield json.loads(logevent['message']), logmeta
-                        else:
-                            yield logevent['message'], logmeta
-                    line_num += 1
+                line_num += len(obj['logEvents'])
 
-    def extract_firelens_log(self, start, end):
+        return line_num
+
+    def extract_cwl_log(self, start, end, logmeta={}):
+        idx: int = 0
+        line_num: int = 0
+        decoder = json.JSONDecoder()
+        self.__rawdata.seek(0)
+        body: str = self.__rawdata.read()
+        body_size: int = len(body)
+        _w = json.decoder.WHITESPACE.match
+
+        while True:
+            # skip leading whitespace
+            idx = _w(body, idx).end()
+            if idx >= body_size:
+                break
+            obj, idx = decoder.raw_decode(body, idx=idx)
+            if (isinstance(obj, dict)
+                    and 'logEvents' in obj
+                    and obj['messageType'] == 'DATA_MESSAGE'):
+                cwl_logmeta = copy.copy(logmeta)
+                cwl_logmeta['cwl_accountid'] = obj['owner']
+                cwl_logmeta['loggroup'] = obj['logGroup']
+                cwl_logmeta['logstream'] = obj['logStream']
+                for logevent in obj['logEvents']:
+                    line_num += 1
+                    if start <= line_num <= end:
+                        cwl_logmeta['cwl_id'] = logevent['id']
+                        cwl_logmeta['cwl_timestamp'] = logevent['timestamp']
+                        yield (logevent['message'], cwl_logmeta)
+
+    def extract_firelens_log(self, start, end, logmeta={}):
         ignore_container_stderr_bool = (
             self.logconfig['ignore_container_stderr'])
-        for logdata in self.rawdata.readlines()[start:end]:
+        start_index = start - 1
+        end_index = end
+        for logdata in self.rawdata.readlines()[start_index:end_index]:
             obj = json.loads(logdata.strip())
-            firelens_meta_dict = {}
+            logdict = {}
+            firelens_logmeta = copy.copy(logmeta)
             # basic firelens field
-            firelens_meta_dict['container_id'] = obj.get('container_id')
-            firelens_meta_dict['container_name'] = obj.get('container_name')
-            firelens_meta_dict['container_source'] = obj.get('source')
-            firelens_meta_dict['ecs_cluster'] = obj.get('ecs_cluster')
-            firelens_meta_dict['ecs_task_arn'] = obj.get('ecs_task_arn')
-            firelens_meta_dict['ecs_task_definition'] = obj.get(
+            firelens_logmeta['container_id'] = obj.get('container_id')
+            firelens_logmeta['container_name'] = obj.get('container_name')
+            firelens_logmeta['container_source'] = obj.get('source')
+            firelens_logmeta['ecs_cluster'] = obj.get('ecs_cluster')
+            firelens_logmeta['ecs_task_arn'] = obj.get('ecs_task_arn')
+            firelens_logmeta['ecs_task_definition'] = obj.get(
                 'ecs_task_definition')
             ec2_instance_id = obj.get('ec2_instance_id', False)
             if ec2_instance_id:
-                firelens_meta_dict['ec2_instance_id'] = ec2_instance_id
+                firelens_logmeta['ec2_instance_id'] = ec2_instance_id
             # original log
             logdata = obj['log']
             # stderr
-            if firelens_meta_dict['container_source'] == 'stderr':
+            if firelens_logmeta['container_source'] == 'stderr':
                 if ignore_container_stderr_bool:
                     reason = "log is container's stderr"
-                    firelens_meta_dict['is_ignored'] = True
-                    firelens_meta_dict['ignored_reason'] = reason
-                else:
-                    firelens_meta_dict['__skip_normalization'] = True
-                    firelens_meta_dict['__error_message'] = logdata
-            if self.file_format in ('json', ):
-                try:
-                    logdata = json.loads(logdata)
-                except json.decoder.JSONDecodeError:
-                    error_message = 'Invalid file format found during parsing'
-                    firelens_meta_dict['__skip_normalization'] = True
-                    if '__error_message' in firelens_meta_dict:
-                        firelens_meta_dict['__error_message'] = error_message
-                    logger.warn(f'{error_message} {self.s3key}')
-            yield (logdata, firelens_meta_dict)
+                    firelens_logmeta['is_ignored'] = True
+                    firelens_logmeta['ignored_reason'] = reason
+                    yield (logdata, logdict, firelens_logmeta)
+                    continue
+            try:
+                logdict = (
+                    self.rawfile_instacne.convert_lograw_to_dict(logdata))
+            except Exception as err:
+                firelens_logmeta['__skip_normalization'] = True
+                firelens_logmeta['__error_message'] = logdata
+                if firelens_logmeta['container_source'] != 'stderr':
+                    firelens_logmeta['__error_message'] = err
+                    logger.warning(f'{err} {self.s3key}')
+            yield (logdata, logdict, firelens_logmeta)
 
     def extract_rawdata_from_s3obj(self):
         try:
@@ -339,109 +373,6 @@ class LogS3:
             logger.error('unknown file format')
             raise Exception('unknown file format')
         return body
-
-    def count_logobj_in_json(self):
-        decoder = json.JSONDecoder()
-        delimiter = self.logconfig['json_delimiter']
-        count = 0
-        # For ndjson
-        for line in self.rawdata.readlines():
-            # for Firehose's json (multiple jsons in 1 line)
-            size = len(line)
-            index = 0
-            while index < size:
-                raw_event, offset = decoder.raw_decode(line, index)
-                raw_event, logmeta = self.check_cwe_and_strip_header(raw_event)
-                if delimiter and (delimiter in raw_event):
-                    # multiple evets in 1 json
-                    for record in raw_event[delimiter]:
-                        count += 1
-                elif not delimiter:
-                    count += 1
-                search = json.decoder.WHITESPACE.search(line, offset)
-                if search is None:
-                    break
-                index = search.end()
-        return count
-
-    def extract_logobj_from_json(self, start=0, end=0):
-        decoder = json.JSONDecoder()
-        delimiter = self.logconfig['json_delimiter']
-        count = 0
-        # For ndjson
-        for line in self.rawdata.readlines():
-            # for Firehose's json (multiple jsons in 1 line)
-            size = len(line)
-            index = 0
-            while index < size:
-                raw_event, offset = decoder.raw_decode(line, index)
-                raw_event, logmeta = self.check_cwe_and_strip_header(
-                    raw_event, need_meta=True)
-                if delimiter and (delimiter in raw_event):
-                    # multiple evets in 1 json
-                    for record in raw_event[delimiter]:
-                        count += 1
-                        if start <= count <= end:
-                            yield (record, logmeta)
-                elif not delimiter:
-                    count += 1
-                    if start <= count <= end:
-                        yield (raw_event, logmeta)
-                search = json.decoder.WHITESPACE.search(line, offset)
-                if search is None:
-                    break
-                index = search.end()
-
-    def match_multiline_firstline(self, line):
-        if self.re_multiline_firstline.match(line):
-            return True
-        else:
-            return False
-
-    def count_multiline_log(self):
-        count = 0
-        for line in self.rawdata:
-            if self.match_multiline_firstline(line):
-                count += 1
-        return count
-
-    def extract_multiline_log(self, start=0, end=0):
-        count = 0
-        metadata = {}
-        multilog = []
-        is_in_scope = False
-        for line in self.rawdata:
-            if self.match_multiline_firstline(line):
-                count += 1
-                if start < count <= end:
-                    if len(multilog) > 0:
-                        # yield previous log
-                        yield("".join(multilog).rstrip(), metadata)
-                    multilog = []
-                    is_in_scope = True
-                    multilog.append(line)
-                else:
-                    continue
-            elif is_in_scope:
-                multilog.append(line)
-        if is_in_scope:
-            # yield last log
-            yield("".join(multilog).rstrip(), metadata)
-
-    def check_cwe_and_strip_header(self, dict_obj, need_meta=False):
-        logmeta = {}
-        if "detail-type" in dict_obj and "resources" in dict_obj:
-            if need_meta:
-                logmeta = {'cwe_id': dict_obj['id'],
-                           'cwe_source': dict_obj['source'],
-                           'cwe_accountid': dict_obj['account'],
-                           'cwe_region': dict_obj['region'],
-                           'cwe_timestamp': dict_obj['time']}
-            # source = dict_obj['source'] # eg) aws.securityhub
-            # time = dict_obj['time'] #@ingested
-            return dict_obj['detail'], logmeta
-        else:
-            return dict_obj, logmeta
 
     def split_logs(self, log_count, max_log_count):
         q, mod = divmod(log_count, max_log_count)
@@ -500,7 +431,6 @@ class LogParser:
         self.s3key = logfile.s3key
         self.s3bucket = logfile.s3bucket
         self.logformat = logfile.file_format
-        self.header = logfile.csv_header
         self.accountid = logfile.accountid
         self.region = logfile.region
         self.loggroup = None
@@ -514,10 +444,16 @@ class LogParser:
                 timedelta(hours=float(self.logconfig['index_tz'])))
         self.has_nanotime = self.logconfig['timestamp_nano']
 
-    def __call__(self, logdata, logmeta):
-        self.logdata = logdata
+    def __call__(self, lograw, logdict, logmeta):
+        self.__skip_normalization = False
+        self.lograw = lograw
+        self.__logdata_dict = logdict
         self.logmeta = logmeta
+        self.original_fields = set(logdict.keys())
+        self.additional_id = None
         if logmeta:
+            self.additional_id = logmeta.get('cwl_id')
+            self.additional_id = logmeta.get('cwe_id', self.additional_id)
             self.logstream = logmeta.get('logstream')
             self.loggroup = logmeta.get('loggroup')
             self.accountid = logmeta.get('cwl_accountid', self.accountid)
@@ -527,16 +463,20 @@ class LogParser:
             self.cwl_timestamp = logmeta.get('cwl_timestamp')
             self.cwe_id = logmeta.get('cwe_id')
             self.cwe_timestamp = logmeta.get('cwe_timestamp')
-        self.__logdata_dict = self.logdata_to_dict(logdata, logmeta)
+            self.file_timestamp = logmeta.get('file_timestamp')
         if logmeta.get('container_name'):
+            self.additional_id = logmeta['container_name']
             # Firelens. for compatibility
             self.__logdata_dict = dict(self.__logdata_dict, **logmeta)
+            if 'file_timestamp' in self.__logdata_dict:
+                del self.__logdata_dict['file_timestamp']
         if self.is_ignored:
             return
         self.__event_ingested = datetime.now(timezone.utc)
         self.__skip_normalization = self.set_skip_normalization()
-        self.__timestamp = self.get_timestamp()
 
+        self.rename_fields()
+        self.__timestamp = self.get_timestamp()
         # idなどの共通的なフィールドを追加する
         self.add_basic_field()
         # logger.debug({'doc_id': self.doc_id})
@@ -549,6 +489,8 @@ class LogParser:
         self.transform_by_script()
         # ログにgeoipなどの情報をエンリッチ
         self.enrich()
+        # add filed prefix to original log
+        self.add_field_prefix()
 
     ###########################################################################
     # Property
@@ -628,50 +570,55 @@ class LogParser:
     ###########################################################################
     # Method/Function - Main
     ###########################################################################
-    def logdata_to_dict(self, logdata, logmeta):
-        logdata_dict = {}
-        if 'is_ignored' in logmeta or '__skip_normalization' in logmeta:
-            return logdata_dict
-
-        if self.logformat in 'csv':
-            logdata_dict = dict(zip(self.header.split(), logdata.split()))
-            logdata_dict = utils.convert_keyname_to_safe_field(logdata_dict)
-        elif self.logformat in 'json':
-            logdata_dict = logdata
-        elif self.logformat in ('winevtxml', ):
-            logdata_dict = winevtxml.to_dict(logdata)
-        elif self.logformat in ('xml', ):
-            logdata_dict = xmltodict.parse(logdata)
-        elif self.logformat in ('text', 'multiline'):
-            logdata_dict = self.text_logdata_to_dict(logdata)
-        return logdata_dict
-
     def add_basic_field(self):
         basic_dict = {}
-        if self.logformat in 'json':
-            basic_dict['@message'] = str(json.dumps(self.logdata))
-        else:
-            basic_dict['@message'] = str(self.logdata)
-        basic_dict['event'] = {'module': self.logtype}
+        basic_dict['@message'] = self.lograw
         basic_dict['@timestamp'] = self.timestamp.isoformat()
-        basic_dict['event']['ingested'] = self.event_ingested.isoformat()
         basic_dict['@log_type'] = self.logtype
-        if self.__skip_normalization:
-            unique_text = "{0}{1}".format(basic_dict['@message'], self.s3key)
-            basic_dict['@id'] = hashlib.md5(
-                unique_text.encode('utf-8')).hexdigest()
-        elif self.logconfig['doc_id']:
-            basic_dict['@id'] = self.__logdata_dict[self.logconfig['doc_id']]
-        else:
-            basic_dict['@id'] = hashlib.md5(
-                str(basic_dict['@message']).encode('utf-8')).hexdigest()
-        if self.loggroup:
-            basic_dict['@log_group'] = self.loggroup
-            basic_dict['@log_stream'] = self.logstream
         basic_dict['@log_s3bucket'] = self.s3bucket
         basic_dict['@log_s3key'] = self.s3key
+        basic_dict['@log_group'] = self.loggroup
+        basic_dict['@log_stream'] = self.logstream
+        basic_dict['event'] = {'module': self.logtype}
+        basic_dict['event']['ingested'] = self.event_ingested.isoformat()
+        if self.__skip_normalization:
+            unique_text = (
+                f'{basic_dict["@message"]}{self.s3key}{self.additional_id}')
+            basic_dict['@id'] = hashlib.md5(
+                unique_text.encode('utf-8')).hexdigest()
+            del unique_text
+            if '__error_message' in self.__logdata_dict:
+                self.__logdata_dict['error'] = {
+                    'message': self.__logdata_dict['__error_message']}
+                del self.__logdata_dict['__error_message']
+
+        elif self.logconfig['doc_id']:
+            basic_dict['@id'] = self.__logdata_dict[self.logconfig['doc_id']]
+        elif self.additional_id:
+            unique_text = f'{basic_dict["@message"]}{self.additional_id}'
+            basic_dict['@id'] = hashlib.md5(
+                unique_text.encode('utf-8')).hexdigest()
+            del unique_text
+        else:
+            unique_text = f'{basic_dict["@message"]}'
+            basic_dict['@id'] = hashlib.md5(
+                unique_text.encode('utf-8')).hexdigest()
+            del unique_text
         self.__logdata_dict = utils.merge_dicts(
             self.__logdata_dict, basic_dict)
+
+    def rename_fields(self):
+        if self.__skip_normalization:
+            return False
+        elif self.logconfig.get('renamed_newfields'):
+            for field in self.logconfig['renamed_newfields']:
+                v = self.__logdata_dict.get(self.logconfig[field])
+                if v:
+                    self.__logdata_dict[field] = v
+                    del self.__logdata_dict[self.logconfig[field]]
+                    # fix oroginal field name list
+                    self.original_fields.add(field)
+                    self.original_fields.remove(self.logconfig[field])
 
     def clean_multi_type_field(self):
         clean_multi_type_dict = {}
@@ -697,7 +644,7 @@ class LogParser:
 
     def get_value_and_input_into_ecs_dict(self, ecs_dict):
         new_ecs_dict = {}
-        ecs_keys = self.logconfig['ecs'].split()
+        ecs_keys = self.logconfig['ecs']
         for ecs_key in ecs_keys:
             original_keys = self.logconfig[ecs_key]
             if isinstance(original_keys, str):
@@ -714,8 +661,13 @@ class LogParser:
                         self.__logdata_dict, original_key_list)
                     if isinstance(v, str):
                         v = utils.validate_ip(v, ecs_key)
-                    if v:
-                        temp_list.append(v)
+                        if v:
+                            temp_list.append(v)
+                    elif isinstance(v, list):
+                        for i in v:
+                            each_v = utils.validate_ip(i, ecs_key)
+                            if each_v:
+                                temp_list.append(each_v)
                 if temp_list:
                     new_ecs_dict = utils.put_value_into_nesteddict(
                         ecs_key, sorted(list(set(temp_list))))
@@ -763,14 +715,13 @@ class LogParser:
         if '__error_message' in self.logmeta:
             self.__logdata_dict['error'] = {
                 'message': self.logmeta['__error_message']}
-            del self.__logdata_dict['__error_message']
+            del self.logmeta['__error_message']
 
         static_ecs_keys = self.logconfig['static_ecs']
-        if static_ecs_keys:
-            for static_ecs_key in static_ecs_keys.split():
-                new_ecs_dict = utils.put_value_into_nesteddict(
-                    static_ecs_key, self.logconfig[static_ecs_key])
-                ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
+        for static_ecs_key in static_ecs_keys:
+            v = copy.copy(self.logconfig[static_ecs_key])
+            new_ecs_dict = utils.put_value_into_nesteddict(static_ecs_key, v)
+            ecs_dict = utils.merge_dicts(ecs_dict, new_ecs_dict)
         self.__logdata_dict = utils.merge_dicts(self.__logdata_dict, ecs_dict)
 
     def transform_by_script(self):
@@ -796,28 +747,20 @@ class LogParser:
         self.__logdata_dict = utils.merge_dicts(
             self.__logdata_dict, enrich_dict)
 
+    def add_field_prefix(self):
+        if self.logconfig.get('field_prefix'):
+            self.__logdata_dict[self.logconfig.get('field_prefix')] = {}
+            for field in self.original_fields:
+                try:
+                    self.__logdata_dict[self.logconfig.get(
+                        'field_prefix')][field] = self.__logdata_dict[field]
+                    del self.__logdata_dict[field]
+                except KeyError:
+                    pass
+
     ###########################################################################
     # Method/Function - Support
     ###########################################################################
-    def text_logdata_to_dict(self, logdata):
-        re_log_pattern_prog = self.logconfig['log_pattern']
-        try:
-            re_log_pattern_prog = self.logconfig['log_pattern']
-            m = re_log_pattern_prog.match(logdata)
-        except AttributeError:
-            msg = 'No log_pattern. You need to define it in user.ini'
-            logger.exception(msg)
-            raise AttributeError(msg) from None
-        if m:
-            logdata_dict = m.groupdict()
-        else:
-            msg_dict = {
-                'Exception': f'Invalid regex pattern of {self.logtype}',
-                'rawdata': logdata, 'regex_pattern': re_log_pattern_prog}
-            logger.error(msg_dict)
-            raise Exception(repr(msg_dict))
-        return logdata_dict
-
     def set_skip_normalization(self):
         if self.__logdata_dict.get('__skip_normalization'):
             del self.__logdata_dict['__skip_normalization']
@@ -830,6 +773,8 @@ class LogParser:
                 self.__logdata_dict['cwe_timestamp'] = self.cwe_timestamp
             elif self.logconfig['timestamp_key'] == 'cwl_timestamp':
                 self.__logdata_dict['cwl_timestamp'] = self.cwl_timestamp
+            elif self.logconfig['timestamp_key'] == 'file_timestamp':
+                return self.file_timestamp
             timestr = utils.get_timestr_from_logdata_dict(
                 self.__logdata_dict, self.logconfig['timestamp_key'],
                 self.has_nanotime)
@@ -841,6 +786,13 @@ class LogParser:
                 logger.error(msg)
                 raise ValueError(msg)
         else:
+            if self.file_timestamp:
+                # This may be firelens and error log
+                return self.file_timestamp
+            elif hasattr(self, 'cwl_timestamp') and self.cwl_timestamp:
+                # This may be CWL and truncated JSON such as opensearch audit
+                return utils.convert_epoch_to_datetime(
+                    self.cwl_timestamp, utils.TIMEZONE_UTC)
             dt = datetime.now(timezone.utc)
         return dt
 
@@ -878,7 +830,7 @@ class LogParser:
                     and len(value.encode('utf-8')) >= 32766):
                 if key not in ("@message", ):
                     d[key] = self.truncate_txt(d[key], 32753) + '<<TRUNCATED>>'
-                    logger.warn(
+                    logger.warning(
                         f'Data was truncated because the size of {key} field '
                         f'is bigger than 32,766. _id is {self.doc_id}')
         return d
@@ -1016,7 +968,7 @@ def match_log_with_exclude_patterns(log_dict, log_patterns):
     """Deprecated.
 
     ログと、log_patterns を比較させる
-    一つでもマッチングされれば、Amazon ESにLoadしない
+    一つでもマッチングされれば、OpenSearch ServiceにLoadしない
 
     >>> pattern1 = 111
     >>> RE_BINGO = re.compile('^'+str(pattern1)+'$')

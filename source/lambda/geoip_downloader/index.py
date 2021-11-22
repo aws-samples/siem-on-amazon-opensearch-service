@@ -1,5 +1,11 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import hashlib
 import json
@@ -10,8 +16,6 @@ import urllib.parse
 import urllib.request
 
 import boto3
-
-__version__ = '2.5.0'
 
 # get var from lambda environment
 try:

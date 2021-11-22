@@ -15,6 +15,7 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
     * [AWS Network Firewall](#AWS-Network-Firewall-Experimental-Support)
 1. [管理とガバナンス](#3-管理とガバナンス)
     * [AWS CloudTrail](#AWS-CloudTrail)
+    * [AWS Config](#AWS-Config)
 1. [ネットワーキングとコンテンツ配信](#4-ネットワーキングとコンテンツ配信)
     * [Amazon CloudFront](#Amazon-CloudFront)
     * [Route 53 Resolver VPC DNS Query Log](#Route-53-Resolver-VPC-DNS-Query-Log)
@@ -26,8 +27,10 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
 1. [データベース](#6-データベース)
     * [RDS (Aurora MySQL互換 / MySQL / MariaDB)](#RDS-Aurora-MySQL互換--MySQL--MariaDB-Experimental-Support)
     * [RDS (Aurora PostgreSQL互換 / PostgreSQL)](#RDS-Aurora-PostgreSQL互換--PostgreSQL-Experimental-Support)
+    * [Amazon ElastiCache for Redis](#Amazon-ElastiCache-for-Redis)
 1. [分析](#7-分析)
-    * [Amazon Managed Streaming for Apache Kafka (Amazon MSK) (Experimental Support)](#Amazon-MSK-Experimental-Support)
+    * [Amazon OpenSearch Service](#Amazon-OpenSearch-Service)
+    * [Amazon Managed Streaming for Apache Kafka (Amazon MSK)](#Amazon-MSK)
 1. [コンピューティング](#8-コンピューティング)
     * [EC2 インスタンス (Amazon Linux 2)](#EC2-インスタンス-Amazon-Linux-2)
     * [EC2 インスタンス (Microsoft Windows Server 2012/2016/2019)](#EC2-インスタンス-Microsoft-Windows-Server-201220162019)
@@ -248,7 +251,7 @@ CloudTrail のログを下記の方法で S3 バケットに出力してくだ�
     * CloudWatch Logs: 有効にチェックせず
     * タグオプション: 任意です
 1. [**次へ**] を選択
-1. [ログイベントの選択] 画面でで次のパラメーターを入力します
+1. [ログイベントの選択] 画面で次のパラメーターを入力します
     * イベントタイプ
         * 管理イベント: [**チェックします*]
         * データイベント: 任意です
@@ -259,6 +262,24 @@ CloudTrail のログを下記の方法で S3 バケットに出力してくだ�
 1. [**次へ**] を選択します
 1. [**証跡の作成**] を選択して設定完了です
 
+### AWS Config
+
+#### Configuration 履歴 / Configuration スナップショット
+
+![Config to S3](images/log-source-config-to-s3.svg)
+
+* Configuration 履歴: s3_key の初期値: `_ConfigHistory_` (デフォルト設定の出力パスの一部)
+* Configuration スナップショット: s3_key の初期値: `_ConfigSnapshot_` (デフォルト設定の出力パスの一部)
+
+S3 バケットの出力方法はデベロッパーガイド [コンソールによる AWS Config の設定](https://docs.aws.amazon.com/ja_jp/config/latest/developerguide/gs-console.html) の 「配信方法」を参照してください。S3 バケットの指定には SIEM のログバケットを選択してください。
+
+#### Config Rules
+
+![ConfigRules to S3](images/log-source-configrules-to-s3.svg)
+
+s3_key の初期値: `Config.*Rules` (Firehose の出力パスに指定)
+
+
 ## 4. ネットワーキングとコンテンツ配信
 
 ### Amazon CloudFront
@@ -267,7 +288,7 @@ CloudFront には、ディストリビューションに送信されるリクエ
 
 #### I. CloudFront 標準ログ (アクセスログ)
 
-![cloudfront starndard to s3](images/cloudfront-standard-to-s3.jpg)
+![cloudfront standard to s3](images/cloudfront-standard-to-s3.jpg)
 
 s3_key の初期値: `(^|\/)[0-9A-Z]{13,14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\.gz$$`
 
@@ -445,7 +466,7 @@ Amazon FSx 監査ログを Kinesis Data Firehose から S3 バケットにエク
 
 ![S3 to S3](images/s3-to-s3.jpg)
 
-S3 access log を下記の方法で S3 バケットに出力してください。すでに CloudTrail の データイベントで S3 を取得してる場合、S3 access log との違いは [こちら](https://docs.aws.amazon.com/ja_jp/AmazonS3/latest/dev/logging-with-S3.html) をご確認ください
+S3 access log を下記の方法で S3 バケットに出力してください。すでに CloudTrail の データイベントで S3 を取得している場合、S3 access log との違いは [こちら](https://docs.aws.amazon.com/ja_jp/AmazonS3/latest/dev/logging-with-S3.html) をご確認ください
 
 s3_key の初期値: `/20\d{2}-[01]\d-\d{2}-\d{2}-\d{2}-\d{2}-[0-9A-Z]{16}$$` (s3_key の初期値はデフォルトのファイル名を正規表現で判別します)
 
@@ -466,7 +487,7 @@ s3_key の初期値: `/20\d{2}-[01]\d-\d{2}-\d{2}-\d{2}-\d{2}-[0-9A-Z]{16}$$` (s
 
 以下のログを Cloud Watch Logs に出力して、SIEM に取り込みます。
 
-* エラーログ (Erorr log)
+* エラーログ (Error log)
 * スロークエリログ (Slow query log)
 * 一般ログ (General log)
 * 監査ログ (Audit log)
@@ -483,7 +504,7 @@ s3_key の初期値は以下です。Firehose の出力パスに指定してく�
 #### RDS (Aurora MySQL互換 / MySQL / MariaDB) の設定
 
 1. [RDS コンソール](https://console.aws.amazon.com/rds/home?) に移動します
-1. RDS で Audit ログを有効にするためにオプショングループから監査プラグインの設定をします。設定できる Databae エンジンとバージョンは下記を参照して下さい。(Aurora は、パラメーターグループで設定するので、この設定は不要です)。
+1. RDS で Audit ログを有効にするためにオプショングループから監査プラグインの設定をします。設定できる Database エンジンとバージョンは下記を参照して下さい。(Aurora は、パラメーターグループで設定するので、この設定は不要です)。
     * [MariaDB - MariaDB データベースエンジンのオプション](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/Appendix.MariaDB.Options.html)
     * [MySQL - MariaDB 監査プラグインのサポート](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/Appendix.MySQL.Options.AuditPlugin.html)
     1. RDS で Audit ログ を有効にするオプション設定が可能で必要な場合は、画面左メニューの [**オプショングループ**] => 画面右上の [**グループの作成**] を選択します
@@ -609,9 +630,17 @@ Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/12
 * [Kibana ダッシュボードの設定と作成](https://aws.amazon.com/jp/blogs/news/configuring-and-authoring-kibana-dashboards/)
 * [PostgreSQL を実行している自分の Amazon RDS DB インスタンスで失敗したログイン試行回数を追跡するにはどうすればよいですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/track-failed-login-rds-postgresql/)
 
+### Amazon ElastiCache for Redis
+
+![Redis to S3](images/log-source-redis-to-s3.svg)
+
+s3_key の初期値: `(redis|Redis).*(slow|SLOW)` (Firehose の出力パスに指定)
+
+S3 バケットの出力方法はユーザーガイドの [ログ配信](https://docs.aws.amazon.com/ja_jp/AmazonElastiCache/latest/red-ug/Log_Delivery.html) を参照してください。JSON 形式を選んで Firehose に出力後、Firehose から S3バケット に配信をする設定をします。
+
 ## 7. 分析
 
-### Amazon MSK (Experimental Support)
+### Amazon MSK
 
 ![MSK to S3](images/msk-to-s3.jpg)
 
@@ -630,6 +659,14 @@ Amazon MSK のログを下記の方法で S3 バケットに出力してくだ�
     * プレフィックス - オプション: 空欄のまま
 1. [**変更を保存**] を選択して、設定完了です
 
+### Amazon OpenSearch Service
+
+![OpenSearch to S3](images/log-source-opensearch-to-s3.svg)
+
+s3_key の初期値: `(OpenSearch|opensearch).*(Audit|audit)` (Firehose の出力パスに指定)
+
+S3 バケットの出力方法はデベロッパーガイドの [Amazon OpenSearch Service での監査ログのモニタリング](https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/audit-logs.html) を参照してください。CloudWatch Logsに配信後、CloudWatch Logs と Firehose から S3バケット に配信をする設定をします。
+
 ## 8. コンピューティング
 
 ### EC2 インスタンス (Amazon Linux 2)
@@ -642,7 +679,7 @@ s3_key の初期値: `/[Ll]inux/` (Firehose の出力パスに指定)
 Secure ログ
 s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
 
-ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先の S3 バケットのプレフィックスに指定してください。リージョン情報はログに含まれていないので、S3 キーに含めることで取得することができます。OS のシステムログとして取り込んだ後にSecure ログとして分類する方法と、最初から Secure ログとして取り込む方法の2種類があります。前者はプロセス名から判断するので、確実に Secure ログを Secure ログとして取り込むためには後者を選択してしてください。一方で後者はログの出力先毎に Firehose をデプロイする必要があります。
+ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先の S3 バケットのプレフィックスに指定してください。リージョン情報はログに含まれていないので、S3 キーに含めることで取得することができます。OS のシステムログとして取り込んだ後にSecure ログとして分類する方法と、最初から Secure ログとして取り込む方法の2種類があります。前者はプロセス名から判断するので、確実に Secure ログを Secure ログとして取り込むためには後者を選択してください。一方で後者はログの出力先毎に Firehose をデプロイする必要があります。
 
 手順は概要のみです。
 
@@ -670,7 +707,7 @@ s3_key の初期値: `/[Ww]indows.*[Ee]vent` (Firehose の出力パスに指定)
 
 手順は概要のみです。
 
-1. Windows Servver をデプロイした EC2 インスタンスに CloudWatch Agent をインストールして、CloudWatch Logs にログを転送します
+1. Windows Server をデプロイした EC2 インスタンスに CloudWatch Agent をインストールして、CloudWatch Logs にログを転送します
     * [統合 CloudWatch エージェントをインストールして、メトリクスとログを EC2 インスタンスから CloudWatch にプッシュするように設定する方法を教えてください。](https://aws.amazon.com/jp/premiumsupport/knowledge-center/cloudwatch-push-metrics-unified-agent/)
     * [Windows ログを CloudWatch にアップロードするにはどうすればよいですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/cloudwatch-upload-windows-logs/)
 1. 下記の CloudFormation を使って設定します
@@ -685,11 +722,11 @@ s3_key の初期値: `/[Ww]indows.*[Ee]vent` (Firehose の出力パスに指定)
 
 ### Amazon ECS 対応 FireLens
 
-![ECS to Firelens to S3](images/ecs-to-firelens-to-s3.jpg)
+![ECS to FireLens to S3](images/ecs-to-firelens-to-s3.jpg)
 
 s3_key の初期値: なし。コンテナのアプリケーション毎に Firehose を作成して、それぞれに設定してください
 
-* ECS のログを Firelens(Fluent Bit) 経由で Firehose に送信をして、S3 に出力
+* ECS のログを FireLens(Fluent Bit) 経由で Firehose に送信をして、S3 に出力
 * コンテナのアプリケーションのログ種別は S3 のファイルパスで判断します。したがって、ログ種別毎に Firehose をプロビジョニング
 * コンテナの情報は、ECS メタデータから取得します。[タスク定義で有効化](https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/developerguide/using_firelens.html#firelens-taskdef-metadata)してください
 * stderr の取り込みは、デフォルトではしません。取得する場合は、user.ini に ignore_container_stderr = False としてください。@timestamp は SIEM のログ受信時刻になります。
@@ -698,11 +735,11 @@ Kinesis Data Firehose の設定
 
 1. Security Hub の [Kinesis Data Firehose の設定] を参考にしてください
 1. S3 への出力パスにアプリケーションを判別するキーを含めてください (apacheなど)
-1. S3 に保存されるログから AWS Acount と Region は取得するので、S3 の出力パスにこの 2 つを含めるかどうかは任意です
+1. S3 に保存されるログから AWS Account と Region は取得するので、S3 の出力パスにこの 2 つを含めるかどうかは任意です
 
-AWS Firelens の設定
+AWS FireLens の設定
 
-1. Firelens 経由でログを送るタスク定義ファイルと IAM の権限設定は、[公式ドキュメント](https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/userguide/using_firelens.html) と aws-samples の [amazon-ecs-firelens-examples の Send to Kinesis Data Firehose](https://github.com/aws-samples/amazon-ecs-firelens-examples/tree/mainline/examples/fluent-bit/kinesis-firehose) を参考にしてください
+1. FireLens 経由でログを送るタスク定義ファイルと IAM の権限設定は、[公式ドキュメント](https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/userguide/using_firelens.html) と aws-samples の [amazon-ecs-firelens-examples の Send to Kinesis Data Firehose](https://github.com/aws-samples/amazon-ecs-firelens-examples/tree/mainline/examples/fluent-bit/kinesis-firehose) を参考にしてください
 
 SIEM の設定
 

@@ -1,8 +1,14 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 from siem import utils
-from siem.winevtxml import initial_extract_action_outcome
+from siem.fileformat_winevtxml import initial_extract_action_outcome
 from siem.sf_windows_event import extract_instance_id
 
 

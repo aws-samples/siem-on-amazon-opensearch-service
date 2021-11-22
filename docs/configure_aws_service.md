@@ -15,6 +15,7 @@ On this page, we’ll walk you through how to load logs from each AWS service in
     * [AWS Network Firewall](#AWS-Network-Firewall)
 1. [Management & Governance](#3-Management--Governance)
     * [AWS CloudTrail](#AWS-CloudTrail)
+    * [AWS Config](#AWS-Config)
 1. [Networking & Content Delivery](#4-Networking--Content-Delivery)
     * [Amazon CloudFront](#Amazon-CloudFront)
     * [Route 53 Resolver VPC DNS Query Logging](#Route-53-Resolver-VPC-DNS-Query-Logging)
@@ -26,7 +27,9 @@ On this page, we’ll walk you through how to load logs from each AWS service in
 1. [Database](#6-Database)
     * [RDS (Aurora MySQL / MySQL / MariaDB)](#RDS-Aurora-MySQL--MySQL--MariaDB-Experimental-Support)
     * [RDS (Aurora PostgreSQL / PostgreSQL)](#RDS-Aurora-PostgreSQL--PostgreSQL-Experimental-Support)
+    * [Amazon ElastiCache for Redis](#Amazon-ElastiCache-for-Redis)
 1. [Analytics](#7-Analytics)
+    * [Amazon OpenSearch Service](#Amazon-OpenSearch-Service)
     * [Amazon Managed Streaming for Apache Kafka (Amazon MSK)](#Amazon-MSK)
 1. [Compute](#8-Compute)
     * [EC2 Instance (Amazon Linux 2)](#EC2-Instance-Amazon-Linux-2)
@@ -147,7 +150,7 @@ First, deploy Kinesis Data Firehose
 The initial value of s3_key: `SecurityHub` (specified in the Firehose output path)
 
 * Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose.
-* Create Firehose and EventEngine rules for each region when aggregating Security Hub findings from multiple regions
+* Create Firehose and EventBridge rules for each region when aggregating Security Hub findings from multiple regions
 
 Configuring Kinesis Data Firehose
 
@@ -240,11 +243,28 @@ Follow the steps below to output CloudTrail logs to the S3 bucket:
 1. Choose [**Next**]
 1. Choose [**Create trail**]
 
+### AWS Config
+
+#### Configuration History / Configuration Snapshot
+
+![Config to S3](images/log-source-config-to-s3.svg)
+
+* Configuration History: The initial value of s3_key: `_ConfigHistory_` (part of the default output path)
+* Configuration Snapshot: The initial value of s3_key: `_ConfigSnapshot_` (part of the default output path)
+
+To export Config log to S3 bucket, see "Delivery method" of the Developer Guide [Setting Up AWS Config with the Console](https://docs.aws.amazon.com/config/latest/developerguide/gs-console.html). You can just choose SIEM's log S3 bucket for S3 bucket name.
+
+#### Config Rules
+
+![ConfigRules to S3](images/log-source-configrules-to-s3.svg)
+
+The initial value of s3_key: `Config.*Rules` (specified in the Firehose output path)
+
 ## 4. Networking & Content Delivery
 
 ### Amazon CloudFront
 
-For CloudFront, you can record requests sent for distribution in two ways. Standard logs (access logs) and real-time logs. Click [here](https://docs.aws.amazon.com/ja_jp/AmazonCloudFront/latest/DeveloperGuide/logging.html) to see the difference between the two.
+For CloudFront, you can record requests sent for distribution in two ways. Standard logs (access logs) and real-time logs. Click [here](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/logging.html) to see the difference between the two.
 
 #### I. CloudFront Standard Log (Access Log)
 
@@ -264,7 +284,7 @@ The log type is determined by the default output file name using regular express
    * S3 bucket: [**aes-siem-123456789012-log**]
       * Replace 123456789012 with your AWS account ID
    * S3 bucket prefix: [**AWSLogs/123456789012/CloudFront/global/distribution ID/standard/**]
-      * Replace “123456789012” with your AWS account ID, and “ditribution ID” with your CloudFront distribution ID
+      * Replace “123456789012” with your AWS account ID, and "distribution ID" with your CloudFront distribution ID
    * Cookie logging: [**Yes**]
    * Choose [**Update**] to complete the configuration
 
@@ -427,7 +447,7 @@ Amazon FSx for Windows File Server audit logs are exported from Kinesis Data Fir
 
 ![S3 to S3](images/s3-to-s3.jpg)
 
-Follow the steps below to output S3 access logs to the S3 bucket. If you are already capturing S3 logs using CloudTrail data events, click [here](https://docs.aws.amazon.com/ja_jp/AmazonS3/latest/dev/logging-with-S3.html) to see the difference from S3 access logging.
+Follow the steps below to output S3 access logs to the S3 bucket. If you are already capturing S3 logs using CloudTrail data events, click [here](https://docs.aws.amazon.com/AmazonS3/latest/dev/logging-with-S3.html) to see the difference from S3 access logging.
 
 The initial value of s3_key: `s3accesslog` (there is no standard save path, so specify it using a prefix)
 
@@ -448,14 +468,14 @@ The initial value of s3_key: `s3accesslog` (there is no standard save path, so s
 
 ![MySQL to S3](images/mysql-to-s3.jpg)
 
-* Erorr log
+* Error log
 * Slow query log
 * General log
 * Audit log
 
 The initial value of s3_key (specified in the Firehose output path)
 
-* Erorr log: `(MySQL|mysql|MariaDB|mariadb).*(error)`
+* Error log: `(MySQL|mysql|MariaDB|mariadb).*(error)`
 * Slow query log: `(MySQL|mysql|MariaDB|mariadb).*(slowquery)`
 * General log: `(MySQL|mysql|MariaDB|mariadb).*(general)`
 * Audit log: `(MySQL|mysql|MariaDB|mariadb).*(audit)`
@@ -483,6 +503,14 @@ The initial value of s3_key : `Postgre` or `postgres` (specified in the Firehose
 * [Configuring and authoring Kibana dashboards](https://aws.amazon.com/blogs/database/configuring-and-authoring-kibana-dashboards/)
 * [How can I track failed attempts to log in to my Amazon RDS DB instance that's running PostgreSQL?](https://aws.amazon.com/premiumsupport/knowledge-center/track-failed-login-rds-postgresql/)
 
+### Amazon ElastiCache for Redis
+
+![Redis to S3](images/log-source-redis-to-s3.svg)
+
+The initial value of s3_key: `(redis|Redis).*(slow|SLOW)` (specified in the Firehose output path)
+
+To export Redis slow log to Firehose, see User Guide [Log delivery](https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/Log_Delivery.html). You select JSON format and deliver to Firehose. Then you configure the Firehose to export to S3 bucket.
+
 ## 7. Analytics
 
 ### Amazon MSK
@@ -490,6 +518,14 @@ The initial value of s3_key : `Postgre` or `postgres` (specified in the Firehose
 ![MSK to S3](images/msk-to-s3.jpg)
 
 The initial value of s3_key: `KafkaBrokerLogs` (part of the default output path)
+
+### Amazon OpenSearch Service
+
+![OpenSearch to S3](images/log-source-opensearch-to-s3.svg)
+
+The initial value of s3_key: `(OpenSearch|opensearch).*(Audit|audit)` (specified in the Firehose output path)
+
+To export OpenSearch audit logs to CloudWatch Logs, see Developer Guide [Monitoring audit logs in Amazon OpenSearch Service](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/audit-logs.html). Then Configure CloudWatch Logs and Firehose to export them to S3 bucket.
 
 ## 8. Compute
 
@@ -538,24 +574,24 @@ Here’s an outline of the steps:
 
 ### FireLens for Amazon ECS
 
-![ECS to Firelens to S3](images/ecs-to-firelens-to-s3.jpg)
+![ECS to FireLens to S3](images/ecs-to-firelens-to-s3.jpg)
 
 The initial value of s3_key: N/A. Create and configure Firehose for each container application
 
-* ECS logs are sent to Firehose via Firelens (Fluent Bit) and output to S3
+* ECS logs are sent to Firehose via FireLens (Fluent Bit) and output to S3
 * The log type of each container application is determined by the S3 file path. So you need to provision Firehose for each log type
-* Container information is captured from ECS metadata. [Enable it in task definitions](https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/developerguide/using_firelens.html#firelens-taskdef-metadata)
+* Container information is captured from ECS metadata. [Enable it in task definitions](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/using_firelens.html#firelens-taskdef-metadata)
 * By default, STDERR is not loaded. If you want to load it, set ignore_container_stderr = False in user.ini. @timestamp is the time at which the SIEM log was received.
 
 Configuring Kinesis Data Firehose
 
 1. Follow the steps in [Kinesis Data Firehose Settings] in Security Hub.
 1. Include the key that determines the application in the output path to S3 (apache, for example)
-1. Because the AWS acount and region are captured from the logs stored in S3, it is optional to include these two parameters in the S3 output path
+1. Because the AWS account and region are captured from the logs stored in S3, it is optional to include these two parameters in the S3 output path
 
-Configuring AWS Firelens
+Configuring AWS FireLens
 
-1. For information about the task definition file for sending logs via Firelens and IAM permission settings, see [official documentation](https://docs.aws.amazon.com/ja_jp/AmazonECS/latest/userguide/using_firelens.html) and aws-samples’ [Send to Kinesis Data Firehose in amazon-ecs-firelens-examples](https://github.com/aws-samples/amazon-ecs-firelens-examples/tree/mainline/examples/fluent-bit/kinesis-firehose)
+1. For information about the task definition file for sending logs via FireLens and IAM permission settings, see [official documentation](https://docs.aws.amazon.com/AmazonECS/latest/userguide/using_firelens.html) and aws-samples’ [Send to Kinesis Data Firehose in amazon-ecs-firelens-examples](https://github.com/aws-samples/amazon-ecs-firelens-examples/tree/mainline/examples/fluent-bit/kinesis-firehose)
 
 Configuring SIEM
 

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
 #
 # This assumes all of the OS-level configuration has been completed and git repo has already been cloned
 #

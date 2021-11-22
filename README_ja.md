@@ -27,6 +27,7 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 |セキュリティ、ID、およびコンプライアンス|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
 |セキュリティ、ID、およびコンプライアンス|AWS Network Firewall|Flow logs<br>Alert logs|
 |管理とガバナンス|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
+|管理とガバナンス|AWS Config|Configuration 履歴<br>Configuration スナップショット<br>Config Rules|
 |ネットワーキングとコンテンツ配信|Amazon CloudFront|Standard access log<br>Real-time log|
 |ネットワーキングとコンテンツ配信|Amazon Route 53 Resolver|VPC DNS query log|
 |ネットワーキングとコンテンツ配信|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
@@ -34,15 +35,24 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 |ストレージ|Amazon FSx for Windows File Server|audit log|
 |ストレージ|Amazon Simple Storage Service (Amazon S3)|access log|
 |データベース|Amazon Relational Database Service (Amazon RDS)<br>(**Experimental Support**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
+|データベース|Amazon ElastiCache|ElastiCache for Redis SLOWLOG|
+|分析|Amazon OpenSearch Service|Audit logs|
 |分析|Amazon Managed Streaming for Apache Kafka (Amazon MSK)|Broker log|
 |コンピューティング|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
-|コンピューティング|Windows Servver 2012/2016/2019<br>via CloudWatch Logs|System event log<br>Security event log|
+|コンピューティング|Windows Server 2012/2016/2019<br>via CloudWatch Logs|System event log<br>Security event log|
 |コンテナ|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
 |エンドユーザーコンピューティング|Amazon WorkSpaces|Event log<br>Inventory|
 
 Experimental Support はログフィールドの正規化等を大きく変更する可能性があります
 
 対応ログは、[Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html) に従って正規化しています。ログのオリジナルと正規化したフィールド名の対応表は [こちら](docs/suppoted_log_type.md) をご参照ください。
+
+### Contribution
+
+| Product/Service | Pull Request | Doc | Contributor |
+|--------------------|----|------|-----------|
+| TrendMicro Deep Security | [#27](//github.com/aws-samples/siem-on-amazon-opensearch-service/pull/27) | [README](docs/contributed/deepsecurity_ja.md) | [@EijiSugiura](//github.com/EijiSugiura) |
+| Okta audit log | [#168](//github.com/aws-samples/siem-on-amazon-opensearch-service/pull/168) | [README](docs/contributed/okta_ja.md) | [@yopiyama](//github.com/yopiyama) |
 
 ## ダッシュボード
 
@@ -60,14 +70,14 @@ IP アドレスに国情報や緯度・経度のロケーション情報を付�
 
 SIEM on OpenSearch Service をデプロイするリージョンを選択してください。
 
-| リージョン | CloudFormation |
-|--------|----------------|
-| アジアパシフィック (東京) ap-northeast-1 |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| アジアパシフィック (大阪) ap-northeast-3 (※) |[![Deploy in ap-northeast-3](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-3#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-3.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 米国東部 (バージニア北部) us-east-1 |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 米国西部 (オレゴン) us-west-2 |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 欧州 (フランクフルト) eu-central-1 |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 欧州 (ロンドン) eu-west-2 |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
+| リージョン | CloudFormation | Template URL |
+|----------|----------------|---------------|
+| アジアパシフィック (東京) ap-northeast-1 |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| アジアパシフィック (大阪) ap-northeast-3 (※) |[![Deploy in ap-northeast-3](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-3#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-3.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-northeast-3.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 米国東部 (バージニア北部) us-east-1 |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 米国西部 (オレゴン) us-west-2 |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 欧州 (フランクフルト) eu-central-1 |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 欧州 (ロンドン) eu-west-2 |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 
 > (※) 大阪リージョンのみ導入時は r5.large.search インスタンスでデプロイされます
 
@@ -93,7 +103,7 @@ AWS CloudShell または Amazon Linux 2 を実行している Amazon Elastic Com
   * "Development Tools"
   * Python 3.8
   * Python 3.8 libraries and header files
-  * git
+  * Git
 
 上記がインストールされてない場合は以下を実行
 
@@ -161,6 +171,10 @@ S3 バケットの aes-siem-*[AWS アカウント ID]*-log にログを出力し
 
 AWS の各サービスのログを S3 バケットへの出力する方法は、[こちら](docs/configure_aws_service_ja.md) をご参照ください。
 
+## ワークショップ
+
+[SIEM on Amazon OpenSearch Service のワークショップ](https://security-log-analysis-platform.workshop.aws/ja/) を用意しています。SIEM の構築、AWS リソースのログの取り込み、OpenSearch Dashboards / Kibana の使い方、セキュリティインシデントの調査、ダッシュボードの作成、アラートの作成、Apache HTTPD サーバーのログの取り込みを体験できます。
+
 ## SIEM のアップデート
 
 SIEM on OpenSearch Service または SIEM on Amazon ES を新しいバージョンにアップデートする時は、OpenSearch / Elasticsearch のドメインをアップグレードしてから、初期インストールと同じ方法 (CloudFormation or AWS CDK) でアップデートしてください。SIEM の変更履歴は [こちら](CHANGELOG.md) から確認できます。
@@ -174,7 +188,7 @@ OpenSearch Service の 1.0 か、Elasticsearch の 7.10 にアップグレード
 1. [OpenSearch Service コンソール](https://console.aws.amazon.com/es/home?) に移動
 1. [**aes-siem**] ドメインを選択
 1. [**アクション**] アイコンを選択して、プルダウンリストから [**ドメインのアップグレード**] を選択
-1. アップグレード先のバージョンで [**OpenSearch 1.0**] または、[**Elasticserch 7.10**] を選んで、[**送信**] を選択
+1. アップグレード先のバージョンで [**OpenSearch 1.0**] または、[**Elasticsearch 7.10**] を選んで、[**送信**] を選択
 
 CloudFormation で初期インストールした場合は次へ進み、AWS CDK で初期インストールしている場合は [高度なデプロイ](docs/deployment_ja.md) のアップデートを参照してください。
 
@@ -229,10 +243,10 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 |Lambda function|aes-siem-BucketNotificationsHandler|ログ用 S3 バケットのイベント通知を設定|
 |AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|ログの暗号化に使用|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|処理するログ行数が多い時は分割。それを管理するキュー|
-|Amazon SQS Queue|aes-siem-dlq|OpenSearch Service のログ取り込み失敗用 Dead Ltter Queue|
+|Amazon SQS Queue|aes-siem-dlq|OpenSearch Service のログ取り込み失敗用 Dead Letter Queue|
 |CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader|aes-siem-geoip-downloader を12時間毎に実行|
 |Amazon SNS Topic|aes-siem-alert|OpenSearch Service の Alerting の Destinations で選択|
-|Amazon SNS Subscription|inputd email|Alert の送信先メールアドレス|
+|Amazon SNS Subscription|inputed email|Alert の送信先メールアドレス|
 
 ## クリーンアップ
 
@@ -252,7 +266,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 
 ```shell
 export AWS_DEFAULT_REGION=<AWS_REGION>
-aws kms delete-alias  --alias-name  "alias/aes-siem-key"
+aws kms delete-alias --alias-name  "alias/aes-siem-key"
 ```
 
 ## Security

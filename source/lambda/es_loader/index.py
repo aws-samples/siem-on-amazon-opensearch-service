@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import json
 import os
@@ -15,9 +21,6 @@ from aws_lambda_powertools.metrics import MetricUnit
 
 import siem
 from siem import geodb, utils
-
-__version__ = '2.5.0'
-
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
 logger.info('version: ' + __version__)
@@ -59,7 +62,10 @@ def get_value_from_etl_config(logtype, key, keytype=None):
                 value = ''
         elif keytype == 'list':
             temp = etl_config[logtype][key]
-            value = [x.strip() for x in temp.strip('[|]').split(',')]
+            if temp.startswith('['):
+                value = [x.strip() for x in temp.strip('[|]').split(',')]
+            else:
+                value = temp.split()
         else:
             value = ''
     except KeyError:
@@ -77,17 +83,19 @@ def get_value_from_etl_config(logtype, key, keytype=None):
 @lru_cache(maxsize=1024)
 def create_logconfig(logtype):
     type_re = ['s3_key_ignored', 'log_pattern', 'multiline_firstline',
-               'xml_firstline']
+               'xml_firstline', 'file_timestamp_format']
     type_int = ['max_log_count', 'text_header_line_number',
                 'ignore_header_line_number']
     type_bool = ['via_cwl', 'via_firelens', 'ignore_container_stderr',
                  'timestamp_nano']
     type_list = ['base.tags', 'container.image.tag', 'dns.answers',
                  'dns.header_flags', 'dns.resolved_ip', 'dns.type',
+                 'ecs', 'static_ecs',
                  'event.category', 'event.type', 'file.attributes',
                  'host.ip', 'host.mac', 'observer.ip', 'observer.mac',
                  'process.args', 'registry.data.strings',
                  'related.hash', 'related.hosts', 'related.ip', 'related.user',
+                 'renamed_newfields',
                  'rule.author', 'threat.tactic.id', 'threat.tactic.name',
                  'threat.tactic.reference', 'threat.technique.id',
                  'threat.technique.name', 'threat.technique.reference',
@@ -126,10 +134,10 @@ def create_logconfig(logtype):
 
 
 def get_es_entries(logfile, exclude_log_patterns):
-    """get elasticsearch entries.
+    """get opensearch entries.
 
-    To return json to load AmazonES, extract log, map fields to ecs fields and
-    enrich ip addresses with geoip. Most important process.
+    To return json to load OpenSearch Service, extract log, map fields to ecs
+     fields and enrich ip addresses with geoip. Most important process.
     """
     # ETL対象のログタイプのConfigだけを限定して定義する
     logconfig = create_logconfig(logfile.logtype)
@@ -138,15 +146,17 @@ def get_es_entries(logfile, exclude_log_patterns):
 
     logparser = siem.LogParser(
         logfile, logconfig, sf_module, geodb_instance, exclude_log_patterns)
-    for logdata, logmeta in logfile:
-        logparser(logdata, logmeta)
+    for lograw, logdata, logmeta in logfile:
+        logparser(lograw, logdata, logmeta)
         if logparser.is_ignored:
             logger.debug(f'Skipped log because {logparser.ignored_reason}')
             continue
-        yield {'index': {'_index': logparser.indexname,
-                         '_id': logparser.doc_id}}
+        indexname = utils.get_writable_indexname(
+            logparser.indexname, READ_ONLY_INDICES)
+        yield {'index': {'_index': indexname, '_id': logparser.doc_id}}
         # logger.debug(logparser.json)
         yield logparser.json
+    del logparser
 
 
 def check_es_results(results, total_count):
@@ -171,7 +181,7 @@ def check_es_results(results, total_count):
     return duration, success, error, error_reasons
 
 
-def bulkloads_into_elasticsearch(es_entries, collected_metrics):
+def bulkloads_into_opensearch(es_entries, collected_metrics):
     output_size, total_output_size = 0, 0
     total_count, success_count, error_count, es_response_time = 0, 0, 0, 0
     results = False
@@ -267,7 +277,12 @@ def observability_decorator_switcher(func):
         return decorator
 
 
-es_conn = utils.initialize_es_connection(ES_HOSTNAME)
+awsauth = utils.create_awsauth(ES_HOSTNAME)
+es_conn = utils.create_es_conn(awsauth, ES_HOSTNAME)
+DOMAIN_INFO = es_conn.info()
+logger.info(DOMAIN_INFO)
+READ_ONLY_INDICES = utils.get_read_only_indices(es_conn, awsauth, ES_HOSTNAME)
+logger.info(json.dumps({'READ_ONLY_INDICES': READ_ONLY_INDICES}))
 user_libs_list = utils.find_user_custom_libs()
 etl_config = utils.get_etl_config()
 utils.load_modules_on_memory(etl_config, user_libs_list)
@@ -295,29 +310,32 @@ def lambda_handler(event, context):
         # S3からファイルを取得してログを抽出する
         logfile = extract_logfile_from_s3(record)
         if logfile.is_ignored:
-            logger.warn(f'Skipped S3 object because {logfile.ignored_reason}')
+            logger.warning(
+                f'Skipped S3 object because {logfile.ignored_reason}')
             continue
 
         # 抽出したログからESにPUTするデータを作成する
         es_entries = get_es_entries(logfile, exclude_log_patterns)
         # 作成したデータをESにPUTしてメトリクスを収集する
-        collected_metrics, error_reason_list = bulkloads_into_elasticsearch(
+        collected_metrics, error_reason_list = bulkloads_into_opensearch(
             es_entries, collected_metrics)
         output_metrics(metrics, record=record, logfile=logfile,
                        collected_metrics=collected_metrics)
         # raise error to retry if error has occuered
         if logfile.is_ignored:
-            logger.warn(f'Skipped S3 object because {logfile.ignored_reason}')
+            logger.warning(
+                f'Skipped S3 object because {logfile.ignored_reason}')
         elif collected_metrics['error_count']:
-            error_message = (f"{collected_metrics['error_count']}"
-                             " of logs were NOT loaded into Amazon ES")
+            error_message = (f"{collected_metrics['error_count']} of logs "
+                             "were NOT loaded into OpenSearch Service")
             logger.error(error_message)
             logger.error(error_reason_list[:5])
             raise Exception(error_message)
         elif collected_metrics['total_log_load_count'] > 0:
-            logger.info('All logs were loaded into Amazon ES')
+            logger.info('All logs were loaded into OpenSearch Service')
         else:
-            logger.warn('No entries were successed to load')
+            logger.warning('No entries were successed to load')
+        del logfile
 
 
 if __name__ == '__main__':
@@ -336,7 +354,8 @@ if __name__ == '__main__':
             '-b', '--s3bucket', help='s3 bucket where logs are storeed')
         parser.add_argument(
             '-l', '--s3list', help=('s3 object list which you want to load to '
-                                    'AmazonES. You can create the list by '
+                                    'OpenSearch Service. You can create the '
+                                    'list by '
                                     '"aws s3 ls S3BUCKET --recursive"'))
         group.add_argument('-q', '--sqs', help='SQS queue name of DLQ')
         args = parser.parse_args()

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
+__copyright__ = 'Amazon.com, Inc. or its affiliates'
+__version__ = '2.6.0'
+__license__ = 'MIT-0'
+__author__ = 'Akihiro Nakajima'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import configparser
 import json
@@ -17,7 +22,6 @@ import requests
 from crhelper import CfnResource
 from requests_aws4auth import AWS4Auth
 
-__version__ = '2.5.0'
 print('version: ' + __version__)
 
 logger = logging.getLogger(__name__)
@@ -26,6 +30,8 @@ helper_domain = CfnResource(json_logging=False, log_level='DEBUG',
 helper_config = CfnResource(json_logging=False, log_level='DEBUG',
                             boto_level='CRITICAL', sleep_on_delete=120)
 
+# opensearch_client = boto3.client('opensearch')
+# boto3 1.19.0 or later is needed
 client = boto3.client('es')
 s3_client = boto3.resource('s3')
 
@@ -45,7 +51,7 @@ if vpc_subnet_id == 'None':
     vpc_subnet_id = None
 security_group_id = os.environ['security_group_id']
 LOGGROUP_RETENTIONS = [
-    (f'/aws/aes/domains/{aesdomain}/application-logs', 14),
+    (f'/aws/OpenSearchService/domains/{aesdomain}/application-logs', 14),
     ('/aws/lambda/aes-siem-configure-aes', 90),
     ('/aws/lambda/aes-siem-deploy-aes', 90),
     ('/aws/lambda/aes-siem-es-loader', 90),
@@ -67,10 +73,10 @@ cwl_resource_policy = {
                 'logs:CreateLogGroup'
             ],
             'Resource': [
-                (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes'
-                 f'/domains/{aesdomain}/*'),
-                (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes'
-                 f'/domains/{aesdomain}/*:*')
+                (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/'
+                 f'OpenSearchService/domains/{aesdomain}/*'),
+                (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/'
+                 f'OpenSearchService/domains/{aesdomain}/*:*')
             ]
         }
     ]
@@ -101,8 +107,11 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': aesdomain,
+    # 'EngineVersion': 'OpenSearch_1.0',
     'ElasticsearchVersion': 'OpenSearch_1.0',
+    # 'ClusterConfig': {
     'ElasticsearchClusterConfig': {
+        # 'InstanceType': 't3.medium.search',
         'InstanceType': 't3.medium.elasticsearch',
         'InstanceCount': 1,
         'DedicatedMasterEnabled': False,
@@ -149,8 +158,8 @@ config_domain = {
     'LogPublishingOptions': {
         'ES_APPLICATION_LOGS': {
             'CloudWatchLogsLogGroupArn': (
-                f'arn:aws:logs:{region}:{accountid}:log-group:/aws/aes/'
-                f'domains/{aesdomain}/application-logs'),
+                f'arn:aws:logs:{region}:{accountid}:log-group:/aws/'
+                f'OpenSearchService/domains/{aesdomain}/application-logs'),
             'Enabled': True
         }
     },
@@ -188,6 +197,7 @@ def make_password(length):
 
 
 def create_kibanaadmin(kibanapass):
+    # response = opensearch_client.update_domain_config(
     response = client.update_elasticsearch_domain_config(
         DomainName=aesdomain,
         AdvancedSecurityOptions={
@@ -267,6 +277,14 @@ def upsert_role_mapping(es_endpoint, role_name, es_app_data=None,
         res = query_aes(es_endpoint, awsauth, 'PATCH', path, payload)
         logger.info(output_message('role_mapping_' + role_name, res))
         return True
+    elif (res.status_code == 200
+            and role_name not in ('all_access', 'security_manager')):
+        logger.info('Update role')
+        path_roles = '_opendistro/_security/api/roles/' + role_name
+        payload = json.loads(es_app_data['security']['role_es_loader'])
+        logger.debug(json.dumps(payload, default=json_serial))
+        res_new = query_aes(es_endpoint, awsauth, 'PATCH', path_roles, payload)
+        logger.info(output_message('role_' + role_name, res_new))
     logger.debug('Current Configration: ' + res.text)
     res_json = json.loads(res.text)
     current_conf = res_json[role_name]
@@ -351,7 +369,7 @@ def delete_obj(es_endpoint, awsauth, items, api):
 def configure_siem(es_endpoint, es_app_data):
     awsauth = auth_aes(es_endpoint)
     # create cluster settings #48
-    logger.info('Configure default cluster setting of Amazon ES')
+    logger.info('Configure default cluster setting of OpenSerch Service')
     cluster_settings = es_app_data['cluster-settings']
     for key in cluster_settings:
         logger.info('system setting :' + key)
@@ -459,9 +477,9 @@ def create_loggroup_and_set_retention(cwl_client, log_group, retention):
 
 def setup_aes_system_log():
     cwl_client = boto3.client('logs')
-    logger.info('put_resource_policy for Amazon ES system log')
+    logger.info('put_resource_policy for OpenSearch Service system log')
     response = cwl_client.put_resource_policy(
-        policyName=f'AES-{aesdomain}-logs',
+        policyName=f'OpenSearchService-{aesdomain}-logs',
         policyDocument=json.dumps(cwl_resource_policy)
     )
     logger.debug('Response of put_resource_policy')
@@ -502,7 +520,7 @@ def set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth):
 
 def get_saved_objects(es_endpoint, dist_name, cookies, auth=None):
     if not cookies:
-        logger.warn("No authentication. Skipped downloading dashboard")
+        logger.warning("No authentication. Skipped downloading dashboard")
         return False
     if dist_name == 'opensearch':
         url = f'https://{es_endpoint}/_dashboards/api/saved_objects/_export'
@@ -574,6 +592,7 @@ def aes_domain_create(event, context):
     if event:
         logger.debug(json.dumps(event, default=json_serial))
     setup_aes_system_log()
+    # opensearch_client.create_domain(**config_domain)
     client.create_elasticsearch_domain(**config_domain)
     kibanapass = make_password(8)
     helper_domain.Data.update({"kibanapass": kibanapass})
@@ -589,6 +608,7 @@ def aes_domain_poll_create(event, context):
     kibanapass = helper_domain.Data.get('kibanapass')
     if not kibanapass:
         kibanapass = 'MASKED'
+    # response = opensearch_client.describe_domain(DomainName=aesdomain)
     response = client.describe_elasticsearch_domain(DomainName=aesdomain)
     logger.debug('Processing domain creation')
     logger.debug(json.dumps(response, default=json_serial))
@@ -596,7 +616,7 @@ def aes_domain_poll_create(event, context):
     if is_processing:
         return None
 
-    logger.info('Amazon ES domain is created')
+    logger.info('OpenSearch Service domain is created')
 
     userdb_enabled = (response['DomainStatus']['AdvancedSecurityOptions']
                       ['InternalUserDatabaseEnabled'])
@@ -615,6 +635,7 @@ def aes_domain_poll_create(event, context):
     while not es_endpoint:
         time.sleep(10)  # wait to finish setup of endpoint
         logger.debug('Processing ES endpoint creation')
+        # response = opensearch_client.describe_domain(DomainName=aesdomain)
         response = client.describe_elasticsearch_domain(DomainName=aesdomain)
         es_endpoint = response['DomainStatus'].get('Endpoint')
         if not es_endpoint and 'Endpoints' in response['DomainStatus']:
@@ -639,6 +660,7 @@ def aes_domain_poll_create(event, context):
 @helper_domain.update
 def aes_domain_update(event, context):
     logger.info("Got Update")
+    # response = opensearch_client.describe_domain(DomainName=aesdomain)
     response = client.describe_elasticsearch_domain(DomainName=aesdomain)
     es_endpoint = response['DomainStatus'].get('Endpoint')
     if not es_endpoint and 'Endpoints' in response['DomainStatus']:
