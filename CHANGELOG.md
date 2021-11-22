@@ -6,11 +6,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2021-11-22
+### Added
+- Contribution: Okta log support. Thanks to @yopiyama #168
+- Supported and normalized log: Config, Config Rules, OpenSearch audit log, ElastiCache Redis SlOWLOG #3,#119,#144
+- Enable to index log to a new index when the index is read-only #161
+- Enable to rename original log field name before ETL process #172
+- Enable to add field prefix to original log #173
+- Enable to add list field type to related.* field in aws.ini/user.ini #176
+### Changed
+- Change client library from Python Elasticsearch Client to OpenSearch-py #171
+- Refactored parse logic of CloudWatch Logs/FireLens #171
+- Enable to partially load parse error logs when logs are forwarded by FireLens, which container logs have stdout and stderr #171
+- Split file format ETL logic to modules #171
+- Strictly follow PEP8 and ShellCheck #171
+- Updated IAM Policy/Role name and log group name for OpenSearch Service #171
+### Deprecated
+- Legacy template is deprecated and will be obsolete in v2.7.0. Please update to index templates and component templates if you use legacy template. If you load only AWS resource log and don't configure OpenSearch settings such as field type, you can ignore. Fore more details, see [Index templates](https://opensearch.org/docs/latest/opensearch/index-templates/) #152
+### Fixed
+- Fixed issue of parsing nano seconds #160
+- Fixed regex pattern of ALB #162
+- Fixed parse error of requestParameters.configuration of CloudTrail #166
+- Fixed parse issue: requestParameters.command, requestParameters.schedule,requestParameters.scope,responseElements.status #167,#171,#177
+- Fixed issue of deploy script and auto_setup_on_cloudshell.sh #177
+
 ## [2.5.0] - 2021-09-13
 ### Added
-- Extracetd WAF header #128
-- Error Log number when es-loader failed to load log into opensearch service #158
-- Enhanced related.* and /var/log/secure of linux log #159
+- Extracted WAF header #128
+- Error Log number when es-loader failed to load log into OpenSearch Service #158
+- Enhanced related.* and /var/log/secure of Linux log #159
 ### Changed
 - Renamed Solution name from "SIEM on Amazon Elasticsearch Service" to "SIEM on Amazon OpenSearch Service" #157
 ### Fixed
@@ -21,8 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Amazon WorkSpaces dashboard #150
 ### Changed
 - Updated AWS Security Hub dashboard #2
-- Refactored ETL logic of firelens #149
-- Partically migrated from legacy index templates to new composable ones. rollover policy, workspaces and windows events index #152
+- Refactored ETL logic of FireLens #149
+- partially migrated from legacy index templates to new composable ones. rollover policy, workspaces and windows events index #152
 ### Fixed
 - Fixed logic of truncating field value which is bigger than 32,766 byte #138
 
@@ -30,20 +54,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Support Amazon ES 7.10 #103
 - Supported and normalized log: Windows on EC2(XML Event Log), Amazon FSx for Windows File Server(Audit log), AWS Directory Service, Amazon WorkSpaces #118,#120,#140,#145
-- Support Elastic Common Schema v1.10.0. related.* are usefull. #146
+- Support Elastic Common Schema v1.10.0. related.* are useful. #146
 - Added CloudTrail Insight to supported service list in document #130
 - Auto install script on CloudShell #65
 - Automatically parsing micro epoch time #137
 ### Changed
 - Truncated log value more than 32,766 byte #138,
-- Enhanced logic of parsing MySQL/MariaDB ,multiple log patterns, using CloudWatch Log's timestamp insted of original log's timestamp, Aurota mysql v5.6 #134,#143
+- Enhanced logic of parsing MySQL/MariaDB ,multiple log patterns, using CloudWatch Log's timestamp instead of original log's timestamp, Aurora MySQL v5.6 #134,#143
 ### Removed
 - Unnecessary vpc endpoint for SNS service #132
 ### Fixed
 - Fixed parse issue: responseElements.responseParameters.method.response.header.Access-Control-Allow-Methods, requestParameters.tableInput.parameters.projection.date.interval, requestParameters.FilterValues, requestParameters.CreateVpcEndpointRequest.TagSpecification.Tag.Value #124,#125,#136,#141
 - Set default index patterns as log-* #133
-- Enhanced for accurate parsing　CloudWatch log/EventBridge #127,#129,#142
-- Extracting event.outcome for linux OS #126
+- Enhanced for accurate parsing CloudWatch log/EventBridge #127,#129,#142
+- Extracting event.outcome for Linux OS #126
 ### Security
 - PR security vulnerability of urllib3 from 1.26.4 to 1.26.5 #121,#122
 
@@ -53,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed parse issue: additionalEventData.bytesTransferredOut,requestParameters.CreateFleetRequest.TagSpecification.Tag.Value,requestParameters.overrides.containerOverrides.environment.value,requestParameters.CreateLaunchTemplateVersionRequest.LaunchTemplateData.TagSpecification.Tag.Value,responseElements.CreateLaunchTemplateVersionResponse.launchTemplateVersion.launchTemplateData.tagSpecificationSet.item.tagSet.item.value,requestParameters.result,requestParameters.tags,requestParameters.containerOverrides.environment.value,requestParameters.CreateSnapshotsRequest.TagSpecification.Tag.Value,requestParameters.status,requestParameters.searchExpression.subExpressions.subExpressions.filters.value,responseElements.description,responseElements.policy of CloudTrail #95,#98,#99,#100,#101,#106,#108,#109,#110,#111,#112,#113,#114
-- Fixed regex pattern of ALB and CLb #115,#116
+- Fixed regex pattern of ALB and CLB #115,#116
 
 ## [2.3.1] - 2021-05-09
 ### Added
@@ -121,17 +145,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.1] - 2020-12-28
 ### Added
-- Deep Security Support #27
+- Contribution: Deep Security Support. Thanks to @EijiSugiura #27
 
 ### Fixed
 - Parse issue of S3 access logs with double quotes on the UA. #34
-- Parse issue of  ALB and CLB logs when IPv6 address is contained #31
+- Parse issue of ALB and CLB logs when IPv6 address is contained #31
 - Issue with key policy created by CDK #32
 - VPC config validation raises KeyError when using VPC peering instead IGW #29
 
 ## [2.1.0] - 2020-12-14
 ### Added
-- Supported and normalized log: Security Hub(Security Hub, GuardDuty, Macie, IAM Analyzer, Inspector), Linux SSH log via CWL, ECS via Firelens(Framework only) #7
+- Supported and normalized log: Security Hub(Security Hub, GuardDuty, Macie, IAM Analyzer, Inspector), Linux SSH log via CWL, ECS via FireLens(Framework only) #7
 - Dashboard: ELB, Security Hub(GuardDuty) #1,#18
 - Split and parse logs in parallel when logs are huge.
 - Functionality of filtering unnecessary logs #19

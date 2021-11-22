@@ -25,6 +25,7 @@ SIEM on OpenSearch Service can load and correlate the following log types.
 |Security, Identity, & Compliance|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
 |Security, Identity, & Compliance|AWS Network Firewall|Flow logs<br>Alert logs|
 |Management & Governance|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
+|Management & Governance|AWS Config|Configuration History<br>Configuration Snapshot<br>Config Rules|
 |Networking & Content Delivery|Amazon CloudFront|Standard access log<br>Real-time log|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS query log|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
@@ -32,9 +33,11 @@ SIEM on OpenSearch Service can load and correlate the following log types.
 |Storage|Amazon FSx for Windows File Server|audit log|
 |Storage|Amazon Simple Storage Service (Amazon S3)|access log|
 |Database|Amazon Relational Database Service (Amazon RDS)<br>(**Experimental Support**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
+|Database|Amazon ElastiCache|ElastiCache for Redis SLOWLOG|
+|Analytics|Amazon OpenSearch Service|Audit logs|
 |Analytics|Amazon Managed Streaming for Apache Kafka (Amazon MSK)|Broker log|
 |Compute|Linux OS<br>via CloudWatch Logs|/var/log/messages<br>/var/log/secure|
-|Compute|Windows Servver 2012/2016/2019<br>via CloudWatch Logs|System event log<br>Security event log|
+|Compute|Windows Server 2012/2016/2019<br>via CloudWatch Logs|System event log<br>Security event log|
 |Containers|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
 |End User Computing|Amazon WorkSpaces|Event log<br>Inventory|
 
@@ -42,30 +45,37 @@ Experimental Support: We may change field type, normalization and something in t
 
 Supported logs are normalized in accordance with the [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html). Click [here](docs/suppoted_log_type.md) to see the correspondence table of the original and normalized field names for the logs.
 
+### Contribution
+
+| Product/Service | Pull Request | Doc | Contributor |
+|--------------------|----|------|-----------|
+| TrendMicro Deep Security | [#27](//github.com/aws-samples/siem-on-amazon-opensearch-service/pull/27) | [README](docs/contributed/deepsecurity_ja.md) | [@EijiSugiura](//github.com/EijiSugiura) |
+| Okta audit log | [#168](//github.com/aws-samples/siem-on-amazon-opensearch-service/pull/168) | [README](docs/contributed/okta_ja.md) | [@yopiyama](//github.com/yopiyama) |
+
 ## Dashboard
 
 See [this](docs/dashboard.md)
 
 ## Getting Started
 
-In this turorial, you will create a publicly accessible SIEM on OpenSearch Service domain using a CloudFormation template. See [Advanced Deployment](docs/deployment.md) if you need to deploy it within an Amazon VPC or need to customize it.
+In this tutorial, you will create a publicly accessible SIEM on OpenSearch Service domain using a CloudFormation template. See [Advanced Deployment](docs/deployment.md) if you need to deploy it within an Amazon VPC or need to customize it.
 
-You can add country information as well as latitude/longitude location information to each IP address. To get location information, SIEM on OpenSearch Service downloads and uses GeoLite2 Free by [MaxMind](https://www.maxmind.com). If you want to add location information, get your free licence from MaxMind.
+You can add country information as well as latitude/longitude location information to each IP address. To get location information, SIEM on OpenSearch Service downloads and uses GeoLite2 Free by [MaxMind](https://www.maxmind.com). If you want to add location information, get your free license from MaxMind.
 
-> **_Note:_** The CloudFormation template will deploy OpenSearch Service with **a t3.medium.search instance. It's not the AWS Free Tier. Change it to an instance type that can deliver higher performance than t3 when using SIEM in the production environment as it requires higher processing power when aggregating many logs.** Use the AWS Management Console to change the instance type, extend the volume, or use UltraWarm. This is because the CloudFormation template for SIEM on OpenSearch Service is designed for the initial deployment purpose only, and cannot be used for managment purposes like changing/deleting nodes.
+> **_Note:_** The CloudFormation template will deploy OpenSearch Service with **a t3.medium.search instance. It's not the AWS Free Tier. Change it to an instance type that can deliver higher performance than t3 when using SIEM in the production environment as it requires higher processing power when aggregating many logs.** Use the AWS Management Console to change the instance type, extend the volume, or use UltraWarm. This is because the CloudFormation template for SIEM on OpenSearch Service is designed for the initial deployment purpose only, and cannot be used for management purposes like changing/deleting nodes.
 
 ### 1. Quick Start
 
 Choose a region where you want to deploy SIEM on OpenSearch Service from the following:
 
-| Region | CloudFormation |
-|--------|----------------|
-| US East (N. Virginia)us-east-1 |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| US West (Oregon)us-west-2 |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| Asia Pacific (Tokyo)ap-northeast-1 |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| Asia Pacific (Singapore)ap-southeast-1 |[![Deploy in ap-southeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-southeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-southeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| Europe (Frankfurt)eu-central-1 |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| Europe (London)eu-west-2 |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
+| Region | CloudFormation | Template URL |
+|--------|----------------|--------------|
+| US East (N. Virginia)us-east-1 |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| US West (Oregon)us-west-2 |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| Asia Pacific (Tokyo)ap-northeast-1 |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| Asia Pacific (Singapore)ap-southeast-1 |[![Deploy in ap-southeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-southeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-southeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-southeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| Europe (Frankfurt)eu-central-1 |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| Europe (London)eu-west-2 |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 
 If your desired region is not listed above, manually choose the template below:
 
@@ -87,7 +97,7 @@ The following instance and tools need to be in place so that you can create a Cl
   * "Development Tools"
   * Python 3.8
   * Python 3.8 libraries and header files
-  * git
+  * Git
 
 Run the following commands if the above tools have not been installed yet:
 
@@ -145,22 +155,26 @@ It will take about 30 mins for the deployment of SIEM on OpenSearch Service to c
 1. Navigate to the AWS CloudFormation console, choose the stack that you've just created, and then choose "Outputs" from the tab menu at the top right. You can find your username, password, and URL for OpenSearch Dashboards. Log into OpenSearch Dashboards using the credentials.
 1. When you login for the first time, [Select your tenant] is displayed. Select [**Global**]. You can use the prepared dashboard etc.
 1. You can also select [**Private**] instead of [Global] in [Select your tenant] and customize configuration and dashboard etc. for each user. The following is the procedure for each user. If you select Global, you do not need to set it.
-    1. To import OpenSearch Dashboards's configuration files such as dashboard, download [saved_objects.zip](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip). Then unzip the file.
+    1. To import OpenSearch Dashboards' configuration files such as dashboard, download [saved_objects.zip](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip). Then unzip the file.
     1. Navigate to the OpenSearch Dashboards console. Click on "Stack Management" in the left pane, then choose "Saved Objects" --> "Import" --> "Import". Choose dashboard.ndjson which is contained in the unzipped folder. Then log out and log in again so that the imported configurations take effect.
 
 ### 4. Loading logs into OpenSearch Service
 
 All you need to do to load logs into SIEM on OpenSearch Service is PUT logs to the S3 Bucket named **aes-siem-<YOUR_AWS_ACCOUNT>-log**. Then the logs will be automatically loaded into SIEM on OpenSearch Service. See [this](docs/configure_aws_service.md) for detailed instructions on how to output AWS services logs to the S3 bucket.
 
+## Workshop
+
+We have published the workshop, [SIEM on Amazon OpenSearch Service Workshop](https://security-log-analysis-platform.workshop.aws/en/). In this workshop, we will build the SIEM, ingest AWS resource logs, learn OpenSearch Dashboards / Kibana, investigate security incident, create dashboard, configure alerts and ingest logs of Apache HTTPD server.
+
 ## Updating SIEM
 
-If you want to update "SIEM on OpenSearch Service/SIEM on Amazon ES" to the latest version, upgrade the OpenSerch / Elasticsearch domain and then update it in the same way as you did for the initial setup (using CloudFormation or AWS CDK.) You can view the changelog of SIEM [here.](CHANGELOG.md)
+If you want to update "SIEM on OpenSearch Service/SIEM on Amazon ES" to the latest version, upgrade the OpenSearch / Elasticsearch domain and then update it in the same way as you did for the initial setup (using CloudFormation or AWS CDK.) You can view the changelog of SIEM [here.](CHANGELOG.md)
 
 > **_Note_: When you update SIEM, Global tenant settings, dashboards, etc. will be overwritten automatically. The configuration files and dashboards used before the update will be backed up to aes-siem-[AWS_Account]-snapshot/saved_objects/ in the S3 bucket, so restore them manually if you want to restore the original settings.**
 
 ### Upgrading the OpenSearch Service domain
 
-Upgrade the domain to Opensearch 1.0 or Elasticsearch version 7.10:
+Upgrade the domain to OpenSearch 1.0 or Elasticsearch version 7.10:
 
 1. Navigate to the [OpenSearch Service console](https://console.aws.amazon.com/es/home?)
 1. Choose domain: [**aes-siem**]
@@ -210,7 +224,7 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 
 |AWS Resource|Resource Name|Purpose|
 |------------|----|----|
-|penSearch Service 1.0 or Elasticsearch 7.X|aes-siem|SIEM itself|
+|OpenSearch Service 1.0 or Elasticsearch 7.X|aes-siem|SIEM itself|
 |S3 bucket|aes-siem-[AWS_Account]-log|For collecting logs|
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|For capturing manual snapshots of OpenSearch Service|
 |S3 bucket|aes-siem-[AWS_Account]-geo|For storing downloaded GeoIPs|
@@ -224,13 +238,13 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 |Amazon SQS Queue|aes-siem-dlq|A dead-letter queue used when loading logs into OpenSearch Service fails|
 |CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader| For executing aes-siem-geoip-downloader every day|
 |Amazon SNS Topic|aes-siem-alert|This is selected as the destination for alerting in OpenSearch Service|
-|Amazon SNS Subscription|inputd email|This is the email address where alerts are sent|
+|Amazon SNS Subscription|inputed email|This is the email address where alerts are sent|
 
 ## Cleanup
 
 1. Navigate to the CloudFormation console and delete stack: aes-siem
 1. Delete the following AWS resources manually:
-    * Opensearch Service domain: aes-siem
+    * OpenSearch Service domain: aes-siem
     * Amazon S3 bucket: aes-siem-[AWS_Account]-log
     * Amazon S3 bucket: aes-siem-[AWS_Account]-snapshot
     * Amazon S3 bucket: aes-siem-[AWS_Account]-geo
@@ -244,7 +258,7 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 
 ```shell
 export AWS_DEFAULT_REGION=<AWS_REGION>
-aws kms delete-alias  --alias-name  "alias/aes-siem-key"
+aws kms delete-alias --alias-name  "alias/aes-siem-key"
 ```
 
 ## Security
