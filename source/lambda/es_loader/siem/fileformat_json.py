@@ -49,7 +49,7 @@ class FileFormatJson(FileFormatBase):
     def extract_log(self, start, end, logmeta={}):
         decoder = json.JSONDecoder()
         delimiter = self.logconfig['json_delimiter']
-        count = 0
+        count = 0        
         # For ndjson
         for line in self.rawdata.readlines():
             # for Firehose's json (multiple jsons in 1 line)
@@ -75,8 +75,10 @@ class FileFormatJson(FileFormatBase):
                 index = search.end()
 
     def convert_lograw_to_dict(self, lograw, logconfig=None):
-        try:
+        try:            
             logdict = json.loads(lograw)
+            if "detail-type" in logdict and "resources" in logdict:
+                return logdict['detail']
         except json.decoder.JSONDecodeError as e:
             # this is probablly CWL log and trauncated by original log sender
             # such as opensearch audit log
@@ -87,8 +89,8 @@ class FileFormatJson(FileFormatBase):
         return logdict
 
     def _check_cwe_and_strip_header(
-            self, dict_obj, logmeta={}, need_meta=False):
-        if "detail-type" in dict_obj and "resources" in dict_obj:
+            self, dict_obj, logmeta={}, need_meta=False):        
+        if "detail-type" in dict_obj and "resources" in dict_obj:            
             if need_meta:
                 logmeta = {'cwe_id': dict_obj['id'],
                            'cwe_source': dict_obj['source'],

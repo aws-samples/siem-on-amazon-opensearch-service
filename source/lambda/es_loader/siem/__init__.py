@@ -188,9 +188,14 @@ class LogS3:
         self.total_log_count = end - start + 1
 
         if self.via_cwl:
+            delimiter = self.logconfig['json_delimiter']
             for lograw, logmeta in self.extract_cwl_log(start, end, logmeta):
                 logdict = self.rawfile_instacne.convert_lograw_to_dict(lograw)
-                yield (lograw, logdict, logmeta)
+                if delimiter and (delimiter in logdict):                    
+                    for record in logdict[delimiter]:
+                        yield (json.dumps(record), record, logmeta)
+                else:
+                    yield (lograw, logdict, logmeta)
         elif self.via_firelens:
             for lograw, logdict, logmeta in self.extract_firelens_log(
                     start, end, logmeta):
@@ -775,9 +780,12 @@ class LogParser:
                 self.__logdata_dict['cwl_timestamp'] = self.cwl_timestamp
             elif self.logconfig['timestamp_key'] == 'file_timestamp':
                 return self.file_timestamp
+            logger.debug('get_timestamp')
             timestr = utils.get_timestr_from_logdata_dict(
                 self.__logdata_dict, self.logconfig['timestamp_key'],
                 self.has_nanotime)
+            logger.debug(self.__logdata_dict)
+            logger.debug(timestr)
             dt = utils.convert_timestr_to_datetime(
                 timestr, self.logconfig['timestamp_key'],
                 self.logconfig['timestamp_format'], self.timestamp_tz)
