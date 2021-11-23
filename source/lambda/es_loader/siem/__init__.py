@@ -779,7 +779,7 @@ class LogParser:
             elif self.logconfig['timestamp_key'] == 'cwl_timestamp':
                 self.__logdata_dict['cwl_timestamp'] = self.cwl_timestamp
             elif self.logconfig['timestamp_key'] == 'file_timestamp':
-                return self.file_timestamp            
+                return self.file_timestamp
             timestr = utils.get_timestr_from_logdata_dict(
                 self.__logdata_dict, self.logconfig['timestamp_key'],
                 self.has_nanotime)
