@@ -780,12 +780,11 @@ class LogParser:
                 self.__logdata_dict['cwl_timestamp'] = self.cwl_timestamp
             elif self.logconfig['timestamp_key'] == 'file_timestamp':
                 return self.file_timestamp
-            logger.debug('get_timestamp')
+            
             timestr = utils.get_timestr_from_logdata_dict(
                 self.__logdata_dict, self.logconfig['timestamp_key'],
                 self.has_nanotime)
-            logger.debug(self.__logdata_dict)
-            logger.debug(timestr)
+            
             dt = utils.convert_timestr_to_datetime(
                 timestr, self.logconfig['timestamp_key'],
                 self.logconfig['timestamp_format'], self.timestamp_tz)
