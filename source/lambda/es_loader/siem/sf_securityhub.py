@@ -12,7 +12,7 @@ from datetime import datetime
 
 from siem import utils
 
-RE_GDTYPE = re.compile(r"/(?P<ThreatPurpose>\w+)"
+RE_GDTYPE = re.compile(r"/(?P<ThreatPurpose>\w+\s?\w+)"
                        r"(:|/)(?P<ResourceTypeAffected>\w*)"
                        r"(/|.|-)(?P<ThreatFamilyName>[\w\&]*)")
 
