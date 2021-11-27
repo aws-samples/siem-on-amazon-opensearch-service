@@ -1,0 +1,176 @@
+Description: "SIEM on Amazon OpenSearch Service v2.6.1-beta.1: log exporter - EventBridge events (SecurityHub, ConfigRules)"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Amazon Kinesis Data Firehose
+        Parameters:
+          - KdfName
+          - S3DestPrefix
+          - KdfBufferSize
+          - KdfBufferInterval
+      - Label:
+          default: Events
+        Parameters:
+          - LoadSecurtyHub
+          - LoadConfigRules
+Parameters:
+  KdfName:
+    Type: String
+    Default: siem-eventbridge-events-to-s3
+    Description: New Kinesis Data Firehose Name to deliver EventBridge Events to S3 bucket. This Firehose will be created
+  KdfBufferSize:
+    Type: Number
+    Default: 64
+    Description: Enter a buffer size between 64 - 128 (MiB)
+    MaxValue: 128
+    MinValue: 64
+  KdfBufferInterval:
+    Type: Number
+    Default: 60
+    Description: Enter a buffer interval between 60 - 900 (seconds.)
+    MaxValue: 900
+    MinValue: 60
+  LoadSecurtyHub:
+    Type: String
+    Default: "Yes"
+    AllowedValues:
+      - "Yes"
+      - "No"
+    Description: Do you enable to load SecurityHub events to OpenSearch Service?
+  LoadConfigRules:
+    Type: String
+    Default: "Yes"
+    AllowedValues:
+      - "Yes"
+      - "No"
+    Description: Do you enable to load Config Rules events to OpenSearch Service?
+  S3DestPrefix:
+    Type: String
+    Default: AWSLogs/
+    Description: S3 destination prefix
+Resources:
+  Kdf:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: KdfName
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: GZIP
+        DynamicPartitioningConfiguration:
+          Enabled: true
+          RetryOptions:
+            DurationInSeconds: 30
+        ErrorOutputPrefix: ErrorLogs/
+        Prefix:
+          Fn::Join:
+            - ""
+            - - Ref: S3DestPrefix
+              - "!{partitionKeyFromQuery:account}/!{partitionKeyFromQuery:service}/!{partitionKeyFromQuery:detailtype}/!{partitionKeyFromQuery:region}/!{timestamp:yyyy}/!{timestamp:MM}/!{timestamp:dd}/"
+        ProcessingConfiguration:
+          Enabled: true
+          Processors:
+            - Parameters:
+                - ParameterName: MetadataExtractionQuery
+                  ParameterValue: '{service: .source, account: .account, region: .region, detailtype: ."detail-type"| gsub(" "; "_")}'
+                - ParameterName: JsonParsingEngine
+                  ParameterValue: JQ-1.6
+              Type: MetadataExtraction
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name
+  KdfEventsRoleB55C3A61:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+        Version: "2012-10-17"
+  KdfEventsRoleDefaultPolicy638B0A5C:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - firehose:PutRecord
+              - firehose:PutRecordBatch
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - Kdf
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: KdfEventsRoleDefaultPolicy638B0A5C
+      Roles:
+        - Ref: KdfEventsRoleB55C3A61
+  RuleSecurityHubFDEAF80E:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "SIEM on OpenSearch Service v2.6.1-beta.1:"
+      EventPattern:
+        detail-type:
+          - Security Hub Findings - Imported
+        source:
+          - aws.securityhub
+      Name: siem-securityhub-to-firehose
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - Kdf
+              - Arn
+          Id: Target0
+          RoleArn:
+            Fn::GetAtt:
+              - KdfEventsRoleB55C3A61
+              - Arn
+    Condition: IsSecurityHub
+  RuleConfigRules81A566BA:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "SIEM on OpenSearch Service v2.6.1-beta.1:"
+      EventPattern:
+        detail-type:
+          - Config Rules Compliance Change
+        source:
+          - aws.config
+      Name: siem-configrules-to-firehose
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - Kdf
+              - Arn
+          Id: Target0
+          RoleArn:
+            Fn::GetAtt:
+              - KdfEventsRoleB55C3A61
+              - Arn
+    Condition: IsConfigRules
+Conditions:
+  IsSecurityHub:
+    Fn::Equals:
+      - Ref: LoadSecurtyHub
+      - "Yes"
+  IsConfigRules:
+    Fn::Equals:
+      - Ref: LoadConfigRules
+      - "Yes"
+

@@ -8,14 +8,14 @@ __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 from aws_cdk import (
-    aws_iam,
     aws_events,
     aws_events_targets,
+    aws_iam,
     aws_kinesisfirehose,
     aws_lambda,
     aws_logs,
-    core as cdk
 )
+from aws_cdk import core as cdk
 from aws_cdk.aws_kinesisfirehose import CfnDeliveryStream as CDS
 
 LAMBDA_GET_WORKSPACES_INVENTORY = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -134,7 +134,7 @@ class CWLNoCompressExporterStack(cdk.Stack):
 
         kdf_name = cdk.CfnParameter(
             self, 'KdfName',
-            description='New Kinesis Data Firehose Name to deliver AD event',
+            description='New Kinesis Data Firehose Name to deliver CWL event',
             default='siem-XXXXXXXXXXX-to-s3')
         kdf_buffer_size = cdk.CfnParameter(
             self, 'KdfBufferSize', type='Number',
@@ -176,6 +176,122 @@ class CWLNoCompressExporterStack(cdk.Stack):
             role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                       f'{role_name_cwl_to_kdf}')
         )
+
+
+class EventBridgeEventsExporterStack(cdk.Stack):
+    def __init__(self, scope: cdk.Construct, construct_id: str,
+                 **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+        role_name_kdf_to_s3 = cdk.Fn.import_value(
+            'siem-kdf-to-s3-role-name')
+
+        kdf_name = cdk.CfnParameter(
+            self, 'KdfName',
+            description=(
+                'New Kinesis Data Firehose Name to deliver EventBridge Events '
+                'to S3 bucket. This Firehose will be created'),
+            default='siem-eventbridge-events-to-s3')
+        kdf_buffer_size = cdk.CfnParameter(
+            self, 'KdfBufferSize', type='Number',
+            description='Enter a buffer size between 64 - 128 (MiB)',
+            default=64, min_value=64, max_value=128)
+        kdf_buffer_interval = cdk.CfnParameter(
+            self, 'KdfBufferInterval', type='Number',
+            description='Enter a buffer interval between 60 - 900 (seconds.)',
+            default=60, min_value=60, max_value=900)
+        load_security_hub = cdk.CfnParameter(
+            self, 'LoadSecurtyHub',
+            description=('Do you enable to load SecurityHub events to '
+                         'OpenSearch Service?'),
+            allowed_values=['Yes', 'No'], default='Yes')
+        load_config_rules = cdk.CfnParameter(
+            self, 'LoadConfigRules',
+            description=('Do you enable to load Config Rules events to '
+                         'OpenSearch Service?'),
+            allowed_values=['Yes', 'No'], default='Yes')
+        s3_desitination_prefix = cdk.CfnParameter(
+            self, 'S3DestPrefix',
+            description='S3 destination prefix',
+            default='AWSLogs/')
+
+        self.template_options.metadata = {
+            'AWS::CloudFormation::Interface': {
+                'ParameterGroups': [
+                    {'Label': {'default': 'Amazon Kinesis Data Firehose'},
+                     'Parameters': [kdf_name.logical_id,
+                                    s3_desitination_prefix.logical_id,
+                                    kdf_buffer_size.logical_id,
+                                    kdf_buffer_interval.logical_id]},
+                    {'Label': {'default': 'Events'},
+                     'Parameters': [load_security_hub.logical_id,
+                                    load_config_rules.logical_id]}]}}
+
+        kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "Kdf",
+            delivery_stream_name=kdf_name.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                # Destination settings
+                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+
+                error_output_prefix="ErrorLogs/",
+                prefix=(s3_desitination_prefix.value_as_string + "!{partitionKeyFromQuery:account}/!{partitionKeyFromQuery:service}/!{partitionKeyFromQuery:detailtype}/!{partitionKeyFromQuery:region}/!{timestamp:yyyy}/!{timestamp:MM}/!{timestamp:dd}/"),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='GZIP',
+                dynamic_partitioning_configuration=aws_kinesisfirehose.CfnDeliveryStream.DynamicPartitioningConfigurationProperty(
+                    enabled=True,
+                    retry_options=aws_kinesisfirehose.CfnDeliveryStream.RetryOptionsProperty(
+                        duration_in_seconds=30)
+                ),
+                processing_configuration=aws_kinesisfirehose.CfnDeliveryStream.ProcessingConfigurationProperty(
+                    enabled=True,
+                    processors=[
+                        aws_kinesisfirehose.CfnDeliveryStream.ProcessorProperty(
+                            type="MetadataExtraction",
+                            parameters=[
+                                aws_kinesisfirehose.CfnDeliveryStream.ProcessorParameterProperty(
+                                    parameter_name="MetadataExtractionQuery",
+                                    parameter_value="""{service: .source, account: .account, region: .region, detailtype: ."detail-type"| gsub(" "; "_")}"""),
+                                aws_kinesisfirehose.CfnDeliveryStream.ProcessorParameterProperty(
+                                    parameter_name="JsonParsingEngine",
+                                    parameter_value="JQ-1.6")
+
+                            ]
+                        )
+                    ]
+                ),
+                # Permissions
+                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}'),
+            )
+        )
+
+        is_security_hub = cdk.CfnCondition(
+            self, "IsSecurityHub",
+            expression=cdk.Fn.condition_equals(load_security_hub.value_as_string, "Yes"))
+        rule_security_hub = aws_events.Rule(
+            self, "RuleSecurityHub", rule_name='siem-securityhub-to-firehose',
+            description=f'SIEM on OpenSearch Service v{__version__}:',
+            event_pattern=aws_events.EventPattern(
+                source=["aws.securityhub"],
+                detail_type=["Security Hub Findings - Imported"]))
+        rule_security_hub.node.default_child.cfn_options.condition = is_security_hub
+        rule_security_hub.add_target(aws_events_targets.KinesisFirehoseStream(kdf_to_s3))
+
+        is_config_rules = cdk.CfnCondition(
+            self, "IsConfigRules",
+            expression=cdk.Fn.condition_equals(load_config_rules.value_as_string, "Yes"))
+        rule_config_rules = aws_events.Rule(
+            self, "RuleConfigRules", rule_name='siem-configrules-to-firehose',
+            description=f'SIEM on OpenSearch Service v{__version__}:',
+            event_pattern=aws_events.EventPattern(
+                source=["aws.config"],
+                detail_type=["Config Rules Compliance Change"]))
+        rule_config_rules.node.default_child.cfn_options.condition = is_config_rules
+        rule_config_rules.add_target(aws_events_targets.KinesisFirehoseStream(kdf_to_s3))
 
 
 class ADLogExporterStack(cdk.Stack):
@@ -267,7 +383,7 @@ class WorkSpacesLogExporterStack(cdk.Stack):
                     statements=[
                         aws_iam.PolicyStatement(
                             actions=['workspaces:Describe*'], resources=['*'],
-                            sid='DescribeWorkSpacesPolicyGeneratedBySeimCfn')
+                            sid='DescribeWorkSpacesPolicyGeneratedBySiemCfn')
                     ]
                 ),
                 'firehose-to-s3': aws_iam.PolicyDocument(
@@ -275,7 +391,7 @@ class WorkSpacesLogExporterStack(cdk.Stack):
                         aws_iam.PolicyStatement(
                             actions=['s3:PutObject'],
                             resources=[f'arn:aws:s3:::{log_bucket_name}/*'],
-                            sid='FirehoseToS3PolicyGeneratedBySeimCfn'
+                            sid='FirehoseToS3PolicyGeneratedBySiemCfn'
                         )
                     ]
                 )
@@ -330,17 +446,18 @@ class WorkSpacesLogExporterStack(cdk.Stack):
             targets=[aws_events_targets.KinesisFirehoseStream(kdf_to_s3)])
 
 
-class BasicLogExporterStack(cdk.Stack):
+class CoreLogExporterStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str,
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.CfnParameter(
             self, 'siemLogBucketName',
-            description='S3 Bucket to put workspaces inventory',
+            description=('S3 Bucket name which store logs to load SIEM. '
+                         'Replace 111111111111 to your AWS account'),
             default='aes-siem-111111111111-log')
         role_name_cwl_to_kdf = cdk.CfnParameter(
-            self, 'kdfToS3RoleName',
+            self, 'roleNameCwlToKdf',
             description=('role name for CloudWatch Logs to send data to '
                          'Kinsis Data Firehose. Replace YOUR-REGION'),
             default='siem-role-cwl-to-firehose-YOUR-REGION')
@@ -362,7 +479,7 @@ class BasicLogExporterStack(cdk.Stack):
                             actions=["firehose:*"],
                             resources=[(f'arn:aws:firehose:{cdk.Aws.REGION}:'
                                         f'{cdk.Aws.ACCOUNT_ID}:*')],
-                            sid='CwlToFirehosePolicyGeneratedBySeimCfn'
+                            sid='CwlToFirehosePolicyGeneratedBySiemCfn'
                         )
                     ]
                 )

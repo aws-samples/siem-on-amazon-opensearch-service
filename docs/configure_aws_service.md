@@ -83,7 +83,7 @@ The initial value of s3_key : `/DirectoryService/MicrosoftAD/` (specified in the
 
 1. Navigate to the [Directory Service Console](https://console.aws.amazon.com/directoryservicev2/home?) and forward log to CloudWatch Logs.
 1. Configure with CloudFormation
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core.template)
     * [siem-log-exporter-ad.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-ad.template)
 
 ### AWS WAF
@@ -147,7 +147,16 @@ First, deploy Kinesis Data Firehose
 
 ![SecurityHub to S3](images/securityhub-to-s3.jpg)
 
-The initial value of s3_key: `SecurityHub` (specified in the Firehose output path)
+The initial value of s3_key: `SecurityHub` or `securityhub` (specified in the Firehose output path)
+
+#### Configure by CloudFormation (Security Hub)
+
+| No | CloudFormation | Description |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) | This template creates Firehose,set up EventBridge to deliver Events to the Firehose. A template common to Security Hub and Config Rules. |
+
+#### Configure step by step (Security Hub)
 
 * Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose.
 * Create Firehose and EventBridge rules for each region when aggregating Security Hub findings from multiple regions
@@ -259,6 +268,13 @@ To export Config log to S3 bucket, see "Delivery method" of the Developer Guide 
 ![ConfigRules to S3](images/log-source-configrules-to-s3.svg)
 
 The initial value of s3_key: `Config.*Rules` (specified in the Firehose output path)
+
+#### Configure by CloudFormation (Config Rules)
+
+| No | CloudFormation | Description |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) | This template creates Firehose,set up EventBridge to deliver Events to the Firehose. A template common to Security Hub and Config Rules. |
 
 ## 4. Networking & Content Delivery
 
@@ -439,7 +455,7 @@ The initial value of s3_key: `aws-fsx-`
 Amazon FSx for Windows File Server audit logs are exported from Kinesis Data Firehose to the S3 bucket. Kinesis Data Firehose names must start with [**aws-fsx-**], and because this prefix is included in the file names when they are output to the S3 bucket, we are using it to determine the log type.
 
 1. Configure with CloudFormation
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core.template)
     * [siem-log-exporter-fsx.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-fsx.template)
 1. Navigate to the [FSx Console](https://console.aws.amazon.com/fsx/home?) and forward logs to Firehose.
 
@@ -565,7 +581,7 @@ Here’s an outline of the steps:
 1. Install CloudWatch Agent in the EC2 instance deployed as Windows Server
 1. Forward logs to CloudWatch Logs
 1. Configure with CloudFormation
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core.template)
     * [siem-log-exporter-cwl-nocompress.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-cwl-nocompress.template)
     * Prefix to output logs : [**AWSLogs/123456789012/EC2/Windows/Event/[region]/**]
         * Replace 123456789012 with your AWS account ID
@@ -621,8 +637,8 @@ The initial value of s3_key : `(WorkSpaces|workspaces).*(Event|event)` (specifie
 The initial value of s3_key : `(WorkSpaces|workspaces).*(Inventory|inventory)`
 
 1. Configure with CloudFormation
-     * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
-     * [siem-log-exporter-workspaces.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-workspaces.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core.template)
+    * [siem-log-exporter-workspaces.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-workspaces.template)
 
 ## 11. Multiple regions / multiple accounts
 
