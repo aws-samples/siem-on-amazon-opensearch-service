@@ -92,11 +92,19 @@ s3_key の初期値: `/DirectoryService/MicrosoftAD/` (Firehose の出力パス�
 
 ![aws waf to s3](images/waf-to-s3.jpg)
 
-AWS WAF には AWS WAF と AWS WAF Classic の2つがありますが、両方とも同じ方法で S3 バケットに出力してください。
+![aws waf to s3 to s3](images/log-source-waf-to-s3-to-s3.svg)
 
-s3_key の初期値: `aws-waf-logs-`
+AWS WAF には AWS WAF と AWS WAF Classic の2つがあります。
+AWS WAF Kinesis Data Firehose 経由で S3 バケットにエクスポートするか、WAF ログ用の S3 バケットにエクスポートしてから SIEM 用の S3 バケットにレプリケーションをして下さい。
+AWS Classic は Kinesis Data Firehose 経由で S3 バケットに出力してください。
 
-AWS WAF の ACL トラフィックログは Kinesis Data Firehose から S3 バケットにエクスポートします。Kinesis Data Firehose の名前は [**aws-waf-logs-**] から始まることが条件となっており、この名前が S3 バケット出力時のファイル名に含まれているため、これをログ種類の判別に使用しています。
+s3_key の初期値: `aws-waf-logs-` または `_waflogs_` (デフォルト設定の出力パスの一部)
+
+AWS WAF を WAF 用の S3 バケットにエクスポートする方法は次の公式ドキュメントを参照して下さい。
+
+[ウェブ ACL トラフィック情報のログ記録 / Amazon Simple Storage Service](https://docs.aws.amazon.com/ja_jp/waf/latest/developerguide/logging-s3.html)
+
+Kinesis Data Firehose から S3 バケットにエクスポートする方法は以下の通りです。Kinesis Data Firehose の名前は [**aws-waf-logs-**] から始まることが条件となっており、この名前が S3 バケット出力時のファイル名に含まれているため、これをログ種類の判別に使用しています。
 
 #### I. AWS WAF 共通設定
 

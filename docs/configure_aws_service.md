@@ -90,11 +90,19 @@ The initial value of s3_key : `/DirectoryService/MicrosoftAD/` (specified in the
 
 ![aws waf to s3](images/waf-to-s3.jpg)
 
-AWS WAF has two types: AWS WAF and AWS WAF Classic. You should, however, output both to the S3 bucket in the same way.
+![aws waf to s3 to s3](images/log-source-waf-to-s3-to-s3.svg)
 
-The initial value of s3_key: `aws-waf-logs-`
+AWS WAF has two types: AWS WAF and AWS WAF Classic.
+AWS WAF is exported to SIEM S3 bucket via Kinesis Data Firehose, or to an S3 bucket for WAF logs and then replicated to SIEM S3 bucket. You can select it.
+AWS Classic is exported to SIEM S3 bucket via Kinesis Data Firehose.
 
-AWS WAF ACL traffic logs are exported from Kinesis Data Firehose to the S3 bucket. Kinesis Data Firehose names must start with [**aws-waf-logs-**], and because this prefix is included in the file names when they are output to the S3 bucket, we are using it to determine the log type.
+The initial value of s3_key: `aws-waf-logs-` or `_waflogs_`  (part of the default output path)
+
+Please refer to the following official document for how to export AWS WAF to S3 bucket for WAF.
+
+[Logging and monitoring web ACL traffic / Amazon Simple Storage Service](https://docs.aws.amazon.com/waf/latest/developerguide/logging-s3.html)
+
+Here's how to export AWS WAF ACL traffic to SIEM S3 bucket via Kinesis Data Firehose. Kinesis Data Firehose names must start with [**aws-waf-logs-**], and because this prefix is included in the file names when they are output to the S3 bucket, we are using it to determine the log type.
 
 #### I. Common Configurations for AWS WAF
 
