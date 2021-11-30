@@ -1,6 +1,6 @@
 # Dashboard
 
-[View this page in Japanese (日本語)](dashboard_ja.md) |[View this page in Chinese (简体中文)](dashboard_cn.md) | [Back to README](../README.md)
+[View this page in Japanese (日本語)](dashboard_ja.md) | [View this page in Chinese (简体中文))](dashboard_zh.md) |[Back to README](../README.md)
 
 * [AWS Security Hub](#AWS-Security-Hub)
 * [AWS WAF](#AWS-WAF)
@@ -18,7 +18,7 @@
 
 ## AWS WAF
 
-This dashboard was imported from [AWS WAF Dashboard](https://github.com/aws-samples/aws-waf-dashboard) and then was customized
+该仪表板有[AWS WAF Dashboard](https://github.com/aws-samples/aws-waf-dashboard) 导入并进行定制化 
 
 ![AWS WAF Dashboard](images/dashboard-awswaf.jpg)
 

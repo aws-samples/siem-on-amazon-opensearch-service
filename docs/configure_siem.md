@@ -1,6 +1,6 @@
 # Changing Configurations of SIEM on Amazon OpenSearch Service
 
-[View this page in Japanese (日本語)](configure_siem_ja.md) | [Back to README](../README.md)
+[View this page in Japanese (日本語)](configure_siem_ja.md) | [View this page in Chinse (简体中文)](configure_siem_zh.md) |[Back to README](../README.md)
 
 ## Table of contents
 
