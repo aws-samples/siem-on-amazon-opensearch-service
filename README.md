@@ -1,7 +1,7 @@
 # SIEM on Amazon OpenSearch Service
 <!-- markdownlint-disable-file MD026 MD033 -->
 
-[View this page in Japanese (日本語)](README_ja.md) | [Chinese (中文)](README_zh.md)
+[View this page in Japanese (日本語)](README_ja.md) | [Chinese (繁体中文)](README_zh.md)| [Chinese (简体中文)](README_zhcn.md)
 
 SIEM on Amazon OpenSearch Service (successor to SIEM on Amazon Elasticsearch Service) is a solution for collecting multiple types of logs from multiple AWS accounts, correlating and visualizing the logs to help investigate security incidents. Deployment is easily done with the help of AWS CloudFormation or AWS Cloud Development Kit (AWS CDK), taking only about 30 minutes to complete. As soon as AWS services logs are put into a specified Amazon Simple Storage Service (Amazon S3) bucket, a purpose-built AWS Lambda function automatically loads those logs into SIEM on OpenSearch Service, enabling you to view visualized logs in the dashboard and correlate multiple logs to investigate security incidents.
 
