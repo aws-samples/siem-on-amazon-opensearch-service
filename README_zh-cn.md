@@ -1,11 +1,11 @@
 # SIEM on Amazon OpenSearch Service
 <!-- markdownlint-disable-file MD033 -->
 
-[English](README.md) | [Japanese (日本语)](README_ja.md) | [Chinses (简体中文)](README_zhcn.md) | [Chinses (繁体中文)](README_zh.md)
+[English](README.md) | [Japanese (日本语)](README_ja.md) | [Chinses (繁体中文)](README_zh-tw.md)
 
 SIEM on Amazon OpenSearch Service 是一套免费而完整的安全性事件管理（SIEM）解决方案。让你可从多个AWS账户中收集各种日志类型，并通过日志关联与可视化协助调查安全事件。可以在约30分钟内，透过AWS Cloud开发套件（AWS SDK）或AWS CloudFormation轻松完成SIEM部署。当AWS服务日志存放到指定的Amazon Simple Storage Service (Amazon S3)存储桶后，会自动触发专门的AWS Lambda 函数，并将日志加载至 SIEM on OpenSearch Service 当中。您通过仪表板浏览各项关联记录，以便作出分析及应对。
 
-前往 | [配置AWS服务日志来源(英语)](docs/configure_aws_service.md) | [OpenSearch Service上更改SIEM的配置 (英语)](docs/configure_siem.md) | [高级部署 (英语)](docs/deployment.md) | [仪表板 (英语)](docs/dashboard.md) | [支持的日志类型 (英语)](docs/suppoted_log_type.md) | [FAQ(英语)](docs/faq.md) | [变更日志 (英语)](CHANGELOG.md) |
+前往 | [配置AWS服务日志来源](docs/configure_aws_service_zh-cn.md) | [OpenSearch Service上更改SIEM的配置](docs/configure_siem_zh-cn.md) | [高级部署](docs/deployment_zh-cn.md) | [仪表板](docs/dashboard_zh-cn.md) | [支持的日志类型 (英语)](docs/suppoted_log_type.md) | [FAQ](docs/faq_zh-cn.md) | [变更日志 (英语)](CHANGELOG.md) |
 
 ![Sample dashboard](./docs/images/dashboard-sample.jpg)
 
@@ -60,13 +60,13 @@ SIEM on OpenSearch Service 能够加载并关联以下日志类型。
 
 | 区域 | CloudFormation |
 |--------|----------------|
+| 宁夏 (cn-northwest-1) |[![Deploy in cn-northwest-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-northwest-1#/stacks/new?stackName=siem&templateURL=https://aws-industry-solutions-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service/v2.5.0/siem-on-amazon-opensearch-service-china.template) |
+| 北京 (cn-north-1) |[![Deploy in cn-north-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-north-1#/stacks/new?stackName=siem&templateURL=https://aws-industry-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service/v2.5.0/siem-on-amazon-opensearch-service-china.template) |
 | 北弗吉尼亚州  (us-east-1) |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
 | 俄勒冈州 (us-west-2) |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
 | 东京 (ap-northeast-1) |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
 | 法兰克福  (eu-central-1) |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
 | 伦敦 (eu-west-2) |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 宁夏 (cn-northwest-1) |[![Deploy in cn-northwest-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-northwest-1#/stacks/new?stackName=siem&templateURL=https://aws-industry-solutions-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service/v2.5.0/siem-on-amazon-opensearch-service-china.template) |
-| 北京 (cn-north-1) |[![Deploy in cn-north-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-north-1#/stacks/new?stackName=siem&templateURL=https://aws-industry-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service/v2.5.0/siem-on-amazon-opensearch-service-china.template) |
 
 如果以上列表未包含您希望使用的区域，请手动选择以下模板：
 
@@ -122,8 +122,8 @@ export AWS_REGION=<AWS_REGION> # Region where the distribution is deployed
 
 ```shell
 cd ~/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
-chmod +x ./step1-build-lambda-pkg-china.sh && ./step1-build-lambda-pkg-china.sh && cd ..
-chmod +x ./build-s3-dist-china.sh && ./build-s3-dist-china.sh $TEMPLATE_OUTPUT_BUCKET
+chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh china && cd ..
+chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
 ```
 
 #### 2-5. 将程序上传至您的Amazon S3存储桶

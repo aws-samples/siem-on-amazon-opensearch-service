@@ -1,4 +1,4 @@
-Description: "SIEM: Workspaces log exporter"
+Description: "SIEM on Amazon OpenSearch Service v2.6.1-beta.1: log exporter - Workspaces"
 Parameters:
   cweRulesFrequency:
     Type: Number
@@ -36,14 +36,14 @@ Resources:
             - ""
             - - "arn:"
               - Ref: AWS::Partition
-              - :iam::aws-cn:policy/service-role/AWSLambdaBasicExecutionRole
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         - PolicyDocument:
             Statement:
               - Action: workspaces:Describe*
                 Effect: Allow
                 Resource: "*"
-                Sid: DescribeWorkSpacesPolicyGeneratedBySeimCfn
+                Sid: DescribeWorkSpacesPolicyGeneratedBySiemCfn
             Version: "2012-10-17"
           PolicyName: describe-workspaces
         - PolicyDocument:
@@ -53,10 +53,10 @@ Resources:
                 Resource:
                   Fn::Join:
                     - ""
-                    - - "arn:aws:s3:::"
+                    - - "arn:aws-cn:s3:::"
                       - Fn::ImportValue: sime-log-bucket-name
                       - /*
-                Sid: FirehoseToS3PolicyGeneratedBySeimCfn
+                Sid: FirehoseToS3PolicyGeneratedBySiemCfn
             Version: "2012-10-17"
           PolicyName: firehose-to-s3
       RoleName: siem-get-workspaces-inventory-role
@@ -67,6 +67,13 @@ Resources:
         ZipFile: |
           # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
           # SPDX-License-Identifier: MIT-0
+          __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                           'All Rights Reserved.')
+          __version__ = '2.6.1-beta.1'
+          __license__ = 'MIT-0'
+          __author__ = 'Akihiro Nakajima'
+          __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
+
           import datetime
           import gzip
           import json

@@ -1,6 +1,6 @@
 # 配置 AWS 服务
 
-[View this page in Japanese (日本語)](configure_aws_service_ja.md) | [View this page in Chinese (简体中文)](configure_aws_service_zh.md) | [Back to README](../README_zhcn.md)
+[In English](configure_aws_service.md) | [Back to README](../README_zh-cn.md)
 
 在此页面上，我们将引导您了解如何将每个 AWS 服务的日志加载到 Amazon OpenSearch Service 上的 SIEM。 按照以下步骤配置每个 AWS 服务。
 
@@ -40,7 +40,6 @@
 
 ## 1. 基本配置
 
-
 SIEM on Amazon OpenSearch Service 根据在S3 存储桶上的对象名称和路径名确定相对应的日志类型。
 有的AWS服务服务导出日志到S3存储桶的路径，默认的是带输出路径或文件名的。但如果要输出到 S3 的文件路径与默认值不同，请创建 user.ini 并将您自己的文件名或 S3 对象键添加到“s3_key”项中，以进行自定义的映射。
 有关如何编辑 user.ini 的信息，请参阅 [Change SIEM on OpenSearch Service Settings] (configure_siem_zh.md)。
@@ -49,7 +48,7 @@ SIEM on Amazon OpenSearch Service 根据在S3 存储桶上的对象名称和路�
 
 如果您想使用 AWS Key Management Service (AWS KMS) 加密存储在 S3 存储桶中的文件，请使用 OpenSearch on Amazon Service 部署时自动创建的 AWS KMS 客户管理密钥。默认情况下，KMS Key别名为 aes-siem-key。您还可以使用现有的 AWS KMS 客户管理密钥，在这种情况下，请参考高级部署 (deployment_zh.md)。
 
-此处描述的 AWS 帐户是 ** 123456789012 **。根据需要将其替换为您的 AWS 账户ID。
+此处描述的 AWS 帐户是 **123456789012**。根据需要将其替换为您的 AWS 账户ID。
 
 ## 2. 安全身份与合规
 
@@ -58,7 +57,6 @@ SIEM on Amazon OpenSearch Service 根据在S3 存储桶上的对象名称和路�
 ![GuardDuty to S3](images/guardduty-to-s3.jpg)
 
 s3_key 初始值: `GuardDuty` (其为缺省输出路径中的一部分)
-
 
 1. 登录 AWS 管理控制台
 1. 导航到 [GuardDuty](https://console.amazonaws.cn/guardduty/home?) 控制台
@@ -84,13 +82,12 @@ s3_key 初始值: `GuardDuty` (其为缺省输出路径中的一部分)
 
 1. 导航至 [Directory Service Console](https://console.amazonaws.cn/directoryservicev2/home?) 并转发日志到CloudWatch。
 1. 使用如下的Cloudformation 文件进行配置。
-    * [siem-log-exporter-basic-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-core-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core.template)
     * [siem-log-exporter-ad-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-ad-china.template)
 
 ### AWS WAF
 
 ![aws waf to s3](images/waf-to-s3.jpg)
-
 
 AWS WAF 有两种类型 :AWS WAF 和 AWS WAF Classic。 这两种服务都可以以相同的方式将两者的日志输出到 S3 存储桶。
 s3_key 的初始值 :`aws-waf-logs-`
@@ -111,7 +108,7 @@ AWS WAF ACL 流量日志从 Kinesis Data Firehose 导出到 S3 存储桶。 Kine
    * 选择 [**Next**]
 1. 在 [Choose a destination] 界面, 选择或输入如下参数:
    * S3 bucket: [**aes-siem-123456789012-log**]
-      * 使用您自己的AWS Account ID 替换 123456789012 
+      * 使用您自己的AWS Account ID 替换 123456789012
    * S3 前缀: 输入 [**AWSLogs/123456789012/WAF/region/**]
    * S3 错误 前缀: Enter [**AWSLogs/123456789012/WAF/region/error/**]
       * 使用您自己的AWS Account ID 替换 123456789012，使用您当前使用的 Region ID 替换, 例如 (cn-northwest-1) .
@@ -126,19 +123,18 @@ AWS WAF ACL 流量日志从 Kinesis Data Firehose 导出到 S3 存储桶。 Kine
 #### II. 在 AWS WAF 中配置日志信息
 
 1. 导航至 [WAFv2 console](https://console.amazonaws.cn/wafv2/home?)
-1. 在左侧的导航菜单中选择 [**Web ACLs**] 
+1. 在左侧的导航菜单中选择 [**Web ACLs**]
 1. 从屏幕中央的下拉菜单中，选择您部署 WAF 所在的 [**region**] ，例如 China(BeiJing) 或者 China(Ningxia), => 然后选择 Web ACLS
 1. 在 [**Logging and metrics**] 便签页中选择 => [**Enable logging**] => 选择 Kinesis Data Firehose steam
 1. 在 [Amazon Kinesis Data Firehose Delivery Stream] 下拉菜单中, 选择 [**你所创建的Kinesis Firehose**]
 1. 选择 [**Save**] 完成配置。
-
-
 
 ### AWS Security Hub
 
 由于 EventBridge在China Region 还未支持Kinesis Firehose集成，所以SIEM on Amazon OpenSearch Service还不能在China Region支持 Security Hub服务。
 
 ### AWS Network Firewall
+
 由于 AWS Network Firewall 尚未在China Region发布，所以SIEM on Amazon OpenSearch Service还不能在China Region支持 AWS Network Firewall服务。
 
 ## 3. 管理与治理
@@ -146,8 +142,6 @@ AWS WAF ACL 流量日志从 Kinesis Data Firehose 导出到 S3 存储桶。 Kine
 ### AWS CloudTrail
 
 ![CloudTrail to S3](images/cloudtrail-to-s3.jpg)
-
-
 
 s3_key的初始值 :`CloudTrail/`或`CloudTrail-Insight/`（默认输出路径的一部分）
 
@@ -186,12 +180,10 @@ s3_key的初始值 :`CloudTrail/`或`CloudTrail-Insight/`（默认输出路径�
 
 ### Amazon CloudFront
 
-在 AWS Global，CloudFront 有两种日志格式。一种是标准日志（访问日志），另外一种是实时日志。 
+在 AWS Global，CloudFront 有两种日志格式。一种是标准日志（访问日志），另外一种是实时日志。
 关于这两种日志的区别，请参考[区别](https://docs.aws.amazon.com/zh_cn/AmazonCloudFront/latest/DeveloperGuide/logging.html)
 
-
 但是在AWS China Region，只支持 Standard 日志。
-
 
 #### I. CloudFront 标准日志 (访问日志)
 
@@ -203,7 +195,7 @@ s3_key的初始值 :`CloudTrail/`或`CloudTrail-Insight/`（默认输出路径�
 
 1. 登录 AWS 管理控制台
 1. 导航至[the Amazon CloudFront console](https://console.amazonaws.cn/cloudfront/home?)
-1. 在左侧的导航栏选择 [**Distribution**] 
+1. 在左侧的导航栏选择 [**Distribution**]
 1. 选择 [**Distribution ID**] 后，在[**Setting**]部分中点击[**Edit**]按钮
 1. 在[**Standard logging**] 选择
    * 勾选 [**On**]
@@ -214,8 +206,6 @@ s3_key的初始值 :`CloudTrail/`或`CloudTrail-Insight/`（默认输出路径�
    * Cookie logging: 勾选[**On**]
    * 点击 [**Save Changes**] 完成配置。
 
-
-
 ### Route 53 Resolver VPC DNS 查询日志
 
 ![Amazon Linux 2 to S3](images/route53resolver-to-s3.jpg)
@@ -223,7 +213,7 @@ s3_key的初始值 :`CloudTrail/`或`CloudTrail-Insight/`（默认输出路径�
 The initial value of s3_key: `vpcdnsquerylogs` (part of the default output path)
 
 1. 导航至 [Route 53 Resolver console](https://console.amazonaws.cn/route53resolver/home?)
-1. 在左侧的导航栏选择 [**Query logging**] 
+1. 在左侧的导航栏选择 [**Query logging**]
 1. 在 [Configure query logging] 部分，输入如下参数：
    * Name: Enter [**any name**]
    * Destination for query logs: 选择 [**S3 bucket**]
@@ -247,7 +237,7 @@ s3_key的初始值：`vpcflowlogs`（默认输出路径的一部分）
 1. 在创建流日志部分上输入以下参数
 
    * Name: 可输入任何值
-   * Filter: 任意值, 但推荐选择 [**All**] 
+   * Filter: 任意值, 但推荐选择 [**All**]
    * Maximum aggregation interval: 任意值, 但将其设置为 1 分钟会增加日志量。
    * Destination: 选择 [**Send to an S3 bucket**]
    * S3 bucket ARN: [**arn:aws-cn:s3:::aes-siem-123456789012-log**]
@@ -274,7 +264,7 @@ s3_key 的初始值由使用正则表达式的默认输出路径和文件名决�
 
 1. 登录 AWS 管理控制台
 1. 导航至 [Amazon EC2 console](https://console.amazonaws.cn/ec2/home?)
-1. 从左侧的导航栏选择 [**Load balancers**] => 选择要从中收集日志的目标负载均衡器的 [**Check the box**] 
+1. 从左侧的导航栏选择 [**Load balancers**] => 选择要从中收集日志的目标负载均衡器的 [**Check the box**]
 1. 选择 [Description ] 标签页 => 针对 ALB/NLB/CLB 输入如下参数:
    * 如果是 ALB/NLB 类型: 选择 [**Edit attributes**]
       * Access logs: 选择 [**Enable**]
@@ -296,20 +286,18 @@ s3_key 的初始值由使用正则表达式的默认输出路径和文件名决�
 
 ![FSx to S3](images/fsx-to-s3.jpg)
 
-
 s3_key 的初始值：`aws-fsx-`
 
 Amazon FSx for Windows File Server 审核日志从 Kinesis Data Firehose 导出到 S3 存储桶。 Kinesis Data Firehose 名称必须以 [**aws-fsx-**] 开头，并且由于该前缀在输出到 S3 存储桶时包含在文件名中，因此我们使用它来确定日志类型。
 
 1. 使用如下的Cloudformation进行配置
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic-china.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core-china.template)
     * [siem-log-exporter-fsx.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-fsx-china.template)
 1. 导航至 [FSx Console](https://console.amazonaws.cn/fsx/home?) 把日志转发到 Firehose.
 
 ### Amazon S3 access logs
 
 ![S3 to S3](images/s3-to-s3.jpg)
-
 
 按照以下步骤将 S3 访问日志输出到 S3 存储桶。 如果您已经在使用 CloudTrail 数据事件捕获 S3 日志，请单击 [此处](https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/dev/logging-with-S3.html) 以查看与 S3 访问日志记录。
 
@@ -324,7 +312,7 @@ s3_key的初始值：`s3accesslog`（没有标准的保存路径，所以使用�
    1. Choose target bucket: aes-siem-123456789012-log
       * 使用您的AWS account ID替换 123456789012。
    1. Target prefix: [**AWSLogs/AWS account ID/s3accesslog/region/bucket name/** ]
-      * 务必确保在 Prefix 中包含 [s3accesslog] 
+      * 务必确保在 Prefix 中包含 [s3accesslog]
    1. 选择 [**Save**]
 
 ## 6. 数据库
@@ -337,7 +325,6 @@ s3_key的初始值：`s3accesslog`（没有标准的保存路径，所以使用�
 * Slow query log - 慢查询日志
 * General log - 基本日志
 * Audit log - 审计日志
-
 
 s3_key 的初始值(在Firehose output path 路径中指定)
 
@@ -391,10 +378,9 @@ s3_key的初始值：`[Ll]inux.?[Ss]ecure`（在Firehose输出路径中指定）
 
 日志输出通过 Kinesis Data Firehose 发送，由于没有标准的保存路径，所以需要使用上面的 s3_key 作为 Kinesis Data Firehose 的目标 S3 存储桶的前缀。 由于Region信息不包含在日志中，因此您可以将Region信息其包含在 S3 Key中以捕获它。 加载安全日志有两种方式：将日志加载为操作系统系统日志，然后将其归类为安全日志； 或从一开始就将日志加载为安全日志。 前一种方法是通过进程名来确定安全日志的，所以选择后一种方法可以保证所有的安全日志都满载。 另一方面，后者要求您为每个日志设置Firehose为目的地。
 
-
 请按照如下步骤配置
 
-1. 在Amazon Linux 2 的 EC2 实例中部署安装 CloudWatch Agent，具体步骤请参考 https://docs.aws.amazon.com/zh_cn/AmazonCloudWatch/latest/logs/QuickStartEC2Instance.html
+1. 在Amazon Linux 2 的 EC2 实例中部署安装 CloudWatch Agent，具体步骤请参考 [快速入门：在运行的 EC2 Linux 实例上安装和配置 CloudWatch Logs 代理](https://docs.aws.amazon.com/zh_cn/AmazonCloudWatch/latest/logs/QuickStartEC2Instance.html)
 1. 将日志转发到 CloudWatch Logs
 1. 使用 CloudWatch Logs 订阅将日志输出到 Firehose
 1. 选择 S3 存储桶作为 Firehose 输出的目的地
@@ -402,7 +388,6 @@ s3_key的初始值：`[Ll]inux.?[Ss]ecure`（在Firehose输出路径中指定）
     * 将日志输出为操作系统日志的前缀：[**AWSLogs/123456789012/EC2/Linux/[region]/**]
     * 将日志输出为安全日志的前缀：[**AWSLogs/123456789012/EC2/Linux/Secure/[区域]/**]
        * 将 123456789012 替换为您的 AWS 账户 ID
-
 
 ### EC2 Instance (Microsoft Windows Server 2012/2016/2019)
 
@@ -417,18 +402,16 @@ s3_key 的初始值：`/[Ww]indows.*[Ee]vent`（在Firehose输出路径中指定
 1. 在部署为 Windows Server 的 EC2 实例中安装 CloudWatch Agent
 1. 将日志转发到 CloudWatch Logs
 1. 使用 CloudFormation 进行配置
-     * [siem-log-exporter-basic-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic-china.template）
-     * [siem-log-exporter-cwl-nocompress-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter -cwl-nocompress-china.template)
+     * [siem-log-exporter-core-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core-china.template)
+     * [siem-log-exporter-cwl-nocompress-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-cwl-nocompress-china.template)
      * 输出日志的前缀：[**AWSLogs/123456789012/EC2/Windows/Event/[region]/**]
          * 将 123456789012 替换为您的 AWS 账户 ID
-
 
 ## 9. 容器
 
 ### FireLens for Amazon ECS
 
 ![ECS to Firelens to S3](images/ecs-to-firelens-to-s3.jpg)
-
 
 s3_key 的初始值：N/A。为每个容器应用程序创建和配置 Firehose
 
@@ -445,8 +428,7 @@ s3_key 的初始值：N/A。为每个容器应用程序创建和配置 Firehose
 
 配置 AWS Firelens
 
-1.Firelens发送日志的任务定义文件和IAM权限设置,请参见[官方文档](https://docs.aws.amazon.com/zh_cn/AmazonECS/latest/userguide/using_firelens.html)和 aws-samples [Send to Kinesis Data Firehose in amazon-ecs-firelens-examples](https://github.com/aws-samples/amazon-ecs-firelens-examples/tree/mainline/examples/fluent-bit/kinesis-firehose）
-
+1.Firelens发送日志的任务定义文件和IAM权限设置,请参见[官方文档](https://docs.aws.amazon.com/zh_cn/AmazonECS/latest/userguide/using_firelens.html)和 aws-samples [Send to Kinesis Data Firehose in amazon-ecs-firelens-examples](https://github.com/aws-samples/amazon-ecs-firelens-examples/tree/mainline/examples/fluent-bit/kinesis-firehose)
 
 1. 中文Blog，请参考[使用 AWS FireLens 轻松实现 AWS Fargate 容器日志处理](https://aws.amazon.com/cn/blogs/china/easy-aws-fargate-container-log-processing-with-aws-firelens/)
 
@@ -478,10 +460,10 @@ s3_key 的初始值：`(WorkSpaces|workspaces).*(Event|event)`（在Firehose输�
  s3_key 初始值 : `(WorkSpaces|workspaces).*(Inventory|inventory)`
 
 1. 使用Cloudformation进行配置
-     * [siem-log-exporter-basic-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic-china.template)
+     * [siem-log-exporter-core-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core-china.template)
      * [siem-log-exporter-workspaces-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-workspaces-china.template)
 
-## 11. 多 regions / 多账户 
+## 11. 多 regions / 多账户
 
 通过使用 S3 复制或跨账户输出到存储日志的 S3 存储桶，您可以将来自其他账户或区域的日志加载到 OpenSearch Service 上的 SIEM。输出路径应遵循上面配置的 S3 密钥。
 
@@ -489,6 +471,5 @@ s3_key 的初始值：`(WorkSpaces|workspaces).*(Event|event)`（在Firehose输�
 
 您还可以从现有的 S3 存储桶和/或使用 AWS KMS 客户管理的密钥将日志加载到 OpenSearch Service 上的 SIEM。
 要使用现有的 S3 存储桶或 AWS KMS 客户管理的密钥，您必须向 Lambda 函数 es-loader 授予权限。 请参阅 [this](deployment_zh.md) 以使用 AWS CDK 进行部署。
-
 
 [Back to README](../README_zhcn.md)

@@ -1,6 +1,6 @@
 # Configuring AWS Services
 
-[View this page in Japanese (日本語)](configure_aws_service_ja.md) | [View this page in Chinese (简体中文)](configure_aws_service_zh.md) | [Back to README](../README.md)
+[View this page in Japanese (日本語)](configure_aws_service_ja.md) | [Chinese (简体中文)](configure_aws_service_zh-cn.md) | [Back to README](../README.md)
 
 On this page, we’ll walk you through how to load logs from each AWS service into SIEM on Amazon OpenSearch Service. Follow the steps below to configure each AWS service.
 

@@ -1,5 +1,7 @@
 # よくある質問
 
+[In English](faq.md) | [READMEに戻る](../README_ja.md)
+
 ## 不具合
 
 AWS 公式ページに該当の不具合があるかをご確認下さい

@@ -1,6 +1,6 @@
 # 配置 SIEM on Amazon OpenSearch Service
 
-[View this page in Japanese (日本語)](configure_siem_ja.md) | [View this page in Chinse (简体中文)](configure_siem_zh.md) |[Back to README](../README_zhcn.md)
+[In English](configure_siem.md) | [Back to README](../README_zh-cn.md)
 
 ## 目录
 
@@ -12,7 +12,6 @@
 * [监控](#监控)
 
 ## 自定义日志加载方法
-
 
 您可以使用自定义日志加载方法加载日志到SIEM。当文件被存储在S3 存储桶后，会触发 es-loader lambda函数来进行处理并进行规范化，并加载到 SIEM on  OpenSearch Service 上。部署的 Lambda 函数名为 aes-siem-es-loader。而这个 Lambda 函数（es-loader）是由来自 S3 存储桶的事件通知（所有对象创建事件）触发的。然后根据文件名和 S3 存储桶的文件路径识别日志类型；以预定义的方式为每种日志类型提取字段；将其映射到 [Elastic Common Schema](https://www.elastic.co/guide/en/ecs/current/index.html)；最后通过指定索引名称将其加载到 OpenSearch Service 上的 SIEM 中。
 
@@ -28,7 +27,6 @@
 key = This is a sample value
 ```
 
-
 （错误的配置示例)
 
 ```ini
@@ -41,7 +39,7 @@ key = "This is a sample value"
 
 创建与 aws.ini 具有相同结构的 user.ini。
 示例）将 AWS CloudTrail 轮换间隔从每月（初始值）更改为每天。
-aws.ini 的初始值如下： 
+aws.ini 的初始值如下：
 
 ```ini
 [cloudtrail]
@@ -54,12 +52,12 @@ index_rotation = monthly
 [cloudtrail]
 index_rotation = daily
 ```
+
 使用Zip压缩 user.ini 文件，以便将其添加到 Lambda 层。 请注意，user.ini 不应包含任何目录。 压缩文件可以有任何名称（在本例中我们将其命名为 configure-es-loader.zip）。
 
 ```sh
 zip -r configure-es-loader.zip user.ini
 ```
-
 
 然后按照以下步骤创建一个 Lambda 层：
 
@@ -73,7 +71,6 @@ zip -r configure-es-loader.zip user.ini
     * 兼容的运行时：选择 Python 3.8
 1. 选择[**Create**]
 
-
 最后，将刚刚创建的 Lambda 层添加到 Lambda 函数 es-loader：
 
 1. 从 Lambda 控制台的左窗格中选择 [**Functions**] => 选择 [**aes-siem-es-loader**]
@@ -84,7 +81,6 @@ zip -r configure-es-loader.zip user.ini
 配置现已完成。 您可以在 [Layers] 中确认添加。
 
 ### 在 AWS 管理控制台直接修改
-
 
 或者，您可以直接从 AWS 管理控制台编辑 user.ini 以更改配置。
 
@@ -109,7 +105,7 @@ zip -r configure-es-loader.zip user.ini
 
 每当 CloudTrail 或 VPC 流日志输出到 S3 存储桶时，AWS 账户 ID 和区域信息都会添加到日志中。 您可以使用此信息为日志加载添加排除项。 例如，您可以配置您的 AWS 账户不加载这些信息。
 
-#### 如何添加排除项 :
+#### 如何添加排除项
 
 在 user.ini (aws.ini) 中的 s3_key_ignored 所对应的字符串中指定要排除日志对象。 如果日志**包含**在那里指定的字符串，则该日志不会吧加载。 可以使用正则表达式指定字符串。 请注意，如果字符串太短或通用词，它也可能匹配您不想排除的日志。 此外，一些 AWS 资源的日志默认指定 s3_key_ignored，因此请确保先检查 aws.ini 以避免覆盖配置。
 
@@ -133,7 +129,6 @@ s3_key_ignored = (111111111111|222222222222)
 
 ### 根据日志字段和值排除日志
 
-
 您可以根据日志字段及其值排除日志。 例如在 VPC 流日志中，您可以排除来自特定源 IP 地址的通信。
 
 如何添加排除项：
@@ -151,7 +146,7 @@ log_type,field,pattern,pattern_type,comment
 | Header | Description |
 |--------|----|
 | log_type | 在 aws.ini 或 user.ini 中指定的日志部分名称。 示例）cloudtrail、vpcflowlogs |
-| field | 原始日志的原始字段名称。 它不是规范化的字段。 JSON 等分层字段由点 ( **. ** ) 分隔。 示例）userIdentity.invokedBy |
+| field | 原始日志的原始字段名称。 它不是规范化的字段。 JSON 等分层字段由点 ( **.** ) 分隔。 示例）userIdentity.invokedBy |
 | pattern | 将字段的值指定为字符串。 被**完全匹配**排除。 可以使用文本格式和正则表达式。 示例）文本格式：192.0.2.10，正则表达式：192\\.0\\.2\\..* |
 | pattern_type | [**regex**] 用于正则表达式， [**text**] 用于字符串 |
 | comment | 任意字符串. 不会影响表达式 |
@@ -191,7 +186,6 @@ cloudtrail,userIdentity.invokedBy,.*\.amazonaws\.com,regex,sample3
 GET target_index_name/_settings
 GET target_index_name/_mapping
 ```
-
 
 要添加或更改设置，请创建索引模板（index templates）以保存值。 避免使用已经在使用的模板名称。
 
@@ -280,11 +274,11 @@ POST _template/log-aws-cloudtrai_mine
    ```
 
 1. 指定 ECS 字段（将用于使用 GeoIP 获取地理位置信息）。
+
    ```ini
    # The value is either source or destination
    geoip = source
    ```
-
 
 有关配置项的更多信息，请参阅 es-loader（Lambda 函数）中的 aws.ini 配置文件。
 
@@ -304,18 +298,16 @@ Lambda 层的压缩文件内的目录结构应如下所示：
 
 创建一个 zip 文件并将其注册到 Lambda 层就可以了。
 
-
 ## 加载存储在S3存储桶中的历史数据
 
 您可以将存储在 S3 存储桶中的日志批量加载到 OpenSearch 服务中。 通常日志在进入预先配置的 S3 存储桶后会被实时加载处理。 另一方面，也可以稍后加载备份数据以进行可视化或进行事件调查。 同样，您还可以加载实时加载失败并困在 SQS 的死信队列中的数据。
-
 
 ### 设置环境
 
 #### 设置脚本的执行环境（es-loader）
 
 1. 使用 Amazon Linux 2 AMI 在可与 OpenSearch Service 通信的 VPC 中配置 Amazon EC2 实例。
-1. 允许HTTP 通信，以便从 Amazon Linux 访问到位于 Internet 上的 GitHub 和 PyPI 网站。 
+1. 允许HTTP 通信，以便从 Amazon Linux 访问到位于 Internet 上的 GitHub 和 PyPI 网站。
 1. 将 IAM 角色 [**aes-siem-es-loader-for-ec2**] 附加到 EC2 示例。
 1. 连接到 Amazon Linux 终端并按照 [README](../README_zhcn.md) --> [2. 创建 CloudFormation 模板] --> [2-1. 先决条件]和[2-2． 克隆 SIEM on OpenSearch Service]
 1. 使用以下命令安装 Python 所依赖的模块：
@@ -327,8 +319,7 @@ Lambda 层的压缩文件内的目录结构应如下所示：
 
 #### 设置环境变量
 
-
-1. 导航到 AWS 管理控制台中的 Lambda 
+1. 导航到 AWS 管理控制台中的 Lambda
 1. 导航到 aes-siem-es-loader 函数并记下两个环境变量名称和值：
     * ES_ENDPOINT
     * GEOIP_BUCKET
@@ -372,7 +363,6 @@ Lambda 层的压缩文件内的目录结构应如下所示：
    # Example of loading extracted objects
    # ./index.py -b ${LOG_BUCKET} -l s3-cloudtrail-2021-list.txt
    ```
-
 
 1. 加载完成后请查看结果。 如果加载失败，将生成一个包含失败对象列表的日志文件。 如果此文件不存在，则表明所有对象均已成功加载。
     * 成功的对象列表：S3 list filename.finish.log
@@ -439,8 +429,6 @@ es-loader 日志以 JSON 格式输出，因此您可以在 CloudWatch Logs Insig
 | level | 日志的严重性。 默认情况下，只记录“info”或更高级别的消息。 如果出现故障，您可以通过将 LOG_LEVEL（aes-siem-es-loader 环境变量）更改为“调试”来临时记录“调试”级别的消息。 由于记录调试消息会生成大量日志文件，我们建议您在调查后将 LOG_LEVEL 恢复为“info” |
 | s3_key | 存储在 S3 存储桶中的日志文件的对象键。 处理完目标日志文件后，可以使用s3_key作为搜索关键字，提取处理日志和上述metrics的原始数据进行确认 |
 | message | 日志中的消息。 在某些情况下，它是 JSON 格式 |
-
-
 
 AWS Lambda Powertools Python 可用于其他字段。 有关更多信息，请参阅 [AWS Lambda Powertools Python](https://awslabs.github.io/aws-lambda-powertools-python/core/metrics/) 文档。
 

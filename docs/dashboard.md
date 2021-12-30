@@ -1,6 +1,6 @@
 # Dashboard
 
-[View this page in Japanese (日本語)](dashboard_ja.md) |[View this page in Chinese (简体中文)](dashboard_cn.md) | [Back to README](../README.md)
+[View this page in Japanese (日本語)](dashboard_ja.md) | [Chinese (简体中文)](dashboard_zh-cn.md) | [Back to README](../README.md)
 
 * [AWS Security Hub](#AWS-Security-Hub)
 * [AWS WAF](#AWS-WAF)

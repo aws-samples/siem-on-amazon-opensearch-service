@@ -1,9 +1,9 @@
-Description: "SIEM: log export CWL resource without compress"
+Description: "SIEM on Amazon OpenSearch Service v2.6.1-beta.1: log exporter - CWL resource without compress"
 Parameters:
   KdfName:
     Type: String
     Default: siem-XXXXXXXXXXX-to-s3
-    Description: New Kinesis Data Firehose Name to deliver AD event
+    Description: New Kinesis Data Firehose Name to deliver CWL event
   KdfBufferSize:
     Type: Number
     Default: 1

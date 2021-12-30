@@ -1,81 +1,106 @@
 {
-  "Description": "SIEM on Amazon OpenSearch Service v2.5.0",
+  "Description": "SIEM on Amazon OpenSearch Service v2.6.1-beta.1",
   "Mappings": {
-    "ELBv2AccountMap": {
+    "RegionMap": {
       "af-south-1": {
-        "accountid": "098369216593"
+        "ElbV2AccountId": "098369216593",
+        "LambdaArch": "x86_64"
       },
       "ap-east-1": {
-        "accountid": "754344448648"
+        "ElbV2AccountId": "754344448648",
+        "LambdaArch": "x86_64"
       },
       "ap-northeast-1": {
-        "accountid": "582318560864"
+        "ElbV2AccountId": "582318560864",
+        "LambdaArch": "arm64"
       },
       "ap-northeast-2": {
-        "accountid": "600734575887"
+        "ElbV2AccountId": "600734575887",
+        "LambdaArch": "x86_64"
       },
       "ap-northeast-3": {
-        "accountid": "383597477331"
+        "ElbV2AccountId": "383597477331",
+        "LambdaArch": "x86_64"
       },
       "ap-south-1": {
-        "accountid": "718504428378"
+        "ElbV2AccountId": "718504428378",
+        "LambdaArch": "arm64"
       },
       "ap-southeast-1": {
-        "accountid": "114774131450"
+        "ElbV2AccountId": "114774131450",
+        "LambdaArch": "arm64"
       },
       "ap-southeast-2": {
-        "accountid": "783225319266"
+        "ElbV2AccountId": "783225319266",
+        "LambdaArch": "arm64"
       },
       "ca-central-1": {
-        "accountid": "985666609251"
+        "ElbV2AccountId": "985666609251",
+        "LambdaArch": "x86_64"
       },
       "cn-north-1": {
-        "accountid": "638102146993"
+        "ElbV2AccountId": "638102146993",
+        "LambdaArch": "x86_64"
       },
       "cn-northwest-1": {
-        "accountid": "037604701340"
+        "ElbV2AccountId": "037604701340",
+        "LambdaArch": "x86_64"
       },
       "eu-central-1": {
-        "accountid": "054676820928"
+        "ElbV2AccountId": "054676820928",
+        "LambdaArch": "arm64"
       },
       "eu-north-1": {
-        "accountid": "897822967062"
+        "ElbV2AccountId": "897822967062",
+        "LambdaArch": "x86_64"
       },
       "eu-south-1": {
-        "accountid": "635631232127"
+        "ElbV2AccountId": "635631232127",
+        "LambdaArch": "x86_64"
       },
       "eu-west-1": {
-        "accountid": "156460612806"
+        "ElbV2AccountId": "156460612806",
+        "LambdaArch": "arm64"
       },
       "eu-west-2": {
-        "accountid": "652711504416"
+        "ElbV2AccountId": "652711504416",
+        "LambdaArch": "arm64"
       },
       "eu-west-3": {
-        "accountid": "009996457667"
+        "ElbV2AccountId": "009996457667",
+        "LambdaArch": "x86_64"
       },
       "me-south-1": {
-        "accountid": "076674570225"
+        "ElbV2AccountId": "076674570225",
+        "LambdaArch": "x86_64"
       },
       "sa-east-1": {
-        "accountid": "507241528517"
+        "ElbV2AccountId": "507241528517",
+        "LambdaArch": "x86_64"
       },
       "us-east-1": {
-        "accountid": "127311923021"
+        "ElbV2AccountId": "127311923021",
+        "LambdaArch": "arm64"
       },
       "us-east-2": {
-        "accountid": "033677994240"
+        "ElbV2AccountId": "033677994240",
+        "LambdaArch": "arm64"
       },
       "us-gov-east-1": {
-        "accountid": "190560391635"
+        "ElbV2AccountId": "190560391635",
+        "LambdaArch": "x86_64"
       },
       "us-gov-west-1": {
-        "accountid": "048591011584"
+        "ElbV2AccountId": "048591011584",
+        "LambdaArch": "x86_64"
       },
       "us-west-1": {
-        "accountid": "027434742980"
+        "ElbV2AccountId": "027434742980",
+        "LambdaArch": "x86_64"
       },
       "us-west-2": {
-        "accountid": "797873946194"
+        "ElbV2AccountId": "797873946194",
+        "LambdaArch": "arm64"
       }
     }
   },
@@ -90,7 +115,7 @@
       "Type": "String",
       "Default": "user+sns@example.com",
       "AllowedPattern": "^[0-9a-zA-Z@_\\-\\+\\.]*",
-      "Description": "Input your email as SNS topic, where Amazon ES will send alerts to"
+      "Description": "Input your email as SNS topic, where Amazon OpenSearch Service will send alerts to"
     },
     "GeoLite2LicenseKey": {
       "Type": "String",
@@ -550,11 +575,11 @@
                       ":iam::",
                       {
                         "Fn::FindInMap": [
-                          "ELBv2AccountMap",
+                          "RegionMap",
                           {
                             "Ref": "AWS::Region"
                           },
-                          "accountid"
+                          "ElbV2AccountId"
                         ]
                       },
                       ":root"
@@ -944,7 +969,7 @@
                 {
                   "Ref": "AWS::Partition"
                 },
-                ":iam::aws:policy/AmazonESFullAccess"
+                ":iam::aws:policy/AmazonOpenSearchServiceFullAccess"
               ]
             ]
           },
@@ -1069,6 +1094,22 @@
                             "Ref": "AWS::AccountId"
                           },
                           ":log-group:/aws/aes/domains/aes-siem/*"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws-cn:logs:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":log-group:/aws/OpenSearchService/domains/aes-siem/*"
                         ]
                       ]
                     },
@@ -1507,6 +1548,9 @@
             "Arn"
           ]
         },
+        "Architectures": [
+          "x86_64"
+        ],
         "DeadLetterConfig": {
           "TargetArn": {
             "Fn::GetAtt": [
@@ -1515,7 +1559,7 @@
             ]
           }
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / es-loader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.1-beta.1 / es-loader",
         "Environment": {
           "Variables": {
             "GEOIP_BUCKET": {
@@ -1559,13 +1603,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderVersion25050D964B0": {
+    "LambdaEsLoaderVersion261beta1DA6B6D02": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.5.0"
+        "Description": "2.6.1-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1677,7 +1721,10 @@
             "Arn"
           ]
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / geoip-downloader",
+        "Architectures": [
+          "x86_64"
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.1-beta.1 / geoip-downloader",
         "Environment": {
           "Variables": {
             "s3bucket_name": {
@@ -1708,13 +1755,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderVersion2509E2AF2E9": {
+    "LambdaGeoipDownloaderVersion261beta1FE0CD0D8": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.5.0"
+        "Description": "2.6.1-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1731,7 +1778,10 @@
             "Arn"
           ]
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / opensearch domain deployment",
+        "Architectures": [
+          "x86_64"
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.1-beta.1 / opensearch domain deployment",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -1770,13 +1820,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESVersion250A9965F7E": {
+    "LambdaDeployAESVersion261beta109CBCDC1": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.5.0"
+        "Description": "2.6.1-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1789,7 +1839,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.5.0"
+        "ConfigVersion": "2.6.1-beta.1"
       }
     },
     "LambdaConfigureAESA0471961": {
@@ -1805,7 +1855,10 @@
             "Arn"
           ]
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.5.0 / opensearch configuration",
+        "Architectures": [
+          "x86_64"
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.1-beta.1 / opensearch configuration",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -1850,13 +1903,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESVersion250C9F3A6F3": {
+    "LambdaConfigureAESVersion261beta12B9C1794": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.5.0"
+        "Description": "2.6.1-beta.1"
       },
       "DeletionPolicy": "Retain"
     },
@@ -1869,7 +1922,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.5.0"
+        "ConfigVersion": "2.6.1-beta.1"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"

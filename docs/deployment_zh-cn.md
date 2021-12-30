@@ -1,6 +1,6 @@
 # Advanced Deployment
 
-[View this page in Japanese (日本語)](deployment_ja.md) | [View this page in Chinese (简体中文)](deployment_zh.md) |[Back to README](../README_zhcn.md)
+[In English](deployment.md) | [Back to README](../README_zh-cn.md)
 
 ## 目录
 
@@ -27,11 +27,9 @@
 
 ## 从现有的S3存储桶加载数据
 
-
 您可以将现有的 S3 存储桶加载到 OpenSearch Service 上的 SIEM 的 CloudFormation 堆栈中，并使用 AWS CDK 对其进行管理。 为此，您需要添加或修改 S3 存储桶策略。 请注意，按照以下步骤操作，**S3 存储桶策略和其他存储桶配置** 将被覆盖。 此外，您只能在 OpenSearch Service 上初始安装 SIEM 期间执行以下步骤。如果您想将日志从现有 S3 存储桶发送到 OpenSearch Service 上的 SIEM，但仍想自己管理 S3 存储桶策略等，请跳过这些步骤。
 
 ### 步骤
-
 
 1. 检查要加载到 CloudFormation 堆栈中的 S3 存储桶的名称
 1. 您可以使用 git clone [Github](https://github.com/aws-samples/siem-on-amazon-opensearch-service) 复制代码，或下载从[这里](https://aes-siem.s3.amazonaws.com/siem-on-amazon-opensearch-service-import-exist-s3bucket.template)
@@ -42,7 +40,7 @@
 1. 在[Identify resources] 界面，导航到 [Identifier value]，在栈中输入【**the name of the S3 bucket you want to import**】，选择【**Next**】
 1. 在[Specify stack details]屏幕上，输入堆栈名称[**aes-siem**]，然后选择[**Next**]
 1. 在[Import overview] 界面，选择【**Import resources**】完成
-1. 在下一节中编辑 cdk.json：[使用 AWS CDK 部署] --> [5-3. 其他常用配置] 将要导入堆栈的S3存储桶的名称设置为 **s3_bucket_name.log**。 
+1. 在下一节中编辑 cdk.json：[使用 AWS CDK 部署] --> [5-3. 其他常用配置] 将要导入堆栈的S3存储桶的名称设置为 **s3_bucket_name.log**。
 
 ## 使用 AWS CDK 进行部署
 
@@ -54,8 +52,6 @@
 * `cdk.json` 和 `cdk.context.json` 是在部署过程中创建的，并确保保存此文件。 需要重新运行用于在 SIEM on OpenSearch Service 的CDK文件。
 
 ### 1. 设置 AWS CDK 运行环境
-
-
 
 1. 部署一个运行 Amazon Linux 2 (x86) 的 Amazon Elastic Compute Cloud (Amazon EC2) 实例
 1. 在 AWS Identity and Access Management (IAM) 中创建一个具有管理员权限的角色并将其附加到 Amazon EC2 实例
@@ -83,7 +79,10 @@ export AWS_DEFAULT_REGION=<AWS_REGION> # region where the distributable is deplo
 
 ```shell
 cd siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
-chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh
+# for china region
+chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh china
+# for global region
+# chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh
 ```
 
 ### 4. 为 for AWS Cloud Development Kit (AWS CDK) 设置环境
@@ -166,7 +165,7 @@ cp cdk.json.public.sample cdk.json
 | additional_s3_buckets | 以逗号分隔的 S3 存储桶名称 |
 | additional_kms_cmks | 枚举 AWS KMS 客户管理的密钥的 ARN，以逗号分隔 |
 
-最后，验证 JSON 文件。 如果执行后显示 JSON 并且没有错误，则 JSON 文件的语法没有问题。 
+最后，验证 JSON 文件。 如果执行后显示 JSON 并且没有错误，则 JSON 文件的语法没有问题。
 
 ```shell
 cdk context  --j
@@ -179,7 +178,6 @@ cdk context  --j
 ```bash
 cdk deploy
 ```
-
 
 你可以指定同 CloudFormation 模板一样的参数。
 
@@ -201,13 +199,11 @@ cdk deploy \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
 
-
 该部署大概需要30分钟的时间。当完成后，请参考 README文件 并执行 “3. Configuring OpenSearch Dashboards.” 部分。
 
 ## 使用 AWS CDK 更新 SIEM
 
-
-您可以使用 AWS CDK 更新 SIEM 存储库。 请确保您在初始安装时使用的 cdk.json 已经被存储在 CDK 目录中。 
+您可以使用 AWS CDK 更新 SIEM 存储库。 请确保您在初始安装时使用的 cdk.json 已经被存储在 CDK 目录中。
 
 ```sh
 # cd SIEM repository
@@ -216,7 +212,7 @@ git pull --rebase
 
 返回 [**Deploying with the AWS CDK**] 部分并重新运行 [**2. 设置环境变量**], [**3. 创建 AWS Lambda 部署包**] 和 [**4. 为 AWS Cloud Development Kit (AWS CDK)** 设置环境。]
 
-请注意 [5. 使用 AWS CDK 设置安装选项] 和后续步骤**不需要遵循**。 相反，请执行以下命令： 
+请注意 [5. 使用 AWS CDK 设置安装选项] 和后续步骤**不需要遵循**。 相反，请执行以下命令：
 
 ```sh
 cd source/cdk/
