@@ -493,7 +493,7 @@ The initial value of s3_key (specified in the Firehose output path)
 
 ![PostgreSQL to S3](images/postgresql-to-s3.jpg)
 
-The initial value of s3_key : `Postgre` or `postgres` (specified in the Firehose output path)
+The initial value of s3_key : `Postgres` or `postgres` (specified in the Firehose output path)
 
 #### Reference (Aurora PostgreSQL / PostgreSQL)
 
