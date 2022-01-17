@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.6.1-beta.1: log exporter - core resource"
+Description: "SIEM on Amazon OpenSearch Service v2.6.1-beta.2: log exporter - core resource"
 Parameters:
   siemLogBucketName:
     Type: String
@@ -6,12 +6,12 @@ Parameters:
     Description: S3 Bucket name which store logs to load SIEM. Replace 111111111111 to your AWS account
   roleNameCwlToKdf:
     Type: String
-    Default: siem-role-cwl-to-firehose
-    Description: role name for CloudWatch Logs to send data to Kinsis Data Firehose.
+    Default: siem-role-cwl-to-firehose-YOUR-REGION
+    Description: role name for CloudWatch Logs to send data to Kinsis Data Firehose. Replace YOUR-REGION
   roleNameKdfToS3:
     Type: String
-    Default: siem-role-firehose-to-s3
-    Description: role name for Kinesis Data Firehose to send data to S3.
+    Default: siem-role-firehose-to-s3-YOUR-REGION
+    Description: role name for Kinesis Data Firehose to send data to S3. Replace YOUR-REGION
 Resources:
   cwlRole94D20248:
     Type: AWS::IAM::Role
@@ -106,20 +106,12 @@ Outputs:
       Name: sime-log-bucket-name
   cwlRoleName:
     Value:
-      Fn::Join:
-        - ""
-        - - Ref: cwlRole94D20248
-          - "-"
-          - Ref: AWS::Region
+      Ref: cwlRole94D20248
     Export:
       Name: siem-cwl-to-kdf-role-name
   kdfRoleName:
     Value:
-      Fn::Join:
-        - ""
-        - - Ref: firehoseRoleE5891AF8
-          - "-"
-          - Ref: AWS::Region
+      Ref: firehoseRoleE5891AF8
     Export:
       Name: siem-kdf-to-s3-role-name
 

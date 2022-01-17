@@ -346,7 +346,7 @@ s3_key 的初始值(在Firehose output path 路径中指定)
 
 ![PostgreSQL to S3](images/postgresql-to-s3.jpg)
 
-s3_key 的初始值: `Postgre` or `postgres` (在Firehose output path 路径中指定)
+s3_key 的初始值: `Postgre` or `postgre` (在Firehose output path 路径中指定)
 
 #### Reference (Aurora PostgreSQL / PostgreSQL)
 

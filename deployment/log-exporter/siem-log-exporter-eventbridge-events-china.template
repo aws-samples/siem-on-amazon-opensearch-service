@@ -59,7 +59,7 @@ Resources:
         BucketARN:
           Fn::Join:
             - ""
-            - - "arn:aws:s3:::"
+            - - "arn:aws-cn:s3:::"
               - Fn::ImportValue: sime-log-bucket-name
         BufferingHints:
           IntervalInSeconds:
@@ -89,7 +89,7 @@ Resources:
         RoleARN:
           Fn::Join:
             - ""
-            - - "arn:aws:iam::"
+            - - "arn:aws-cn:iam::"
               - Ref: AWS::AccountId
               - :role/service-role/
               - Fn::ImportValue: siem-kdf-to-s3-role-name

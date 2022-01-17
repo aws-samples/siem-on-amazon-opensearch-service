@@ -600,7 +600,7 @@ s3_key の初期値は以下です。Firehose の出力パスに指定してく�
 
 ![PostgreSQL to S3](images/postgresql-to-s3.jpg)
 
-s3_key の初期値: `Postgre` or `postgres` (Firehose の出力パスに指定)
+s3_key の初期値: `Postgre` or `postgre` (Firehose の出力パスに指定)
 
 Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/123456789012/RDS/postgresql/ap-northeast-1`
 
