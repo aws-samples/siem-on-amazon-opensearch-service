@@ -10,6 +10,7 @@
 * [Amazon VPC Flow Logs](#Amazon-VPC-Flow-Logs)
 * [Amazon VPC Flow Logs Custom](#Amazon-VPC-Flow-Logs-Custom)
 * [Elastic Load Balancing](#Elastic-Load-Balancing)
+* [S3 Accesslog](#S3-Accesslog)
 * [Amazon Relational Database Service (RDS)](#Amazon-RDS)
 * [Amazon WorkSpaces](#Amazon-WorkSpaces)
 
@@ -46,6 +47,10 @@
 ## Elastic Load Balancing
 
 ![Elastic Load Balancing Dashboard](images/dashboard-elb.jpg)
+
+## S3 Accesslog
+
+![S3 Accesslog Dashboard](images/dashboard-s3accesslog.jpg)
 
 ## Amazon RDS
 
