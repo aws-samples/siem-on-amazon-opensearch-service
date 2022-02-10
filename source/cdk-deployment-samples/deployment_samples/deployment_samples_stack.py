@@ -31,9 +31,12 @@ import datetime
 import gzip
 import json
 import os
+import time
 
 import boto3
+from botocore.config import Config
 
+config = Config(retries={'max_attempts': 10, 'mode': 'standard'})
 ws_client = boto3.client('workspaces')
 s3_resource = boto3.resource('s3')
 bucket = s3_resource.Bucket(os.environ['log_bucket_name'])
@@ -41,11 +44,12 @@ AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
 AWS_REGION = os.environ['AWS_DEFAULT_REGION']
 paginator = ws_client.get_paginator('describe_workspaces')
 
+
 def lambda_handler(event, context):
     num = 0
     now = datetime.datetime.now()
     file_name = f'workspaces-inventory-{now.strftime("%Y%m%d_%H%M%S")}.json.gz'
-    s3file_name =(
+    s3file_name = (
         f'AWSLogs/{AWS_ID}/WorkSpaces/Inventory/{AWS_REGION}/'
         f'{now.strftime("%Y/%m/%d")}/{file_name}')
     f = gzip.open(f'/tmp/{file_name}', 'tw')
@@ -69,9 +73,11 @@ def lambda_handler(event, context):
         num += len(response['Workspaces'])
         f.write(json.dumps(jsonobj))
         f.flush()
+        # sleep 0.75 second to avoid reaching AWS API rate limit (2rps)
+        time.sleep(0.75)
     f.close()
     print(f'Total nummber of WorkSpaces inventory: {num}')
-    print(f'Upload path: s3://{bucket}/{s3file_name}')
+    print(f'Upload path: s3://{bucket.name}/{s3file_name}')
     bucket.upload_file(f'/tmp/{file_name}', s3file_name)
 '''
 
@@ -411,7 +417,8 @@ class WorkSpacesLogExporterStack(cdk.Stack):
             function_name='siem-get-workspaces-inventory',
             description='SIEM: get workspaces inventory',
             handler='index.lambda_handler',
-            timeout=cdk.Duration.seconds(300),
+            memory_size=160,
+            timeout=cdk.Duration.seconds(600),
             role=role_get_workspaces_inventory,
             environment={'log_bucket_name': log_bucket_name}
         )

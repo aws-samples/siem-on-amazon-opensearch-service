@@ -1,6 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-__copyright__ = 'Amazon.com, Inc. or its affiliates'
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
 __version__ = '2.6.1-beta.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
@@ -10,9 +11,12 @@ import datetime
 import gzip
 import json
 import os
+import time
 
 import boto3
+from botocore.config import Config
 
+config = Config(retries={'max_attempts': 10, 'mode': 'standard'})
 ws_client = boto3.client('workspaces')
 s3_resource = boto3.resource('s3')
 bucket = s3_resource.Bucket(os.environ['log_bucket_name'])
@@ -49,9 +53,11 @@ def lambda_handler(event, context):
         num += len(response['Workspaces'])
         f.write(json.dumps(jsonobj))
         f.flush()
+        # sleep 0.75 second to avoid reaching AWS API rate limit (2rps)
+        time.sleep(0.75)
     f.close()
     print(f'Total nummber of WorkSpaces inventory: {num}')
-    print(f'Upload path: s3://{bucket}/{s3file_name}')
+    print(f'Upload path: s3://{bucket.name}/{s3file_name}')
     bucket.upload_file(f'/tmp/{file_name}', s3file_name)
 
 
