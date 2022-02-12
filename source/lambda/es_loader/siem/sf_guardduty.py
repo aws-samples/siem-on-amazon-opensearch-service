@@ -19,8 +19,9 @@ def transform(logdata):
         label = "medium"
     elif logdata['severity'] <= 8.9:
         label = "high"
-    r = re.compile(r"(?P<ThreatPurpose>\w*):(?P<ResourceTypeAffected>\w*)/"
-                   r"(?P<ThreatFamilyName>[\w\&]*)")
+    r = re.compile(r"/(?P<ThreatPurpose>\w+\s?\w+)"
+                   r"(:|/)(?P<ResourceTypeAffected>\w*)"
+                   r"(/|.|-)(?P<ThreatFamilyName>[\w\&]*)")
     m = r.match(logdata['type'])
     gd = {'severitylabel': label, 'ThreatPurpose': m['ThreatPurpose'],
           'ResourceTypeAffected': m['ResourceTypeAffected'],
