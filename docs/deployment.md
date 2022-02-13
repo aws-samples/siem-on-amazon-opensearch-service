@@ -1,6 +1,6 @@
 # Advanced Deployment
 
-[View this page in Japanese (日本語)](deployment_ja.md) | [Back to README](../README.md)
+[View this page in Japanese (日本語)](deployment_ja.md) | [Chinese (简体中文)](deployment_zh-cn.md) | [Back to README](../README.md)
 
 ## Table of contents
 

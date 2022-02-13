@@ -42,6 +42,7 @@ deployment/open-source/
 es_loader.zip
 geoip_downloader.zip
 deploy_es.zip
+index_china.py
 restore_samplelog.zip
 siemlog.zip
 user.ini
@@ -52,6 +53,7 @@ Lambda*.zip
 dashboard.ndjson.zip
 
 # working files
+.lambda38/
 .lambda39/
 .DS_Store
 temp/

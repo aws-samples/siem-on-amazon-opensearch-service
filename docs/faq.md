@@ -1,6 +1,6 @@
 # FAQ
 
-[View this page in Japanese (日本語)](faq_ja.md) | [Back to README](../README.md)
+[View this page in Japanese (日本語)](faq_ja.md) | [Chinese (简体中文)](faq_zh-cn.md) | [Back to README](../README.md)
 
 ## What if I find a bug?
 

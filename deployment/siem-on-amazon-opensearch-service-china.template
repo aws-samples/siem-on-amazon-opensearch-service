@@ -1,0 +1,2170 @@
+{
+  "Description": "SIEM on Amazon OpenSearch Service v2.6.1",
+  "Mappings": {
+    "RegionMap": {
+      "af-south-1": {
+        "ElbV2AccountId": "098369216593",
+        "LambdaArch": "x86_64"
+      },
+      "ap-east-1": {
+        "ElbV2AccountId": "754344448648",
+        "LambdaArch": "x86_64"
+      },
+      "ap-northeast-1": {
+        "ElbV2AccountId": "582318560864",
+        "LambdaArch": "arm64"
+      },
+      "ap-northeast-2": {
+        "ElbV2AccountId": "600734575887",
+        "LambdaArch": "x86_64"
+      },
+      "ap-northeast-3": {
+        "ElbV2AccountId": "383597477331",
+        "LambdaArch": "x86_64"
+      },
+      "ap-south-1": {
+        "ElbV2AccountId": "718504428378",
+        "LambdaArch": "arm64"
+      },
+      "ap-southeast-1": {
+        "ElbV2AccountId": "114774131450",
+        "LambdaArch": "arm64"
+      },
+      "ap-southeast-2": {
+        "ElbV2AccountId": "783225319266",
+        "LambdaArch": "arm64"
+      },
+      "ca-central-1": {
+        "ElbV2AccountId": "985666609251",
+        "LambdaArch": "x86_64"
+      },
+      "cn-north-1": {
+        "ElbV2AccountId": "638102146993",
+        "LambdaArch": "x86_64"
+      },
+      "cn-northwest-1": {
+        "ElbV2AccountId": "037604701340",
+        "LambdaArch": "x86_64"
+      },
+      "eu-central-1": {
+        "ElbV2AccountId": "054676820928",
+        "LambdaArch": "arm64"
+      },
+      "eu-north-1": {
+        "ElbV2AccountId": "897822967062",
+        "LambdaArch": "x86_64"
+      },
+      "eu-south-1": {
+        "ElbV2AccountId": "635631232127",
+        "LambdaArch": "x86_64"
+      },
+      "eu-west-1": {
+        "ElbV2AccountId": "156460612806",
+        "LambdaArch": "arm64"
+      },
+      "eu-west-2": {
+        "ElbV2AccountId": "652711504416",
+        "LambdaArch": "arm64"
+      },
+      "eu-west-3": {
+        "ElbV2AccountId": "009996457667",
+        "LambdaArch": "x86_64"
+      },
+      "me-south-1": {
+        "ElbV2AccountId": "076674570225",
+        "LambdaArch": "x86_64"
+      },
+      "sa-east-1": {
+        "ElbV2AccountId": "507241528517",
+        "LambdaArch": "x86_64"
+      },
+      "us-east-1": {
+        "ElbV2AccountId": "127311923021",
+        "LambdaArch": "arm64"
+      },
+      "us-east-2": {
+        "ElbV2AccountId": "033677994240",
+        "LambdaArch": "arm64"
+      },
+      "us-gov-east-1": {
+        "ElbV2AccountId": "190560391635",
+        "LambdaArch": "x86_64"
+      },
+      "us-gov-west-1": {
+        "ElbV2AccountId": "048591011584",
+        "LambdaArch": "x86_64"
+      },
+      "us-west-1": {
+        "ElbV2AccountId": "027434742980",
+        "LambdaArch": "x86_64"
+      },
+      "us-west-2": {
+        "ElbV2AccountId": "797873946194",
+        "LambdaArch": "arm64"
+      }
+    }
+  },
+  "Parameters": {
+    "AllowedSourceIpAddresses": {
+      "Type": "String",
+      "Default": "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16",
+      "AllowedPattern": "^[0-9./\\s]*",
+      "Description": "Space-delimited list of CIDR blocks"
+    },
+    "SnsEmail": {
+      "Type": "String",
+      "Default": "user+sns@example.com",
+      "AllowedPattern": "^[0-9a-zA-Z@_\\-\\+\\.]*",
+      "Description": "Input your email as SNS topic, where Amazon OpenSearch Service will send alerts to"
+    },
+    "GeoLite2LicenseKey": {
+      "Type": "String",
+      "Default": "xxxxxxxxxxxxxxxx",
+      "AllowedPattern": "^[0-9a-zA-Z]{16}$",
+      "Description": "If you wolud like to enrich geoip locaiton such as IP address's country, get a license key form MaxMind and input the key. If you not, keep xxxxxxxxxxxxxxxx"
+    },
+    "ReservedConcurrency": {
+      "Type": "Number",
+      "Default": 10,
+      "Description": "Input reserved concurrency. Increase this value if there are steady logs delay despite no errors"
+    }
+  },
+  "Conditions": {
+    "IsVpc": {
+      "Fn::Equals": [
+        false,
+        true
+      ]
+    }
+  },
+  "Resources": {
+    "KmsAesSiemLog44B26597": {
+      "Type": "AWS::KMS::Key",
+      "Properties": {
+        "KeyPolicy": {
+          "Statement": [
+            {
+              "Action": [
+                "kms:Create*",
+                "kms:Describe*",
+                "kms:Enable*",
+                "kms:List*",
+                "kms:Put*",
+                "kms:Update*",
+                "kms:Revoke*",
+                "kms:Disable*",
+                "kms:Get*",
+                "kms:Delete*",
+                "kms:ScheduleKeyDeletion",
+                "kms:CancelKeyDeletion",
+                "kms:GenerateDataKey",
+                "kms:TagResource",
+                "kms:UntagResource"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":root"
+                    ]
+                  ]
+                }
+              },
+              "Resource": "*"
+            },
+            {
+              "Action": "kms:GenerateDataKey",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "guardduty.amazonaws.com"
+              },
+              "Resource": "*",
+              "Sid": "Allow GuardDuty to use the key"
+            },
+            {
+              "Action": [
+                "kms:Encrypt",
+                "kms:Decrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*",
+                "kms:DescribeKey"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "delivery.logs.amazonaws.com"
+              },
+              "Resource": "*",
+              "Sid": "Allow VPC Flow Logs to use the key"
+            },
+            {
+              "Action": [
+                "kms:DescribeKey",
+                "kms:ReEncryptFrom"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":root"
+                    ]
+                  ]
+                }
+              },
+              "Resource": "*",
+              "Sid": "Allow principals in the account to decrypt log files"
+            },
+            {
+              "Action": [
+                "kms:Decrypt",
+                "kms:DescribeKey",
+                "kms:Encrypt",
+                "kms:GenerateDataKey*",
+                "kms:ReEncrypt*"
+              ],
+              "Condition": {
+                "ForAnyValue:StringEquals": {
+                  "aws:CalledVia": "athena.amazonaws.com"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":root"
+                    ]
+                  ]
+                }
+              },
+              "Resource": "*",
+              "Sid": "Allow Athena to query s3 objects with this key"
+            },
+            {
+              "Action": "kms:DescribeKey",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudtrail.amazonaws.com"
+              },
+              "Resource": "*",
+              "Sid": "Allow CloudTrail to describe key"
+            },
+            {
+              "Action": "kms:GenerateDataKey*",
+              "Condition": {
+                "StringLike": {
+                  "kms:EncryptionContext:aws:cloudtrail:arn": [
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws-cn:cloudtrail:*:",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":trail/*"
+                        ]
+                      ]
+                    }
+                  ]
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudtrail.amazonaws.com"
+              },
+              "Resource": "*",
+              "Sid": "Allow CloudTrail to encrypt logs"
+            },
+            {
+              "Action": "kms:Decrypt",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::GetAtt": [
+                    "LambdaEsLoaderServiceRoleFFD43869",
+                    "Arn"
+                  ]
+                }
+              },
+              "Resource": "*"
+            },
+            {
+              "Action": "kms:Decrypt",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::GetAtt": [
+                    "AesSiemEsLoaderEC2RoleFE3F9F00",
+                    "Arn"
+                  ]
+                }
+              },
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Description": "CMK for SIEM solution"
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    },
+    "KmsAesSiemLogAliasE0A4C571": {
+      "Type": "AWS::KMS::Alias",
+      "Properties": {
+        "AliasName": "alias/aes-siem-key",
+        "TargetKeyId": {
+          "Fn::GetAtt": [
+            "KmsAesSiemLog44B26597",
+            "Arn"
+          ]
+        }
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    },
+    "S3BucketForGeoip04B5F171": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": {
+          "Fn::Join": [
+            "",
+            [
+              "aes-siem-",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "-geo"
+            ]
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        }
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    },
+    "S3BucketForGeoipPolicy854C0CB1": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "S3BucketForGeoip04B5F171"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": [
+                  {
+                    "Fn::GetAtt": [
+                      "LambdaEsLoaderServiceRoleFFD43869",
+                      "Arn"
+                    ]
+                  },
+                  {
+                    "Fn::GetAtt": [
+                      "LambdaGeoipDownloaderServiceRoleE37FB908",
+                      "Arn"
+                    ]
+                  }
+                ]
+              },
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "S3BucketForGeoip04B5F171",
+                        "Arn"
+                      ]
+                    },
+                    "/*"
+                  ]
+                ]
+              },
+              "Sid": "Allow geoip downloader and es-loader to read/write"
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      }
+    },
+    "S3BucketForLogNotificationsAEE88E1E": {
+      "Type": "Custom::S3BucketNotifications",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": [
+            "BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691",
+            "Arn"
+          ]
+        },
+        "BucketName": {
+          "Ref": "S3BucketForLog20898FE4"
+        },
+        "NotificationConfiguration": {
+          "LambdaFunctionConfigurations": [
+            {
+              "Events": [
+                "s3:ObjectCreated:*"
+              ],
+              "Filter": {
+                "Key": {
+                  "FilterRules": [
+                    {
+                      "Name": "prefix",
+                      "Value": "AWSLogs/"
+                    }
+                  ]
+                }
+              },
+              "LambdaFunctionArn": {
+                "Fn::GetAtt": [
+                  "LambdaEsLoader4B1E2DD9",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Events": [
+                "s3:ObjectCreated:*"
+              ],
+              "Filter": {
+                "Key": {
+                  "FilterRules": [
+                    {
+                      "Name": "prefix",
+                      "Value": "UserLogs/"
+                    }
+                  ]
+                }
+              },
+              "LambdaFunctionArn": {
+                "Fn::GetAtt": [
+                  "LambdaEsLoader4B1E2DD9",
+                  "Arn"
+                ]
+              }
+            }
+          ]
+        },
+        "Managed": true
+      },
+      "DependsOn": [
+        "S3BucketForLogAllowBucketNotificationsToaessiemLambdaEsLoaderEBF3B9FB7766EAA3"
+      ]
+    },
+    "S3BucketForLog20898FE4": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "BucketName": {
+          "Fn::Join": [
+            "",
+            [
+              "aes-siem-",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "-log"
+            ]
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    },
+    "S3BucketForLogAllowBucketNotificationsToaessiemLambdaEsLoaderEBF3B9FB7766EAA3": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "LambdaEsLoader4B1E2DD9",
+            "Arn"
+          ]
+        },
+        "Principal": "s3.amazonaws.com",
+        "SourceAccount": {
+          "Ref": "AWS::AccountId"
+        },
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "S3BucketForLog20898FE4",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "S3BucketForLogPolicy546D5712": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "S3BucketForLog20898FE4"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:PutObject",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":iam::",
+                      {
+                        "Fn::FindInMap": [
+                          "RegionMap",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          "ElbV2AccountId"
+                        ]
+                      },
+                      ":root"
+                    ]
+                  ]
+                }
+              },
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "S3BucketForLog20898FE4",
+                        "Arn"
+                      ]
+                    },
+                    "/AWSLogs/",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    "/*"
+                  ]
+                ]
+              },
+              "Sid": "ELB Policy"
+            },
+            {
+              "Action": [
+                "s3:GetBucketAcl",
+                "s3:ListBucket"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "delivery.logs.amazonaws.com"
+              },
+              "Resource": {
+                "Fn::GetAtt": [
+                  "S3BucketForLog20898FE4",
+                  "Arn"
+                ]
+              },
+              "Sid": "AWSLogDeliveryAclCheck For ALB NLB R53Resolver Flowlogs"
+            },
+            {
+              "Action": "s3:PutObject",
+              "Condition": {
+                "StringEquals": {
+                  "s3:x-amz-acl": "bucket-owner-full-control"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "delivery.logs.amazonaws.com"
+              },
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "S3BucketForLog20898FE4",
+                        "Arn"
+                      ]
+                    },
+                    "/AWSLogs/",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    "/*"
+                  ]
+                ]
+              },
+              "Sid": "AWSLogDeliveryWrite For ALB NLB R53Resolver Flowlogs"
+            },
+            {
+              "Action": "s3:GetBucketAcl",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudtrail.amazonaws.com"
+              },
+              "Resource": {
+                "Fn::GetAtt": [
+                  "S3BucketForLog20898FE4",
+                  "Arn"
+                ]
+              },
+              "Sid": "AWSLogDeliveryAclCheck For Cloudtrail"
+            },
+            {
+              "Action": "s3:PutObject",
+              "Condition": {
+                "StringEquals": {
+                  "s3:x-amz-acl": "bucket-owner-full-control"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudtrail.amazonaws.com"
+              },
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "S3BucketForLog20898FE4",
+                        "Arn"
+                      ]
+                    },
+                    "/AWSLogs/",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    "/*"
+                  ]
+                ]
+              },
+              "Sid": "AWSLogDeliveryWrite For CloudTrail"
+            },
+            {
+              "Action": "s3:GetBucketLocation",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "guardduty.amazonaws.com"
+              },
+              "Resource": {
+                "Fn::GetAtt": [
+                  "S3BucketForLog20898FE4",
+                  "Arn"
+                ]
+              },
+              "Sid": "Allow GuardDuty to use the getBucketLocation operation"
+            },
+            {
+              "Action": "s3:PutObject",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "guardduty.amazonaws.com"
+              },
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "S3BucketForLog20898FE4",
+                        "Arn"
+                      ]
+                    },
+                    "/*"
+                  ]
+                ]
+              },
+              "Sid": "Allow GuardDuty to upload objects to the bucket"
+            },
+            {
+              "Action": "s3:*",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false"
+                }
+              },
+              "Effect": "Deny",
+              "Principal": {
+                "AWS": "*"
+              },
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "S3BucketForLog20898FE4",
+                        "Arn"
+                      ]
+                    },
+                    "/*"
+                  ]
+                ]
+              },
+              "Sid": "Deny non-HTTPS access"
+            },
+            {
+              "Action": [
+                "s3:GetBucketAcl",
+                "s3:ListBucket"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "config.amazonaws.com"
+              },
+              "Resource": {
+                "Fn::GetAtt": [
+                  "S3BucketForLog20898FE4",
+                  "Arn"
+                ]
+              },
+              "Sid": "AWSConfig BucketPermissionsCheck and BucketExistenceCheck"
+            },
+            {
+              "Action": "s3:PutObject",
+              "Condition": {
+                "StringEquals": {
+                  "s3:x-amz-acl": "bucket-owner-full-control"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "config.amazonaws.com"
+              },
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "S3BucketForLog20898FE4",
+                        "Arn"
+                      ]
+                    },
+                    "/AWSLogs/",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    "/Config/*"
+                  ]
+                ]
+              },
+              "Sid": "AWSConfigBucketDelivery"
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      }
+    },
+    "S3BucketForSnapshot40E67D36": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": {
+          "Fn::Join": [
+            "",
+            [
+              "aes-siem-",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "-snapshot"
+            ]
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        }
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    },
+    "S3BucketForSnapshotPolicy3DEBD2C0": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "S3BucketForSnapshot40E67D36"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::GetAtt": [
+                    "AesSiemSnapshotRoleF313ED39",
+                    "Arn"
+                  ]
+                }
+              },
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "S3BucketForSnapshot40E67D36",
+                        "Arn"
+                      ]
+                    },
+                    "/*"
+                  ]
+                ]
+              },
+              "Sid": "Allow ES to store snapshot"
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      }
+    },
+    "AesSiemSnapshotRoleF313ED39": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "es.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Policies": [
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": "s3:ListBucket",
+                  "Effect": "Allow",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "S3BucketForSnapshot40E67D36",
+                      "Arn"
+                    ]
+                  }
+                },
+                {
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:DeleteObject"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        {
+                          "Fn::GetAtt": [
+                            "S3BucketForSnapshot40E67D36",
+                            "Arn"
+                          ]
+                        },
+                        "/*"
+                      ]
+                    ]
+                  }
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "0"
+          }
+        ],
+        "RoleName": "aes-siem-snapshot-role"
+      }
+    },
+    "AesSiemDeployRoleForLambda654D64F2": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/AmazonOpenSearchServiceFullAccess"
+              ]
+            ]
+          },
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ],
+        "Policies": [
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": "iam:PassRole",
+                  "Effect": "Allow",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "AesSiemSnapshotRoleF313ED39",
+                      "Arn"
+                    ]
+                  }
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "0"
+          },
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": "s3:ListBucket",
+                  "Effect": "Allow",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "S3BucketForSnapshot40E67D36",
+                      "Arn"
+                    ]
+                  }
+                },
+                {
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:DeleteObject"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        {
+                          "Fn::GetAtt": [
+                            "S3BucketForSnapshot40E67D36",
+                            "Arn"
+                          ]
+                        },
+                        "/*"
+                      ]
+                    ]
+                  }
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "1"
+          },
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": [
+                    "logs:PutResourcePolicy",
+                    "logs:DescribeLogGroups",
+                    "logs:DescribeLogStreams"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:aws-cn:logs:",
+                        {
+                          "Ref": "AWS::Region"
+                        },
+                        ":",
+                        {
+                          "Ref": "AWS::AccountId"
+                        },
+                        ":*"
+                      ]
+                    ]
+                  }
+                },
+                {
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents",
+                    "logs:PutRetentionPolicy"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": [
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws-cn:logs:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":log-group:/aws/aes/domains/aes-siem/*"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws-cn:logs:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":log-group:/aws/OpenSearchService/domains/aes-siem/*"
+                        ]
+                      ]
+                    },
+                    {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "arn:aws-cn:logs:",
+                          {
+                            "Ref": "AWS::Region"
+                          },
+                          ":",
+                          {
+                            "Ref": "AWS::AccountId"
+                          },
+                          ":log-group:/aws/lambda/aes-siem-*"
+                        ]
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "2"
+          },
+          {
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Action": [
+                    "lambda:AddPermission",
+                    "lambda:RemovePermission",
+                    "events:ListRules",
+                    "events:PutRule",
+                    "events:DeleteRule",
+                    "events:PutTargets",
+                    "events:RemoveTargets"
+                  ],
+                  "Effect": "Allow",
+                  "Resource": "*"
+                }
+              ],
+              "Version": "2012-10-17"
+            },
+            "PolicyName": "3"
+          }
+        ],
+        "RoleName": "aes-siem-deploy-role-for-lambda"
+      }
+    },
+    "AesSiemSnsRole64262F46": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "es.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "RoleName": "aes-siem-sns-role"
+      }
+    },
+    "AesSiemSnsRoleDefaultPolicy7B8095B5": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "SnsTopic2C1570A4"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "AesSiemSnsRoleDefaultPolicy7B8095B5",
+        "Roles": [
+          {
+            "Ref": "AesSiemSnsRole64262F46"
+          }
+        ]
+      }
+    },
+    "AesSiemEsLoaderEC2RoleFE3F9F00": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com.cn"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "RoleName": "aes-siem-es-loader-for-ec2"
+      }
+    },
+    "AesSiemEsLoaderEC2RoleDefaultPolicyAF44001A": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "sqs:GetQueue*",
+                "sqs:ListQueues*",
+                "sqs:ReceiveMessage*",
+                "sqs:DeleteMessage*"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "AesSiemDlq1CD8439D",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": "kms:Decrypt",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "KmsAesSiemLog44B26597",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "S3BucketForGeoip04B5F171",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "S3BucketForGeoip04B5F171",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "S3BucketForLog20898FE4",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "S3BucketForLog20898FE4",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "AesSiemEsLoaderEC2RoleDefaultPolicyAF44001A",
+        "Roles": [
+          {
+            "Ref": "AesSiemEsLoaderEC2RoleFE3F9F00"
+          }
+        ]
+      }
+    },
+    "AesSiemEsLoaderEC2InstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "AesSiemEsLoaderEC2RoleFE3F9F00"
+          }
+        ],
+        "InstanceProfileName": {
+          "Ref": "AesSiemEsLoaderEC2RoleFE3F9F00"
+        }
+      }
+    },
+    "AesSiemDlq1CD8439D": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "MessageRetentionPeriod": 1209600,
+        "QueueName": "aes-siem-dlq"
+      },
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete"
+    },
+    "AesSiemSqsSplitLogs0191F431": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "MessageRetentionPeriod": 1209600,
+        "QueueName": "aes-siem-sqs-splitted-logs",
+        "RedrivePolicy": {
+          "deadLetterTargetArn": {
+            "Fn::GetAtt": [
+              "AesSiemDlq1CD8439D",
+              "Arn"
+            ]
+          },
+          "maxReceiveCount": 2
+        },
+        "VisibilityTimeout": 600
+      },
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete"
+    },
+    "LambdaEsLoaderServiceRoleFFD43869": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sqs:SendMessage",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "AesSiemDlq1CD8439D",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": [
+                "sqs:SendMessage",
+                "sqs:ReceiveMessage",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "AesSiemDlq1CD8439D",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": [
+                "sqs:SendMessage",
+                "sqs:ReceiveMessage",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "AesSiemSqsSplitLogs0191F431",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": [
+                "sqs:ReceiveMessage",
+                "sqs:ChangeMessageVisibility",
+                "sqs:GetQueueUrl",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "AesSiemSqsSplitLogs0191F431",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": "kms:Decrypt",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "KmsAesSiemLog44B26597",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "S3BucketForGeoip04B5F171",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "S3BucketForGeoip04B5F171",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "S3BucketForLog20898FE4",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "S3BucketForLog20898FE4",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3",
+        "Roles": [
+          {
+            "Ref": "LambdaEsLoaderServiceRoleFFD43869"
+          }
+        ]
+      }
+    },
+    "LambdaEsLoader4B1E2DD9": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "%%BUCKET_NAME%%",
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaEsLoaderServiceRoleFFD43869",
+            "Arn"
+          ]
+        },
+        "Architectures": [
+          "x86_64"
+        ],
+        "DeadLetterConfig": {
+          "TargetArn": {
+            "Fn::GetAtt": [
+              "AesSiemDlq1CD8439D",
+              "Arn"
+            ]
+          }
+        },
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.1 / es-loader",
+        "Environment": {
+          "Variables": {
+            "GEOIP_BUCKET": {
+              "Fn::Join": [
+                "",
+                [
+                  "aes-siem-",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "-geo"
+                ]
+              ]
+            },
+            "LOG_LEVEL": "info",
+            "POWERTOOLS_LOGGER_LOG_EVENT": "false",
+            "POWERTOOLS_SERVICE_NAME": "es-loader",
+            "POWERTOOLS_METRICS_NAMESPACE": "SIEM",
+            "ES_ENDPOINT": {
+              "Fn::GetAtt": [
+                "AesSiemDomainDeployedR2",
+                "es_endpoint"
+              ]
+            },
+            "SQS_SPLITTED_LOGS_URL": {
+              "Ref": "AesSiemSqsSplitLogs0191F431"
+            }
+          }
+        },
+        "FunctionName": "aes-siem-es-loader",
+        "Handler": "index.lambda_handler",
+        "MemorySize": 2048,
+        "ReservedConcurrentExecutions": {
+          "Ref": "ReservedConcurrency"
+        },
+        "Runtime": "python3.8",
+        "Timeout": 600
+      },
+      "DependsOn": [
+        "LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3",
+        "LambdaEsLoaderServiceRoleFFD43869"
+      ]
+    },
+    "LambdaEsLoaderVersion261D4096642": {
+      "Type": "AWS::Lambda::Version",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "LambdaEsLoader4B1E2DD9"
+        },
+        "Description": "2.6.1"
+      },
+      "DeletionPolicy": "Retain"
+    },
+    "LambdaEsLoaderSqsEventSourceaessiemAesSiemSqsSplitLogs506AFFA6A7D8B2E9": {
+      "Type": "AWS::Lambda::EventSourceMapping",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "LambdaEsLoader4B1E2DD9"
+        },
+        "BatchSize": 1,
+        "EventSourceArn": {
+          "Fn::GetAtt": [
+            "AesSiemSqsSplitLogs0191F431",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "LambdaGeoipDownloaderServiceRoleE37FB908": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+                "s3:DeleteObject*",
+                "s3:PutObject*",
+                "s3:Abort*"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "S3BucketForGeoip04B5F171",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "S3BucketForGeoip04B5F171",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65",
+        "Roles": [
+          {
+            "Ref": "LambdaGeoipDownloaderServiceRoleE37FB908"
+          }
+        ]
+      }
+    },
+    "LambdaGeoipDownloaderA5EFF97E": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "%%BUCKET_NAME%%",
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/geoip_downloader.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaGeoipDownloaderServiceRoleE37FB908",
+            "Arn"
+          ]
+        },
+        "Architectures": [
+          "x86_64"
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.1 / geoip-downloader",
+        "Environment": {
+          "Variables": {
+            "s3bucket_name": {
+              "Fn::Join": [
+                "",
+                [
+                  "aes-siem-",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "-geo"
+                ]
+              ]
+            },
+            "license_key": {
+              "Ref": "GeoLite2LicenseKey"
+            }
+          }
+        },
+        "FunctionName": "aes-siem-geoip-downloader",
+        "Handler": "index.lambda_handler",
+        "MemorySize": 320,
+        "Runtime": "python3.8",
+        "Timeout": 300
+      },
+      "DependsOn": [
+        "LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65",
+        "LambdaGeoipDownloaderServiceRoleE37FB908"
+      ]
+    },
+    "LambdaGeoipDownloaderVersion261FCF6F8D7": {
+      "Type": "AWS::Lambda::Version",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "LambdaGeoipDownloaderA5EFF97E"
+        },
+        "Description": "2.6.1"
+      },
+      "DeletionPolicy": "Retain"
+    },
+    "LambdaDeployAES636B5079": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "%%BUCKET_NAME%%",
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "AesSiemDeployRoleForLambda654D64F2",
+            "Arn"
+          ]
+        },
+        "Architectures": [
+          "x86_64"
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.1 / opensearch domain deployment",
+        "Environment": {
+          "Variables": {
+            "accountid": {
+              "Ref": "AWS::AccountId"
+            },
+            "aes_domain_name": "aes-siem",
+            "aes_admin_role": {
+              "Fn::GetAtt": [
+                "AesSiemDeployRoleForLambda654D64F2",
+                "Arn"
+              ]
+            },
+            "es_loader_role": {
+              "Fn::GetAtt": [
+                "LambdaEsLoaderServiceRoleFFD43869",
+                "Arn"
+              ]
+            },
+            "allow_source_address": {
+              "Ref": "AllowedSourceIpAddresses"
+            },
+            "s3_snapshot": {
+              "Ref": "S3BucketForSnapshot40E67D36"
+            },
+            "vpc_subnet_id": "None",
+            "security_group_id": "None"
+          }
+        },
+        "FunctionName": "aes-siem-deploy-aes",
+        "Handler": "index_china.aes_domain_handler",
+        "MemorySize": 128,
+        "Runtime": "python3.8",
+        "Timeout": 300
+      },
+      "DependsOn": [
+        "AesSiemDeployRoleForLambda654D64F2"
+      ]
+    },
+    "LambdaDeployAESVersion261C7F3C0C3": {
+      "Type": "AWS::Lambda::Version",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "LambdaDeployAES636B5079"
+        },
+        "Description": "2.6.1"
+      },
+      "DeletionPolicy": "Retain"
+    },
+    "AesSiemDomainDeployedR2": {
+      "Type": "AWS::CloudFormation::CustomResource",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": [
+            "LambdaDeployAES636B5079",
+            "Arn"
+          ]
+        },
+        "ConfigVersion": "2.6.1"
+      }
+    },
+    "LambdaConfigureAESA0471961": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "%%BUCKET_NAME%%",
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "AesSiemDeployRoleForLambda654D64F2",
+            "Arn"
+          ]
+        },
+        "Architectures": [
+          "x86_64"
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.1 / opensearch configuration",
+        "Environment": {
+          "Variables": {
+            "accountid": {
+              "Ref": "AWS::AccountId"
+            },
+            "aes_domain_name": "aes-siem",
+            "aes_admin_role": {
+              "Fn::GetAtt": [
+                "AesSiemDeployRoleForLambda654D64F2",
+                "Arn"
+              ]
+            },
+            "es_loader_role": {
+              "Fn::GetAtt": [
+                "LambdaEsLoaderServiceRoleFFD43869",
+                "Arn"
+              ]
+            },
+            "allow_source_address": {
+              "Ref": "AllowedSourceIpAddresses"
+            },
+            "es_endpoint": {
+              "Fn::GetAtt": [
+                "AesSiemDomainDeployedR2",
+                "es_endpoint"
+              ]
+            },
+            "s3_snapshot": {
+              "Ref": "S3BucketForSnapshot40E67D36"
+            },
+            "vpc_subnet_id": "None",
+            "security_group_id": "None"
+          }
+        },
+        "FunctionName": "aes-siem-configure-aes",
+        "Handler": "index_china.aes_config_handler",
+        "MemorySize": 128,
+        "Runtime": "python3.8",
+        "Timeout": 300
+      },
+      "DependsOn": [
+        "AesSiemDeployRoleForLambda654D64F2"
+      ]
+    },
+    "LambdaConfigureAESVersion261AB594296": {
+      "Type": "AWS::Lambda::Version",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "LambdaConfigureAESA0471961"
+        },
+        "Description": "2.6.1"
+      },
+      "DeletionPolicy": "Retain"
+    },
+    "AesSiemDomainConfiguredR2": {
+      "Type": "AWS::CloudFormation::CustomResource",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": [
+            "LambdaConfigureAESA0471961",
+            "Arn"
+          ]
+        },
+        "ConfigVersion": "2.6.1"
+      },
+      "DependsOn": [
+        "AesSiemDomainDeployedR2"
+      ],
+      "DeletionPolicy": "Retain"
+    },
+    "aessiempolicytoloadentriestoesE6506021": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "es:*",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:aws-cn:es:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":domain/aes-siem/*"
+                  ]
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "aes-siem-policy-to-load-entries-to-es",
+        "Roles": [
+          {
+            "Ref": "LambdaEsLoaderServiceRoleFFD43869"
+          },
+          {
+            "Ref": "AesSiemEsLoaderEC2RoleFE3F9F00"
+          }
+        ]
+      }
+    },
+    "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:PutBucketNotification",
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36",
+        "Roles": [
+          {
+            "Ref": "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC"
+          }
+        ]
+      }
+    },
+    "BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Description": "AWS CloudFormation handler for \"Custom::S3BucketNotifications\" resources (@aws-cdk/aws-s3)",
+        "Code": {
+          "ZipFile": "import boto3  # type: ignore\nimport json\nimport logging\nimport urllib.request\n\ns3 = boto3.client(\"s3\")\n\nCONFIGURATION_TYPES = [\"TopicConfigurations\", \"QueueConfigurations\", \"LambdaFunctionConfigurations\"]\n\ndef handler(event: dict, context):\n    response_status = \"SUCCESS\"\n    error_message = \"\"\n    try:\n        props = event[\"ResourceProperties\"]\n        bucket = props[\"BucketName\"]\n        notification_configuration = props[\"NotificationConfiguration\"]\n        request_type = event[\"RequestType\"]\n        managed = props.get('Managed', 'true').lower() == 'true'\n        stack_id = event['StackId']\n\n        if managed:\n          config = handle_managed(request_type, notification_configuration)\n        else:\n          config = handle_unmanaged(bucket, stack_id, request_type, notification_configuration)\n\n        put_bucket_notification_configuration(bucket, config)\n    except Exception as e:\n        logging.exception(\"Failed to put bucket notification configuration\")\n        response_status = \"FAILED\"\n        error_message = f\"Error: {str(e)}. \"\n    finally:\n        submit_response(event, context, response_status, error_message)\n\n\ndef handle_managed(request_type, notification_configuration):\n  if request_type == 'Delete':\n    return {}\n  return notification_configuration\n\n\ndef handle_unmanaged(bucket, stack_id, request_type, notification_configuration):\n\n  # find external notifications\n  external_notifications = find_external_notifications(bucket, stack_id)\n\n  # if delete, that's all we need\n  if request_type == 'Delete':\n    return external_notifications\n\n  def with_id(notification):\n    notification['Id'] = f\"{stack_id}-{hash(json.dumps(notification, sort_keys=True))}\"\n    return notification\n\n  # otherwise, merge external with incoming config and augment with id\n  notifications = {}\n  for t in CONFIGURATION_TYPES:\n    external = external_notifications.get(t, [])\n    incoming = [with_id(n) for n in notification_configuration.get(t, [])]\n    notifications[t] = external + incoming\n  return notifications\n\n\ndef find_external_notifications(bucket, stack_id):\n  existing_notifications = get_bucket_notification_configuration(bucket)\n  external_notifications = {}\n  for t in CONFIGURATION_TYPES:\n    # if the notification was created by us, we know what id to expect\n    # so we can filter by it.\n    external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'].startswith(f\"{stack_id}-\")]\n\n  return external_notifications\n\n\ndef get_bucket_notification_configuration(bucket):\n  return s3.get_bucket_notification_configuration(Bucket=bucket)\n\n\ndef put_bucket_notification_configuration(bucket, notification_configuration):\n  s3.put_bucket_notification_configuration(Bucket=bucket, NotificationConfiguration=notification_configuration)\n\n\ndef submit_response(event: dict, context, response_status: str, error_message: str):\n    response_body = json.dumps(\n        {\n            \"Status\": response_status,\n            \"Reason\": f\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\",\n            \"PhysicalResourceId\": event.get(\"PhysicalResourceId\") or event[\"LogicalResourceId\"],\n            \"StackId\": event[\"StackId\"],\n            \"RequestId\": event[\"RequestId\"],\n            \"LogicalResourceId\": event[\"LogicalResourceId\"],\n            \"NoEcho\": False,\n        }\n    ).encode(\"utf-8\")\n    headers = {\"content-type\": \"\", \"content-length\": str(len(response_body))}\n    try:\n        req = urllib.request.Request(url=event[\"ResponseURL\"], headers=headers, data=response_body, method=\"PUT\")\n        with urllib.request.urlopen(req) as response:\n            print(response.read().decode(\"utf-8\"))\n        print(\"Status code: \" + response.reason)\n    except Exception as e:\n        print(\"send(..) failed executing request.urlopen(..): \" + str(e))\n"
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC",
+            "Arn"
+          ]
+        },
+        "Runtime": "python3.7",
+        "Timeout": 300
+      },
+      "DependsOn": [
+        "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36",
+        "BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC"
+      ]
+    },
+    "ExecLambdaGeoipDownloader": {
+      "Type": "AWS::CloudFormation::CustomResource",
+      "Properties": {
+        "ServiceToken": {
+          "Fn::GetAtt": [
+            "LambdaGeoipDownloaderA5EFF97E",
+            "Arn"
+          ]
+        }
+      },
+      "DeletionPolicy": "Retain"
+    },
+    "CwlRuleLambdaGeoipDownloaderDillyF68D857D": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "ScheduleExpression": "rate(12 hours)",
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "LambdaGeoipDownloaderA5EFF97E",
+                "Arn"
+              ]
+            },
+            "Id": "Target0"
+          }
+        ]
+      }
+    },
+    "CwlRuleLambdaGeoipDownloaderDillyAllowEventRuleaessiemLambdaGeoipDownloaderC2D21D0094BEB6E6": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "LambdaGeoipDownloaderA5EFF97E",
+            "Arn"
+          ]
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "CwlRuleLambdaGeoipDownloaderDillyF68D857D",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "SnsTopic2C1570A4": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "DisplayName": "AES SIEM",
+        "TopicName": "aes-siem-alert"
+      }
+    },
+    "SnsTopicTokenSubscription1D5A46B4F": {
+      "Type": "AWS::SNS::Subscription",
+      "Properties": {
+        "Protocol": "email",
+        "TopicArn": {
+          "Ref": "SnsTopic2C1570A4"
+        },
+        "Endpoint": {
+          "Ref": "SnsEmail"
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "RoleDeploy": {
+      "Value": {
+        "Fn::GetAtt": [
+          "AesSiemDeployRoleForLambda654D64F2",
+          "Arn"
+        ]
+      },
+      "Export": {
+        "Name": "role-deploy"
+      }
+    },
+    "DashboardsUrl": {
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "https://",
+            {
+              "Fn::GetAtt": [
+                "AesSiemDomainDeployedR2",
+                "es_endpoint"
+              ]
+            },
+            "/_dashboards/"
+          ]
+        ]
+      },
+      "Export": {
+        "Name": "dashboards-url"
+      }
+    },
+    "DashboardsPassword": {
+      "Description": "Please change the password in OpenSearch Dashboards ASAP",
+      "Value": {
+        "Fn::GetAtt": [
+          "AesSiemDomainDeployedR2",
+          "kibanapass"
+        ]
+      },
+      "Export": {
+        "Name": "dashboards-pass"
+      }
+    },
+    "DashboardsAdminID": {
+      "Value": {
+        "Fn::GetAtt": [
+          "AesSiemDomainDeployedR2",
+          "kibanaadmin"
+        ]
+      },
+      "Export": {
+        "Name": "dashboards-admin"
+      }
+    }
+  }
+}

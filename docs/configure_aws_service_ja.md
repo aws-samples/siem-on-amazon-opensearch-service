@@ -92,11 +92,19 @@ s3_key の初期値: `/DirectoryService/MicrosoftAD/` (Firehose の出力パス�
 
 ![aws waf to s3](images/waf-to-s3.jpg)
 
-AWS WAF には AWS WAF と AWS WAF Classic の2つがありますが、両方とも同じ方法で S3 バケットに出力してください。
+![aws waf to s3 to s3](images/log-source-waf-to-s3-to-s3.svg)
 
-s3_key の初期値: `aws-waf-logs-`
+AWS WAF には AWS WAF と AWS WAF Classic の2つがあります。
+AWS WAF Kinesis Data Firehose 経由で S3 バケットにエクスポートするか、WAF ログ用の S3 バケットにエクスポートしてから SIEM 用の S3 バケットにレプリケーションをして下さい。
+AWS Classic は Kinesis Data Firehose 経由で S3 バケットに出力してください。
 
-AWS WAF の ACL トラフィックログは Kinesis Data Firehose から S3 バケットにエクスポートします。Kinesis Data Firehose の名前は [**aws-waf-logs-**] から始まることが条件となっており、この名前が S3 バケット出力時のファイル名に含まれているため、これをログ種類の判別に使用しています。
+s3_key の初期値: `aws-waf-logs-` または `_waflogs_` (デフォルト設定の出力パスの一部)
+
+AWS WAF を WAF 用の S3 バケットにエクスポートする方法は次の公式ドキュメントを参照して下さい。
+
+[ウェブ ACL トラフィック情報のログ記録 / Amazon Simple Storage Service](https://docs.aws.amazon.com/ja_jp/waf/latest/developerguide/logging-s3.html)
+
+Kinesis Data Firehose から S3 バケットにエクスポートする方法は以下の通りです。Kinesis Data Firehose の名前は [**aws-waf-logs-**] から始まることが条件となっており、この名前が S3 バケット出力時のファイル名に含まれているため、これをログ種類の判別に使用しています。
 
 #### I. AWS WAF 共通設定
 
@@ -153,7 +161,16 @@ WAF をお使いの場合はこのタスクはスキップしてください
 
 ![SecurityHub to S3](images/securityhub-to-s3.jpg)
 
-s3_key の初期値: `SecurityHub` (Firehose の出力パスに指定)
+s3_key の初期値: `SecurityHub` または `securityhub` (Firehose の出力パスに指定)
+
+#### CloudFormation による設定 (Security Hub)
+
+| No | CloudFormation | 説明 |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-basic.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-basic.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) | Firehose を作成。EventBridge を設定して Events を Firehose に配信します。Security Hub と Config Rules 共通のテンプレート。|
+
+#### 手動による設定 (Security Hub)
 
 * ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先 S3 バケットのプレフィックスに指定します
 * 複数リージョンの Security Hub の findings を集約する時は、リージョン毎に、Firehose と EventBridge ルールを作成します
@@ -279,6 +296,12 @@ S3 バケットの出力方法はデベロッパーガイド [コンソールに
 
 s3_key の初期値: `Config.*Rules` (Firehose の出力パスに指定)
 
+#### CloudFormation による設定 (Config Rules)
+
+| No | CloudFormation | 説明 |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-basic.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-basic.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) | Firehose を作成。EventBridge を設定して Events を Firehose に配信します。Security Hub と Config Rules 共通のテンプレート。|
 
 ## 4. ネットワーキングとコンテンツ配信
 
@@ -556,7 +579,7 @@ s3_key の初期値は以下です。Firehose の出力パスに指定してく�
     1. 画面右下の[続行] を選択
     1. すぐに適用を選択してから、[**DBインスタンスを変更**] を選択
 
-#### CloudWatch Logs サブスクリプションフィルタ および Firehoseの 設定
+#### CloudWatch Logs サブスクリプションフィルタ および Firehoseの 設定 (Aurora MySQL互換 / MySQL / MariaDB)
 
 ログ種類毎に CloudWatch Logs に出力されます。各種類毎に Firehose を作成して、CloudWatch Logs サブスクリプションフィルタ でS3に出力してください。
 
@@ -577,7 +600,7 @@ s3_key の初期値は以下です。Firehose の出力パスに指定してく�
 
 ![PostgreSQL to S3](images/postgresql-to-s3.jpg)
 
-s3_key の初期値: `Postgre` or `postgres` (Firehose の出力パスに指定)
+s3_key の初期値: `Postgre` or `postgre` (Firehose の出力パスに指定)
 
 Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/123456789012/RDS/postgresql/ap-northeast-1`
 
@@ -614,7 +637,7 @@ Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/12
     1. 画面右下の[**続行**] を選択
     1. 変更のスケジュールのどちらかを選択して、[**クラスターの変更**] を選択して完了です
 
-#### CloudWatch Logs サブスクリプションフィルタ および Firehoseの 設定
+#### CloudWatch Logs サブスクリプションフィルタ および Firehoseの 設定 (Aurora PostgreSQL互換 / PostgreSQL)
 
 ログ種類毎に CloudWatch Logs に出力されます。各種類毎に Firehose を作成して、CloudWatch Logs サブスクリプションフィルタ でS3に出力してください。
 

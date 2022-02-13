@@ -2,27 +2,27 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.0'
+__version__ = '2.6.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 from aws_cdk import (
-    aws_iam,
     aws_events,
     aws_events_targets,
+    aws_iam,
     aws_kinesisfirehose,
     aws_lambda,
     aws_logs,
-    core as cdk
 )
+from aws_cdk import core as cdk
 from aws_cdk.aws_kinesisfirehose import CfnDeliveryStream as CDS
 
 LAMBDA_GET_WORKSPACES_INVENTORY = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.0'
+__version__ = '2.6.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -31,24 +31,44 @@ import datetime
 import gzip
 import json
 import os
+import time
 
 import boto3
+from botocore.config import Config
 
-ws_client = boto3.client('workspaces')
+config = Config(retries={'max_attempts': 10, 'mode': 'standard'})
+ws_client = boto3.client('workspaces', config=config)
 s3_resource = boto3.resource('s3')
 bucket = s3_resource.Bucket(os.environ['log_bucket_name'])
 AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
 AWS_REGION = os.environ['AWS_DEFAULT_REGION']
-paginator = ws_client.get_paginator('describe_workspaces')
+
 
 def lambda_handler(event, context):
     num = 0
     now = datetime.datetime.now()
     file_name = f'workspaces-inventory-{now.strftime("%Y%m%d_%H%M%S")}.json.gz'
-    s3file_name =(
+    s3file_name = (
         f'AWSLogs/{AWS_ID}/WorkSpaces/Inventory/{AWS_REGION}/'
         f'{now.strftime("%Y/%m/%d")}/{file_name}')
     f = gzip.open(f'/tmp/{file_name}', 'tw')
+
+    api = 'describe_workspaces_connection_status'
+    print(api)
+    ws_cons = {}
+    num = 0
+    paginator = ws_client.get_paginator(api)
+    for response in paginator.paginate():
+        for ws_con in response['WorkspacesConnectionStatus']:
+            ws_cons[ws_con['WorkspaceId']] = ws_con
+            num += 1
+        time.sleep(0.75)
+    print(f'Number of {api}: {num}')
+
+    api = 'describe_workspaces'
+    print(api)
+    num = 0
+    paginator = ws_client.get_paginator(api)
     response_iterator = paginator.paginate(PaginationConfig={'PageSize': 25})
     for response in response_iterator:
         print(f'{response["ResponseMetadata"]["RequestId"]}: '
@@ -64,14 +84,22 @@ def lambda_handler(event, context):
             "account": AWS_ID,
             'region': AWS_REGION,
             "resources": [],
-            'detail': {}}
-        jsonobj['detail']['Workspaces'] = response['Workspaces']
+            'detail': {'Workspaces': []}}
+        for item in response['Workspaces']:
+            try:
+                item = {**item, **ws_cons[item['WorkspaceId']]}
+            except Exception:
+                pass
+            jsonobj['detail']['Workspaces'].append(item)
         num += len(response['Workspaces'])
-        f.write(json.dumps(jsonobj))
+        f.write(json.dumps(jsonobj, default=str))
         f.flush()
-    f.close()
+        # sleep 0.75 second to avoid reaching AWS API rate limit (2rps)
+        time.sleep(0.75)
     print(f'Total nummber of WorkSpaces inventory: {num}')
-    print(f'Upload path: s3://{bucket}/{s3file_name}')
+
+    f.close()
+    print(f'Upload path: s3://{bucket.name}/{s3file_name}')
     bucket.upload_file(f'/tmp/{file_name}', s3file_name)
 '''
 
@@ -134,7 +162,7 @@ class CWLNoCompressExporterStack(cdk.Stack):
 
         kdf_name = cdk.CfnParameter(
             self, 'KdfName',
-            description='New Kinesis Data Firehose Name to deliver AD event',
+            description='New Kinesis Data Firehose Name to deliver CWL event',
             default='siem-XXXXXXXXXXX-to-s3')
         kdf_buffer_size = cdk.CfnParameter(
             self, 'KdfBufferSize', type='Number',
@@ -176,6 +204,122 @@ class CWLNoCompressExporterStack(cdk.Stack):
             role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                       f'{role_name_cwl_to_kdf}')
         )
+
+
+class EventBridgeEventsExporterStack(cdk.Stack):
+    def __init__(self, scope: cdk.Construct, construct_id: str,
+                 **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+        role_name_kdf_to_s3 = cdk.Fn.import_value(
+            'siem-kdf-to-s3-role-name')
+
+        kdf_name = cdk.CfnParameter(
+            self, 'KdfName',
+            description=(
+                'New Kinesis Data Firehose Name to deliver EventBridge Events '
+                'to S3 bucket. This Firehose will be created'),
+            default='siem-eventbridge-events-to-s3')
+        kdf_buffer_size = cdk.CfnParameter(
+            self, 'KdfBufferSize', type='Number',
+            description='Enter a buffer size between 64 - 128 (MiB)',
+            default=64, min_value=64, max_value=128)
+        kdf_buffer_interval = cdk.CfnParameter(
+            self, 'KdfBufferInterval', type='Number',
+            description='Enter a buffer interval between 60 - 900 (seconds.)',
+            default=60, min_value=60, max_value=900)
+        load_security_hub = cdk.CfnParameter(
+            self, 'LoadSecurtyHub',
+            description=('Do you enable to load SecurityHub events to '
+                         'OpenSearch Service?'),
+            allowed_values=['Yes', 'No'], default='Yes')
+        load_config_rules = cdk.CfnParameter(
+            self, 'LoadConfigRules',
+            description=('Do you enable to load Config Rules events to '
+                         'OpenSearch Service?'),
+            allowed_values=['Yes', 'No'], default='Yes')
+        s3_desitination_prefix = cdk.CfnParameter(
+            self, 'S3DestPrefix',
+            description='S3 destination prefix',
+            default='AWSLogs/')
+
+        self.template_options.metadata = {
+            'AWS::CloudFormation::Interface': {
+                'ParameterGroups': [
+                    {'Label': {'default': 'Amazon Kinesis Data Firehose'},
+                     'Parameters': [kdf_name.logical_id,
+                                    s3_desitination_prefix.logical_id,
+                                    kdf_buffer_size.logical_id,
+                                    kdf_buffer_interval.logical_id]},
+                    {'Label': {'default': 'Events'},
+                     'Parameters': [load_security_hub.logical_id,
+                                    load_config_rules.logical_id]}]}}
+
+        kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "Kdf",
+            delivery_stream_name=kdf_name.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                # Destination settings
+                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+
+                error_output_prefix="ErrorLogs/",
+                prefix=(s3_desitination_prefix.value_as_string + "!{partitionKeyFromQuery:account}/!{partitionKeyFromQuery:service}/!{partitionKeyFromQuery:detailtype}/!{partitionKeyFromQuery:region}/!{timestamp:yyyy}/!{timestamp:MM}/!{timestamp:dd}/"),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='GZIP',
+                dynamic_partitioning_configuration=aws_kinesisfirehose.CfnDeliveryStream.DynamicPartitioningConfigurationProperty(
+                    enabled=True,
+                    retry_options=aws_kinesisfirehose.CfnDeliveryStream.RetryOptionsProperty(
+                        duration_in_seconds=30)
+                ),
+                processing_configuration=aws_kinesisfirehose.CfnDeliveryStream.ProcessingConfigurationProperty(
+                    enabled=True,
+                    processors=[
+                        aws_kinesisfirehose.CfnDeliveryStream.ProcessorProperty(
+                            type="MetadataExtraction",
+                            parameters=[
+                                aws_kinesisfirehose.CfnDeliveryStream.ProcessorParameterProperty(
+                                    parameter_name="MetadataExtractionQuery",
+                                    parameter_value="""{service: .source, account: .account, region: .region, detailtype: ."detail-type"| gsub(" "; "_")}"""),
+                                aws_kinesisfirehose.CfnDeliveryStream.ProcessorParameterProperty(
+                                    parameter_name="JsonParsingEngine",
+                                    parameter_value="JQ-1.6")
+
+                            ]
+                        )
+                    ]
+                ),
+                # Permissions
+                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}'),
+            )
+        )
+
+        is_security_hub = cdk.CfnCondition(
+            self, "IsSecurityHub",
+            expression=cdk.Fn.condition_equals(load_security_hub.value_as_string, "Yes"))
+        rule_security_hub = aws_events.Rule(
+            self, "RuleSecurityHub", rule_name='siem-securityhub-to-firehose',
+            description=f'SIEM on OpenSearch Service v{__version__}:',
+            event_pattern=aws_events.EventPattern(
+                source=["aws.securityhub"],
+                detail_type=["Security Hub Findings - Imported"]))
+        rule_security_hub.node.default_child.cfn_options.condition = is_security_hub
+        rule_security_hub.add_target(aws_events_targets.KinesisFirehoseStream(kdf_to_s3))
+
+        is_config_rules = cdk.CfnCondition(
+            self, "IsConfigRules",
+            expression=cdk.Fn.condition_equals(load_config_rules.value_as_string, "Yes"))
+        rule_config_rules = aws_events.Rule(
+            self, "RuleConfigRules", rule_name='siem-configrules-to-firehose',
+            description=f'SIEM on OpenSearch Service v{__version__}:',
+            event_pattern=aws_events.EventPattern(
+                source=["aws.config"],
+                detail_type=["Config Rules Compliance Change"]))
+        rule_config_rules.node.default_child.cfn_options.condition = is_config_rules
+        rule_config_rules.add_target(aws_events_targets.KinesisFirehoseStream(kdf_to_s3))
 
 
 class ADLogExporterStack(cdk.Stack):
@@ -290,12 +434,13 @@ class WorkSpacesLogExporterStack(cdk.Stack):
         # Lambda Functions to get workspaces inventory
         lambda_func = aws_lambda.Function(
             self, 'lambdaGetWorkspacesInventory',
-            runtime=aws_lambda.Runtime.PYTHON_3_8,
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
             code=aws_lambda.InlineCode(LAMBDA_GET_WORKSPACES_INVENTORY),
             function_name='siem-get-workspaces-inventory',
             description='SIEM: get workspaces inventory',
             handler='index.lambda_handler',
-            timeout=cdk.Duration.seconds(300),
+            memory_size=160,
+            timeout=cdk.Duration.seconds(600),
             role=role_get_workspaces_inventory,
             environment={'log_bucket_name': log_bucket_name}
         )
@@ -330,14 +475,15 @@ class WorkSpacesLogExporterStack(cdk.Stack):
             targets=[aws_events_targets.KinesisFirehoseStream(kdf_to_s3)])
 
 
-class BasicLogExporterStack(cdk.Stack):
+class CoreLogExporterStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str,
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.CfnParameter(
             self, 'siemLogBucketName',
-            description='S3 Bucket to put workspaces inventory',
+            description=('S3 Bucket name which store logs to load SIEM. '
+                         'Replace 111111111111 to your AWS account'),
             default='aes-siem-111111111111-log')
         role_name_cwl_to_kdf = cdk.CfnParameter(
             self, 'kdfToS3RoleName',

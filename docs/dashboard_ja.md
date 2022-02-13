@@ -8,7 +8,9 @@
 * [AWS CloudTrail](#AWS-CloudTrail)
 * [Amazon CloudFront](#Amazon-CloudFront)
 * [Amazon VPC Flow Logs](#Amazon-VPC-Flow-Logs)
+* [Amazon VPC Flow Logs Custom](#Amazon-VPC-Flow-Logs-Custom)
 * [Elastic Load Balancing](#Elastic-Load-Balancing)
+* [S3 Accesslog](#S3-Accesslog)
 * [Amazon Relational Database Service (RDS)](#Amazon-RDS)
 * [Amazon WorkSpaces](#Amazon-WorkSpaces)
 
@@ -38,9 +40,17 @@
 
 ![Amazon VPC Flow Logs Dashboard](images/dashboard-vpcflowlogs.jpg)
 
+## Amazon VPC Flow Logs Custom
+
+![Amazon VPC Flow Logs Custom Dashboard](images/dashboard-vpcflowlogscustom.jpg)
+
 ## Elastic Load Balancing
 
 ![Elastic Load Balancing Dashboard](images/dashboard-elb.jpg)
+
+## S3 Accesslog
+
+![S3 Accesslog Dashboard](images/dashboard-s3accesslog.jpg)
 
 ## Amazon RDS
 
