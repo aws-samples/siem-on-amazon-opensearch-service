@@ -6,6 +6,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.1] - 2022-02-14
+### Added
+- Added connection status to Workspaces log #201
+- Added 2 dashboards (S3 access log / VPC Flow Logs with v5 custom field) #198,#199
+- Readme, docs, deployment script of Chinese Version #186
+- CloudFormation template to exporter SecurityHub and Config to S3 bucket #184
+- Another logging options for AWS WAF #185
+### Changed
+- Enhanced parsing logic, updated Dashboard for GuardDuty and Security Hub #179,#182,#183,#203
+- Migrated new index template form legacy template of GuardDuty/Security Hub #203
+- Enhanced workspace dashboard #202
+- Reduced query rate of AWS API for DescribeWorkspaces #200
+### Deprecated
+- Legacy template is deprecated and will be obsolete in v2.7.0. Please update to index templates and component templates if you use legacy template. If you load only AWS resource log and don't configure OpenSearch settings such as field type, you can ignore. For more details, see [Index templates](https://opensearch.org/docs/latest/opensearch/index-templates/) #152
+### Fixed
+- Defined Inspector v2 field in Security Hub #203
+
 ## [2.6.0] - 2021-11-22
 ### Added
 - Contribution: Okta log support. Thanks to @yopiyama #168
@@ -22,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Strictly follow PEP8 and ShellCheck #171
 - Updated IAM Policy/Role name and log group name for OpenSearch Service #171
 ### Deprecated
-- Legacy template is deprecated and will be obsolete in v2.7.0. Please update to index templates and component templates if you use legacy template. If you load only AWS resource log and don't configure OpenSearch settings such as field type, you can ignore. Fore more details, see [Index templates](https://opensearch.org/docs/latest/opensearch/index-templates/) #152
+- Legacy template is deprecated and will be obsolete in v2.7.0. Please update to index templates and component templates if you use legacy template. If you load only AWS resource log and don't configure OpenSearch settings such as field type, you can ignore. For more details, see [Index templates](https://opensearch.org/docs/latest/opensearch/index-templates/) #152
 ### Fixed
 - Fixed issue of parsing nano seconds #160
 - Fixed regex pattern of ALB #162

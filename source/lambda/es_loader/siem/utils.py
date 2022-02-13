@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1-beta.3'
+__version__ = '2.6.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -316,7 +316,7 @@ def get_read_only_indices(es_conn, awsauth, ES_HOSTNAME):
     headers = {'Content-Type': 'application/json'}
     try:
         res = requests.get(
-            url, params={'page_size': 1}, auth=awsauth, timeout=3.0)
+            url, params={'page_size': 100}, auth=awsauth, timeout=3.0)
     except requests.exceptions.Timeout:
         logger.warning('timeout: impossible to get cold index')
         return tuple(read_only_indices)

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1-beta.3'
+__version__ = '2.6.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -22,7 +22,7 @@ LAMBDA_GET_WORKSPACES_INVENTORY = '''# Copyright Amazon.com, Inc. or its affilia
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1-beta.3'
+__version__ = '2.6.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -411,7 +411,7 @@ class WorkSpacesLogExporterStack(cdk.Stack):
                     statements=[
                         aws_iam.PolicyStatement(
                             actions=['workspaces:Describe*'], resources=['*'],
-                            sid='DescribeWorkSpacesPolicyGeneratedBySiemCfn')
+                            sid='DescribeWorkSpacesPolicyGeneratedBySeimCfn')
                     ]
                 ),
                 'firehose-to-s3': aws_iam.PolicyDocument(
@@ -419,7 +419,7 @@ class WorkSpacesLogExporterStack(cdk.Stack):
                         aws_iam.PolicyStatement(
                             actions=['s3:PutObject'],
                             resources=[f'arn:aws:s3:::{log_bucket_name}/*'],
-                            sid='FirehoseToS3PolicyGeneratedBySiemCfn'
+                            sid='FirehoseToS3PolicyGeneratedBySeimCfn'
                         )
                     ]
                 )
@@ -486,7 +486,7 @@ class CoreLogExporterStack(cdk.Stack):
                          'Replace 111111111111 to your AWS account'),
             default='aes-siem-111111111111-log')
         role_name_cwl_to_kdf = cdk.CfnParameter(
-            self, 'roleNameCwlToKdf',
+            self, 'kdfToS3RoleName',
             description=('role name for CloudWatch Logs to send data to '
                          'Kinsis Data Firehose. Replace YOUR-REGION'),
             default='siem-role-cwl-to-firehose-YOUR-REGION')
@@ -508,7 +508,7 @@ class CoreLogExporterStack(cdk.Stack):
                             actions=["firehose:*"],
                             resources=[(f'arn:aws:firehose:{cdk.Aws.REGION}:'
                                         f'{cdk.Aws.ACCOUNT_ID}:*')],
-                            sid='CwlToFirehosePolicyGeneratedBySiemCfn'
+                            sid='CwlToFirehosePolicyGeneratedBySeimCfn'
                         )
                     ]
                 )
