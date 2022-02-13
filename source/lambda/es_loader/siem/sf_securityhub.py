@@ -8,13 +8,57 @@ __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import re
+from collections import namedtuple
 from datetime import datetime
+from functools import lru_cache
 
 from siem import utils
 
-RE_GDTYPE = re.compile(r"/(?P<ThreatPurpose>\w+\s?\w+)"
-                       r"(:|/)(?P<ResourceTypeAffected>\w*)"
-                       r"(/|.|-)(?P<ThreatFamilyName>[\w\&]*)")
+RE_GD_MACIE_TYPE = re.compile(
+    r"(?P<asff_type_namespace>[^/]*)(/(?P<asff_type_category>[^/]*))?/"
+    r"((?P<ThreatPurpose>\w*):)?(?P<ResourceTypeAffected>\w*)"
+    r"(/|-|\.)(?P<ThreatFamilyName>[\w\&]*)(\.(?P<DetectionMechanism>\w*))?"
+    r"(\!(?P<Artifact>\w*))?")
+
+RE_GD_MACIE_ORG_TYPE = re.compile(
+    r"(?P<ThreatPurpose>\w*):(?P<ResourceTypeAffected>\w*)/"
+    r"(?P<ThreatFamilyName>[\w\&]*)(\.(?P<DetectionMechanism>\w*))?"
+    r"(\!(?P<Artifact>\w*))?")
+
+FindingTypes = namedtuple(
+    'FindingTypes', ['asff_type_namespace', 'asff_type_category',
+                     'ThreatPurpose', 'ResourceTypeAffected',
+                     'ThreatFamilyName', 'DetectionMechanism', 'Artifact'])
+
+
+@lru_cache
+def split_findings_type(finding_type):
+    m = RE_GD_MACIE_TYPE.match(finding_type)
+    try:
+        asff_type_namespace = m['asff_type_namespace']
+        if m.group('asff_type_category'):
+            asff_type_category = m.group('asff_type_category')
+        else:
+            asff_type_category = m.group('ThreatPurpose')
+    except TypeError:
+        # old security hub log style
+        m = RE_GD_MACIE_ORG_TYPE.match(finding_type)
+        asff_type_namespace = None
+        asff_type_category = m.group('ThreatPurpose')
+
+    if m.group('ThreatPurpose'):
+        threat_purpose = m['ThreatPurpose']
+    else:
+        threat_purpose = m['asff_type_category']
+        threat_purpose = threat_purpose.replace(' ', '')
+    resource_type_affected = m['ResourceTypeAffected']
+    threat_family_name = m['ThreatFamilyName']
+    detection_mechanism = m.group('DetectionMechanism')
+    artifact = m.group('Artifact')
+
+    return(FindingTypes(asff_type_namespace, asff_type_category,
+                        threat_purpose, resource_type_affected,
+                        threat_family_name, detection_mechanism, artifact))
 
 
 def get_values_from_asff_resources(resources):
@@ -42,6 +86,8 @@ def get_values_from_asff_resources(resources):
             resouce_dict['user'] = {'name': name}
         elif resouce['Type'] == 'AwsS3Bucket':
             pass
+        elif resouce['Type'] == 'AwsEksCluster':
+            pass
 
     return resouce_dict
 
@@ -51,13 +97,16 @@ def transform(logdata):
     module = (logdata['ProductFields']['aws/securityhub/ProductName']).lower()
     logdata['event']['module'] = module
 
+    if module in ('guardduty', 'macie'):
+        findngs_type = split_findings_type(str(logdata['Types'][0]))
+        logdata['ThreatPurpose'] = findngs_type.ThreatPurpose
+        logdata['ResourceTypeAffected'] = findngs_type.ResourceTypeAffected
+        logdata['ThreatFamilyName'] = findngs_type.ThreatFamilyName
+        logdata['DetectionMechanism'] = findngs_type.DetectionMechanism
+        logdata['Artifact'] = findngs_type.Artifact
+
     if 'guardduty' in module:
         logdata['event']['category'] = 'intrusion_detection'
-
-        m = RE_GDTYPE.search(str(logdata['rule']['name']))
-        logdata['ThreatPurpose'] = m['ThreatPurpose']
-        logdata['ResourceTypeAffected'] = m['ResourceTypeAffected']
-        logdata['ThreatFamilyName'] = m['ThreatFamilyName']
 
         action_type = (logdata['ProductFields']
                        ['aws/guardduty/service/action/actionType'])

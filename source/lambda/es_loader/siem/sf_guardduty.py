@@ -11,6 +11,11 @@ import re
 
 from siem import utils
 
+RE_GD_TYPE = re.compile(
+    r"(?P<ThreatPurpose>\w*):(?P<ResourceTypeAffected>\w*)/"
+    r"(?P<ThreatFamilyName>[\w\&]*)(\.(?P<DetectionMechanism>\w*))?"
+    r"(\!(?P<Artifact>\w*))?")
+
 
 def transform(logdata):
     if logdata['severity'] <= 3.9:
@@ -19,13 +24,12 @@ def transform(logdata):
         label = "medium"
     elif logdata['severity'] <= 8.9:
         label = "high"
-    r = re.compile(r"/(?P<ThreatPurpose>\w+\s?\w+)"
-                   r"(:|/)(?P<ResourceTypeAffected>\w*)"
-                   r"(/|.|-)(?P<ThreatFamilyName>[\w\&]*)")
-    m = r.match(logdata['type'])
+    m = RE_GD_TYPE.match(logdata['type'])
     gd = {'severitylabel': label, 'ThreatPurpose': m['ThreatPurpose'],
           'ResourceTypeAffected': m['ResourceTypeAffected'],
-          'ThreatFamilyName': m['ThreatFamilyName']}
+          'ThreatFamilyName': m['ThreatFamilyName'],
+          'DetectionMechanism': m.group('DetectionMechanism'),
+          'Artifact': m.group('Artifact')}
     action_type = logdata['service']['action']['actionType']
     if 'NETWORK_CONNECTION' in action_type:
         direction = (logdata['service']['action']
