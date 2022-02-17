@@ -14,7 +14,7 @@ Check out the following AWS official web pages to see if the bug is already bein
 Amazon OpenSearch Service Workshop content is available for you on GitHub.
 
 * [We have published “Amazon Elasticsearch Service Intro Workshop”!- Learn & experience the service in 2 hours -- from basic usage to the latest update](https://aws.amazon.com/jp/blogs/news/amazon-elasticsearch-service-hands-on/) (Japanese language)
-* [Amazon Elasticsearch Service Intro Workshop](https://github.com/aws-samples/amazon-s3-datalake-handson/tree/master/EN)
+* [Amazon Elasticsearch Service Intro Workshop](https://github.com/aws-samples/amazon-elasticsearch-intro-workshop/blob/master/README.md)
 
 ## Deployment doesn’t complete.
 
