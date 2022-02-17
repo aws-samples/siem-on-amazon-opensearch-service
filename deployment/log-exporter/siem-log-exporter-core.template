@@ -1,10 +1,10 @@
-Description: "SIEM on Amazon OpenSearch Service v2.6.1: log exporter - basic resource"
+Description: "SIEM on Amazon OpenSearch Service v2.6.2-beta.1: log exporter - core resource"
 Parameters:
   siemLogBucketName:
     Type: String
     Default: aes-siem-111111111111-log
     Description: S3 Bucket name which store logs to load SIEM. Replace 111111111111 to your AWS account
-  kdfToS3RoleName:
+  roleNameCwlToKdf:
     Type: String
     Default: siem-role-cwl-to-firehose-YOUR-REGION
     Description: role name for CloudWatch Logs to send data to Kinsis Data Firehose. Replace YOUR-REGION
@@ -36,16 +36,16 @@ Resources:
                 Resource:
                   Fn::Join:
                     - ""
-                    - - "arn:aws-cn:firehose:"
+                    - - "arn:aws:firehose:"
                       - Ref: AWS::Region
                       - ":"
                       - Ref: AWS::AccountId
                       - :*
-                Sid: CwlToFirehosePolicyGeneratedBySeimCfn
+                Sid: CwlToFirehosePolicyGeneratedBySiemCfn
             Version: "2012-10-17"
           PolicyName: cwl-to-firehose
       RoleName:
-        Ref: kdfToS3RoleName
+        Ref: roleNameCwlToKdf
   firehoseRoleE5891AF8:
     Type: AWS::IAM::Role
     Properties:
@@ -71,11 +71,11 @@ Resources:
                 Resource:
                   - Fn::Join:
                       - ""
-                      - - "arn:aws-cn:s3:::"
+                      - - "arn:aws:s3:::"
                         - Ref: siemLogBucketName
                   - Fn::Join:
                       - ""
-                      - - "arn:aws-cn:s3:::"
+                      - - "arn:aws:s3:::"
                         - Ref: siemLogBucketName
                         - /*
                 Sid: FirehoseToS3PolicyGeneratedBySiemCfn
@@ -88,7 +88,7 @@ Resources:
                 Resource:
                   Fn::Join:
                     - ""
-                    - - "arn:aws-cn:logs:"
+                    - - "arn:aws:logs:"
                       - Ref: AWS::Region
                       - ":"
                       - Ref: AWS::AccountId

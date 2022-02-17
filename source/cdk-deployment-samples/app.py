@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1'
+__version__ = '2.6.2-beta.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -25,7 +25,7 @@ DeploymentSamplesStack(app, "DeploymentSamplesStack")
 core_logging = CoreLogExporterStack(
     app, "siem-log-exporter-core",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
-                 'log exporter - basic resource'))
+                 'log exporter - core resource'))
 cwl_nocompresss_logging = CWLNoCompressExporterStack(
     app, "siem-log-exporter-cwl-nocompress",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '

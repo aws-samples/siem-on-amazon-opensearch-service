@@ -82,7 +82,7 @@ s3_key 初始值: `GuardDuty` (其为缺省输出路径中的一部分)
 
 1. 导航至 [Directory Service Console](https://console.amazonaws.cn/directoryservicev2/home?) 并转发日志到CloudWatch。
 1. 使用如下的Cloudformation 文件进行配置。
-    * [siem-log-exporter-basic-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-core-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core.template)
     * [siem-log-exporter-ad-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-ad-china.template)
 
 ### AWS WAF
@@ -291,7 +291,7 @@ s3_key 的初始值：`aws-fsx-`
 Amazon FSx for Windows File Server 审核日志从 Kinesis Data Firehose 导出到 S3 存储桶。 Kinesis Data Firehose 名称必须以 [**aws-fsx-**] 开头，并且由于该前缀在输出到 S3 存储桶时包含在文件名中，因此我们使用它来确定日志类型。
 
 1. 使用如下的Cloudformation进行配置
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic-china.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core-china.template)
     * [siem-log-exporter-fsx.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-fsx-china.template)
 1. 导航至 [FSx Console](https://console.amazonaws.cn/fsx/home?) 把日志转发到 Firehose.
 
@@ -402,7 +402,7 @@ s3_key 的初始值：`/[Ww]indows.*[Ee]vent`（在Firehose输出路径中指定
 1. 在部署为 Windows Server 的 EC2 实例中安装 CloudWatch Agent
 1. 将日志转发到 CloudWatch Logs
 1. 使用 CloudFormation 进行配置
-     * [siem-log-exporter-basic-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic-china.template)
+     * [siem-log-exporter-core-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core-china.template)
      * [siem-log-exporter-cwl-nocompress-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-cwl-nocompress-china.template)
      * 输出日志的前缀：[**AWSLogs/123456789012/EC2/Windows/Event/[region]/**]
          * 将 123456789012 替换为您的 AWS 账户 ID
@@ -460,7 +460,7 @@ s3_key 的初始值：`(WorkSpaces|workspaces).*(Event|event)`（在Firehose输�
  s3_key 初始值 : `(WorkSpaces|workspaces).*(Inventory|inventory)`
 
 1. 使用Cloudformation进行配置
-     * [siem-log-exporter-basic-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-basic-china.template)
+     * [siem-log-exporter-core-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-core-china.template)
      * [siem-log-exporter-workspaces-china.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/log-exporter/siem-log-exporter-workspaces-china.template)
 
 ## 11. 多 regions / 多账户

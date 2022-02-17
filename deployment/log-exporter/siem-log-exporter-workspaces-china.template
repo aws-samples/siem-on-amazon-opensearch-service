@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.6.1: log exporter - Workspaces"
+Description: "SIEM on Amazon OpenSearch Service v2.6.2-beta.1: log exporter - Workspaces"
 Parameters:
   cweRulesFrequency:
     Type: Number
@@ -43,7 +43,7 @@ Resources:
               - Action: workspaces:Describe*
                 Effect: Allow
                 Resource: "*"
-                Sid: DescribeWorkSpacesPolicyGeneratedBySeimCfn
+                Sid: DescribeWorkSpacesPolicyGeneratedBySiemCfn
             Version: "2012-10-17"
           PolicyName: describe-workspaces
         - PolicyDocument:
@@ -56,7 +56,7 @@ Resources:
                     - - "arn:aws-cn:s3:::"
                       - Fn::ImportValue: sime-log-bucket-name
                       - /*
-                Sid: FirehoseToS3PolicyGeneratedBySeimCfn
+                Sid: FirehoseToS3PolicyGeneratedBySiemCfn
             Version: "2012-10-17"
           PolicyName: firehose-to-s3
       RoleName: siem-get-workspaces-inventory-role
@@ -69,7 +69,7 @@ Resources:
           # SPDX-License-Identifier: MIT-0
           __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                            'All Rights Reserved.')
-          __version__ = '2.6.1'
+          __version__ = '2.6.2-beta.1'
           __license__ = 'MIT-0'
           __author__ = 'Akihiro Nakajima'
           __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
