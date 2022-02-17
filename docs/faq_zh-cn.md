@@ -14,7 +14,7 @@
 Amazon OpenSearch Service Workshop 内容在 GitHub 上为您提供。
 
 * [We have published “Amazon Elasticsearch Service Intro Workshop”!- Learn & experience the service in 2 hours -- from basic usage to the latest update](https://aws.amazon.com/jp/blogs/news/amazon-elasticsearch-service-hands-on/) (Japanese language)
-* [Amazon Elasticsearch Service Intro Workshop](https://github.com/aws-samples/amazon-s3-datalake-handson/tree/master/EN)
+* [Amazon Elasticsearch Service Intro Workshop](https://github.com/aws-samples/amazon-elasticsearch-intro-workshop/blob/master/README.md)
 
 ## 部署不成功
 
