@@ -16,6 +16,7 @@ On this page, we’ll walk you through how to load logs from each AWS service in
 1. [Management & Governance](#3-Management--Governance)
     * [AWS CloudTrail](#AWS-CloudTrail)
     * [AWS Config](#AWS-Config)
+    * [AWS Trusted Advisor](#AWS-Trusted-Advisor)
 1. [Networking & Content Delivery](#4-Networking--Content-Delivery)
     * [Amazon CloudFront](#Amazon-CloudFront)
     * [Route 53 Resolver VPC DNS Query Logging](#Route-53-Resolver-VPC-DNS-Query-Logging)
@@ -283,6 +284,19 @@ The initial value of s3_key: `Config.*Rules` (specified in the Firehose output p
 |----------|----------------|---------------|
 | 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
 | 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) | This template creates Firehose,set up EventBridge to deliver Events to the Firehose. A template common to Security Hub and Config Rules. |
+
+### AWS Trusted Advisor
+
+![ConfigRules to S3](images/trustedadvisor-check-result-to-s3.svg)
+
+The initial value of s3_key: `(TrustedAdvisor|trustedadvisor)` (specified in the Firehose output path)
+
+#### Configure by CloudFormation (AWS Trusted Advisor)
+
+| No | CloudFormation | Description |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+| 2 |[![trustedadvisor](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-trustedadvisor&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-trustedadvisor.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-trustedadvisor.template) | This template creates Lambda,set up EventBridge to export Trusted Advisor check results to S3. |
 
 ## 4. Networking & Content Delivery
 

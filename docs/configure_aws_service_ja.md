@@ -16,6 +16,7 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
 1. [管理とガバナンス](#3-管理とガバナンス)
     * [AWS CloudTrail](#AWS-CloudTrail)
     * [AWS Config](#AWS-Config)
+    * [AWS Trusted Advisor](#AWS-Trusted-Advisor)
 1. [ネットワーキングとコンテンツ配信](#4-ネットワーキングとコンテンツ配信)
     * [Amazon CloudFront](#Amazon-CloudFront)
     * [Route 53 Resolver VPC DNS Query Log](#Route-53-Resolver-VPC-DNS-Query-Log)
@@ -302,6 +303,19 @@ s3_key の初期値: `Config.*Rules` (Firehose の出力パスに指定)
 |----------|----------------|---------------|
 | 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
 | 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-eventbridge-events.template) | Firehose を作成。EventBridge を設定して Events を Firehose に配信します。Security Hub と Config Rules 共通のテンプレート。|
+
+### AWS Trusted Advisor
+
+![Trusted Advisor check result to S3](images/trustedadvisor-check-result-to-s3.svg)
+
+s3_key の初期値: `(TrustedAdvisor|trustedadvisor)` Lambda functionにより固定値で出力されるので設定不要。
+
+#### CloudFormation による設定 (Trusted Advisor)
+
+| No | CloudFormation | 説明 |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+| 2 |[![trustedadvisor](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-trustedadvisor&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-trustedadvisor.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/beta/log-exporter/siem-log-exporter-trustedadvisor.template) | Lambda を作成。EventBridge を設定して Lambda を定期実行し、Trusted Advisor チェック結果 を S3 に書き出します。|
 
 ## 4. ネットワーキングとコンテンツ配信
 

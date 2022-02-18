@@ -26,6 +26,7 @@ SIEM on OpenSearch Service can load and correlate the following log types.
 |Security, Identity, & Compliance|AWS Network Firewall|Flow logs<br>Alert logs|
 |Management & Governance|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
 |Management & Governance|AWS Config|Configuration History<br>Configuration Snapshot<br>Config Rules|
+|Management & Governance|AWS Trusted Advisor|Trusted Advisor Check Result|
 |Networking & Content Delivery|Amazon CloudFront|Standard access log<br>Real-time log|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS query log|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
