@@ -17,6 +17,7 @@ from deployment_samples.deployment_samples_stack import (
     DeploymentSamplesStack,
     EventBridgeEventsExporterStack,
     FirehoseExporterStack,
+    TrustedAdvisorLogExporterStack,
     WorkSpacesLogExporterStack,
 )
 
@@ -40,6 +41,10 @@ workspaces_logging = WorkSpacesLogExporterStack(
     app, "siem-log-exporter-workspaces",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - Workspaces'))
+trustedadvisor_logging = TrustedAdvisorLogExporterStack(
+    app, "siem-log-exporter-trustedadvisor",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - TrustedAdvisor'))
 ad_logging = ADLogExporterStack(
     app, "siem-log-exporter-ad",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '

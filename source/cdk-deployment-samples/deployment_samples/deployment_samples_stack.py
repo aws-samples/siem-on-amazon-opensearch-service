@@ -104,6 +104,123 @@ def lambda_handler(event, context):
 '''
 
 
+LAMBDA_GET_TRUSTEDADVISOR_CHECK_RESULT = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+__copyright__ = 'Amazon.com, Inc. or its affiliates'
+__version__ = '2.6.1-beta.2'
+__license__ = 'MIT-0'
+__author__ = 'Katsuya Matsuoka'
+__url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
+
+import datetime
+import gzip
+import json
+import os
+import time
+
+import boto3
+import botocore.exceptions
+
+client = boto3.Session(region_name='us-east-1').client('support')
+s3_resource = boto3.resource('s3')
+bucket = s3_resource.Bucket(os.environ['log_bucket_name'])
+AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
+AWS_REGION = os.environ['AWS_DEFAULT_REGION']
+is_enable_japanese = (
+    os.environ['enable_japanese_description'] == 'Yes')
+
+checks_response = client.describe_trusted_advisor_checks(language='en')
+if is_enable_japanese:
+    checks_ja = {}
+    for check_ja in client.describe_trusted_advisor_checks(
+            language='ja')['checks']:
+        checks_ja[check_ja['id']] = check_ja
+
+
+def execute_check():
+    check_ids = []
+    unrefreshable_check_ids = []
+    for check in checks_response['checks']:
+        check_id = check['id']
+        check_ids.append(check_id)
+        try:
+            client.refresh_trusted_advisor_check(checkId=check_id)
+        except botocore.exceptions.ClientError as err:
+            if err.response['Error']['Code'] == \
+                    'InvalidParameterValueException':
+                unrefreshable_check_ids.append(check_id)
+            else:
+                print(err)
+    return check_ids, unrefreshable_check_ids
+
+
+def wait_check_completion(check_ids):
+    count = 0
+    while True:
+        response = client.describe_trusted_advisor_check_refresh_statuses(
+            checkIds=check_ids)
+        all_done = True
+        for status in response['statuses']:
+            all_done &= (status['status'] in ['abandoned', 'none', 'success'])
+        if all_done:
+            break
+        count += 1
+        if count > 2:
+            break
+        time.sleep(30)
+
+
+def lambda_handler(event, context):
+    now = datetime.datetime.now()
+    file_name = (
+        'trustedadvisor-check-results-'
+        f'{now.strftime("%Y%m%d_%H%M%S")}.json.gz')
+    s3file_name = (
+        f'AWSLogs/{AWS_ID}/TrustedAdvisor/{AWS_REGION}/'
+        f'{now.strftime("%Y/%m/%d")}/{file_name}')
+    f = gzip.open(f'/tmp/{file_name}', 'tw')
+    print('Total nummber of checks: '
+          f'{len(checks_response["checks"])}')
+
+    check_ids, unrefreshable_check_ids = execute_check()
+    wait_check_completion(check_ids)
+
+    for check in checks_response['checks']:
+        check_id = check['id']
+        response = client.describe_trusted_advisor_check_result(
+            checkId=check_id)
+        dt = datetime.datetime.strptime(
+            response['ResponseMetadata']['HTTPHeaders']['date'],
+            "%a, %d %b %Y %H:%M:%S GMT")
+        jsonobj = {
+            'id': response['ResponseMetadata']['RequestId'],
+            'time': dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "account": AWS_ID,
+            'region': AWS_REGION,
+            "resources": [],
+            'check': check,
+            'result': response['result'],
+            'refreshable': check_id not in unrefreshable_check_ids}
+        if is_enable_japanese:
+            jsonobj['check_ja'] = checks_ja[check_id]
+        if 'flaggedResources' in response['result'] and \
+                len(response['result']['flaggedResources']) > 0:
+            resource_num = len(response['result']['flaggedResources'])
+            for i in range(resource_num):
+                jsonobj['result']['flaggedResource'] = \
+                    response['result']['flaggedResources'][i]
+                jsonobj['result']['flaggedResource']['number'] = i + 1
+                f.write(json.dumps(jsonobj, ensure_ascii=False))
+                f.flush()
+        else:
+            f.write(json.dumps(jsonobj, ensure_ascii=False))
+            f.flush()
+    f.close()
+    print(f'Upload path: s3://{bucket.name}/{s3file_name}')
+    bucket.upload_file(f'/tmp/{file_name}', s3file_name)
+'''
+
+
 class FirehoseExporterStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str,
                  default_firehose_name='siem-XXXXXXXXXXX-to-s3',
@@ -473,6 +590,78 @@ class WorkSpacesLogExporterStack(cdk.Stack):
             self, 'eventBridgeRuleWorkSpacesEvent', event_pattern=pattern,
             rule_name='siem-workspaces-event-to-kdf',
             targets=[aws_events_targets.KinesisFirehoseStream(kdf_to_s3)])
+
+
+class TrustedAdvisorLogExporterStack(cdk.Stack):
+    def __init__(self, scope: cdk.Construct, construct_id: str,
+                 **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+
+        cwe_frequency = cdk.CfnParameter(
+            self, 'cweRulesFrequency', type='Number',
+            description=(
+                'How often do you get TrustedAdvisor check result? (every minutes)'),
+            default=720)
+        enable_japanese_description = cdk.CfnParameter(
+            self, 'enableJapaneseDescription',
+            description=(
+                'Do you enable Japanese check descriptino in addition to English?'),
+            allowed_values=['Yes', 'No'], default='Yes')
+
+        role_get_trustedadvisor_check_result = aws_iam.Role(
+            self, 'getTrustedAdvisorCheckResultRole',
+            role_name='siem-get-trustedadvisor-check-result-role',
+            inline_policies={
+                'describe-trustedadvisor': aws_iam.PolicyDocument(
+                    statements=[
+                        aws_iam.PolicyStatement(
+                            actions=[
+                                'support:DescribeTrustedAdvisorCheck*',
+                                'support:RefreshTrustedAdvisorCheck'
+                            ],
+                            resources=['*'],
+                            sid='DescribeTrustedAdvisorPolicyGeneratedBySiemCfn')
+                    ]
+                ),
+                'lambda-to-s3': aws_iam.PolicyDocument(
+                    statements=[
+                        aws_iam.PolicyStatement(
+                            actions=['s3:PutObject'],
+                            resources=[f'arn:aws:s3:::{log_bucket_name}/*'],
+                            sid='LambdaToS3PolicyGeneratedBySiemCfn'
+                        )
+                    ]
+                )
+            },
+            managed_policies=[
+                aws_iam.ManagedPolicy.from_aws_managed_policy_name(
+                    'service-role/AWSLambdaBasicExecutionRole'),
+            ],
+            assumed_by=aws_iam.ServicePrincipal('lambda.amazonaws.com')
+        )
+
+        # Lambda Functions to get trustedadvisor check result
+        lambda_func = aws_lambda.Function(
+            self, 'lambdaGetTrustedAdvisorCheckResult',
+            runtime=aws_lambda.Runtime.PYTHON_3_8,
+            code=aws_lambda.InlineCode(LAMBDA_GET_TRUSTEDADVISOR_CHECK_RESULT),
+            function_name='siem-get-trustedadvisor-check-result',
+            description='SIEM: get trustedadvisor check result',
+            handler='index.lambda_handler',
+            timeout=cdk.Duration.seconds(600),
+            role=role_get_trustedadvisor_check_result,
+            environment={
+                'log_bucket_name': log_bucket_name,
+                'enable_japanese_description': enable_japanese_description.value_as_string}
+        )
+        rule = aws_events.Rule(
+            self, 'eventBridgeRuleTrustedAdvisorCheckResult',
+            rule_name='siem-trustedadvisor-check-result-to-lambda',
+            schedule=aws_events.Schedule.rate(
+                cdk.Duration.minutes(cwe_frequency.value_as_number)))
+        rule.add_target(aws_events_targets.LambdaFunction(lambda_func))
 
 
 class CoreLogExporterStack(cdk.Stack):

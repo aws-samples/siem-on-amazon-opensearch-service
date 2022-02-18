@@ -28,6 +28,7 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 |セキュリティ、ID、およびコンプライアンス|AWS Network Firewall|Flow logs<br>Alert logs|
 |管理とガバナンス|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
 |管理とガバナンス|AWS Config|Configuration 履歴<br>Configuration スナップショット<br>Config Rules|
+|管理とガバナンス|AWS Trusted Advisor|Trusted Advisor チェック結果|
 |ネットワーキングとコンテンツ配信|Amazon CloudFront|Standard access log<br>Real-time log|
 |ネットワーキングとコンテンツ配信|Amazon Route 53 Resolver|VPC DNS query log|
 |ネットワーキングとコンテンツ配信|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
