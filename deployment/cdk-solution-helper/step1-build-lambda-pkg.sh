@@ -58,6 +58,9 @@ function pip_zip_for_lambda () {
     if [ -d requests_aws4auth ]; then
         mv LICENSE README.md HISTORY.md requests_aws4auth-*-info/
     fi
+    if [ -d aws_lambda_powertools ]; then
+        mv THIRD-PARTY-LICENSES aws_lambda_powertools-*-info/
+    fi
     mv -f README.md.org README.md
     echo "cp -f $source_template_dir/../LICENSE $source_template_dir/../CODE_OF_CONDUCT.md $source_template_dir/../CONTRIBUTING.md ${source_dir}/lambda/$1/"
     cp -f "$source_template_dir/../LICENSE" "$source_template_dir/../CODE_OF_CONDUCT.md" "$source_template_dir/../CONTRIBUTING.md" "${source_dir}/lambda/$1/"

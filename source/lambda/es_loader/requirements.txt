@@ -1,13 +1,13 @@
-requests==2.26.0
+requests==2.27.1
 requests-aws4auth==1.1.1
 opensearch-py==1.0.0
-geoip2==4.4.0
-aws-lambda-powertools==1.19.0
+geoip2==4.5.0
+aws-lambda-powertools==1.25.1
 git+https://github.com/martinblech/xmltodict.git@ae19c452ca000bf243bfc16274c060bf3bf7cf51  # v0.12.0 + some commits
 # in lambada env
-boto3==1.17.100
-botocore==1.20.100
+boto3==1.18.55
+botocore==1.21.55
 python-dateutil==2.8.2
-s3transfer==0.4.2
+s3transfer==0.5.0
 six==1.16.0
 urllib3==1.26.6

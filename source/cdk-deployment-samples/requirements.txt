@@ -1,8 +1,8 @@
-aws-cdk.core==1.130.0
-aws_cdk.aws_cloudformation==1.130.0
-aws_cdk.aws_events==1.130.0
-aws_cdk.aws_events_targets==1.130.0
-aws_cdk.aws_iam==1.130.0
-aws_cdk.aws_kinesisfirehose==1.130.0
-aws_cdk.aws_lambda==1.130.0
-aws_cdk.aws_logs==1.130.0
+aws-cdk.core==1.145.0
+aws-cdk.aws-cloudformation==1.145.0
+aws-cdk.aws-events==1.145.0
+aws-cdk.aws-events-targets==1.145.0
+aws-cdk.aws-iam==1.145.0
+aws-cdk.aws-kinesisfirehose==1.145.0
+aws-cdk.aws-lambda==1.145.0
+aws-cdk.aws-logs==1.145.0

@@ -107,8 +107,8 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': aesdomain,
-    # 'EngineVersion': 'OpenSearch_1.0',
-    'ElasticsearchVersion': 'OpenSearch_1.0',
+    # 'EngineVersion': 'OpenSearch_1.1',
+    'ElasticsearchVersion': 'OpenSearch_1.1',
     # 'ClusterConfig': {
     'ElasticsearchClusterConfig': {
         # 'InstanceType': 't3.medium.search',
@@ -152,9 +152,9 @@ config_domain = {
     'NodeToNodeEncryptionOptions': {
         'Enabled': True
     },
-    # AdvancedOptions={
-    #     'string': 'string'
-    # },
+    'AdvancedOptions': {
+        "override_main_response_version": "true"
+    },
     'LogPublishingOptions': {
         'ES_APPLICATION_LOGS': {
             'CloudWatchLogsLogGroupArn': (

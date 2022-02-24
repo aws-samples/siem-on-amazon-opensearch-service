@@ -571,8 +571,8 @@ class MyAesSiemStack(core.Stack):
             architecture=aws_lambda.Architecture.X86_64,
             # architecture=region_mapping.find_in_map(
             #    core.Aws.REGION, 'LambdaArm'),
-            # code=aws_lambda.Code.asset('../lambda/es_loader.zip'),
-            code=aws_lambda.Code.asset('../lambda/es_loader'),
+            # code=aws_lambda.Code.from_asset('../lambda/es_loader.zip'),
+            code=aws_lambda.Code.from_asset('../lambda/es_loader'),
             handler='index.lambda_handler',
             memory_size=2048,
             timeout=core.Duration.seconds(ES_LOADER_TIMEOUT),
@@ -584,11 +584,14 @@ class MyAesSiemStack(core.Stack):
                 'GEOIP_BUCKET': s3bucket_name_geo, 'LOG_LEVEL': 'info',
                 'POWERTOOLS_LOGGER_LOG_EVENT': 'false',
                 'POWERTOOLS_SERVICE_NAME': 'es-loader',
-                'POWERTOOLS_METRICS_NAMESPACE': 'SIEM'})
-        es_loader_newver = lambda_es_loader.add_version(
-            name=__version__, description=__version__)
-        es_loader_opt = es_loader_newver.node.default_child.cfn_options
-        es_loader_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
+                'POWERTOOLS_METRICS_NAMESPACE': 'SIEM',
+            },
+            current_version_options=aws_lambda.VersionOptions(
+                removal_policy=core.RemovalPolicy.RETAIN,
+                description=__version__
+            ),
+        )
+        lambda_es_loader.current_version
 
         # send only
         # sqs_aes_siem_dlq.grant(lambda_es_loader, 'sqs:SendMessage')
@@ -618,19 +621,20 @@ class MyAesSiemStack(core.Stack):
             architecture=aws_lambda.Architecture.X86_64,
             # architecture=region_mapping.find_in_map(
             #    core.Aws.REGION, 'LambdaArm'),
-            code=aws_lambda.Code.asset('../lambda/geoip_downloader'),
+            code=aws_lambda.Code.from_asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
             memory_size=320,
             timeout=core.Duration.seconds(300),
             environment={
                 's3bucket_name': s3bucket_name_geo,
                 'license_key': geoip_license_key.value_as_string,
-            }
+            },
+            current_version_options=aws_lambda.VersionOptions(
+                removal_policy=core.RemovalPolicy.RETAIN,
+                description=__version__
+            ),
         )
-        lambda_geo_newver = lambda_geo.add_version(
-            name=__version__, description=__version__)
-        lamba_geo_opt = lambda_geo_newver.node.default_child.cfn_options
-        lamba_geo_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
+        lambda_geo.current_version
 
         ######################################################################
         # setup OpenSearch Service
@@ -643,8 +647,8 @@ class MyAesSiemStack(core.Stack):
             architecture=aws_lambda.Architecture.X86_64,
             # architecture=region_mapping.find_in_map(
             #    core.Aws.REGION, 'LambdaArm'),
-            # code=aws_lambda.Code.asset('../lambda/deploy_es.zip'),
-            code=aws_lambda.Code.asset('../lambda/deploy_es'),
+            # code=aws_lambda.Code.from_asset('../lambda/deploy_es.zip'),
+            code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_domain_handler',
             memory_size=128,
             timeout=core.Duration.seconds(300),
@@ -656,7 +660,12 @@ class MyAesSiemStack(core.Stack):
                 'allow_source_address': allow_source_address.value_as_string,
             },
             role=aes_siem_deploy_role_for_lambda,
+            current_version_options=aws_lambda.VersionOptions(
+                removal_policy=core.RemovalPolicy.RETAIN,
+                description=__version__
+            ),
         )
+        lambda_deploy_es.current_version
         lambda_deploy_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
@@ -667,10 +676,6 @@ class MyAesSiemStack(core.Stack):
         else:
             lambda_deploy_es.add_environment('vpc_subnet_id', 'None')
             lambda_deploy_es.add_environment('security_group_id', 'None')
-        deploy_es_newver = lambda_deploy_es.add_version(
-            name=__version__, description=__version__)
-        deploy_es_opt = deploy_es_newver.node.default_child.cfn_options
-        deploy_es_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
         # execute lambda_deploy_es to deploy Amaozon ES Domain
         aes_domain = aws_cloudformation.CfnCustomResource(
@@ -697,7 +702,7 @@ class MyAesSiemStack(core.Stack):
             architecture=aws_lambda.Architecture.X86_64,
             # architecture=region_mapping.find_in_map(
             #    core.Aws.REGION, 'LambdaArm'),
-            code=aws_lambda.Code.asset('../lambda/deploy_es'),
+            code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
             memory_size=128,
             timeout=core.Duration.seconds(300),
@@ -710,7 +715,12 @@ class MyAesSiemStack(core.Stack):
                 'es_endpoint': es_endpoint,
             },
             role=aes_siem_deploy_role_for_lambda,
+            current_version_options=aws_lambda.VersionOptions(
+                removal_policy=core.RemovalPolicy.RETAIN,
+                description=__version__
+            ),
         )
+        lambda_configure_es.current_version
         lambda_configure_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
@@ -721,10 +731,6 @@ class MyAesSiemStack(core.Stack):
         else:
             lambda_configure_es.add_environment('vpc_subnet_id', 'None')
             lambda_configure_es.add_environment('security_group_id', 'None')
-        configure_es_newver = lambda_configure_es.add_version(
-            name=__version__, description=__version__)
-        configure_es_opt = configure_es_newver.node.default_child.cfn_options
-        configure_es_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
         aes_config = aws_cloudformation.CfnCustomResource(
             self, 'AesSiemDomainConfiguredR2',

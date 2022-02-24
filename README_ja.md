@@ -184,12 +184,14 @@ SIEM on OpenSearch Service または SIEM on Amazon ES を新しいバージョ�
 
 ### OpenSearch Service のドメインのアップグレード
 
-OpenSearch Service の 1.0 か、Elasticsearch の 7.10 にアップグレードします
+OpenSearch Service を OpenSearch の 1.1、1.0 または Elasticsearch の 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.1 以上を前提にしているため、推奨バージョンは OpenSearch 1.1 の「互換性モードを有効化」です。
 
 1. [OpenSearch Service コンソール](https://console.aws.amazon.com/es/home?) に移動
 1. [**aes-siem**] ドメインを選択
 1. [**アクション**] アイコンを選択して、プルダウンリストから [**ドメインのアップグレード**] を選択
-1. アップグレード先のバージョンで [**OpenSearch 1.0**] または、[**Elasticsearch 7.10**] を選んで、[**送信**] を選択
+1. アップグレード先のバージョンで [**OpenSearch 1.1**] (推奨)、 [**OpenSearch 1.0**] または [**Elasticsearch 7.10**] を選択
+1. OpenSearch の場合は、「互換性モードを有効化」にチェックを入れる (推奨)
+1. [**送信**] を選択
 
 CloudFormation で初期インストールした場合は次へ進み、AWS CDK で初期インストールしている場合は [高度なデプロイ](docs/deployment_ja.md) のアップデートを参照してください。
 
@@ -233,7 +235,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 
 |AWS Resource|Resource Name|目的|
 |------------|----|----|
-|OpenSearch Service 1.0 or Elasticsearch 7.X|aes-siem|SIEM 本体|
+|OpenSearch Service 1.X or Elasticsearch 7.X|aes-siem|SIEM 本体|
 |S3 bucket|aes-siem-[AWS_Account]-log|ログを集約するため|
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|OpenSearch Service の手動スナップショット取得|
 |S3 bucket|aes-siem-[AWS_Account]-geo|ダウンロードした GeoIP を保存|
