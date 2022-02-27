@@ -311,12 +311,12 @@ def create_es_conn(awsauth, es_hostname):
 def get_read_only_indices(es_conn, awsauth, ES_HOSTNAME):
     read_only_indices = []
     # cold tier
-    # GET _cold/indices/_search?page_size=100
+    # GET _cold/indices/_search?page_size=2000
     url = f'https://{ES_HOSTNAME}/_cold/indices/_search'
     headers = {'Content-Type': 'application/json'}
     try:
         res = requests.get(
-            url, params={'page_size': 100}, auth=awsauth, timeout=3.0)
+            url, params={'page_size': 2000}, auth=awsauth, timeout=3.0)
     except requests.exceptions.Timeout:
         logger.warning('timeout: impossible to get cold index')
         return tuple(read_only_indices)
