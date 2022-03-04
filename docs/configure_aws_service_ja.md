@@ -752,7 +752,7 @@ s3_key の初期値: `/[Ww]indows.*[Ee]vent` (Firehose の出力パスに指定)
         * 基本設定の CloudFormation。ログ転送先のS3バケット名の取得やIAMロールを作成します。他の AWS サービス設定で共通に使用します
     * [siem-log-exporter-cwl-nocompress.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.2-beta.2/deployment/log-exporter/siem-log-exporter-cwl-nocompress.template)
         * Firehose を作成してから S3 バケットに出力します。
-        * 出力するプレフィックス: [**AWSLogs/123456789012/EC/Winodws/Event/[region]/**]
+        * 出力するプレフィックス: [**AWSLogs/123456789012/EC/Windows/Event/[region]/**]
             * 123456789012 は ご利用の AWS アカウント ID に置換してください
 
 ## 9. コンテナ
