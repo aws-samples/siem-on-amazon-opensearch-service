@@ -15,6 +15,7 @@
     * [AWS Network Firewall](#AWS-Network-Firewall) - Still not support in AWS China Region （该功能在China Region不支持）
 1. [管理与治理](#3-Management--Governance)
     * [AWS CloudTrail](#AWS-CloudTrail)
+    * [AWS Trusted Advisor](#AWS-Trusted-Advisor)
 1. [网络及内容交付](#4-Networking--Content-Delivery)
     * [Amazon CloudFront](#Amazon-CloudFront)
     * [Route 53 Resolver VPC DNS 查询日志](#Route-53-Resolver-VPC-DNS-Query-Logging)
@@ -175,6 +176,19 @@ s3_key的初始值 :`CloudTrail/`或`CloudTrail-Insight/`（默认输出路径�
       * Exclude AWS KMS events: 可以勾选，也可以不勾选
 1. 选择 [**Next**]
 1. 选择 [**Create trail**]
+
+### AWS Trusted Advisor
+
+![Trusted Advisor check result to S3](images/trustedadvisor-check-result-to-s3.svg)
+
+s3_key初始值：`(TrustedAdvisor |trustedadvisor)` 无需设置初始值，Lambda函数将自动输出固定值。
+
+#### 由 CloudFormation配置 (AWS Trusted Advisor)
+
+| No | CloudFormation | 概述 |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.2/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.2/log-exporter/siem-log-exporter-core.template) | CloudFormation的基本设置。 用于获取日志转发目的地的S3存储桶名称并创建IAM role。常用于其他 AWS 服务的基本设置。 |
+| 2 |[![trustedadvisor](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-trustedadvisor&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.2/log-exporter/siem-log-exporter-trustedadvisor.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.2/log-exporter/siem-log-exporter-trustedadvisor.template) | 此模板用于创建Lambda函数。设置EventBridge以用于定期执行Lambda函数，并将Trusted Advisor的检查结果写入S3。|
 
 ## 4. 网络及内容交付
 
