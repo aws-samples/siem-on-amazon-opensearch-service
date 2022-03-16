@@ -25,6 +25,7 @@ SIEM on OpenSearch Service 能够加载并关联以下日志类型。
 |Security, Identity, & Compliance|AWS Security Hub|Security Hub 问题清单<br>GuardDuty 问题清单<br>Amazon Macie 问题清单<br>Amazon Inspector 问题清单<br>AWS IAM Access Analyzer 问题清单|
 |Security, Identity, & Compliance|AWS Network Firewall|Flow logs<br>Alert logs|
 |Management & Governance|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
+|Management & Governance|AWS Trusted Advisor|Trusted Advisor Check Result|
 |Networking & Content Delivery|Amazon CloudFront|标准访问日志<br>实时日志|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS 查询日志|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
