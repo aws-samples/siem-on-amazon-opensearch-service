@@ -94,6 +94,8 @@ zip deploy_es/dashboard.ndjson.zip -jD ../saved_objects/dashboard.ndjson
 
 echo "# start packing es_loader"
 pip_zip_for_lambda "es_loader"
+echo "# start packing es_loader_stopper"
+pip_zip_for_lambda "es_loader_stopper"
 echo "# start packing deploy_es"
 pip_zip_for_lambda "deploy_es"
 echo "# start packing geoip_downloader"

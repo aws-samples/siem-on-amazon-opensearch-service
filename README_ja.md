@@ -240,6 +240,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|OpenSearch Service の手動スナップショット取得|
 |S3 bucket|aes-siem-[AWS_Account]-geo|ダウンロードした GeoIP を保存|
 |Lambda function|aes-siem-es-loader|ログを正規化し OpenSearch Service へロード|
+|Lambda function|aes-siem-es-loader-stopper|非常時に es-loader をスロットリングするため|
 |Lambda function|aes-siem-deploy-aes|OpenSearch Service のドメイン作成|
 |Lambda function|aes-siem-configure-aes|OpenSearch Service の設定|
 |Lambda function|aes-siem-geoip-downloader|GeoIP のダウンロード|
@@ -247,8 +248,10 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 |AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|ログの暗号化に使用|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|処理するログ行数が多い時は分割。それを管理するキュー|
 |Amazon SQS Queue|aes-siem-dlq|OpenSearch Service のログ取り込み失敗用 Dead Letter Queue|
+|CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsAtZeroAlarm|OpenSearch Service クラスターの合計空き容量が 0 の状態が 30 分間継続した場合に発報|
 |CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader|aes-siem-geoip-downloader を12時間毎に実行|
 |Amazon SNS Topic|aes-siem-alert|OpenSearch Service の Alerting の Destinations で選択|
+|Amazon SNS Topic|aes-siem-invoke-loader-stopper-topic|es-loader-stopper を呼び出すため|
 |Amazon SNS Subscription|inputed email|Alert の送信先メールアドレス|
 
 ## クリーンアップ
@@ -271,6 +274,15 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 export AWS_DEFAULT_REGION=<AWS_REGION>
 aws kms delete-alias --alias-name  "alias/aes-siem-key"
 ```
+
+## 非常時の es-loader のスロットリングについて
+
+es-loader の不必要な呼び出しを避けるため、以下の条件で es-loader をスロットリングします。
+- OpenSearch Service クラスターの合計空き容量が 0 の状態が 30 分間継続し、`aes-siem-TotalFreeStorageSpaceRemainsAtZeroAlarm` が発報した場合。
+  - OpenSearch クラスターのストレージの空き容量が不足している状態です。復旧するには空き容量を増やす必要があります。詳しくは[使用可能なストレージ領域の不足](https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/handling-errors.html#handling-errors-watermark)を参照してください。
+
+ログの取り込みを再開する場合は、AWS マネジメントコンソールや AWS CLI から Lambda 関数 `aes-siem-es-loader` の予約済同時実行数を0から10に戻してください。  
+また、[SQS のキューからの取り込み](docs/configure_siem_ja.md#sqs-のキューからの取り込み)を参考にデッドレターキュー (aes-siem-dlq) からメッセージを取り込んでください。
 
 ## Security
 

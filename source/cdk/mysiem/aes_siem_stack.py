@@ -10,6 +10,8 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 import boto3
 from aws_cdk import (
     aws_cloudformation,
+    aws_cloudwatch,
+    aws_cloudwatch_actions,
     aws_ec2,
     aws_events,
     aws_events_targets,
@@ -511,6 +513,14 @@ class MyAesSiemStack(core.Stack):
             assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
         )
 
+        # CloudWatch Alarm role to send alarm
+        # to aes-siem-invoke-loader-stopper-topic
+        aes_siem_es_loader_stopper_cw_alarm_role = aws_iam.Role(
+            self, 'AesSiemEsLoaderStopperCWAlarmRole',
+            role_name='aes-siem-es-loader-stopper-cw-alarm-role',
+            assumed_by=aws_iam.ServicePrincipal('cloudwatch.amazonaws.com')
+        )
+
         # EC2 role
         aes_siem_es_loader_ec2_role = aws_iam.Role(
             self, 'AesSiemEsLoaderEC2Role',
@@ -612,6 +622,25 @@ class MyAesSiemStack(core.Stack):
         sqs_aes_siem_dlq.grant(
             aes_siem_es_loader_ec2_role, 'sqs:GetQueue*', 'sqs:ListQueues*',
             'sqs:ReceiveMessage*', 'sqs:DeleteMessage*')
+
+        # setup lambda of es_loader_stopper
+        lambda_es_loader_stopper = aws_lambda.Function(
+            self, 'LambdaEsLoaderStopper',
+            function_name='aes-siem-es-loader-stopper',
+            description=f'{SOLUTION_NAME} / es-loader-stopper',
+            runtime=aws_lambda.Runtime.PYTHON_3_8,
+            architecture=aws_lambda.Architecture.X86_64,
+            code=aws_lambda.Code.asset('../lambda/es_loader_stopper'),
+            handler='index.lambda_handler',
+            memory_size=128,
+            timeout=core.Duration.seconds(300),
+            environment={
+                'ES_LOADER_FUNCTION_ARN': lambda_es_loader.function_arn})
+        es_loader_stopper_newver = lambda_es_loader_stopper.add_version(
+            name=__version__, description=__version__)
+        es_loader_stopper_opt = es_loader_stopper_newver \
+            .node.default_child.cfn_options
+        es_loader_stopper_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',
@@ -755,6 +784,19 @@ class MyAesSiemStack(core.Stack):
             inline_policy_to_load_entries_into_es)
         aes_siem_es_loader_ec2_role.attach_inline_policy(
             inline_policy_to_load_entries_into_es)
+
+        # grant permission to es_loader_stopper role
+        inline_policy_to_stop_es_loader = aws_iam.Policy(
+            self, 'aes-siem-policy-to-stop-es-loader',
+            policy_name='aes-siem-policy-to-stop-es-loader',
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['lambda:PutFunctionConcurrency'],
+                    resources=[lambda_es_loader.function_arn]),
+            ]
+        )
+        lambda_es_loader_stopper.role.attach_inline_policy(
+            inline_policy_to_stop_es_loader)
 
         # grant additional permission to es_loader role
         additional_kms_cmks = self.node.try_get_context('additional_kms_cmks')
@@ -1014,6 +1056,41 @@ class MyAesSiemStack(core.Stack):
         sns_topic.add_subscription(aws_sns_subscriptions.EmailSubscription(
             email_address=sns_email.value_as_string))
         sns_topic.grant_publish(aes_siem_sns_role)
+        sns_topic.grant_publish(lambda_es_loader_stopper)
+
+        ######################################################################
+        # for es-loader-stopper
+        ######################################################################
+        # Add environment variables
+        lambda_es_loader_stopper.add_environment(
+            'AES_SIEM_ALERT_TOPIC_ARN', sns_topic.topic_arn)
+
+        # SNS topic
+        invoke_loader_stopper_topic = aws_sns.Topic(
+            self, 'InvokeLoaderStopperTopic',
+            topic_name='aes-siem-invoke-loader-stopper-topic',
+            display_name='AES SIEM / topic to invoke es-loader-stopper lambda')
+        invoke_loader_stopper_topic.add_subscription(
+            aws_sns_subscriptions.LambdaSubscription(lambda_es_loader_stopper))
+        invoke_loader_stopper_topic.grant_publish(
+            aes_siem_es_loader_stopper_cw_alarm_role)
+
+        # CloudWatch Alarm
+        total_free_storage_space_metric = aws_cloudwatch.Metric(
+            metric_name='FreeStorageSpace', namespace='AWS/ES',
+            statistic='Sum', period=core.Duration.minutes(1),
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID})
+        total_free_storage_space_remains_at_zero_alarm = aws_cloudwatch.Alarm(
+            self, 'TotalFreeStorageSpaceRemainsAtZeroAlarm',
+            alarm_description=('Triggered when total free space '
+                               'for the cluster remains at 0 for 30 minutes.'),
+            metric=total_free_storage_space_metric,
+            evaluation_periods=30, threshold=0,
+            comparison_operator=aws_cloudwatch
+            .ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD)
+        total_free_storage_space_remains_at_zero_alarm.add_alarm_action(
+            aws_cloudwatch_actions.SnsAction(invoke_loader_stopper_topic))
 
         ######################################################################
         # output of CFn

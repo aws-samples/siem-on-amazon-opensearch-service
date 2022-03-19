@@ -232,6 +232,7 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|For capturing manual snapshots of OpenSearch Service|
 |S3 bucket|aes-siem-[AWS_Account]-geo|For storing downloaded GeoIPs|
 |Lambda function|aes-siem-es-loader|For normalizing logs and loading them into OpenSearch Service|
+|Lambda function|aes-siem-es-loader-stopper|For throttling es-loader in case of emergency|
 |Lambda function|aes-siem-deploy-aes|For creating the OpenSearch Service domain|
 |Lambda function|aes-siem-configure-aes|For configuring OpenSearch Service|
 |Lambda function|aes-siem-geoip-downloader|For downloading GeoIPs|
@@ -239,8 +240,10 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 |AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|For encrypting logs|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|A log is split into multiple parts if it has many lines to process. This is the queue to coordinate it|
 |Amazon SQS Queue|aes-siem-dlq|A dead-letter queue used when loading logs into OpenSearch Service fails|
+|CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsAtZeroAlarm|Triggered when total free space for the OpenSearch Service cluster remains at 0 for 30 minutes|
 |CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader| For executing aes-siem-geoip-downloader every day|
 |Amazon SNS Topic|aes-siem-alert|This is selected as the destination for alerting in OpenSearch Service|
+|Amazon SNS Topic|aes-siem-invoke-loader-stopper-topic|For invoking es-loader-stopper|
 |Amazon SNS Subscription|inputed email|This is the email address where alerts are sent|
 
 ## Cleanup
@@ -263,6 +266,15 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 export AWS_DEFAULT_REGION=<AWS_REGION>
 aws kms delete-alias --alias-name  "alias/aes-siem-key"
 ```
+
+## Throttling of es-loader in an emergency
+
+To avoid unnecessary invocation of es-loader, throttle es-loader under the following conditions:
+- If total free space for the OpenSearch Service cluster remains at 0 for 30 minutes and `aes-siem-TotalFreeStorageSpaceRemainsAtZeroAlarm` is triggered.
+  - The OpenSearch cluster is running out of storage space. More free space is needed for recovery. To learn more, see [Lack of available storage space](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/handling-errors.html#handling-errors-watermark).
+
+If you want to resume loading logs, set the reserved concurrency of the Lambda function `aes-siem-es-loader` back to 10 from the AWS Management Console or AWS CLI.  
+You can also load messages from the dead-letter queue (aes-siem-dlq) by referring to [Loading from SQS queue](docs/configure_siem.md#loading-from-sqs-queue).
 
 ## Security
 
