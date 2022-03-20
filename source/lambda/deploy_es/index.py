@@ -37,19 +37,18 @@ s3_client = boto3.resource('s3')
 
 accountid = os.environ['accountid']
 region = os.environ['AWS_REGION']
-aesdomain = os.environ['aes_domain_name']
-myaddress = os.environ['allow_source_address'].split()
-aes_admin_role = os.environ['aes_admin_role']
-es_loader_role = os.environ['es_loader_role']
+aesdomain = os.getenv('aes_domain_name')
+myaddress = os.getenv('allow_source_address', '').split()
+aes_admin_role = os.getenv('aes_admin_role')
+es_loader_role = os.getenv('es_loader_role')
+metrics_exporter_role = os.getenv('metrics_exporter_role')
 myiamarn = [accountid]
 KIBANAADMIN = 'aesadmin'
 KIBANA_HEADERS = {'Content-Type': 'application/json', 'kbn-xsrf': 'true'}
 DASHBOARDS_HEADERS = {'Content-Type': 'application/json', 'osd-xsrf': 'true'}
-vpc_subnet_id = os.environ['vpc_subnet_id']
-s3_snapshot = os.environ['s3_snapshot']
-if vpc_subnet_id == 'None':
-    vpc_subnet_id = None
-security_group_id = os.environ['security_group_id']
+vpc_subnet_id = os.getenv('vpc_subnet_id')
+security_group_id = os.getenv('security_group_id')
+s3_snapshot = os.getenv('s3_snapshot')
 LOGGROUP_RETENTIONS = [
     (f'/aws/OpenSearchService/domains/{aesdomain}/application-logs', 14),
     ('/aws/lambda/aes-siem-configure-aes', 90),
@@ -181,7 +180,8 @@ if vpc_subnet_id:
     config_domain['VPCOptions'] = {'SubnetIds': [vpc_subnet_id, ],
                                    'SecurityGroupIds': [security_group_id, ]}
 
-s3_snapshot_bucket = s3_client.Bucket(s3_snapshot)
+if s3_snapshot:
+    s3_snapshot_bucket = s3_client.Bucket(s3_snapshot)
 
 
 def make_password(length):
@@ -324,6 +324,8 @@ def configure_opendistro(es_endpoint, es_app_data):
                         added_role=es_loader_role)
     upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
                         added_role=es_loader_ec2_role)
+    upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
+                        added_role=metrics_exporter_role)
 
 
 def upsert_policy(es_endpoint, awsauth, items):

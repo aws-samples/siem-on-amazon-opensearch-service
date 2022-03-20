@@ -31,6 +31,7 @@ from aws_cdk import (
 print(__version__)
 
 SOLUTION_NAME = f'SIEM on Amazon OpenSearch Service v{__version__}'
+INDEX_METRICS_PERIOD_HOUR = 1
 
 iam_client = boto3.client('iam')
 ec2_resource = boto3.resource('ec2')
@@ -665,6 +666,27 @@ class MyAesSiemStack(core.Stack):
         )
         lambda_geo.current_version
 
+        # setup lambda of opensearch index metrics
+        lambda_metrics_exporter = aws_lambda.Function(
+            self, 'LambdaMetricsExporter', **lambda_es_loader_vpc_kwargs,
+            function_name='aes-siem-index-metrics-exporter',
+            description=f'{SOLUTION_NAME} / index-metrics-exporter',
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            architecture=aws_lambda.Architecture.X86_64,
+            code=aws_lambda.Code.from_asset(
+                '../lambda/index_metrics_exporter'),
+            handler='index.lambda_handler',
+            memory_size=256,
+            timeout=core.Duration.seconds(300),
+            environment={'LOG_BUCKET': s3bucket_name_log,
+                         'PERIOD_HOUR': str(INDEX_METRICS_PERIOD_HOUR)},
+            current_version_options=aws_lambda.VersionOptions(
+                removal_policy=core.RemovalPolicy.RETAIN,
+                description=__version__
+            ),
+        )
+        lambda_metrics_exporter.current_version
+
         ######################################################################
         # setup OpenSearch Service
         ######################################################################
@@ -685,7 +707,6 @@ class MyAesSiemStack(core.Stack):
                 'accountid': core.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
                 'aes_admin_role': aes_siem_deploy_role_for_lambda.role_arn,
-                'es_loader_role': lambda_es_loader.role.role_arn,
                 'allow_source_address': allow_source_address.value_as_string,
             },
             role=aes_siem_deploy_role_for_lambda,
@@ -702,9 +723,6 @@ class MyAesSiemStack(core.Stack):
                 'vpc_subnet_id', subnet1.subnet_id)
             lambda_deploy_es.add_environment(
                 'security_group_id', sg_vpc_aes_siem.security_group_id)
-        else:
-            lambda_deploy_es.add_environment('vpc_subnet_id', 'None')
-            lambda_deploy_es.add_environment('security_group_id', 'None')
 
         # execute lambda_deploy_es to deploy Amaozon ES Domain
         aes_domain = aws_cloudformation.CfnCustomResource(
@@ -716,6 +734,7 @@ class MyAesSiemStack(core.Stack):
         lambda_es_loader.add_environment('ES_ENDPOINT', es_endpoint)
         lambda_es_loader.add_environment(
             'SQS_SPLITTED_LOGS_URL', sqs_aes_siem_splitted_logs.queue_url)
+        lambda_metrics_exporter.add_environment('ES_ENDPOINT', es_endpoint)
 
         lambda_configure_es_vpc_kwargs = {}
         if vpc_type:
@@ -740,7 +759,7 @@ class MyAesSiemStack(core.Stack):
                 'aes_domain_name': aes_domain_name,
                 'aes_admin_role': aes_siem_deploy_role_for_lambda.role_arn,
                 'es_loader_role': lambda_es_loader.role.role_arn,
-                'allow_source_address': allow_source_address.value_as_string,
+                'metrics_exporter_role': lambda_metrics_exporter.role.role_arn,
                 'es_endpoint': es_endpoint,
             },
             role=aes_siem_deploy_role_for_lambda,
@@ -776,13 +795,15 @@ class MyAesSiemStack(core.Stack):
             policy_name='aes-siem-policy-to-load-entries-to-es',
             statements=[
                 aws_iam.PolicyStatement(
-                    actions=['es:*'],
+                    actions=['es:ESHttp*'],
                     resources=[es_arn + '/*', ]),
             ]
         )
         lambda_es_loader.role.attach_inline_policy(
             inline_policy_to_load_entries_into_es)
         aes_siem_es_loader_ec2_role.attach_inline_policy(
+            inline_policy_to_load_entries_into_es)
+        lambda_metrics_exporter.role.attach_inline_policy(
             inline_policy_to_load_entries_into_es)
 
         # grant permission to es_loader_stopper role
@@ -839,6 +860,7 @@ class MyAesSiemStack(core.Stack):
 
         kms_aes_siem.grant_decrypt(lambda_es_loader)
         kms_aes_siem.grant_decrypt(aes_siem_es_loader_ec2_role)
+        kms_aes_siem.grant_encrypt(lambda_metrics_exporter)
 
         ######################################################################
         # s3 notification and grant permisssion
@@ -848,6 +870,7 @@ class MyAesSiemStack(core.Stack):
         s3_geo.grant_read(aes_siem_es_loader_ec2_role)
         s3_log.grant_read(lambda_es_loader)
         s3_log.grant_read(aes_siem_es_loader_ec2_role)
+        s3_log.grant_write(lambda_metrics_exporter)
 
         # create s3 notification for es_loader
         notification = aws_s3_notifications.LambdaDestination(lambda_es_loader)
@@ -874,6 +897,14 @@ class MyAesSiemStack(core.Stack):
             self, 'CwlRuleLambdaGeoipDownloaderDilly',
             schedule=aws_events.Schedule.rate(core.Duration.hours(12)))
         rule.add_target(aws_events_targets.LambdaFunction(lambda_geo))
+
+        # collect index metrics every 1 hour
+        rule_metrics_exporter = aws_events.Rule(
+            self, 'EventBridgeRuleLambdaMetricsExporter',
+            schedule=aws_events.Schedule.rate(
+                core.Duration.hours(INDEX_METRICS_PERIOD_HOUR)))
+        rule_metrics_exporter.add_target(
+            aws_events_targets.LambdaFunction(lambda_metrics_exporter))
 
         ######################################################################
         # bucket policy

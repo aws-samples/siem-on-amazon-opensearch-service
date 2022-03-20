@@ -13,6 +13,7 @@
 * [S3 Accesslog](#S3-Accesslog)
 * [Amazon Relational Database Service (RDS)](#Amazon-RDS)
 * [Amazon WorkSpaces](#Amazon-WorkSpaces)
+* [Amazon OpenSearch Service Metrics](#Amazon-OpenSearch-Service-Metrics)
 
 ## AWS Security Hub
 
@@ -59,5 +60,9 @@ This dashboard was imported from [AWS WAF Dashboard](https://github.com/aws-samp
 ## Amazon WorkSpaces
 
 ![Amazon WorkSpaces](images/dashboard-workspaces.jpg)
+
+## Amazon OpenSearch Service Metrics
+
+![Amazon OpenSearch Service Metrics](images/dashboard-opensearch-metrics.jpg)
 
 [Back To README](../README.md)

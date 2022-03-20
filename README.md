@@ -236,12 +236,14 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 |Lambda function|aes-siem-deploy-aes|For creating the OpenSearch Service domain|
 |Lambda function|aes-siem-configure-aes|For configuring OpenSearch Service|
 |Lambda function|aes-siem-geoip-downloader|For downloading GeoIPs|
+|Lambda function|aes-siem-index-metrics-exporter| For OpenSearch Service index metrics|
 |Lambda function|aes-siem-BucketNotificationsHandler|For configuring invent notification for the S3 bucket that stores logs|
 |AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|For encrypting logs|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|A log is split into multiple parts if it has many lines to process. This is the queue to coordinate it|
 |Amazon SQS Queue|aes-siem-dlq|A dead-letter queue used when loading logs into OpenSearch Service fails|
 |CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsAtZeroAlarm|Triggered when total free space for the OpenSearch Service cluster remains at 0 for 30 minutes|
-|CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader| For executing aes-siem-geoip-downloader every day|
+|CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader| For executing aes-siem-geoip-downloader every 12 hours|
+|CloudWatch Events|aes-siem-EventBridgeRuleLambdaMetricsExporter| For executing aes-siem-geoip-downloader every 1 hour|
 |Amazon SNS Topic|aes-siem-alert|This is selected as the destination for alerting in OpenSearch Service|
 |Amazon SNS Topic|aes-siem-invoke-loader-stopper-topic|For invoking es-loader-stopper|
 |Amazon SNS Subscription|inputed email|This is the email address where alerts are sent|

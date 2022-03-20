@@ -158,14 +158,15 @@ def get_timestr_from_logdata_dict(logdata_dict, timestamp_key, has_nanotime):
     return timestr
 
 
-def convert_timestr_to_datetime_wrapper(timestr, timestamp_key, timestamp_format, TZ):
+def convert_timestr_to_datetime_wrapper(timestr, timestamp_key,
+                                        timestamp_format, TZ):
     if type(timestamp_format) == list:
         timestamp_format_list = timestamp_format
     else:
         timestamp_format_list = [timestamp_format, ]
 
     for timestamp_format in timestamp_format_list:
-        dt = convert_timestr_to_datetime_cache(
+        dt = convert_timestr_to_datetime(
             timestr, timestamp_key, timestamp_format, TZ)
         if dt:
             break

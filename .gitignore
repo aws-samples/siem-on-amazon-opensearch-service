@@ -46,6 +46,7 @@ deploy_es.zip
 index_china.py
 restore_samplelog.zip
 siemlog.zip
+index_metrics_exporter.zip
 user.ini
 aes.ini
 global-s3-assets
