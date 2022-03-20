@@ -56,14 +56,14 @@
 
 1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください
 1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、インスタンスにアタッチします
-1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq をインストールし、ソースコードを GitHub から取得します
+1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq、tar をインストールし、ソースコードを GitHub から取得します
 
     ```shell
     cd
     sudo yum groups mark install -y "Development Tools"
     sudo yum install -y amazon-linux-extras
     sudo amazon-linux-extras enable python3.8
-    sudo yum install -y python38 python38-devel git jq
+    sudo yum install -y python38 python38-devel git jq tar
     sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
     git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
     ```

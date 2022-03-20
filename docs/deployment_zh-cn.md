@@ -55,13 +55,13 @@
 
 1. 部署一个运行 Amazon Linux 2 (x86) 的 Amazon Elastic Compute Cloud (Amazon EC2) 实例
 1. 在 AWS Identity and Access Management (IAM) 中创建一个具有管理员权限的角色并将其附加到 Amazon EC2 实例
-1. 登录shell； 安装开发工具、Python 3.8 和开发相关文件、git 和 jq； 并从 GitHub 获取源代码。
+1. 登录shell； 安装开发工具、Python 3.8 和开发相关文件、git、jq 和 tar； 并从 GitHub 获取源代码。
 
    ```shell
    sudo yum groups mark install -y "Development Tools"
    sudo yum install -y amazon-linux-extras
    sudo amazon-linux-extras enable python3.8
-   sudo yum install -y python38 python38-devel git jq
+   sudo yum install -y python38 python38-devel git jq tar
    sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
    git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
    ```
