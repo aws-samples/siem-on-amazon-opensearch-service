@@ -1,5 +1,5 @@
 {
-  "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.2",
+  "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3",
   "Mappings": {
     "RegionMap": {
       "af-south-1": {
@@ -33,6 +33,10 @@
       "ap-southeast-2": {
         "ElbV2AccountId": "783225319266",
         "LambdaArch": "arm64"
+      },
+      "ap-southeast-3": {
+        "ElbV2AccountId": "589379963580",
+        "LambdaArch": "x86_64"
       },
       "ca-central-1": {
         "ElbV2AccountId": "985666609251",
@@ -329,6 +333,23 @@
                 }
               },
               "Resource": "*"
+            },
+            {
+              "Action": [
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::GetAtt": [
+                    "LambdaMetricsExporterServiceRoleDDE0BD95",
+                    "Arn"
+                  ]
+                }
+              },
+              "Resource": "*"
             }
           ],
           "Version": "2012-10-17"
@@ -429,6 +450,43 @@
         }
       }
     },
+    "S3BucketForLog20898FE4": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "BucketName": {
+          "Fn::Join": [
+            "",
+            [
+              "aes-siem-",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "-log"
+            ]
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        }
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    },
     "S3BucketForLogNotificationsAEE88E1E": {
       "Type": "Custom::S3BucketNotifications",
       "Properties": {
@@ -492,43 +550,6 @@
       "DependsOn": [
         "S3BucketForLogAllowBucketNotificationsToaessiemLambdaEsLoaderEBF3B9FB7766EAA3"
       ]
-    },
-    "S3BucketForLog20898FE4": {
-      "Type": "AWS::S3::Bucket",
-      "Properties": {
-        "BucketEncryption": {
-          "ServerSideEncryptionConfiguration": [
-            {
-              "ServerSideEncryptionByDefault": {
-                "SSEAlgorithm": "AES256"
-              }
-            }
-          ]
-        },
-        "BucketName": {
-          "Fn::Join": [
-            "",
-            [
-              "aes-siem-",
-              {
-                "Ref": "AWS::AccountId"
-              },
-              "-log"
-            ]
-          ]
-        },
-        "PublicAccessBlockConfiguration": {
-          "BlockPublicAcls": true,
-          "BlockPublicPolicy": true,
-          "IgnorePublicAcls": true,
-          "RestrictPublicBuckets": true
-        },
-        "VersioningConfiguration": {
-          "Status": "Enabled"
-        }
-      },
-      "UpdateReplacePolicy": "Retain",
-      "DeletionPolicy": "Retain"
     },
     "S3BucketForLogAllowBucketNotificationsToaessiemLambdaEsLoaderEBF3B9FB7766EAA3": {
       "Type": "AWS::Lambda::Permission",
@@ -1202,6 +1223,47 @@
         ]
       }
     },
+    "AesSiemEsLoaderStopperCWAlarmRole689F2CC1": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudwatch.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "RoleName": "aes-siem-es-loader-stopper-cw-alarm-role"
+      }
+    },
+    "AesSiemEsLoaderStopperCWAlarmRoleDefaultPolicy10196F12": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "InvokeLoaderStopperTopic1DCFAE38"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "AesSiemEsLoaderStopperCWAlarmRoleDefaultPolicy10196F12",
+        "Roles": [
+          {
+            "Ref": "AesSiemEsLoaderStopperCWAlarmRole689F2CC1"
+          }
+        ]
+      }
+    },
     "AesSiemEsLoaderEC2RoleFE3F9F00": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -1559,9 +1621,15 @@
             ]
           }
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.2 / es-loader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / es-loader",
         "Environment": {
           "Variables": {
+            "ES_ENDPOINT": {
+              "Fn::GetAtt": [
+                "AesSiemDomainDeployedR2",
+                "es_endpoint"
+              ]
+            },
             "GEOIP_BUCKET": {
               "Fn::Join": [
                 "",
@@ -1576,14 +1644,8 @@
             },
             "LOG_LEVEL": "info",
             "POWERTOOLS_LOGGER_LOG_EVENT": "false",
-            "POWERTOOLS_SERVICE_NAME": "es-loader",
             "POWERTOOLS_METRICS_NAMESPACE": "SIEM",
-            "ES_ENDPOINT": {
-              "Fn::GetAtt": [
-                "AesSiemDomainDeployedR2",
-                "es_endpoint"
-              ]
-            },
+            "POWERTOOLS_SERVICE_NAME": "es-loader",
             "SQS_SPLITTED_LOGS_URL": {
               "Ref": "AesSiemSqsSplitLogs0191F431"
             }
@@ -1603,14 +1665,15 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderVersion262beta2532C2384": {
+    "LambdaEsLoaderCurrentVersion9DFE69556a6293736fce419932887229da6919a0": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.6.2-beta.2"
+        "Description": "2.6.2-beta.3"
       },
+      "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
     },
     "LambdaEsLoaderSqsEventSourceaessiemAesSiemSqsSplitLogs506AFFA6A7D8B2E9": {
@@ -1623,6 +1686,142 @@
         "EventSourceArn": {
           "Fn::GetAtt": [
             "AesSiemSqsSplitLogs0191F431",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "LambdaEsLoaderStopperServiceRole83AABC1A": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sns:Publish",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "SnsTopic2C1570A4"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06",
+        "Roles": [
+          {
+            "Ref": "LambdaEsLoaderStopperServiceRole83AABC1A"
+          }
+        ]
+      }
+    },
+    "LambdaEsLoaderStopper35C1D57B": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "%%BUCKET_NAME%%",
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaEsLoaderStopperServiceRole83AABC1A",
+            "Arn"
+          ]
+        },
+        "Architectures": [
+          "x86_64"
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / es-loader-stopper",
+        "Environment": {
+          "Variables": {
+            "ES_LOADER_FUNCTION_ARN": {
+              "Fn::GetAtt": [
+                "LambdaEsLoader4B1E2DD9",
+                "Arn"
+              ]
+            },
+            "AES_SIEM_ALERT_TOPIC_ARN": {
+              "Ref": "SnsTopic2C1570A4"
+            }
+          }
+        },
+        "FunctionName": "aes-siem-es-loader-stopper",
+        "Handler": "index.lambda_handler",
+        "MemorySize": 128,
+        "Runtime": "python3.8",
+        "Timeout": 300
+      },
+      "DependsOn": [
+        "LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06",
+        "LambdaEsLoaderStopperServiceRole83AABC1A"
+      ]
+    },
+    "LambdaEsLoaderStopperVersion262beta31CCB7FF0": {
+      "Type": "AWS::Lambda::Version",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "LambdaEsLoaderStopper35C1D57B"
+        },
+        "Description": "2.6.2-beta.3"
+      },
+      "DeletionPolicy": "Retain"
+    },
+    "LambdaEsLoaderStopperAllowInvokeaessiemInvokeLoaderStopperTopic33F9E3A71ECFDA4C": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "LambdaEsLoaderStopper35C1D57B",
+            "Arn"
+          ]
+        },
+        "Principal": "sns.amazonaws.com",
+        "SourceArn": {
+          "Ref": "InvokeLoaderStopperTopic1DCFAE38"
+        }
+      }
+    },
+    "LambdaEsLoaderStopperInvokeLoaderStopperTopic716406C4": {
+      "Type": "AWS::SNS::Subscription",
+      "Properties": {
+        "Protocol": "lambda",
+        "TopicArn": {
+          "Ref": "InvokeLoaderStopperTopic1DCFAE38"
+        },
+        "Endpoint": {
+          "Fn::GetAtt": [
+            "LambdaEsLoaderStopper35C1D57B",
             "Arn"
           ]
         }
@@ -1724,9 +1923,12 @@
         "Architectures": [
           "x86_64"
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.2 / geoip-downloader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / geoip-downloader",
         "Environment": {
           "Variables": {
+            "license_key": {
+              "Ref": "GeoLite2LicenseKey"
+            },
             "s3bucket_name": {
               "Fn::Join": [
                 "",
@@ -1738,9 +1940,6 @@
                   "-geo"
                 ]
               ]
-            },
-            "license_key": {
-              "Ref": "GeoLite2LicenseKey"
             }
           }
         },
@@ -1755,14 +1954,168 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderVersion262beta279ED853A": {
+    "LambdaGeoipDownloaderCurrentVersion7F1CD34F7d50356a017774d747f2f8a2ee354945": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.6.2-beta.2"
+        "Description": "2.6.2-beta.3"
       },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain"
+    },
+    "LambdaMetricsExporterServiceRoleDDE0BD95": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "KmsAesSiemLog44B26597",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": [
+                "s3:DeleteObject*",
+                "s3:PutObject*",
+                "s3:Abort*"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "S3BucketForLog20898FE4",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "S3BucketForLog20898FE4",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4",
+        "Roles": [
+          {
+            "Ref": "LambdaMetricsExporterServiceRoleDDE0BD95"
+          }
+        ]
+      }
+    },
+    "LambdaMetricsExporter2737F589": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "%%BUCKET_NAME%%",
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/index_metrics_exporter.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaMetricsExporterServiceRoleDDE0BD95",
+            "Arn"
+          ]
+        },
+        "Architectures": [
+          "x86_64"
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / index-metrics-exporter",
+        "Environment": {
+          "Variables": {
+            "ES_ENDPOINT": {
+              "Fn::GetAtt": [
+                "AesSiemDomainDeployedR2",
+                "es_endpoint"
+              ]
+            },
+            "LOG_BUCKET": {
+              "Fn::Join": [
+                "",
+                [
+                  "aes-siem-",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "-log"
+                ]
+              ]
+            },
+            "PERIOD_HOUR": "1"
+          }
+        },
+        "FunctionName": "aes-siem-index-metrics-exporter",
+        "Handler": "index.lambda_handler",
+        "MemorySize": 256,
+        "Runtime": "python3.9",
+        "Timeout": 300
+      },
+      "DependsOn": [
+        "LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4",
+        "LambdaMetricsExporterServiceRoleDDE0BD95"
+      ]
+    },
+    "LambdaMetricsExporterCurrentVersion79B0413Ff4dca29844bfe4752f7d59e6013ce2b1": {
+      "Type": "AWS::Lambda::Version",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "LambdaMetricsExporter2737F589"
+        },
+        "Description": "2.6.2-beta.3"
+      },
+      "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
     },
     "LambdaDeployAES636B5079": {
@@ -1781,33 +2134,25 @@
         "Architectures": [
           "x86_64"
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.2 / opensearch domain deployment",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / opensearch domain deployment",
         "Environment": {
           "Variables": {
             "accountid": {
               "Ref": "AWS::AccountId"
             },
-            "aes_domain_name": "aes-siem",
             "aes_admin_role": {
               "Fn::GetAtt": [
                 "AesSiemDeployRoleForLambda654D64F2",
                 "Arn"
               ]
             },
-            "es_loader_role": {
-              "Fn::GetAtt": [
-                "LambdaEsLoaderServiceRoleFFD43869",
-                "Arn"
-              ]
-            },
+            "aes_domain_name": "aes-siem",
             "allow_source_address": {
               "Ref": "AllowedSourceIpAddresses"
             },
             "s3_snapshot": {
               "Ref": "S3BucketForSnapshot40E67D36"
-            },
-            "vpc_subnet_id": "None",
-            "security_group_id": "None"
+            }
           }
         },
         "FunctionName": "aes-siem-deploy-aes",
@@ -1820,14 +2165,15 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESVersion262beta2F8E8973D": {
+    "LambdaDeployAESCurrentVersion047915F17b3f5322ad245bee7a6bcfe4aacd1720": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.6.2-beta.2"
+        "Description": "2.6.2-beta.3"
       },
+      "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
     },
     "AesSiemDomainDeployedR2": {
@@ -1839,7 +2185,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.6.2-beta.2"
+        "ConfigVersion": "2.6.2-beta.3"
       }
     },
     "LambdaConfigureAESA0471961": {
@@ -1858,17 +2204,23 @@
         "Architectures": [
           "x86_64"
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.2 / opensearch configuration",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / opensearch configuration",
         "Environment": {
           "Variables": {
             "accountid": {
               "Ref": "AWS::AccountId"
             },
-            "aes_domain_name": "aes-siem",
             "aes_admin_role": {
               "Fn::GetAtt": [
                 "AesSiemDeployRoleForLambda654D64F2",
                 "Arn"
+              ]
+            },
+            "aes_domain_name": "aes-siem",
+            "es_endpoint": {
+              "Fn::GetAtt": [
+                "AesSiemDomainDeployedR2",
+                "es_endpoint"
               ]
             },
             "es_loader_role": {
@@ -1877,20 +2229,17 @@
                 "Arn"
               ]
             },
-            "allow_source_address": {
-              "Ref": "AllowedSourceIpAddresses"
-            },
-            "es_endpoint": {
+            "metrics_exporter_role": {
               "Fn::GetAtt": [
-                "AesSiemDomainDeployedR2",
-                "es_endpoint"
+                "LambdaMetricsExporterServiceRoleDDE0BD95",
+                "Arn"
               ]
             },
             "s3_snapshot": {
               "Ref": "S3BucketForSnapshot40E67D36"
             },
-            "vpc_subnet_id": "None",
-            "security_group_id": "None"
+            "security_group_id": "None",
+            "vpc_subnet_id": "None"
           }
         },
         "FunctionName": "aes-siem-configure-aes",
@@ -1903,14 +2252,15 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESVersion262beta2A4E5B700": {
+    "LambdaConfigureAESCurrentVersion651147686b9833f6d75836094ed5f16b910cd3c6": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.6.2-beta.2"
+        "Description": "2.6.2-beta.3"
       },
+      "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
     },
     "AesSiemDomainConfiguredR2": {
@@ -1922,7 +2272,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.6.2-beta.2"
+        "ConfigVersion": "2.6.2-beta.3"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"
@@ -1935,7 +2285,7 @@
         "PolicyDocument": {
           "Statement": [
             {
-              "Action": "es:*",
+              "Action": "es:ESHttp*",
               "Effect": "Allow",
               "Resource": {
                 "Fn::Join": [
@@ -1964,6 +2314,35 @@
           },
           {
             "Ref": "AesSiemEsLoaderEC2RoleFE3F9F00"
+          },
+          {
+            "Ref": "LambdaMetricsExporterServiceRoleDDE0BD95"
+          }
+        ]
+      }
+    },
+    "aessiempolicytostopesloader4304B8FC": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "lambda:PutFunctionConcurrency",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "LambdaEsLoader4B1E2DD9",
+                  "Arn"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "aes-siem-policy-to-stop-es-loader",
+        "Roles": [
+          {
+            "Ref": "LambdaEsLoaderStopperServiceRole83AABC1A"
           }
         ]
       }
@@ -2091,6 +2470,43 @@
         }
       }
     },
+    "EventBridgeRuleLambdaMetricsExporterE956E7F2": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "ScheduleExpression": "rate(1 hour)",
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "LambdaMetricsExporter2737F589",
+                "Arn"
+              ]
+            },
+            "Id": "Target0"
+          }
+        ]
+      }
+    },
+    "EventBridgeRuleLambdaMetricsExporterAllowEventRuleaessiemLambdaMetricsExporterCD618C3523DA2D6A": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "LambdaMetricsExporter2737F589",
+            "Arn"
+          ]
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "EventBridgeRuleLambdaMetricsExporterE956E7F2",
+            "Arn"
+          ]
+        }
+      }
+    },
     "SnsTopic2C1570A4": {
       "Type": "AWS::SNS::Topic",
       "Properties": {
@@ -2108,6 +2524,43 @@
         "Endpoint": {
           "Ref": "SnsEmail"
         }
+      }
+    },
+    "InvokeLoaderStopperTopic1DCFAE38": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "DisplayName": "AES SIEM / topic to invoke es-loader-stopper lambda",
+        "TopicName": "aes-siem-invoke-loader-stopper-topic"
+      }
+    },
+    "TotalFreeStorageSpaceRemainsAtZeroAlarm8785C2E4": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "ComparisonOperator": "LessThanOrEqualToThreshold",
+        "EvaluationPeriods": 30,
+        "AlarmActions": [
+          {
+            "Ref": "InvokeLoaderStopperTopic1DCFAE38"
+          }
+        ],
+        "AlarmDescription": "Triggered when total free space for the cluster remains at 0 for 30 minutes.",
+        "Dimensions": [
+          {
+            "Name": "ClientId",
+            "Value": {
+              "Ref": "AWS::AccountId"
+            }
+          },
+          {
+            "Name": "DomainName",
+            "Value": "aes-siem"
+          }
+        ],
+        "MetricName": "FreeStorageSpace",
+        "Namespace": "AWS/ES",
+        "Period": 60,
+        "Statistic": "Sum",
+        "Threshold": 0
       }
     }
   },

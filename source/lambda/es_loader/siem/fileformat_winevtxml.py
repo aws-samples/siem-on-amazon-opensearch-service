@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.2-beta.2'
+__version__ = '2.6.2-beta.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -149,6 +149,10 @@ class FileFormatWinEvtXml(FileFormatBase):
         return logdict
 
     def _parse(self, lograw):
-        logdict = xmltodict.parse(
-            lograw, strip_whitespace=None, attr_prefix='')
+        try:
+            logdict = xmltodict.parse(
+                lograw, strip_whitespace=None, attr_prefix='')
+        except xml.parsers.expat.ExpatError:
+            logger.error('Invalid windows event log format')
+            raise Exception('Invalid windows event log format') from None
         return logdict
