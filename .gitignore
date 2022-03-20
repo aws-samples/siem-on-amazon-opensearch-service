@@ -40,6 +40,7 @@ cdk.out
 # deploy
 deployment/open-source/
 es_loader.zip
+es_loader_stopper.zip
 geoip_downloader.zip
 deploy_es.zip
 index_china.py
