@@ -66,17 +66,30 @@ def get_value_from_etl_config(logtype, key, keytype=None):
                 value = [x.strip() for x in temp.strip('[|]').split(',')]
             else:
                 value = temp.split()
+        elif keytype == 'list_json':
+            temp = etl_config[logtype][key]
+            if temp:
+                value = json.loads(temp)
+            else:
+                value = []
         else:
             value = ''
     except KeyError:
-        logger.exception('unknown error')
+        logger.exception('unknown error in aws.ini/user.ini')
         raise KeyError("Can't find the key in logconfig")
     except re.error:
-        logger.exception(f'invalid regex pattern for {key}')
-        raise Exception(f'invalid regex pattern for {key}') from None
+        msg = (f'invalid regex pattern for {key} of {logtype} in '
+               'aws.ini/user.ini')
+        logger.exception(msg)
+        raise Exception(msg) from None
+    except json.JSONDecodeError:
+        msg = (f'{key} of {logtype} section is invalid list style in '
+               'aws.ini/user.ini')
+        logger.exception(msg)
+        raise Exception(msg) from None
     except Exception:
-        logger.exception('unknown error')
-        raise Exception('unknown error') from None
+        logger.exception('unknown error in aws.ini/user.ini')
+        raise Exception('unknown error in aws.ini/user.ini') from None
     return value
 
 
@@ -114,6 +127,7 @@ def create_logconfig(logtype):
                  'x509.subject.organization',
                  'x509.subject.organizational_unit',
                  'x509.subject.state_or_province']
+    type_list_json = ['timestamp_format_list']
     logconfig = {}
     if logtype in ('unknown', 'nodata'):
         return logconfig
@@ -126,6 +140,9 @@ def create_logconfig(logtype):
             logconfig[key] = get_value_from_etl_config(logtype, key, 'bool')
         elif key in type_list:
             logconfig[key] = get_value_from_etl_config(logtype, key, 'list')
+        elif key in type_list_json:
+            logconfig[key] = get_value_from_etl_config(
+                logtype, key, 'list_json')
         else:
             logconfig[key] = get_value_from_etl_config(logtype, key)
     if logconfig['file_format'] in ('xml', ):

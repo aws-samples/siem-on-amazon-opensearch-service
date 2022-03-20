@@ -158,6 +158,21 @@ def get_timestr_from_logdata_dict(logdata_dict, timestamp_key, has_nanotime):
     return timestr
 
 
+def convert_timestr_to_datetime_wrapper(timestr, timestamp_key, timestamp_format, TZ):
+    if type(timestamp_format) == list:
+        timestamp_format_list = timestamp_format
+    else:
+        timestamp_format_list = [timestamp_format, ]
+
+    for timestamp_format in timestamp_format_list:
+        dt = convert_timestr_to_datetime_cache(
+            timestr, timestamp_key, timestamp_format, TZ)
+        if dt:
+            break
+
+    return dt
+
+
 @lru_cache(maxsize=100000)
 def convert_timestr_to_datetime(timestr, timestamp_key, timestamp_format, TZ):
     dt = None
@@ -175,7 +190,10 @@ def convert_timestr_to_datetime(timestr, timestamp_key, timestamp_format, TZ):
 
 @lru_cache(maxsize=1024)
 def convert_epoch_to_datetime(timestr, TZ):
-    epoch = float(timestr)
+    try:
+        epoch = float(timestr)
+    except ValueError:
+        return None
     if 1000000000000000 > epoch > 1000000000000:
         # milli epoch
         epoch_seconds = epoch / 1000.0
@@ -207,6 +225,8 @@ def convert_syslog_to_datetime(timestr, TZ):
     now = NOW + TD_OFFSET12
     # timezoneを考慮して、12時間を早めた現在時刻を基準とする
     m = RE_SYSLOG_FORMAT.match(timestr)
+    if not m:
+        return None
     try:
         # コンマ以下の秒があったら
         microsec = int(m.group(7).ljust(6, '0'))
@@ -257,9 +277,10 @@ def convert_custom_timeformat_to_datetime(timestr, TZ, timestamp_format,
     try:
         dt = datetime.strptime(timestr, timestamp_format)
     except ValueError:
-        msg = f'timestamp key {timestamp_key} is wrong'
-        logger.exception(msg)
-        raise ValueError(msg) from None
+        return None
+        # msg = f'timestamp key, {timestamp_key} is wrong'
+        # logger.exception(msg)
+        # raise ValueError(msg) from None
     if TZ and not dt.tzinfo:
         dt = dt.replace(tzinfo=TZ)
     return dt

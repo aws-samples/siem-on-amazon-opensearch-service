@@ -768,32 +768,64 @@ class LogParser:
         return False
 
     def get_timestamp(self):
-        if self.logconfig['timestamp_key'] and not self.__skip_normalization:
-            if self.logconfig['timestamp_key'] == 'cwe_timestamp':
-                self.__logdata_dict['cwe_timestamp'] = self.cwe_timestamp
-            elif self.logconfig['timestamp_key'] == 'cwl_timestamp':
-                self.__logdata_dict['cwl_timestamp'] = self.cwl_timestamp
-            elif self.logconfig['timestamp_key'] == 'file_timestamp':
-                return self.file_timestamp
-            timestr = utils.get_timestr_from_logdata_dict(
-                self.__logdata_dict, self.logconfig['timestamp_key'],
-                self.has_nanotime)
-            dt = utils.convert_timestr_to_datetime(
-                timestr, self.logconfig['timestamp_key'],
-                self.logconfig['timestamp_format'], self.timestamp_tz)
+        if ((self.logconfig['timestamp_key']
+                or self.logconfig['timestamp_key_list'])
+                and not self.__skip_normalization):
+
+            timestamp_key_list = self.logconfig['timestamp_key_list']
+            if timestamp_key_list:
+                timestamp_key_list = timestamp_key_list.split()
+            else:
+                timestamp_key_list = [self.logconfig['timestamp_key'], ]
+
+            timestamp_format_list = self.logconfig['timestamp_format_list']
+            if not timestamp_format_list:
+                timestamp_format_list = [self.logconfig['timestamp_format']]
+
+            for timestamp_key in timestamp_key_list:
+                if timestamp_key == 'cwe_timestamp':
+                    self.__logdata_dict['cwe_timestamp'] = self.cwe_timestamp
+                elif timestamp_key == 'cwl_timestamp':
+                    self.__logdata_dict['cwl_timestamp'] = self.cwl_timestamp
+                elif timestamp_key == 'file_timestamp':
+                    return self.file_timestamp
+                timestr = utils.get_timestr_from_logdata_dict(
+                    self.__logdata_dict, timestamp_key, self.has_nanotime)
+                if timestr:
+                    break
+
+            if not timestr:
+                msg = f'there is no valid timestamp_key for {self.logtype}'
+                logger.error(msg)
+                raise ValueError(msg)
+            dt = utils.convert_timestr_to_datetime_wrapper(
+                timestr, timestamp_key, timestamp_format_list,
+                self.timestamp_tz)
             if not dt:
                 msg = f'there is no timestamp format for {self.logtype}'
                 logger.error(msg)
                 raise ValueError(msg)
+        elif '@timestamp' in self.__logdata_dict:
+            timestr = utils.get_timestr_from_logdata_dict(
+                self.__logdata_dict, '@timestamp', self.has_nanotime)
+            dt = utils.convert_timestr_to_datetime(
+                timestr, '@timestamp', self.logconfig['timestamp_format'],
+                self.timestamp_tz)
         else:
-            if self.file_timestamp:
+            if hasattr(self, 'file_timestamp') and self.file_timestamp:
                 # This may be firelens and error log
                 return self.file_timestamp
             elif hasattr(self, 'cwl_timestamp') and self.cwl_timestamp:
                 # This may be CWL and truncated JSON such as opensearch audit
                 return utils.convert_epoch_to_datetime(
                     self.cwl_timestamp, utils.TIMEZONE_UTC)
+            # impossible to find any timestamp.
+            # Set the current time as @timestamp
             dt = datetime.now(timezone.utc)
+        if not dt:
+            msg = f'there is no valid timestamp for {self.logtype}'
+            logger.error(msg)
+            raise ValueError(msg)
         return dt
 
     def del_none(self, d):
