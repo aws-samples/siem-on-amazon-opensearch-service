@@ -1665,7 +1665,7 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderCurrentVersion9DFE69556a6293736fce419932887229da6919a0": {
+    "LambdaEsLoaderCurrentVersion9DFE695523397b589ffb65c82e841ae341910030": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
@@ -1750,7 +1750,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "%%BUCKET_NAME%%",
-          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip"
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader_stopper.zip"
         },
         "Role": {
           "Fn::GetAtt": [
@@ -1764,14 +1764,17 @@
         "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / es-loader-stopper",
         "Environment": {
           "Variables": {
+            "AES_SIEM_ALERT_TOPIC_ARN": {
+              "Ref": "SnsTopic2C1570A4"
+            },
             "ES_LOADER_FUNCTION_ARN": {
               "Fn::GetAtt": [
                 "LambdaEsLoader4B1E2DD9",
                 "Arn"
               ]
             },
-            "AES_SIEM_ALERT_TOPIC_ARN": {
-              "Ref": "SnsTopic2C1570A4"
+            "ES_LOADER_RESERVED_CONCURRENCY": {
+              "Ref": "ReservedConcurrency"
             }
           }
         },
@@ -1786,7 +1789,7 @@
         "LambdaEsLoaderStopperServiceRole83AABC1A"
       ]
     },
-    "LambdaEsLoaderStopperVersion262beta31CCB7FF0": {
+    "LambdaEsLoaderStopperCurrentVersion312AA8506664a5db5427385aae2daa5aa7529d23": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
@@ -1794,6 +1797,7 @@
         },
         "Description": "2.6.2-beta.3"
       },
+      "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
     },
     "LambdaEsLoaderStopperAllowInvokeaessiemInvokeLoaderStopperTopic33F9E3A71ECFDA4C": {
@@ -2107,7 +2111,7 @@
         "LambdaMetricsExporterServiceRoleDDE0BD95"
       ]
     },
-    "LambdaMetricsExporterCurrentVersion79B0413Ff4dca29844bfe4752f7d59e6013ce2b1": {
+    "LambdaMetricsExporterCurrentVersion79B0413F28376dbab11a7bf44cb062f8876c89b9": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
@@ -2165,7 +2169,7 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESCurrentVersion047915F17b3f5322ad245bee7a6bcfe4aacd1720": {
+    "LambdaDeployAESCurrentVersion047915F1c4f61e50e5a772142e12cf1801a389c4": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
@@ -2252,7 +2256,7 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESCurrentVersion651147686b9833f6d75836094ed5f16b910cd3c6": {
+    "LambdaConfigureAESCurrentVersion65114768c61fc10cb159257dcddc786d7bf1419f": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
@@ -2543,7 +2547,7 @@
             "Ref": "InvokeLoaderStopperTopic1DCFAE38"
           }
         ],
-        "AlarmDescription": "Triggered when total free space for the cluster remains at 0 for 30 minutes.",
+        "AlarmDescription": "Triggered when total free space for the cluster remains less 200MB for 30 minutes.",
         "Dimensions": [
           {
             "Name": "ClientId",
@@ -2560,7 +2564,7 @@
         "Namespace": "AWS/ES",
         "Period": 60,
         "Statistic": "Sum",
-        "Threshold": 0
+        "Threshold": 200
       }
     }
   },

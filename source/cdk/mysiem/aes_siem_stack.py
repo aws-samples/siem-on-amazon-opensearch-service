@@ -631,17 +631,21 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / es-loader-stopper',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
-            code=aws_lambda.Code.asset('../lambda/es_loader_stopper'),
+            code=aws_lambda.Code.from_asset('../lambda/es_loader_stopper'),
             handler='index.lambda_handler',
             memory_size=128,
             timeout=core.Duration.seconds(300),
             environment={
-                'ES_LOADER_FUNCTION_ARN': lambda_es_loader.function_arn})
-        es_loader_stopper_newver = lambda_es_loader_stopper.add_version(
-            name=__version__, description=__version__)
-        es_loader_stopper_opt = es_loader_stopper_newver \
-            .node.default_child.cfn_options
-        es_loader_stopper_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
+                'ES_LOADER_FUNCTION_ARN': lambda_es_loader.function_arn,
+                'ES_LOADER_RESERVED_CONCURRENCY': (
+                    reserved_concurrency.value_as_string)
+            },
+            current_version_options=aws_lambda.VersionOptions(
+                removal_policy=core.RemovalPolicy.RETAIN,
+                description=__version__
+            ),
+        )
+        lambda_es_loader_stopper.current_version
 
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',
@@ -1114,10 +1118,10 @@ class MyAesSiemStack(core.Stack):
                             'ClientId': core.Aws.ACCOUNT_ID})
         total_free_storage_space_remains_at_zero_alarm = aws_cloudwatch.Alarm(
             self, 'TotalFreeStorageSpaceRemainsAtZeroAlarm',
-            alarm_description=('Triggered when total free space '
-                               'for the cluster remains at 0 for 30 minutes.'),
+            alarm_description=('Triggered when total free space for the '
+                               'cluster remains less 200MB for 30 minutes.'),
             metric=total_free_storage_space_metric,
-            evaluation_periods=30, threshold=0,
+            evaluation_periods=30, threshold=200,  # 200 MByte
             comparison_operator=aws_cloudwatch
             .ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD)
         total_free_storage_space_remains_at_zero_alarm.add_alarm_action(
