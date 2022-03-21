@@ -149,10 +149,6 @@ class FileFormatWinEvtXml(FileFormatBase):
         return logdict
 
     def _parse(self, lograw):
-        try:
-            logdict = xmltodict.parse(
-                lograw, strip_whitespace=None, attr_prefix='')
-        except xml.parsers.expat.ExpatError:
-            logger.error('Invalid windows event log format')
-            raise Exception('Invalid windows event log format') from None
+        logdict = xmltodict.parse(
+            lograw, strip_whitespace=None, attr_prefix='')
         return logdict
