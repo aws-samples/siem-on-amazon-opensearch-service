@@ -44,6 +44,13 @@ AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
 AWS_REGION = os.environ['AWS_DEFAULT_REGION']
 
 
+def json_serial(obj):
+    if isinstance(obj, datetime.datetime):
+        return obj.isoformat()
+    else:
+        return str(obj)
+
+
 def lambda_handler(event, context):
     num = 0
     now = datetime.datetime.now()
@@ -92,7 +99,7 @@ def lambda_handler(event, context):
                 pass
             jsonobj['detail']['Workspaces'].append(item)
         num += len(response['Workspaces'])
-        f.write(json.dumps(jsonobj, default=str))
+        f.write(json.dumps(jsonobj, default=json_serial))
         f.flush()
         # sleep 0.75 second to avoid reaching AWS API rate limit (2rps)
         time.sleep(0.75)
