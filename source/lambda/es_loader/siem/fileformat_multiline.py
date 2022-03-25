@@ -21,6 +21,9 @@ class FileFormatMultiline(FileFormatBase):
     def __init__(self, rawdata=None, logconfig=None, logtype=None):
         super().__init__(rawdata, logconfig, logtype)
         self._multiline_firstline = None
+        self._regex_error_count = {}
+        if logtype not in self._regex_error_count:
+            self._regex_error_count[logtype] = 0
 
     @cached_property
     def _re_log_pattern_prog(self):
@@ -92,8 +95,18 @@ class FileFormatMultiline(FileFormatBase):
             logdata_dict = m.groupdict()
         else:
             msg_dict = {
-                'Exception': f'Invalid regex pattern of {self.logtype}',
+                'Error': f'Invalid regex pattern of {self.logtype}',
                 'rawdata': lograw, 'regex_pattern': self._re_log_pattern_prog}
-            logger.error(msg_dict)
-            raise Exception(repr(msg_dict))
+            self._regex_error_count[self.logtype] += 1
+            if self._regex_error_count[self.logtype] < 10:
+                logger.error(msg_dict)
+            elif self._regex_error_count[self.logtype] == 11:
+                msg_crit = ('There are more than 10 regex errors of '
+                            f'{self.logtype}. The error logs are suppressed '
+                            'now. Logs that will cause future regex errors '
+                            'will not be ingested into OpenSearch and will '
+                            'not be output to the error logs')
+                logger.critical(msg_crit)
+            return 'regex_error'
+
         return logdata_dict

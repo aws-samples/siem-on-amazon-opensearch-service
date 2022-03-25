@@ -41,6 +41,7 @@ class LogS3:
     最後に、生ファイルを個々のログに分割してリスト型として返す
     """
     def __init__(self, record, logtype, logconfig, s3_client, sqs_queue):
+        self.error_logs_count = 0
         self.record = record
         self.logtype = logtype
         self.logconfig = logconfig
@@ -190,7 +191,10 @@ class LogS3:
         if self.via_cwl:
             for lograw, logmeta in self.extract_cwl_log(start, end, logmeta):
                 logdict = self.rawfile_instacne.convert_lograw_to_dict(lograw)
-                yield (lograw, logdict, logmeta)
+                if isinstance(logdict, dict):
+                    yield (lograw, logdict, logmeta)
+                elif logdict == 'regex_error':
+                    self.error_logs_count += 1
         elif self.via_firelens:
             for lograw, logdict, logmeta in self.extract_firelens_log(
                     start, end, logmeta):
@@ -317,7 +321,7 @@ class LogS3:
                 firelens_logmeta['ec2_instance_id'] = ec2_instance_id
             # original log
             logdata = obj['log']
-            # stderr
+            # ignore stderr if necessary
             if firelens_logmeta['container_source'] == 'stderr':
                 if ignore_container_stderr_bool:
                     reason = "log is container's stderr"
@@ -325,9 +329,13 @@ class LogS3:
                     firelens_logmeta['ignored_reason'] = reason
                     yield (logdata, logdict, firelens_logmeta)
                     continue
+
             try:
                 logdict = (
                     self.rawfile_instacne.convert_lograw_to_dict(logdata))
+                if (logdict == 'regex_error'
+                        and firelens_logmeta['container_source'] == 'stderr'):
+                    raise Exception('regex_error')
             except Exception as err:
                 firelens_logmeta['__skip_normalization'] = True
                 firelens_logmeta['__error_message'] = logdata
@@ -445,6 +453,12 @@ class LogParser:
         self.has_nanotime = self.logconfig['timestamp_nano']
 
     def __call__(self, lograw, logdict, logmeta):
+        if isinstance(logdict, dict):
+            pass
+        elif logdict == 'regex_error':
+            self.logfile.error_logs_count += 1
+            return
+
         self.__skip_normalization = False
         self.lograw = lograw
         self.__logdata_dict = logdict

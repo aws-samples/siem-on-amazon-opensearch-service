@@ -181,6 +181,7 @@ def check_es_results(results, total_count):
     success, error = 0, 0
     error_reasons = []
     count = total_count
+    retry = False
     if not results['errors']:
         success = len(results['items'])
     else:
@@ -188,14 +189,26 @@ def check_es_results(results, total_count):
             count += 1
             if result['index']['status'] >= 300:
                 # status code
-                # 200:OK, 201:Created, 400:NG
+                # 200:OK, 201:Created
+                # https://github.com/opensearch-project/OpenSearch/blob/1.3.0/server/src/main/java/org/opensearch/rest/RestStatus.java
+                # https://github.com/opensearch-project/logstash-output-opensearch/blob/v1.2.0/lib/logstash/outputs/opensearch.rb#L32-L43
+                if result['index']['status'] in (400, 409):
+                    # 400: BAD_REQUEST such as mapper_parsing_exception
+                    # 409: CONFLICT
+                    pass
+                else:
+                    # 403: FORBIDDEN such as index_create_block_exception,
+                    #      disk_full
+                    # 429: TOO_MANY_REQUESTS
+                    # 503: SERVICE_UNAVAILABLE
+                    retry = True
                 error += 1
                 error_reason = result['index'].get('error')
                 error_reason['log_number'] = count
                 if error_reason:
                     error_reasons.append(error_reason)
 
-    return duration, success, error, error_reasons
+    return duration, success, error, error_reasons, retry
 
 
 def bulkloads_into_opensearch(es_entries, collected_metrics):
@@ -204,6 +217,7 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     results = False
     putdata_list = []
     error_reason_list = []
+    retry_needed = False
     filter_path = ['took', 'errors', 'items.index.status',
                    'items.index.error.reason', 'items.index.error.type']
     for data in es_entries:
@@ -213,7 +227,7 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
         if isinstance(data, str) and output_size > 6000000:
             total_output_size += output_size
             results = es_conn.bulk(putdata_list, filter_path=filter_path)
-            es_took, success, error, error_reasons = check_es_results(
+            es_took, success, error, error_reasons, retry = check_es_results(
                 results, total_count)
             success_count += success
             error_count += error
@@ -222,26 +236,30 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
             total_count += len(putdata_list)
             putdata_list = []
             if len(error_reasons):
-                error_reason_list.extend([error_reasons])
+                error_reason_list.extend(error_reasons)
+            if retry:
+                retry_needed = True
     if output_size > 0:
         total_output_size += output_size
         results = es_conn.bulk(putdata_list, filter_path=filter_path)
         # logger.debug(results)
-        es_took, success, error, error_reasons = check_es_results(
+        es_took, success, error, error_reasons, retry = check_es_results(
             results, total_count)
         success_count += success
         error_count += error
         es_response_time += es_took
         total_count += len(putdata_list)
         if len(error_reasons):
-            error_reason_list.extend([error_reasons])
+            error_reason_list.extend(error_reasons)
+        if retry:
+            retry_needed = True
     collected_metrics['total_output_size'] = total_output_size
     collected_metrics['total_log_load_count'] = total_count
     collected_metrics['success_count'] = success_count
     collected_metrics['error_count'] = error_count
     collected_metrics['es_response_time'] = es_response_time
 
-    return collected_metrics, error_reason_list
+    return collected_metrics, error_reason_list, retry_needed
 
 
 def output_metrics(metrics, record=None, logfile=None, collected_metrics={}):
@@ -334,20 +352,24 @@ def lambda_handler(event, context):
         # 抽出したログからESにPUTするデータを作成する
         es_entries = get_es_entries(logfile, exclude_log_patterns)
         # 作成したデータをESにPUTしてメトリクスを収集する
-        collected_metrics, error_reason_list = bulkloads_into_opensearch(
-            es_entries, collected_metrics)
+        (collected_metrics, error_reason_list,
+         retry_needed) = bulkloads_into_opensearch(es_entries,
+                                                   collected_metrics)
         output_metrics(metrics, record=record, logfile=logfile,
                        collected_metrics=collected_metrics)
-        # raise error to retry if error has occuered
+        if logfile.error_logs_count > 0:
+            collected_metrics['error_count'] += logfile.error_logs_count
         if logfile.is_ignored:
             logger.warning(
                 f'Skipped S3 object because {logfile.ignored_reason}')
         elif collected_metrics['error_count']:
             error_message = (f"{collected_metrics['error_count']} of logs "
                              "were NOT loaded into OpenSearch Service")
-            logger.error(error_message)
-            logger.error(error_reason_list[:5])
-            raise Exception(error_message)
+            logger.critical(error_message)
+            if len(error_reason_list) > 0:
+                logger.error(error_reason_list[:5])
+            if retry_needed:
+                raise Exception(error_message)
         elif collected_metrics['total_log_load_count'] > 0:
             logger.info('All logs were loaded into OpenSearch Service')
         else:
