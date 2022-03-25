@@ -188,9 +188,14 @@ class LogS3:
         self.total_log_count = end - start + 1
 
         if self.via_cwl:
+            delimiter = self.logconfig['json_delimiter']
             for lograw, logmeta in self.extract_cwl_log(start, end, logmeta):
                 logdict = self.rawfile_instacne.convert_lograw_to_dict(lograw)
-                yield (lograw, logdict, logmeta)
+                if delimiter and (delimiter in logdict):                    
+                    for record in logdict[delimiter]:
+                        yield (json.dumps(record), record, logmeta)
+                else:
+                    yield (lograw, logdict, logmeta)
         elif self.via_firelens:
             for lograw, logdict, logmeta in self.extract_firelens_log(
                     start, end, logmeta):

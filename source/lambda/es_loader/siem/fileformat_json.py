@@ -77,6 +77,8 @@ class FileFormatJson(FileFormatBase):
     def convert_lograw_to_dict(self, lograw, logconfig=None):
         try:
             logdict = json.loads(lograw)
+            if "detail-type" in logdict and "resources" in logdict:
+                return logdict['detail']
         except json.decoder.JSONDecodeError as e:
             # this is probablly CWL log and trauncated by original log sender
             # such as opensearch audit log
