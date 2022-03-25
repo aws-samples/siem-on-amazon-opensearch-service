@@ -61,8 +61,9 @@ class LogS3:
         self.file_format = self.logconfig['file_format']
         self.max_log_count = self.logconfig['max_log_count']
         self.__rawdata = self.extract_rawdata_from_s3obj()
-        self.__file_timestamp = self.extract_file_timestamp()
-        self.rawfile_instacne = self.set_rawfile_instance()
+        if self.__rawdata:
+            self.__file_timestamp = self.extract_file_timestamp()
+            self.rawfile_instacne = self.set_rawfile_instance()
 
     def __iter__(self):
         if self.is_ignored:
