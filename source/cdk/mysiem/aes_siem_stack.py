@@ -1128,6 +1128,13 @@ class MyAesSiemStack(core.Stack):
             aws_cloudwatch_actions.SnsAction(invoke_loader_stopper_topic))
 
         ######################################################################
+        # CloudWatch Dashboard
+        ######################################################################
+        self.create_cloudwatch_dashboard(
+            aes_domain_name, lambda_es_loader, sqs_aes_siem_splitted_logs,
+            sqs_aes_siem_dlq, total_free_storage_space_remains_low_alarm)
+
+        ######################################################################
         # output of CFn
         ######################################################################
         kibanaurl = f'https://{es_endpoint}/_dashboards/'
@@ -1170,3 +1177,317 @@ class MyAesSiemStack(core.Stack):
         for aws_id in sorted(set(aws_ids)):
             multi_s3path.append(path + aws_id + tail)
         return multi_s3path
+
+    def create_cloudwatch_dashboard(
+            self, aes_domain_name, lambda_es_loader,
+            sqs_aes_siem_splitted_logs, sqs_aes_siem_dlq,
+            total_free_storage_space_remains_low_alarm):
+        example_dashboard_name = 'SIEM'
+        # Create CloudWatch Dashboard to view SIEM Metrics
+        cw_dashboard = aws_cloudwatch.Dashboard(
+            self, 'SIEMDashboard', dashboard_name=example_dashboard_name)
+
+        #######################################################################
+        # CloudWatch Alarm
+        #######################################################################
+        cwl_alarm_widget = aws_cloudwatch.TextWidget(
+            markdown='# CloudWatch Alarm', height=1, width=24)
+        cwl_alarm_freespace_widget = aws_cloudwatch.AlarmWidget(
+            title=f'{total_free_storage_space_remains_low_alarm.alarm_name}',
+            alarm=total_free_storage_space_remains_low_alarm)
+
+        #######################################################################
+        # Lambda Function
+        #######################################################################
+        esloader_title_widget = aws_cloudwatch.TextWidget(
+            markdown=f'# Lambda Function: {lambda_es_loader.function_name}',
+            height=1, width=24)
+        # invocations
+        esloader_invocations_widget = aws_cloudwatch.GraphWidget(
+            title='Invocations (Count)',
+            height=4, width=12, period=core.Duration.seconds(60),
+            left=[lambda_es_loader.metric_invocations()],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+        # Error count and success rate (%)
+        success_rate = aws_cloudwatch.MathExpression(
+            expression='100 - 100 * errors / MAX([errors, invocations])',
+            using_metrics={
+                'errors': lambda_es_loader.metric_errors(),
+                'invocations': lambda_es_loader.metric_invocations()},
+            label='Success rate (%)', color='#2ca02c')
+        esloader_success_rate_widget = aws_cloudwatch.GraphWidget(
+            title="Error count and success rate (%)",
+            height=4, width=12, period=core.Duration.seconds(60),
+            left=[lambda_es_loader.metric_errors(
+                statistic='sum', color='#d13212', label='Errors (Count)')],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            right=[success_rate],
+            right_y_axis=aws_cloudwatch.YAxisProps(max=100, show_units=False))
+        # throttles
+        esloader_throttles_widget = aws_cloudwatch.GraphWidget(
+            title='Throttles (Count)',
+            height=4, width=12, period=core.Duration.seconds(60),
+            left=[lambda_es_loader.metric_throttles()],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+        # duration
+        esloader_duration_widget = aws_cloudwatch.GraphWidget(
+            title='Duration (Milliseconds)',
+            height=4, width=12, period=core.Duration.seconds(60),
+            left=[lambda_es_loader.metric_duration(statistic='min'),
+                  lambda_es_loader.metric_duration(statistic='avg'),
+                  lambda_es_loader.metric_duration(statistic='max')],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+        # concurrent exec
+        esloader_concurrent_widget = aws_cloudwatch.GraphWidget(
+            title='ConcurrentExecutions (Count)',
+            height=4, width=12, period=core.Duration.seconds(60),
+            left=[lambda_es_loader.metric_all_concurrent_executions(
+                dimensions_map={
+                    'FunctionName': lambda_es_loader.function_name})],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+        # timeout
+        esloader_timeout_widget = aws_cloudwatch.LogQueryWidget(
+            title='Longest 5 invocations',
+            height=4, width=12,
+            log_group_names=[f'/aws/lambda/{lambda_es_loader.function_name}'],
+            view=aws_cloudwatch.LogQueryVisualizationType.TABLE,
+            query_string="""fields @timestamp, @duration, @requestId
+                | sort @duration desc
+                | head 5""")
+
+        #######################################################################
+        # OpenSearch Service
+        #######################################################################
+        aos_title_widget = aws_cloudwatch.TextWidget(
+            markdown=(
+                f'# OpenSearch Service (Indexing): {aes_domain_name} domain'),
+            height=1, width=24)
+        # CPUUtilization
+        aos_cpu_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='CPUUtilization', statistic="max")
+        aos_cpu_widget = aws_cloudwatch.GraphWidget(
+            title='Data Node CPUUtilization (Cluster Max Percentage)',
+            height=4, width=12,
+            left=[aos_cpu_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(max=100, show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+        # JVMMemoryPressure
+        aos_jvmmem_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='JVMMemoryPressure')
+        aos_jvmmem_widget = aws_cloudwatch.GraphWidget(
+            title='Data Node JVMMemoryPressure (Cluster Max Percentage)',
+            height=4, width=12,
+            left=[aos_jvmmem_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(max=100, show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+        # IndexingRate
+        aos_indexing_rate_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='IndexingRate', statistic="avg")
+        aos_indexing_rate_widget = aws_cloudwatch.GraphWidget(
+            title='IndexingRate (Node Average Count)',
+            height=4, width=12,
+            left=[aos_indexing_rate_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+        # IndexingLatency
+        aos_indexing_latency_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='IndexingLatency', statistic="avg")
+        aos_indexing_latency_widget = aws_cloudwatch.GraphWidget(
+            title='IndexingLatency (Node Average Milliseconds)',
+            height=4, width=12,
+            left=[aos_indexing_latency_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+
+        # ThreadpoolWriteQueue
+        aos_writecache_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ThreadpoolWriteQueue', statistic="avg")
+        aos_writecache_widget = aws_cloudwatch.GraphWidget(
+            title='ThreadpoolWriteQueue (Node Average Count)',
+            height=4, width=12,
+            left=[aos_writecache_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN,
+            left_annotations=[
+                aws_cloudwatch.HorizontalAnnotation(value=10000)])
+        # ThreadpoolWriteThreads
+        aos_threadpool_write_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ThreadpoolWriteThreads', statistic="avg")
+        aos_thread_pool_widget = aws_cloudwatch.GraphWidget(
+            title='ThreadpoolWriteThreads (Node Average Count)',
+            height=4, width=12,
+            left=[aos_threadpool_write_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+
+        #######################################################################
+        # ClusterIndexWritesBlocked
+        #######################################################################
+        aos_cluster_index_writes_blocked_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ClusterIndexWritesBlocked', statistic="avg")
+        aos_cluster_index_writes_blocked_widget = aws_cloudwatch.GraphWidget(
+            title='ClusterIndexWritesBlocked (Cluster Max Count)',
+            height=4, width=12,
+            left=[aos_cluster_index_writes_blocked_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+        # Reject count
+        aos_threadpool_write_rejected_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ThreadpoolWriteRejected',
+            statistic="sum"
+        )
+        aos_coordinating_write_rejected_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='CoordinatingWriteRejected',
+            statistic="sum"
+        )
+        aos_primary_write_rejected_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='PrimaryWriteRejected',
+            statistic="sum"
+        )
+        aos_replica_write_rejected_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ReplicaWriteRejected',
+            statistic="sum"
+        )
+        rejected_count_widget = aws_cloudwatch.GraphWidget(
+            title='Rejected Count (Node Total Count)',
+            height=4, width=12,
+            left=[aos_threadpool_write_rejected_metric,
+                  aos_coordinating_write_rejected_metric,
+                  aos_primary_write_rejected_metric,
+                  aos_replica_write_rejected_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+        # 40x 50x
+        aos_4xx_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES', metric_name='4xx',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID})
+        aos_5xx_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES', metric_name='5xx',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID})
+        aos_4xx_5xx_widget = aws_cloudwatch.GraphWidget(
+            title='HTTP requests by error response code (Cluster Total Count)',
+            height=4, width=12,
+            left=[aos_4xx_metric, aos_5xx_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
+        #######################################################################
+        # SQS
+        #######################################################################
+        sqs_widget = aws_cloudwatch.TextWidget(
+            markdown='# SQS', height=1, width=24)
+        sqs_splitted_log_visible_widget = aws_cloudwatch.GraphWidget(
+            title=(f'{sqs_aes_siem_splitted_logs.queue_name}: '
+                   'NumberOfMessagesReceived (Count)'),
+            height=4, width=12,
+            left=[sqs_aes_siem_splitted_logs
+                  .metric_number_of_messages_received(statistic='sum')],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+        sqs_dlq_visible_widget = aws_cloudwatch.GraphWidget(
+            title=(f'{sqs_aes_siem_dlq.queue_name}: '
+                   'ApproximateNumberOfMessagesVisible (Count)'),
+            height=4, width=12,
+            left=[sqs_aes_siem_dlq
+                  .metric_approximate_number_of_messages_visible()],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+
+        #######################################################################
+        # es-loader-error log
+        #######################################################################
+        esloader_log_widget = aws_cloudwatch.TextWidget(
+            markdown=('# Lambda Function Error Log: '
+                      f'{lambda_es_loader.function_name}'),
+            height=1, width=24)
+        esloader_log_critical_widget = aws_cloudwatch.LogQueryWidget(
+            title='CRITICAL Log',
+            log_group_names=[f'/aws/lambda/{lambda_es_loader.function_name}'],
+            width=24,
+            view=aws_cloudwatch.LogQueryVisualizationType.TABLE,
+            query_string="""fields @timestamp, message, s3_key
+                | filter level == "CRITICAL"
+                | sort @timestamp desc
+                | limit 100""")
+        esloader_log_error_widget = aws_cloudwatch.LogQueryWidget(
+            title='ERROR Log',
+            width=24,
+            log_group_names=[f'/aws/lambda/{lambda_es_loader.function_name}'],
+            view=aws_cloudwatch.LogQueryVisualizationType.TABLE,
+            query_string="""fields @timestamp, message.Error, s3_key
+                | filter level == "ERROR"
+                | sort @timestamp desc
+                | limit 100""")
+        esloader_log_guide_widget = aws_cloudwatch.TextWidget(
+            height=3, width=12,
+            markdown=(
+                '## Sample query\n'
+                'To investigate critical/error log '
+                'with CloudWatch Logs Insights\n\n'
+                '```\n'
+                'fields @timestamp, @message\n'
+                '| filter s3_key == "copy s3_key and paste here"\n'
+                '```'),)
+
+        # Add Widgets to CloudWatch Dashboard
+        cw_dashboard.add_widgets(
+            # CloudWatch Alarm
+            cwl_alarm_widget,
+            cwl_alarm_freespace_widget,
+            # esloader_title_widget,
+            esloader_title_widget,
+            esloader_success_rate_widget, esloader_invocations_widget,
+            esloader_duration_widget, esloader_throttles_widget,
+            esloader_timeout_widget, esloader_concurrent_widget,
+            # aos_title_widget,
+            aos_title_widget,
+            aos_cpu_widget, rejected_count_widget,
+            aos_jvmmem_widget, aos_cluster_index_writes_blocked_widget,
+            aos_indexing_rate_widget, aos_writecache_widget,
+            aos_indexing_latency_widget, aos_thread_pool_widget,
+            aos_4xx_5xx_widget,
+            # sqs_widget
+            sqs_widget,
+            sqs_splitted_log_visible_widget, sqs_dlq_visible_widget,
+            # esloader_log_widget
+            esloader_log_widget,
+            esloader_log_critical_widget,
+            esloader_log_error_widget,
+            esloader_log_guide_widget,
+        )
