@@ -11,7 +11,6 @@ import boto3
 from aws_cdk import (
     aws_cloudformation,
     aws_cloudwatch,
-    aws_cloudwatch_actions,
     aws_ec2,
     aws_events,
     aws_events_targets,
@@ -512,14 +511,6 @@ class MyAesSiemStack(core.Stack):
             self, 'AesSiemSnsRole',
             role_name='aes-siem-sns-role',
             assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
-        )
-
-        # CloudWatch Alarm role to send alarm
-        # to aes-siem-invoke-loader-stopper-topic
-        aes_siem_es_loader_stopper_cw_alarm_role = aws_iam.Role(
-            self, 'AesSiemEsLoaderStopperCWAlarmRole',
-            role_name='aes-siem-es-loader-stopper-cw-alarm-role',
-            assumed_by=aws_iam.ServicePrincipal('cloudwatch.amazonaws.com')
         )
 
         # EC2 role
@@ -1100,32 +1091,33 @@ class MyAesSiemStack(core.Stack):
         lambda_es_loader_stopper.add_environment(
             'AES_SIEM_ALERT_TOPIC_ARN', sns_topic.topic_arn)
 
-        # SNS topic
-        invoke_loader_stopper_topic = aws_sns.Topic(
-            self, 'InvokeLoaderStopperTopic',
-            topic_name='aes-siem-invoke-loader-stopper-topic',
-            display_name='AES SIEM / topic to invoke es-loader-stopper lambda')
-        invoke_loader_stopper_topic.add_subscription(
-            aws_sns_subscriptions.LambdaSubscription(lambda_es_loader_stopper))
-        invoke_loader_stopper_topic.grant_publish(
-            aes_siem_es_loader_stopper_cw_alarm_role)
-
         # CloudWatch Alarm
         total_free_storage_space_metric = aws_cloudwatch.Metric(
             metric_name='FreeStorageSpace', namespace='AWS/ES',
             statistic='Sum', period=core.Duration.minutes(1),
             dimensions_map={'DomainName': aes_domain_name,
                             'ClientId': core.Aws.ACCOUNT_ID})
-        total_free_storage_space_remains_at_zero_alarm = aws_cloudwatch.Alarm(
-            self, 'TotalFreeStorageSpaceRemainsAtZeroAlarm',
+        total_free_storage_space_remains_low_alarm = aws_cloudwatch.Alarm(
+            self, 'TotalFreeStorageSpaceRemainsLowAlarm',
             alarm_description=('Triggered when total free space for the '
                                'cluster remains less 200MB for 30 minutes.'),
             metric=total_free_storage_space_metric,
             evaluation_periods=30, threshold=200,  # 200 MByte
             comparison_operator=aws_cloudwatch
             .ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD)
-        total_free_storage_space_remains_at_zero_alarm.add_alarm_action(
-            aws_cloudwatch_actions.SnsAction(invoke_loader_stopper_topic))
+
+        # EventBridge
+        es_loader_stopper_rule = aws_events.Rule(
+            self, "EsLoaderStopperRule", event_pattern=aws_events.EventPattern(
+                source=["aws.cloudwatch"],
+                detail_type=["CloudWatch Alarm State Change"],
+                resources=[
+                    total_free_storage_space_remains_low_alarm.alarm_arn
+                ]
+            )
+        )
+        es_loader_stopper_rule.add_target(
+            aws_events_targets.LambdaFunction(lambda_es_loader_stopper))
 
         ######################################################################
         # CloudWatch Dashboard
