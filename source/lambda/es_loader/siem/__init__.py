@@ -85,6 +85,7 @@ class LogS3:
     ###########################################################################
     @cached_property
     def is_ignored(self):
+        # normal reason
         if self.s3key[-1] == '/':
             self.ignored_reason = f'this s3 key is just path, {self.s3key}'
             return True
@@ -99,6 +100,19 @@ class LogS3:
                 self.ignored_reason = (fr'"s3_key_ignored" {re_s3_key_ignored}'
                                        fr' matched with {self.s3key}')
                 return True
+
+        # critical reson
+        if not self.logconfig.get('file_format'):
+            self.critical_reason = (
+                f'of unknown file format for {self.logtype}. '
+                'Configure file_format in user/ini')
+            return True
+        elif not self.logconfig.get('index_name'):
+            self.critical_reason = (
+                f'of no index_name for {self.logtype}. '
+                'Configure index_name in user/ini')
+            return True
+
         return False
 
     @cached_property
@@ -179,6 +193,11 @@ class LogS3:
                 self.rawdata, self.logconfig, self.logtype)
         elif self.file_format == 'xml':
             return FileFormatXml(self.rawdata, self.logconfig, self.logtype)
+        elif not self.file_format:
+            self.is_ignored = True
+            self.ignored_reason = (
+                f'Skipped because there is no file format of {self.logtype}'
+                'in user.ini')
         else:
             return FileFormatBase(self.rawdata, self.logconfig, self.logtype)
 
@@ -244,7 +263,7 @@ class LogS3:
             else:
                 msg = (f'invalid file timestamp format regex, '
                        f're_file_timestamp_format, for {self.s3key}')
-                logger.exception(msg)
+                logger.critical(msg)
                 raise Exception(msg) from None
             return dt
         else:

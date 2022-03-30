@@ -23,7 +23,7 @@ import siem
 from siem import geodb, utils
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
-logger.info('version: ' + __version__)
+logger.info(f'version: {__version__}')
 metrics = Metrics()
 
 SQS_SPLITTED_LOGS_URL = None
@@ -35,13 +35,15 @@ ES_HOSTNAME = utils.get_es_hostname()
 def extract_logfile_from_s3(record):
     if 's3' in record:
         s3key = record['s3']['object']['key']
-        logger.structure_logs(append=True, s3_key=s3key)
+        s3bucket = record['s3']['bucket']['name']
+        logger.structure_logs(append=True, s3_key=s3key, s3_bucket=s3bucket)
         logtype = utils.get_logtype_from_s3key(s3key, logtype_s3key_dict)
         logconfig = create_logconfig(logtype)
         logfile = siem.LogS3(record, logtype, logconfig, s3_client, sqs_queue)
     else:
-        logger.error('invalid input data. exit')
-        raise Exception('invalid input data. exit')
+        logger.warning(
+            'Skipped because there is no S3 object. Invalid input data')
+        return None
     return logfile
 
 
@@ -75,8 +77,8 @@ def get_value_from_etl_config(logtype, key, keytype=None):
         else:
             value = ''
     except KeyError:
-        logger.exception('unknown error in aws.ini/user.ini')
-        raise KeyError("Can't find the key in logconfig")
+        logger.exception("Can't find the key in logconfig")
+        raise KeyError("Can't find the key in logconfig") from None
     except re.error:
         msg = (f'invalid regex pattern for {key} of {logtype} in '
                'aws.ini/user.ini')
@@ -344,9 +346,16 @@ def lambda_handler(event, context):
             record = json.loads(record['body'])
         # S3からファイルを取得してログを抽出する
         logfile = extract_logfile_from_s3(record)
-        if logfile.is_ignored:
-            logger.warning(
-                f'Skipped S3 object because {logfile.ignored_reason}')
+        if logfile is None:
+            continue
+        elif logfile.is_ignored:
+            if hasattr(logfile, 'ignored_reason') and logfile.ignored_reason:
+                logger.warning(
+                    f'Skipped S3 object because {logfile.ignored_reason}')
+            elif (hasattr(logfile, 'critical_reason')
+                    and logfile.critical_reason):
+                logger.critical(
+                    f'Skipped S3 object because {logfile.critical_reason}')
             continue
 
         # 抽出したログからESにPUTするデータを作成する
@@ -363,13 +372,15 @@ def lambda_handler(event, context):
             logger.warning(
                 f'Skipped S3 object because {logfile.ignored_reason}')
         elif collected_metrics['error_count']:
+            extra = None
             error_message = (f"{collected_metrics['error_count']} of logs "
                              "were NOT loaded into OpenSearch Service")
-            logger.critical(error_message)
             if len(error_reason_list) > 0:
-                logger.error(error_reason_list[:5])
+                extra = {'message_error': error_reason_list[:5]}
+            logger.error(error_message, extra=extra)
             if retry_needed:
-                raise Exception(error_message)
+                logger.error('Aborted. It may be retried')
+                raise
         elif collected_metrics['total_log_load_count'] > 0:
             logger.info('All logs were loaded into OpenSearch Service')
         else:

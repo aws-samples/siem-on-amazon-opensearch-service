@@ -22,15 +22,22 @@ class FileFormatText(FileFormatBase):
         self._regex_error_count = {}
         if logtype not in self._regex_error_count:
             self._regex_error_count[logtype] = 0
+        self._re_log_pattern_prog
 
     @cached_property
     def _re_log_pattern_prog(self):
         try:
             return self.logconfig['log_pattern']
         except AttributeError:
-            msg = 'No log_pattern(regex). You need to define it in user.ini'
-            logger.exception(msg)
+            msg = (f'Invalid regex pattern of {self.logtype}. '
+                   'You need to define it in user.ini')
+            logger.critical(msg)
             raise AttributeError(msg) from None
+        except KeyError:
+            msg = (f'There is no regex pattern of {self.logtype}. '
+                   'You need to define log_pattern in user.ini')
+            logger.critical(msg)
+            raise KeyError(msg) from None
 
     @property
     def log_count(self):
@@ -55,12 +62,12 @@ class FileFormatText(FileFormatBase):
         if m:
             logdata_dict = m.groupdict()
         else:
-            msg_dict = {
-                'Error': f'Invalid regex pattern of {self.logtype}',
-                'rawdata': lograw, 'regex_pattern': self._re_log_pattern_prog}
+            msg = f'Invalid regex pattern of {self.logtype}'
+            extra = {'message_rawdata': lograw,
+                     'message_regex_pattern': self._re_log_pattern_prog}
             self._regex_error_count[self.logtype] += 1
             if self._regex_error_count[self.logtype] < 10:
-                logger.error(msg_dict)
+                logger.error(msg, extra=extra)
             elif self._regex_error_count[self.logtype] == 11:
                 msg_crit = ('There are more than 10 regex errors of '
                             f'{self.logtype}. The error logs are suppressed '

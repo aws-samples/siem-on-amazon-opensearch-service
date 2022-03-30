@@ -74,7 +74,10 @@ class FileFormatBase(object):
         return 0
 
     def extract_log(self, start=0, end=0, logmeta={}):
-        raise Exception('Impossible to extract unknown log format')
+        logger.critical('Impossible to extract unknown log format of '
+                        f'{self.logtype}. You should configure "file_format" '
+                        'in user.ini')
+        return
 
     def convert_lograw_to_dict(self, lograw, logconfig=None):
         return lograw
