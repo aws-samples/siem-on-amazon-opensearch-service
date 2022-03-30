@@ -1281,6 +1281,47 @@ class MyAesSiemStack(core.Stack):
             left=[aos_jvmmem_metric],
             left_y_axis=aws_cloudwatch.YAxisProps(max=100, show_units=False),
             legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
+        # EBS
+        aos_write_throughput_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='WriteThroughput', statistic="max",
+            label='WriteThroughput (Bytes/Second)')
+        aos_write_iops_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='WriteIOPS', statistic="max",
+            label='WriteIOPS (Count/Second)')
+        aos_write_latency_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='WriteLatency', statistic="max",
+            label='WriteLatency (Seconds)')
+        aos_disk_queue_depth_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='DiskQueueDepth', statistic="max",
+            label='DiskQueueDepth (Count)')
+
+        aos_write_throughput_iops_widget = aws_cloudwatch.GraphWidget(
+            title='EBS Write Throughput / IOPS',
+            height=4, width=12,
+            left=[aos_write_throughput_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            right=[aos_write_iops_metric],
+            right_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+        aos_write_latency_queue_widget = aws_cloudwatch.GraphWidget(
+            title='EBS Write Latency / Disk Queue',
+            height=4, width=12,
+            left=[aos_write_latency_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            right=[aos_disk_queue_depth_metric],
+            right_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
         # IndexingRate
         aos_indexing_rate_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
@@ -1305,7 +1346,6 @@ class MyAesSiemStack(core.Stack):
             left=[aos_indexing_latency_metric],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
             legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
-
         # ThreadpoolWriteQueue
         aos_writecache_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
@@ -1320,18 +1360,6 @@ class MyAesSiemStack(core.Stack):
             legend_position=aws_cloudwatch.LegendPosition.HIDDEN,
             left_annotations=[
                 aws_cloudwatch.HorizontalAnnotation(value=10000)])
-        # ThreadpoolWriteThreads
-        aos_threadpool_write_metric = aws_cloudwatch.Metric(
-            namespace='AWS/ES',
-            dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
-            metric_name='ThreadpoolWriteThreads', statistic="avg")
-        aos_thread_pool_widget = aws_cloudwatch.GraphWidget(
-            title='ThreadpoolWriteThreads (Node Average Count)',
-            height=4, width=12,
-            left=[aos_threadpool_write_metric],
-            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
-            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
 
         #######################################################################
         # ClusterIndexWritesBlocked
@@ -1422,14 +1450,14 @@ class MyAesSiemStack(core.Stack):
             legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
 
         #######################################################################
-        # es-loader-error log
+        # es-loader-error logs
         #######################################################################
         esloader_log_widget = aws_cloudwatch.TextWidget(
-            markdown=('# Lambda Function Error Log: '
+            markdown=('# Lambda Function Logs: '
                       f'{lambda_es_loader.function_name}'),
             height=1, width=24)
         esloader_log_critical_widget = aws_cloudwatch.LogQueryWidget(
-            title='CRITICAL Log',
+            title='CRITICAL Logs',
             log_group_names=[f'/aws/lambda/{lambda_es_loader.function_name}'],
             width=24,
             view=aws_cloudwatch.LogQueryVisualizationType.TABLE,
@@ -1438,11 +1466,11 @@ class MyAesSiemStack(core.Stack):
                 | sort @timestamp desc
                 | limit 100""")
         esloader_log_error_widget = aws_cloudwatch.LogQueryWidget(
-            title='ERROR Log',
+            title='ERROR Logs',
             width=24,
             log_group_names=[f'/aws/lambda/{lambda_es_loader.function_name}'],
             view=aws_cloudwatch.LogQueryVisualizationType.TABLE,
-            query_string="""fields @timestamp, message.Error, s3_key
+            query_string="""fields @timestamp, message, s3_key
                 | filter level == "ERROR"
                 | sort @timestamp desc
                 | limit 100""")
@@ -1455,7 +1483,20 @@ class MyAesSiemStack(core.Stack):
                 '```\n'
                 'fields @timestamp, @message\n'
                 '| filter s3_key == "copy s3_key and paste here"\n'
+                'OR @requestId == "copy function_request_id and paste here"'
                 '```'),)
+        esloader_log_exception_error_widget = aws_cloudwatch.LogQueryWidget(
+            title='Exception Logs',
+            width=24,
+            log_group_names=[f'/aws/lambda/{lambda_es_loader.function_name}'],
+            view=aws_cloudwatch.LogQueryVisualizationType.TABLE,
+            query_string=r"""fields @timestamp, @message
+                | filter @message =~ /^\[/
+                # filter ^[WARNING], ^[ERROR] and unpredictable error log
+                | filter @message not like /No active exception to reraise/
+                # exclude raise without Exception
+                | sort @timestamp desc
+                | limit 100""")
 
         # Add Widgets to CloudWatch Dashboard
         cw_dashboard.add_widgets(
@@ -1470,10 +1511,10 @@ class MyAesSiemStack(core.Stack):
             # aos_title_widget,
             aos_title_widget,
             aos_cpu_widget, rejected_count_widget,
-            aos_jvmmem_widget, aos_cluster_index_writes_blocked_widget,
-            aos_indexing_rate_widget, aos_writecache_widget,
-            aos_indexing_latency_widget, aos_thread_pool_widget,
-            aos_4xx_5xx_widget,
+            aos_jvmmem_widget, aos_writecache_widget,
+            aos_write_throughput_iops_widget, aos_indexing_rate_widget,
+            aos_write_latency_queue_widget, aos_indexing_latency_widget,
+            aos_4xx_5xx_widget, aos_cluster_index_writes_blocked_widget,
             # sqs_widget
             sqs_widget,
             sqs_splitted_log_visible_widget, sqs_dlq_visible_widget,
@@ -1482,4 +1523,5 @@ class MyAesSiemStack(core.Stack):
             esloader_log_critical_widget,
             esloader_log_error_widget,
             esloader_log_guide_widget,
+            esloader_log_exception_error_widget,
         )
