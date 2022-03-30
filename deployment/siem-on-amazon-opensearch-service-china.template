@@ -1,5 +1,5 @@
 {
-  "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3",
+  "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.4",
   "Mappings": {
     "RegionMap": {
       "af-south-1": {
@@ -1223,47 +1223,6 @@
         ]
       }
     },
-    "AesSiemEsLoaderStopperCWAlarmRole689F2CC1": {
-      "Type": "AWS::IAM::Role",
-      "Properties": {
-        "AssumeRolePolicyDocument": {
-          "Statement": [
-            {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": {
-                "Service": "cloudwatch.amazonaws.com"
-              }
-            }
-          ],
-          "Version": "2012-10-17"
-        },
-        "RoleName": "aes-siem-es-loader-stopper-cw-alarm-role"
-      }
-    },
-    "AesSiemEsLoaderStopperCWAlarmRoleDefaultPolicy10196F12": {
-      "Type": "AWS::IAM::Policy",
-      "Properties": {
-        "PolicyDocument": {
-          "Statement": [
-            {
-              "Action": "sns:Publish",
-              "Effect": "Allow",
-              "Resource": {
-                "Ref": "InvokeLoaderStopperTopic1DCFAE38"
-              }
-            }
-          ],
-          "Version": "2012-10-17"
-        },
-        "PolicyName": "AesSiemEsLoaderStopperCWAlarmRoleDefaultPolicy10196F12",
-        "Roles": [
-          {
-            "Ref": "AesSiemEsLoaderStopperCWAlarmRole689F2CC1"
-          }
-        ]
-      }
-    },
     "AesSiemEsLoaderEC2RoleFE3F9F00": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -1621,7 +1580,7 @@
             ]
           }
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / es-loader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.4 / es-loader",
         "Environment": {
           "Variables": {
             "ES_ENDPOINT": {
@@ -1665,13 +1624,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderCurrentVersion9DFE69556a6293736fce419932887229da6919a0": {
+    "LambdaEsLoaderCurrentVersion9DFE69558a650010839df048939a01647c66147d": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.6.2-beta.3"
+        "Description": "2.6.2-beta.4"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -1750,7 +1709,7 @@
       "Properties": {
         "Code": {
           "S3Bucket": "%%BUCKET_NAME%%",
-          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip"
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader_stopper.zip"
         },
         "Role": {
           "Fn::GetAtt": [
@@ -1761,17 +1720,20 @@
         "Architectures": [
           "x86_64"
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / es-loader-stopper",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.4 / es-loader-stopper",
         "Environment": {
           "Variables": {
+            "AES_SIEM_ALERT_TOPIC_ARN": {
+              "Ref": "SnsTopic2C1570A4"
+            },
             "ES_LOADER_FUNCTION_ARN": {
               "Fn::GetAtt": [
                 "LambdaEsLoader4B1E2DD9",
                 "Arn"
               ]
             },
-            "AES_SIEM_ALERT_TOPIC_ARN": {
-              "Ref": "SnsTopic2C1570A4"
+            "ES_LOADER_RESERVED_CONCURRENCY": {
+              "Ref": "ReservedConcurrency"
             }
           }
         },
@@ -1786,46 +1748,16 @@
         "LambdaEsLoaderStopperServiceRole83AABC1A"
       ]
     },
-    "LambdaEsLoaderStopperVersion262beta31CCB7FF0": {
+    "LambdaEsLoaderStopperCurrentVersion312AA85050fd7ef6f89e7270ea305516a97fbe27": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoaderStopper35C1D57B"
         },
-        "Description": "2.6.2-beta.3"
+        "Description": "2.6.2-beta.4"
       },
+      "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
-    },
-    "LambdaEsLoaderStopperAllowInvokeaessiemInvokeLoaderStopperTopic33F9E3A71ECFDA4C": {
-      "Type": "AWS::Lambda::Permission",
-      "Properties": {
-        "Action": "lambda:InvokeFunction",
-        "FunctionName": {
-          "Fn::GetAtt": [
-            "LambdaEsLoaderStopper35C1D57B",
-            "Arn"
-          ]
-        },
-        "Principal": "sns.amazonaws.com",
-        "SourceArn": {
-          "Ref": "InvokeLoaderStopperTopic1DCFAE38"
-        }
-      }
-    },
-    "LambdaEsLoaderStopperInvokeLoaderStopperTopic716406C4": {
-      "Type": "AWS::SNS::Subscription",
-      "Properties": {
-        "Protocol": "lambda",
-        "TopicArn": {
-          "Ref": "InvokeLoaderStopperTopic1DCFAE38"
-        },
-        "Endpoint": {
-          "Fn::GetAtt": [
-            "LambdaEsLoaderStopper35C1D57B",
-            "Arn"
-          ]
-        }
-      }
     },
     "LambdaGeoipDownloaderServiceRoleE37FB908": {
       "Type": "AWS::IAM::Role",
@@ -1923,7 +1855,7 @@
         "Architectures": [
           "x86_64"
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / geoip-downloader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.4 / geoip-downloader",
         "Environment": {
           "Variables": {
             "license_key": {
@@ -1954,13 +1886,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderCurrentVersion7F1CD34F7d50356a017774d747f2f8a2ee354945": {
+    "LambdaGeoipDownloaderCurrentVersion7F1CD34F561b74c83cfd954aa259a381a395b8b8": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.6.2-beta.3"
+        "Description": "2.6.2-beta.4"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2072,7 +2004,7 @@
         "Architectures": [
           "x86_64"
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / index-metrics-exporter",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.4 / index-metrics-exporter",
         "Environment": {
           "Variables": {
             "ES_ENDPOINT": {
@@ -2107,13 +2039,13 @@
         "LambdaMetricsExporterServiceRoleDDE0BD95"
       ]
     },
-    "LambdaMetricsExporterCurrentVersion79B0413Ff4dca29844bfe4752f7d59e6013ce2b1": {
+    "LambdaMetricsExporterCurrentVersion79B0413F4d791948c2fdf67d2e6d2745fa598873": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaMetricsExporter2737F589"
         },
-        "Description": "2.6.2-beta.3"
+        "Description": "2.6.2-beta.4"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2134,7 +2066,7 @@
         "Architectures": [
           "x86_64"
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / opensearch domain deployment",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.4 / opensearch domain deployment",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -2165,13 +2097,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESCurrentVersion047915F17b3f5322ad245bee7a6bcfe4aacd1720": {
+    "LambdaDeployAESCurrentVersion047915F184cafff4ee790b27d5cfb65e95df935a": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.6.2-beta.3"
+        "Description": "2.6.2-beta.4"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2185,7 +2117,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.6.2-beta.3"
+        "ConfigVersion": "2.6.2-beta.4"
       }
     },
     "LambdaConfigureAESA0471961": {
@@ -2204,7 +2136,7 @@
         "Architectures": [
           "x86_64"
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.3 / opensearch configuration",
+        "Description": "SIEM on Amazon OpenSearch Service v2.6.2-beta.4 / opensearch configuration",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -2252,13 +2184,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESCurrentVersion651147686b9833f6d75836094ed5f16b910cd3c6": {
+    "LambdaConfigureAESCurrentVersion65114768fc77895b234dc28f8e2e7b1fc1772240": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.6.2-beta.3"
+        "Description": "2.6.2-beta.4"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2272,7 +2204,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.6.2-beta.3"
+        "ConfigVersion": "2.6.2-beta.4"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"
@@ -2526,24 +2458,12 @@
         }
       }
     },
-    "InvokeLoaderStopperTopic1DCFAE38": {
-      "Type": "AWS::SNS::Topic",
-      "Properties": {
-        "DisplayName": "AES SIEM / topic to invoke es-loader-stopper lambda",
-        "TopicName": "aes-siem-invoke-loader-stopper-topic"
-      }
-    },
-    "TotalFreeStorageSpaceRemainsAtZeroAlarm8785C2E4": {
+    "TotalFreeStorageSpaceRemainsLowAlarm3888040E": {
       "Type": "AWS::CloudWatch::Alarm",
       "Properties": {
         "ComparisonOperator": "LessThanOrEqualToThreshold",
         "EvaluationPeriods": 30,
-        "AlarmActions": [
-          {
-            "Ref": "InvokeLoaderStopperTopic1DCFAE38"
-          }
-        ],
-        "AlarmDescription": "Triggered when total free space for the cluster remains at 0 for 30 minutes.",
+        "AlarmDescription": "Triggered when total free space for the cluster remains less 200MB for 30 minutes.",
         "Dimensions": [
           {
             "Name": "ClientId",
@@ -2560,7 +2480,320 @@
         "Namespace": "AWS/ES",
         "Period": 60,
         "Statistic": "Sum",
-        "Threshold": 0
+        "Threshold": 200
+      }
+    },
+    "EsLoaderStopperRule2C1D9F30": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "EventPattern": {
+          "detail-type": [
+            "CloudWatch Alarm State Change"
+          ],
+          "resources": [
+            {
+              "Fn::GetAtt": [
+                "TotalFreeStorageSpaceRemainsLowAlarm3888040E",
+                "Arn"
+              ]
+            }
+          ],
+          "source": [
+            "aws.cloudwatch"
+          ]
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Fn::GetAtt": [
+                "LambdaEsLoaderStopper35C1D57B",
+                "Arn"
+              ]
+            },
+            "Id": "Target0"
+          }
+        ]
+      }
+    },
+    "EsLoaderStopperRuleAllowEventRuleaessiemLambdaEsLoaderStopper325F7AA593386C47": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "LambdaEsLoaderStopper35C1D57B",
+            "Arn"
+          ]
+        },
+        "Principal": "events.amazonaws.com",
+        "SourceArn": {
+          "Fn::GetAtt": [
+            "EsLoaderStopperRule2C1D9F30",
+            "Arn"
+          ]
+        }
+      }
+    },
+    "SIEMDashboard35199390": {
+      "Type": "AWS::CloudWatch::Dashboard",
+      "Properties": {
+        "DashboardBody": {
+          "Fn::Join": [
+            "",
+            [
+              "{\"widgets\":[{\"type\":\"text\",\"width\":24,\"height\":1,\"x\":0,\"y\":0,\"properties\":{\"markdown\":\"# CloudWatch Alarm\"}},{\"type\":\"metric\",\"width\":6,\"height\":6,\"x\":0,\"y\":1,\"properties\":{\"view\":\"timeSeries\",\"title\":\"",
+              {
+                "Ref": "TotalFreeStorageSpaceRemainsLowAlarm3888040E"
+              },
+              "\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"annotations\":{\"alarms\":[\"",
+              {
+                "Fn::GetAtt": [
+                  "TotalFreeStorageSpaceRemainsLowAlarm3888040E",
+                  "Arn"
+                ]
+              },
+              "\"]},\"yAxis\":{}}},{\"type\":\"text\",\"width\":24,\"height\":1,\"x\":0,\"y\":7,\"properties\":{\"markdown\":\"# Lambda Function: ",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "\"}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":0,\"y\":8,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Error count and success rate (%)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/Lambda\",\"Errors\",\"FunctionName\",\"",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "\",{\"color\":\"#d13212\",\"label\":\"Errors (Count)\",\"stat\":\"Sum\",\"id\":\"errors\"}],[{\"label\":\"Success rate (%)\",\"color\":\"#2ca02c\",\"expression\":\"100 - 100 * errors / MAX([errors, invocations])\",\"yAxis\":\"right\"}],[\"AWS/Lambda\",\"Invocations\",\"FunctionName\",\"",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "\",{\"stat\":\"Sum\",\"visible\":false,\"id\":\"invocations\"}]],\"yAxis\":{\"left\":{\"showUnits\":false},\"right\":{\"max\":100,\"showUnits\":false}},\"period\":60}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":12,\"y\":8,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Invocations (Count)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/Lambda\",\"Invocations\",\"FunctionName\",\"",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "\",{\"stat\":\"Sum\"}]],\"yAxis\":{\"left\":{\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"},\"period\":60}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":0,\"y\":12,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Duration (Milliseconds)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/Lambda\",\"Duration\",\"FunctionName\",\"",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "\",{\"stat\":\"Minimum\"}],[\"AWS/Lambda\",\"Duration\",\"FunctionName\",\"",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "\"],[\"AWS/Lambda\",\"Duration\",\"FunctionName\",\"",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "\",{\"stat\":\"Maximum\"}]],\"yAxis\":{\"left\":{\"showUnits\":false}},\"period\":60}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":12,\"y\":12,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Throttles (Count)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/Lambda\",\"Throttles\",\"FunctionName\",\"",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "\",{\"stat\":\"Sum\"}]],\"yAxis\":{\"left\":{\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"},\"period\":60}},{\"type\":\"log\",\"width\":12,\"height\":4,\"x\":0,\"y\":16,\"properties\":{\"view\":\"table\",\"title\":\"Longest 5 invocations\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"query\":\"SOURCE '/aws/lambda/",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "' | fields @timestamp, @duration, @requestId\\n                | sort @duration desc\\n                | head 5\"}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":12,\"y\":16,\"properties\":{\"view\":\"timeSeries\",\"title\":\"ConcurrentExecutions (Count)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/Lambda\",\"ConcurrentExecutions\",\"FunctionName\",\"",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "\",{\"stat\":\"Maximum\"}]],\"yAxis\":{\"left\":{\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"},\"period\":60}},{\"type\":\"text\",\"width\":24,\"height\":1,\"x\":0,\"y\":20,\"properties\":{\"markdown\":\"# OpenSearch Service (Indexing): aes-siem domain\"}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":0,\"y\":21,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Data Node CPUUtilization (Cluster Max Percentage)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/ES\",\"CPUUtilization\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\",{\"stat\":\"Maximum\"}]],\"yAxis\":{\"left\":{\"max\":100,\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"}}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":12,\"y\":21,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Rejected Count (Node Total Count)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/ES\",\"ThreadpoolWriteRejected\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\",{\"stat\":\"Sum\"}],[\"AWS/ES\",\"CoordinatingWriteRejected\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\",{\"stat\":\"Sum\"}],[\"AWS/ES\",\"PrimaryWriteRejected\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\",{\"stat\":\"Sum\"}],[\"AWS/ES\",\"ReplicaWriteRejected\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\",{\"stat\":\"Sum\"}]],\"yAxis\":{\"left\":{\"showUnits\":false}}}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":0,\"y\":25,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Data Node JVMMemoryPressure (Cluster Max Percentage)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/ES\",\"JVMMemoryPressure\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\"]],\"yAxis\":{\"left\":{\"max\":100,\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"}}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":12,\"y\":25,\"properties\":{\"view\":\"timeSeries\",\"title\":\"ThreadpoolWriteQueue (Node Average Count)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/ES\",\"ThreadpoolWriteQueue\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\"]],\"annotations\":{\"horizontal\":[{\"value\":10000,\"yAxis\":\"left\"}]},\"yAxis\":{\"left\":{\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"}}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":0,\"y\":29,\"properties\":{\"view\":\"timeSeries\",\"title\":\"EBS Write Throughput / IOPS\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/ES\",\"WriteThroughput\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\",{\"label\":\"WriteThroughput (Bytes/Second)\",\"stat\":\"Maximum\"}],[\"AWS/ES\",\"WriteIOPS\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\",{\"label\":\"WriteIOPS (Count/Second)\",\"stat\":\"Maximum\",\"yAxis\":\"right\"}]],\"yAxis\":{\"left\":{\"showUnits\":false},\"right\":{\"showUnits\":false}}}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":12,\"y\":29,\"properties\":{\"view\":\"timeSeries\",\"title\":\"IndexingRate (Node Average Count)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/ES\",\"IndexingRate\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\"]],\"yAxis\":{\"left\":{\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"}}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":0,\"y\":33,\"properties\":{\"view\":\"timeSeries\",\"title\":\"EBS Write Latency / Disk Queue\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/ES\",\"WriteLatency\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\",{\"label\":\"WriteLatency (Seconds)\",\"stat\":\"Maximum\"}],[\"AWS/ES\",\"DiskQueueDepth\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\",{\"label\":\"DiskQueueDepth (Count)\",\"stat\":\"Maximum\",\"yAxis\":\"right\"}]],\"yAxis\":{\"left\":{\"showUnits\":false},\"right\":{\"showUnits\":false}}}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":12,\"y\":33,\"properties\":{\"view\":\"timeSeries\",\"title\":\"IndexingLatency (Node Average Milliseconds)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/ES\",\"IndexingLatency\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\"]],\"yAxis\":{\"left\":{\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"}}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":0,\"y\":37,\"properties\":{\"view\":\"timeSeries\",\"title\":\"HTTP requests by error response code (Cluster Total Count)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/ES\",\"4xx\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\"],[\"AWS/ES\",\"5xx\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\"]],\"yAxis\":{\"left\":{\"showUnits\":false}}}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":12,\"y\":37,\"properties\":{\"view\":\"timeSeries\",\"title\":\"ClusterIndexWritesBlocked (Cluster Max Count)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/ES\",\"ClusterIndexWritesBlocked\",\"ClientId\",\"",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "\",\"DomainName\",\"aes-siem\"]],\"yAxis\":{\"left\":{\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"}}},{\"type\":\"text\",\"width\":24,\"height\":1,\"x\":0,\"y\":41,\"properties\":{\"markdown\":\"# SQS\"}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":0,\"y\":42,\"properties\":{\"view\":\"timeSeries\",\"title\":\"",
+              {
+                "Fn::GetAtt": [
+                  "AesSiemSqsSplitLogs0191F431",
+                  "QueueName"
+                ]
+              },
+              ": NumberOfMessagesReceived (Count)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/SQS\",\"NumberOfMessagesReceived\",\"QueueName\",\"",
+              {
+                "Fn::GetAtt": [
+                  "AesSiemSqsSplitLogs0191F431",
+                  "QueueName"
+                ]
+              },
+              "\",{\"stat\":\"Sum\"}]],\"yAxis\":{\"left\":{\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"}}},{\"type\":\"metric\",\"width\":12,\"height\":4,\"x\":12,\"y\":42,\"properties\":{\"view\":\"timeSeries\",\"title\":\"",
+              {
+                "Fn::GetAtt": [
+                  "AesSiemDlq1CD8439D",
+                  "QueueName"
+                ]
+              },
+              ": ApproximateNumberOfMessagesVisible (Count)\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"metrics\":[[\"AWS/SQS\",\"ApproximateNumberOfMessagesVisible\",\"QueueName\",\"",
+              {
+                "Fn::GetAtt": [
+                  "AesSiemDlq1CD8439D",
+                  "QueueName"
+                ]
+              },
+              "\",{\"stat\":\"Maximum\"}]],\"yAxis\":{\"left\":{\"showUnits\":false}},\"legend\":{\"position\":\"hidden\"}}},{\"type\":\"text\",\"width\":24,\"height\":1,\"x\":0,\"y\":46,\"properties\":{\"markdown\":\"# Lambda Function Logs: ",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "\"}},{\"type\":\"log\",\"width\":24,\"height\":6,\"x\":0,\"y\":47,\"properties\":{\"view\":\"table\",\"title\":\"CRITICAL Logs\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"query\":\"SOURCE '/aws/lambda/",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "' | fields @timestamp, message, s3_key\\n                | filter level == \\\"CRITICAL\\\"\\n                | sort @timestamp desc\\n                | limit 100\"}},{\"type\":\"log\",\"width\":24,\"height\":6,\"x\":0,\"y\":53,\"properties\":{\"view\":\"table\",\"title\":\"ERROR Logs\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"query\":\"SOURCE '/aws/lambda/",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "' | fields @timestamp, message, s3_key\\n                | filter level == \\\"ERROR\\\"\\n                | sort @timestamp desc\\n                | limit 100\"}},{\"type\":\"text\",\"width\":12,\"height\":3,\"x\":0,\"y\":59,\"properties\":{\"markdown\":\"## Sample query\\nTo investigate critical/error log with CloudWatch Logs Insights\\n\\n```\\nfields @timestamp, @message\\n| filter s3_key == \\\"copy s3_key and paste here\\\"\\nOR @requestId == \\\"copy function_request_id and paste here\\\"```\"}},{\"type\":\"log\",\"width\":24,\"height\":6,\"x\":0,\"y\":62,\"properties\":{\"view\":\"table\",\"title\":\"Exception Logs\",\"region\":\"",
+              {
+                "Ref": "AWS::Region"
+              },
+              "\",\"query\":\"SOURCE '/aws/lambda/",
+              {
+                "Ref": "LambdaEsLoader4B1E2DD9"
+              },
+              "' | fields @timestamp, @message\\n                | filter @message =~ /^\\\\[/\\n                # filter ^[WARNING], ^[ERROR] and unpredictable error log\\n                | filter @message not like /No active exception to reraise/\\n                # exclude raise without Exception\\n                | sort @timestamp desc\\n                | limit 100\"}}]}"
+            ]
+          ]
+        },
+        "DashboardName": "SIEM"
       }
     }
   },
