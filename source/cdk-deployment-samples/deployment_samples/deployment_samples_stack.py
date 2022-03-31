@@ -237,12 +237,12 @@ class FirehoseExporterStack(cdk.Stack):
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
         role_name_kdf_to_s3 = cdk.Fn.import_value(
-            'siem-kdf-to-s3-role-name')
+            'siem-kdf-to-s3-role-name2')
 
         kdf_name = cdk.CfnParameter(
             self, 'FirehoseName',
-            description=('New Kinesis Data Firehose Name to deliver log. '
-                         'modify XXXXXXXXX'),
+            description=('Define new Kinesis Data Firehose Name to deliver '
+                         'log. modify XXXXXXXXX'),
             default=default_firehose_name)
         kdf_buffer_size = cdk.CfnParameter(
             self, 'FirehoseBufferSize', type='Number',
@@ -253,8 +253,8 @@ class FirehoseExporterStack(cdk.Stack):
             description='Enter a buffer interval between 60 - 900 (seconds.)',
             default=60, min_value=60, max_value=900)
         s3_desitination_prefix = cdk.CfnParameter(
-            self, 'S3DestPrefix',
-            description='S3 destination prefix',
+            self, 'Define S3DestPrefix',
+            description='Define S3 destination prefix',
             default='AWSLogs/YourAccuntId/LogType/Region/')
 
         self.kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
@@ -280,13 +280,14 @@ class CWLNoCompressExporterStack(cdk.Stack):
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
         role_name_cwl_to_kdf = cdk.Fn.import_value(
-            'siem-cwl-to-kdf-role-name')
+            'siem-cwl-to-kdf-role-name2')
         role_name_kdf_to_s3 = cdk.Fn.import_value(
-            'siem-kdf-to-s3-role-name')
+            'siem-kdf-to-s3-role-name2')
 
         kdf_name = cdk.CfnParameter(
             self, 'KdfName',
-            description='New Kinesis Data Firehose Name to deliver CWL event',
+            description=(
+                'Define new Kinesis Data Firehose Name to deliver CWL event'),
             default='siem-XXXXXXXXXXX-to-s3')
         kdf_buffer_size = cdk.CfnParameter(
             self, 'KdfBufferSize', type='Number',
@@ -298,11 +299,11 @@ class CWLNoCompressExporterStack(cdk.Stack):
             default=60, min_value=60, max_value=900)
         cwl_loggroup_name = cdk.CfnParameter(
             self, 'CwlLogGroupName',
-            description='Existing CloudWatch Logs group name',
+            description='Define existing CloudWatch Logs group name',
             default='/aws/XXXXXXXXXXXXXXXXX')
         s3_desitination_prefix = cdk.CfnParameter(
             self, 'S3DestPrefix',
-            description='S3 destination prefix',
+            description='Define S3 destination prefix',
             default='AWSLogs/YourAccuntId/LogType/Region/')
 
         kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
@@ -337,13 +338,13 @@ class EventBridgeEventsExporterStack(cdk.Stack):
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
         role_name_kdf_to_s3 = cdk.Fn.import_value(
-            'siem-kdf-to-s3-role-name')
+            'siem-kdf-to-s3-role-name2')
 
         kdf_name = cdk.CfnParameter(
             self, 'KdfName',
             description=(
-                'New Kinesis Data Firehose Name to deliver EventBridge Events '
-                'to S3 bucket. This Firehose will be created'),
+                'Define new Kinesis Data Firehose Name to deliver EventBridge '
+                'Events to S3 bucket. This Firehose will be created'),
             default='siem-eventbridge-events-to-s3')
         kdf_buffer_size = cdk.CfnParameter(
             self, 'KdfBufferSize', type='Number',
@@ -365,7 +366,7 @@ class EventBridgeEventsExporterStack(cdk.Stack):
             allowed_values=['Yes', 'No'], default='Yes')
         s3_desitination_prefix = cdk.CfnParameter(
             self, 'S3DestPrefix',
-            description='S3 destination prefix',
+            description='Define S3 destination prefix',
             default='AWSLogs/')
 
         self.template_options.metadata = {
@@ -453,13 +454,14 @@ class ADLogExporterStack(cdk.Stack):
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
         role_name_cwl_to_kdf = cdk.Fn.import_value(
-            'siem-cwl-to-kdf-role-name')
+            'siem-cwl-to-kdf-role-name2')
         role_name_kdf_to_s3 = cdk.Fn.import_value(
-            'siem-kdf-to-s3-role-name')
+            'siem-kdf-to-s3-role-name2')
 
         kdf_ad_name = cdk.CfnParameter(
             self, 'KdfAdName',
-            description='Kinesis Data Firehose Name to deliver AD event',
+            description=('Define new Kinesis Data Firehose Name '
+                         'to deliver AD event'),
             default='siem-ad-event-to-s3')
         kdf_buffer_size = cdk.CfnParameter(
             self, 'KdfBufferSize', type='Number',
@@ -471,7 +473,7 @@ class ADLogExporterStack(cdk.Stack):
             default=60, min_value=60, max_value=900)
         cwl_ad_name = cdk.CfnParameter(
             self, 'CwlAdName',
-            description='CloudWatch Logs group name',
+            description='Specify CloudWatch Logs group name',
             default='/aws/directoryservice/d-XXXXXXXXXXXXXXXXX')
 
         kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
@@ -506,7 +508,7 @@ class WorkSpacesLogExporterStack(cdk.Stack):
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
         service_role_kdf_to_s3 = cdk.Fn.import_value(
-            'siem-kdf-to-s3-role-name')
+            'siem-kdf-to-s3-role-name2')
 
         cwe_frequency = cdk.CfnParameter(
             self, 'cweRulesFrequency', type='Number',
@@ -516,7 +518,8 @@ class WorkSpacesLogExporterStack(cdk.Stack):
         kdf_workspaces_name = cdk.CfnParameter(
             self, 'KdfWorkSpacesName',
             description=(
-                'Kinesis Data Firehose Name to deliver workspaces event'),
+                'Define new Kinesis Data Firehose Name to deliver '
+                'workspaces event'),
             default='siem-workspaces-event-to-s3',)
         kdf_buffer_size = cdk.CfnParameter(
             self, 'KdfBufferSize', type='Number',
@@ -678,25 +681,25 @@ class CoreLogExporterStack(cdk.Stack):
 
         log_bucket_name = cdk.CfnParameter(
             self, 'siemLogBucketName',
-            description=('S3 Bucket name which store logs to load SIEM. '
-                         'Replace 111111111111 to your AWS account'),
+            description=('Define S3 Bucket name which store logs to load SIEM.'
+                         ' Replace 111111111111 to your AWS account'),
             default='aes-siem-111111111111-log')
         role_name_cwl_to_kdf = cdk.CfnParameter(
             self, 'roleNameCwlToKdf',
-            description=('role name for CloudWatch Logs to send data to '
-                         'Kinsis Data Firehose. Replace YOUR-REGION'),
-            default='siem-role-cwl-to-firehose-YOUR-REGION')
+            description=('Define IAM role name for CloudWatch Logs '
+                         'to send data to Kinsis Data Firehose.'),
+            default='siem-role-cwl-to-firehose')
         role_name_kdf_to_s3 = cdk.CfnParameter(
             self, 'roleNameKdfToS3',
-            description=('role name for Kinesis Data Firehose to send data '
-                         'to S3. Replace YOUR-REGION'),
-            default='siem-role-firehose-to-s3-YOUR-REGION')
+            description=('Define IAM role name for Kinesis Data Firehose '
+                         'to send data to S3.'),
+            default='siem-role-firehose-to-s3')
 
         bucket_arn = f'arn:aws:s3:::{log_bucket_name.value_as_string}'
 
         role_cwl_to_kdf = aws_iam.Role(
             self, 'cwlRole',
-            role_name=role_name_cwl_to_kdf.value_as_string,
+            role_name=f'{role_name_cwl_to_kdf.value_as_string}-{cdk.Aws.REGION}',
             inline_policies={
                 'cwl-to-firehose': aws_iam.PolicyDocument(
                     statements=[
@@ -714,7 +717,7 @@ class CoreLogExporterStack(cdk.Stack):
 
         role_kdf_to_s3 = aws_iam.Role(
             self, 'firehoseRole', path='/service-role/',
-            role_name=role_name_kdf_to_s3.value_as_string,
+            role_name=f'{role_name_kdf_to_s3.value_as_string}-{cdk.Aws.REGION}',
             inline_policies={
                 'firehose-to-s3': aws_iam.PolicyDocument(
                     statements=[
@@ -747,10 +750,10 @@ class CoreLogExporterStack(cdk.Stack):
                       export_name='sime-log-bucket-name',
                       value=log_bucket_name.value_as_string)
         cdk.CfnOutput(self, 'cwlRoleName',
-                      export_name='siem-cwl-to-kdf-role-name',
+                      export_name='siem-cwl-to-kdf-role-name2',
                       value=role_cwl_to_kdf.role_name)
         cdk.CfnOutput(self, 'kdfRoleName',
-                      export_name='siem-kdf-to-s3-role-name',
+                      export_name='siem-kdf-to-s3-role-name2',
                       value=role_kdf_to_s3.role_name)
 
 
