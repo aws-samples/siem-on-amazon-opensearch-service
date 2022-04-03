@@ -312,6 +312,8 @@ s3_key の初期値: `(TrustedAdvisor|trustedadvisor)` Lambda functionにより�
 
 #### CloudFormation による設定 (Trusted Advisor)
 
+※ Trusted Advisor の結果を収集するためには、AWS のサポートプランが、ビジネスサポート、エンタープライズ On-Ramp サポート、エンタープライズサポートのいずれかである必要があります。詳細は[AWS Support プラン比較](https://aws.amazon.com/jp/premiumsupport/plans/)を参照してください。
+
 | No | CloudFormation | 説明 |
 |----------|----------------|---------------|
 | 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |

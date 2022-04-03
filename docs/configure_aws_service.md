@@ -293,6 +293,8 @@ The initial value of s3_key: `(TrustedAdvisor|trustedadvisor)` (specified in the
 
 #### Configure by CloudFormation (AWS Trusted Advisor)
 
+In order to collect Trusted Advisor results, the AWS support plan must be Business Support, Enterprise On-Ramp Support, or Enterprise Support. Please refer to [Compare AWS Support Plans](https://aws.amazon.com/premiumsupport/plans/) for details.
+
 | No | CloudFormation | Description |
 |----------|----------------|---------------|
 | 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |

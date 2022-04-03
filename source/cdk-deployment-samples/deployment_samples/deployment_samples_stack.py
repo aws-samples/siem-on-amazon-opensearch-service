@@ -119,6 +119,7 @@ __license__ = 'MIT-0'
 __author__ = 'Katsuya Matsuoka'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
+import copy
 import datetime
 import gzip
 import json
@@ -132,49 +133,79 @@ client = boto3.Session(region_name='us-east-1').client('support')
 s3_resource = boto3.resource('s3')
 bucket = s3_resource.Bucket(os.environ['log_bucket_name'])
 AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
-AWS_REGION = os.environ['AWS_DEFAULT_REGION']
-is_enable_japanese = (
-    os.environ['enable_japanese_description'] == 'Yes')
+AWS_REGION = 'us-east-1'
+is_enable_japanese = (os.environ['enable_japanese_description'] == 'Yes')
 
-checks_response = client.describe_trusted_advisor_checks(language='en')
+try:
+    res = client.describe_trusted_advisor_checks(language='en')
+except botocore.exceptions.ClientError:
+    print('Aborted. Business or Enterprise Support Subscription is required')
+    raise
+CHECKS_EN = res['checks']
+
+CHECKS_JA = {}
 if is_enable_japanese:
-    checks_ja = {}
     for check_ja in client.describe_trusted_advisor_checks(
             language='ja')['checks']:
-        checks_ja[check_ja['id']] = check_ja
+        CHECKS_JA[check_ja['id']] = check_ja
 
 
 def execute_check():
     check_ids = []
     unrefreshable_check_ids = []
-    for check in checks_response['checks']:
-        check_id = check['id']
-        check_ids.append(check_id)
+    for check in CHECKS_EN:
+        check_ids.append(check['id'])
         try:
-            client.refresh_trusted_advisor_check(checkId=check_id)
+            client.refresh_trusted_advisor_check(checkId=check['id'])
         except botocore.exceptions.ClientError as err:
-            if err.response['Error']['Code'] == \
-                    'InvalidParameterValueException':
-                unrefreshable_check_ids.append(check_id)
+            err_code = err.response['Error']['Code']
+            if err_code == 'InvalidParameterValueException':
+                unrefreshable_check_ids.append(check['id'])
             else:
                 print(err)
     return check_ids, unrefreshable_check_ids
 
 
-def wait_check_completion(check_ids):
+CHECK_IDS, UNREFRESHABLE_CHECK_IDS = execute_check()
+
+
+def refresh_and_wait_check_completion():
     count = 0
-    while True:
+    all_done = False
+    while not all_done:
         response = client.describe_trusted_advisor_check_refresh_statuses(
-            checkIds=check_ids)
+            checkIds=CHECK_IDS)
+        time.sleep(30)
         all_done = True
         for status in response['statuses']:
-            all_done &= (status['status'] in ['abandoned', 'none', 'success'])
-        if all_done:
-            break
-        count += 1
+            if status['status'] not in ['abandoned', 'none', 'success']:
+                all_done = False
         if count > 2:
             break
-        time.sleep(30)
+        count += 1
+
+
+def query_and_transform_and_save(f, check):
+    res = client.describe_trusted_advisor_check_result(
+        checkId=check['id'])
+    jsonobj = {
+        'requestid': res['ResponseMetadata']['RequestId'],
+        'creation_date': datetime.datetime.utcnow().isoformat(),
+        'account': AWS_ID, 'check': check, 'result': copy.copy(res['result']),
+        'refreshable': check['id'] not in UNREFRESHABLE_CHECK_IDS}
+    if is_enable_japanese:
+        jsonobj['check_ja'] = CHECKS_JA[check['id']]
+    f.write(json.dumps(jsonobj, ensure_ascii=False))
+    if ('flaggedResources' in res['result']
+            and len(res['result']['flaggedResources']) > 0):
+        del jsonobj['result']['flaggedResources']
+        del jsonobj['result']['resourcesSummary']
+        del jsonobj['result']['categorySpecificSummary']
+        for i in range(len(res['result']['flaggedResources'])):
+            jsonobj['result']['flaggedResource'] = (
+                res['result']['flaggedResources'][i])
+            jsonobj['result']['flaggedResource']['number'] = i + 1
+            f.write(json.dumps(jsonobj, ensure_ascii=False))
 
 
 def lambda_handler(event, context):
@@ -186,42 +217,10 @@ def lambda_handler(event, context):
         f'AWSLogs/{AWS_ID}/TrustedAdvisor/{AWS_REGION}/'
         f'{now.strftime("%Y/%m/%d")}/{file_name}')
     f = gzip.open(f'/tmp/{file_name}', 'tw')
-    print('Total nummber of checks: '
-          f'{len(checks_response["checks"])}')
-
-    check_ids, unrefreshable_check_ids = execute_check()
-    wait_check_completion(check_ids)
-
-    for check in checks_response['checks']:
-        check_id = check['id']
-        response = client.describe_trusted_advisor_check_result(
-            checkId=check_id)
-        dt = datetime.datetime.strptime(
-            response['ResponseMetadata']['HTTPHeaders']['date'],
-            "%a, %d %b %Y %H:%M:%S GMT")
-        jsonobj = {
-            'id': response['ResponseMetadata']['RequestId'],
-            'time': dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "account": AWS_ID,
-            'region': AWS_REGION,
-            "resources": [],
-            'check': check,
-            'result': response['result'],
-            'refreshable': check_id not in unrefreshable_check_ids}
-        if is_enable_japanese:
-            jsonobj['check_ja'] = checks_ja[check_id]
-        if 'flaggedResources' in response['result'] and \
-                len(response['result']['flaggedResources']) > 0:
-            resource_num = len(response['result']['flaggedResources'])
-            for i in range(resource_num):
-                jsonobj['result']['flaggedResource'] = \
-                    response['result']['flaggedResources'][i]
-                jsonobj['result']['flaggedResource']['number'] = i + 1
-                f.write(json.dumps(jsonobj, ensure_ascii=False))
-                f.flush()
-        else:
-            f.write(json.dumps(jsonobj, ensure_ascii=False))
-            f.flush()
+    print(f'Total nummber of checks: {len(CHECKS_EN)}')
+    refresh_and_wait_check_completion()
+    for check in CHECKS_EN:
+        query_and_transform_and_save(f, check)
     f.close()
     print(f'Upload path: s3://{bucket.name}/{s3file_name}')
     bucket.upload_file(f'/tmp/{file_name}', s3file_name)
@@ -235,9 +234,9 @@ class FirehoseExporterStack(cdk.Stack):
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
         role_name_kdf_to_s3 = cdk.Fn.import_value(
-            'siem-kdf-to-s3-role-name2')
+            'siem-kdf-to-s3-role-name-v2')
 
         kdf_name = cdk.CfnParameter(
             self, 'FirehoseName',
@@ -253,7 +252,7 @@ class FirehoseExporterStack(cdk.Stack):
             description='Enter a buffer interval between 60 - 900 (seconds.)',
             default=60, min_value=60, max_value=900)
         s3_desitination_prefix = cdk.CfnParameter(
-            self, 'Define S3DestPrefix',
+            self, 'S3DestPrefix',
             description='Define S3 destination prefix',
             default='AWSLogs/YourAccuntId/LogType/Region/')
 
@@ -278,11 +277,11 @@ class CWLNoCompressExporterStack(cdk.Stack):
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
         role_name_cwl_to_kdf = cdk.Fn.import_value(
-            'siem-cwl-to-kdf-role-name2')
+            'siem-cwl-to-kdf-role-name-v2')
         role_name_kdf_to_s3 = cdk.Fn.import_value(
-            'siem-kdf-to-s3-role-name2')
+            'siem-kdf-to-s3-role-name-v2')
 
         kdf_name = cdk.CfnParameter(
             self, 'KdfName',
@@ -336,9 +335,9 @@ class EventBridgeEventsExporterStack(cdk.Stack):
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
         role_name_kdf_to_s3 = cdk.Fn.import_value(
-            'siem-kdf-to-s3-role-name2')
+            'siem-kdf-to-s3-role-name-v2')
 
         kdf_name = cdk.CfnParameter(
             self, 'KdfName',
@@ -364,6 +363,7 @@ class EventBridgeEventsExporterStack(cdk.Stack):
             description=('Do you enable to load Config Rules events to '
                          'OpenSearch Service?'),
             allowed_values=['Yes', 'No'], default='Yes')
+
         s3_desitination_prefix = cdk.CfnParameter(
             self, 'S3DestPrefix',
             description='Define S3 destination prefix',
@@ -452,11 +452,11 @@ class ADLogExporterStack(cdk.Stack):
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
         role_name_cwl_to_kdf = cdk.Fn.import_value(
-            'siem-cwl-to-kdf-role-name2')
+            'siem-cwl-to-kdf-role-name-v2')
         role_name_kdf_to_s3 = cdk.Fn.import_value(
-            'siem-kdf-to-s3-role-name2')
+            'siem-kdf-to-s3-role-name-v2')
 
         kdf_ad_name = cdk.CfnParameter(
             self, 'KdfAdName',
@@ -506,9 +506,9 @@ class WorkSpacesLogExporterStack(cdk.Stack):
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
         service_role_kdf_to_s3 = cdk.Fn.import_value(
-            'siem-kdf-to-s3-role-name2')
+            'siem-kdf-to-s3-role-name-v2')
 
         cwe_frequency = cdk.CfnParameter(
             self, 'cweRulesFrequency', type='Number',
@@ -607,7 +607,7 @@ class TrustedAdvisorLogExporterStack(cdk.Stack):
                  **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name')
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
 
         cwe_frequency = cdk.CfnParameter(
             self, 'cweRulesFrequency', type='Number',
@@ -699,7 +699,8 @@ class CoreLogExporterStack(cdk.Stack):
 
         role_cwl_to_kdf = aws_iam.Role(
             self, 'cwlRole',
-            role_name=f'{role_name_cwl_to_kdf.value_as_string}-{cdk.Aws.REGION}',
+            role_name=(f'{role_name_cwl_to_kdf.value_as_string}-v2-'
+                       f'{cdk.Aws.REGION}'),
             inline_policies={
                 'cwl-to-firehose': aws_iam.PolicyDocument(
                     statements=[
@@ -717,7 +718,8 @@ class CoreLogExporterStack(cdk.Stack):
 
         role_kdf_to_s3 = aws_iam.Role(
             self, 'firehoseRole', path='/service-role/',
-            role_name=f'{role_name_kdf_to_s3.value_as_string}-{cdk.Aws.REGION}',
+            role_name=(f'{role_name_kdf_to_s3.value_as_string}-v2-'
+                       f'{cdk.Aws.REGION}'),
             inline_policies={
                 'firehose-to-s3': aws_iam.PolicyDocument(
                     statements=[
@@ -747,13 +749,13 @@ class CoreLogExporterStack(cdk.Stack):
         # output for cross stack
         ######################################################################
         cdk.CfnOutput(self, 'logBucketName',
-                      export_name='sime-log-bucket-name',
+                      export_name='sime-log-bucket-name-v2',
                       value=log_bucket_name.value_as_string)
         cdk.CfnOutput(self, 'cwlRoleName',
-                      export_name='siem-cwl-to-kdf-role-name2',
+                      export_name='siem-cwl-to-kdf-role-name-v2',
                       value=role_cwl_to_kdf.role_name)
         cdk.CfnOutput(self, 'kdfRoleName',
-                      export_name='siem-kdf-to-s3-role-name2',
+                      export_name='siem-kdf-to-s3-role-name-v2',
                       value=role_kdf_to_s3.role_name)
 
 

@@ -7,6 +7,8 @@ __license__ = 'MIT-0'
 __author__ = 'Katsuya Matsuoka'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
+import ipaddress
+
 
 def get_arn_from_metadata(check_metadata, result_metadata):
     service = ''
@@ -78,8 +80,16 @@ def transform(logdata):
                              'network-acl', 'subnet', 'secuirty-group']:
                 logdata['event']['category'] = 'network'
 
-        # Update cloud.region
-        if 'region' in flagged_resource:
-            logdata['cloud']['region'] = flagged_resource['region']
+            # related.*
+            logdata['related'] = {}
+            for item in flagged_resource['metadata']:
+                try:
+                    ipaddress.ip_address(item)
+                except ValueError:
+                    continue
+                logdata['related']['ip'] = [item]
+            instance_id = logdata['cloud'].get('instance', {}).get('id')
+            if instance_id:
+                logdata['related']['hosts'] = [instance_id]
 
     return logdata
