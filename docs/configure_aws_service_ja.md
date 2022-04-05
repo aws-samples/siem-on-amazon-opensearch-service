@@ -9,6 +9,7 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
 1. [共通](#1-共通)
 1. [セキュリティ、ID、およびコンプライアンス](#2-セキュリティIDおよびコンプライアンス)
     * [Amazon GuardDuty](#Amazon-GuardDuty)
+    * [Amazon Inspector](#Amazon-Inspector)
     * [AWS Directory Service](#AWS-Directory-Service)
     * [AWS WAF](#AWS-WAF)
     * [AWS Security Hub](#AWS-Security-Hub)
@@ -74,6 +75,19 @@ s3_key の初期値: `GuardDuty` (デフォルト設定の出力パスの一部)
     * [**保存**] を選択します
 
 以上で、設定は完了です。同じ設定画面内の [**結果サンプルの生成**] を選択すると SIEM on OpenSearch Service への取り込み設定の成否を確認できます。
+
+### Amazon Inspector
+
+![Inspector to S3](images/log-source-inspector-to-s3.svg)
+
+s3_key の初期値: `Inspector2_Finding` (Firehose の出力パスに指定)
+
+#### CloudFormation による設定 (Inspector)
+
+| No | CloudFormation | 説明 |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-eventbridge-events.template) | Firehose を作成。EventBridge を設定して Events を Firehose に配信します。Security Hub と Config Rules 共通のテンプレート。|
 
 ### AWS Directory Service
 

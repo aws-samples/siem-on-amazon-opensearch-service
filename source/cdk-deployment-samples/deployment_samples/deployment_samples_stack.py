@@ -353,6 +353,11 @@ class EventBridgeEventsExporterStack(cdk.Stack):
             self, 'KdfBufferInterval', type='Number',
             description='Enter a buffer interval between 60 - 900 (seconds.)',
             default=60, min_value=60, max_value=900)
+        load_inspector = cdk.CfnParameter(
+            self, 'LoadInspector',
+            description=('Do you enable to load Inspector events to '
+                         'OpenSearch Service?'),
+            allowed_values=['Yes', 'No'], default='Yes')
         load_security_hub = cdk.CfnParameter(
             self, 'LoadSecurtyHub',
             description=('Do you enable to load SecurityHub events to '
@@ -378,7 +383,8 @@ class EventBridgeEventsExporterStack(cdk.Stack):
                                     kdf_buffer_size.logical_id,
                                     kdf_buffer_interval.logical_id]},
                     {'Label': {'default': 'Events'},
-                     'Parameters': [load_security_hub.logical_id,
+                     'Parameters': [load_inspector.logical_id,
+                                    load_security_hub.logical_id,
                                     load_config_rules.logical_id]}]}}
 
         kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
@@ -421,6 +427,19 @@ class EventBridgeEventsExporterStack(cdk.Stack):
                           f'service-role/{role_name_kdf_to_s3}'),
             )
         )
+
+        is_inspector = cdk.CfnCondition(
+            self, "IsInspector",
+            expression=cdk.Fn.condition_equals(load_inspector.value_as_string, "Yes"))
+        rule_inspector = aws_events.Rule(
+            self, "RuleInspector", rule_name='siem-inspector-to-firehose',
+            description=f'SIEM on OpenSearch Service v{__version__}:',
+            event_pattern=aws_events.EventPattern(
+                source=["aws.inspector2"],
+                detail_type=["Inspector2 Coverage", "Inspector2 Finding"]
+            ))
+        rule_inspector.node.default_child.cfn_options.condition = is_inspector
+        rule_inspector.add_target(aws_events_targets.KinesisFirehoseStream(kdf_to_s3))
 
         is_security_hub = cdk.CfnCondition(
             self, "IsSecurityHub",

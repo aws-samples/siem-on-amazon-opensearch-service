@@ -9,6 +9,7 @@ On this page, we’ll walk you through how to load logs from each AWS service in
 1. [Common Configurations](#1-Common-Configurations)
 1. [Security, Identity, & Compliance](#2-Security-Identity--Compliance)
     * [Amazon GuardDuty](#Amazon-GuardDuty)
+    * [Amazon Inspector](#Amazon-Inspector)
     * [AWS Directory Service](#AWS-Directory-Service)
     * [AWS WAF](#AWS-WAF)
     * [AWS Security Hub](#AWS-Security-Hub)
@@ -75,6 +76,19 @@ The initial value of s3_key: `GuardDuty` (part of the default output path)
    * Choose [**Save**]
 
 Configuration is now complete. Choose [**Generate sample findings**] on the same settings screen to verify that loading into SIEM on OpenSearch Service has been successfully set up.
+
+### Amazon Inspector
+
+![Inspector to S3](images/log-source-inspector-to-s3.svg)
+
+The initial value of s3_key: `Inspector2_Finding` (specified in the Firehose output path)
+
+#### Configure by CloudFormation (Inspector)
+
+| No | CloudFormation | Description |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.2-beta.4/log-exporter/siem-log-exporter-eventbridge-events.template) | This template creates Firehose,set up EventBridge to deliver Events to the Firehose. A template common to Security Hub and Config Rules. |
 
 ### AWS Directory Service
 

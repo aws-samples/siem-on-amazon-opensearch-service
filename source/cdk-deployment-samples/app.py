@@ -53,6 +53,6 @@ eventbridge_events_logging = EventBridgeEventsExporterStack(
     app, "siem-log-exporter-eventbridge-events",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - EventBridge events '
-                 '(SecurityHub, ConfigRules)'))
+                 '(SecurityHub, ConfigRules, Inspector)'))
 
 app.synth()

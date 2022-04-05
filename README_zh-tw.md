@@ -20,6 +20,7 @@ SIEM on OpenSearch Service 能夠加載並關聯以下日誌類型。
 |       |Amazon 服務|日誌|
 |-------|-----------|---|
 |Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty 問題清單|
+|Security, Identity, & Compliance|Amazon Inspector|Inspector 問題清單|
 |Security, Identity, & Compliance|AWS Directory Service|Microsoft AD|
 |Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL 流量信息<br>AWS WAF Classic Web ACL 流量信息|
 |Security, Identity, & Compliance|AWS Security Hub|Security Hub 問題清單<br>GuardDuty 問題清單<br>Amazon Macie 問題清單<br>Amazon Inspector 問題清單<br>AWS IAM Access Analyzer 問題清單|

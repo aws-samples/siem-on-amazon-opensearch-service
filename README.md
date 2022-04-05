@@ -20,6 +20,7 @@ SIEM on OpenSearch Service can load and correlate the following log types.
 |       |AWS Service|Log|
 |-------|-----------|---|
 |Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty findings|
+|Security, Identity, & Compliance|Amazon Inspector|Inspector findings|
 |Security, Identity, & Compliance|AWS Directory Service|Microsoft AD|
 |Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |Security, Identity, & Compliance|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|

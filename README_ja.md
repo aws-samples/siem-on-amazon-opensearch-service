@@ -22,6 +22,7 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 |       |AWS Service|Log|
 |-------|-----------|---|
 |セキュリティ、ID、およびコンプライアンス|Amazon GuardDuty|GuardDuty findings|
+|セキュリティ、ID、およびコンプライアンス|Amazon Inspector|Inspector findings|
 |セキュリティ、ID、およびコンプライアンス|AWS Directory Service|Microsoft AD|
 |セキュリティ、ID、およびコンプライアンス|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |セキュリティ、ID、およびコンプライアンス|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|

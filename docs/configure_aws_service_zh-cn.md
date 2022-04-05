@@ -9,6 +9,7 @@
 1. [基本配置](#1-Common-Configurations)
 1. [安全身份与合规](#2-Security-Identity--Compliance)
     * [Amazon GuardDuty](#Amazon-GuardDuty)
+    * [Amazon Inspector](#Amazon-Inspector)
     * [AWS Directory Service](#AWS-Directory-Service)
     * [AWS WAF](#AWS-WAF)
     * [AWS Security Hub](#AWS-Security-Hub) - Still not support in AWS China Region （该功能在China Region不支持）
@@ -74,6 +75,10 @@ s3_key 初始值: `GuardDuty` (其为缺省输出路径中的一部分)
     * 点击 [**Save**]
 
 配置现已完成。 选择 [**Generate sample findings**] 以验证是否已成功加载。
+
+### Amazon Inspector
+
+由于 EventBridge在China Region 还未支持Kinesis Firehose集成，所以SIEM on Amazon OpenSearch Service还不能在China Region支持 Inspector服务。
 
 ### AWS Directory Service
 
