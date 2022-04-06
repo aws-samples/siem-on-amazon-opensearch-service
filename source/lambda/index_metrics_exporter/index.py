@@ -17,8 +17,7 @@ import uuid
 
 import boto3
 import requests
-from opensearchpy import OpenSearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
+from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
 TIMEOUT = 10.0
 
@@ -28,10 +27,8 @@ BUCKET_NAME = os.getenv('LOG_BUCKET')
 AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
 PERIOD_HOUR = int(os.getenv('PERIOD_HOUR', 1))
 
-service = 'es'
 credentials = boto3.Session().get_credentials()
-awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, REGION,
-                   service, session_token=credentials.token)
+awsauth = AWSV4SignerAuth(credentials, REGION)
 
 client = OpenSearch(
     hosts=[{'host': ES_ENDPOINT, 'port': 443}], http_auth=awsauth,

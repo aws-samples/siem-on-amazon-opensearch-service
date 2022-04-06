@@ -20,7 +20,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import boto3
 import requests
 from crhelper import CfnResource
-from requests_aws4auth import AWS4Auth
+from opensearchpy import AWSV4SignerAuth
 
 print('version: ' + __version__)
 
@@ -106,8 +106,8 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': aesdomain,
-    # 'EngineVersion': 'OpenSearch_1.1',
-    'ElasticsearchVersion': 'OpenSearch_1.1',
+    # 'EngineVersion': 'OpenSearch_1.2',
+    'ElasticsearchVersion': 'OpenSearch_1.2',
     # 'ClusterConfig': {
     'ElasticsearchClusterConfig': {
         # 'InstanceType': 't3.medium.search',
@@ -213,10 +213,8 @@ def create_kibanaadmin(kibanapass):
 
 
 def auth_aes(es_endpoint):
-    service = 'es'
     credentials = boto3.Session().get_credentials()
-    awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region,
-                       service, session_token=credentials.token)
+    awsauth = AWSV4SignerAuth(credentials, region)
     return awsauth
 
 
@@ -504,7 +502,7 @@ def set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth):
         url = f'{base_url}/auth/login?security_tenant={tenant}'
         response = requests.post(
             url, headers=headers, json=json.dumps(auth))
-    elif isinstance(auth, AWS4Auth):
+    elif isinstance(auth, AWSV4SignerAuth):
         url = f'{base_url}/app/dashboards?security_tenant={tenant}'
         response = requests.get(url, headers=headers, auth=auth)
     else:

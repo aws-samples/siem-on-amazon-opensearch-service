@@ -21,8 +21,7 @@ import boto3
 import botocore
 import requests
 from aws_lambda_powertools import Logger
-from opensearchpy import OpenSearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
+from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
 logger = Logger(child=True)
 
@@ -314,10 +313,7 @@ def create_awsauth(es_hostname):
     # For Debug
     # boto3.set_stream_logger('botocore', level='DEBUG')
     credentials = boto3.Session().get_credentials()
-    service = 'es'
-    awsauth = AWS4Auth(
-        credentials.access_key, credentials.secret_key, es_region, service,
-        session_token=credentials.token)
+    awsauth = AWSV4SignerAuth(credentials, es_region)
     return awsauth
 
 

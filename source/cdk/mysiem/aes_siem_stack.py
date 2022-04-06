@@ -557,7 +557,7 @@ class MyAesSiemStack(core.Stack):
         lambda_es_loader_vpc_kwargs = {}
         if vpc_type:
             lambda_es_loader_vpc_kwargs = {
-                'security_group': sg_vpc_noinbound_aes_siem,
+                'security_groups': [sg_vpc_noinbound_aes_siem],
                 'vpc': vpc_aes_siem,
                 'vpc_subnets': vpc_subnets,
             }
@@ -731,7 +731,7 @@ class MyAesSiemStack(core.Stack):
         lambda_configure_es_vpc_kwargs = {}
         if vpc_type:
             lambda_configure_es_vpc_kwargs = {
-                'security_group': sg_vpc_noinbound_aes_siem,
+                'security_groups': [sg_vpc_noinbound_aes_siem],
                 'vpc': vpc_aes_siem,
                 'vpc_subnets': aws_ec2.SubnetSelection(subnets=[subnet1, ]), }
         lambda_configure_es = aws_lambda.Function(
