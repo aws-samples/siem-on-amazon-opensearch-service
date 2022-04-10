@@ -1,9 +1,9 @@
-Description: "SIEM on Amazon OpenSearch Service v2.6.2-beta.4: log exporter - FSx resource without compress"
+Description: "SIEM on Amazon OpenSearch Service v2.7.0-rc.1: log exporter - FSx resource without compress"
 Parameters:
   FirehoseName:
     Type: String
     Default: aws-fsx-
-    Description: New Kinesis Data Firehose Name to deliver log. modify XXXXXXXXX
+    Description: Define new Kinesis Data Firehose Name to deliver log. modify XXXXXXXXX
   FirehoseBufferSize:
     Type: Number
     Default: 1
@@ -19,7 +19,7 @@ Parameters:
   S3DestPrefix:
     Type: String
     Default: AWSLogs/YourAccuntId/LogType/Region/
-    Description: S3 destination prefix
+    Description: Define S3 destination prefix
 Resources:
   Kdf:
     Type: AWS::KinesisFirehose::DeliveryStream
@@ -31,7 +31,7 @@ Resources:
           Fn::Join:
             - ""
             - - "arn:aws-cn:s3:::"
-              - Fn::ImportValue: sime-log-bucket-name
+              - Fn::ImportValue: sime-log-bucket-name-v2
         BufferingHints:
           IntervalInSeconds:
             Ref: FirehoseBufferInterval
@@ -46,5 +46,5 @@ Resources:
             - - "arn:aws-cn:iam::"
               - Ref: AWS::AccountId
               - :role/service-role/
-              - Fn::ImportValue: siem-kdf-to-s3-role-name
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
 
