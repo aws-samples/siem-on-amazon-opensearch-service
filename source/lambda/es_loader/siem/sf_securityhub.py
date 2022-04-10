@@ -7,9 +7,9 @@ __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
+import hashlib
 import re
 from collections import namedtuple
-from datetime import datetime
 from functools import lru_cache
 
 from siem import utils
@@ -63,10 +63,17 @@ def split_findings_type(finding_type):
 
 def get_values_from_asff_resources(resources):
     resouce_dict = {}
+    resouce_dict['_related_ip'] = []
     for resouce in resources:
         if resouce['Type'] == 'AwsEc2Instance':
             instanceid = resouce['Id'].split('/')[-1]
             resouce_dict['cloud'] = {'instance': {'id': instanceid}}
+            if ('Details' in resouce
+                    and 'AwsEc2Instance' in resouce['Details']):
+                resouce_dict['_related_ip'] += resouce['Details'].get(
+                    'AwsEc2Instance').get('IpV4Addresses', [])
+                resouce_dict['_related_ip'] += resouce['Details'].get(
+                    'AwsEc2Instance').get('IpV6Addresses', [])
         elif resouce['Type'] == 'AwsIamAccessKey':
             accesskey = resouce['Id'].split(':')[-1]
             if accesskey == 'null':
@@ -92,10 +99,42 @@ def get_values_from_asff_resources(resources):
     return resouce_dict
 
 
+def extract_related_fields(logdata):
+    if not logdata.get('related'):
+        logdata['related'] = {}
+    instance = logdata['cloud'].get('instance', {}).get('id')
+    user_id = logdata.get('user', {}).get('id')
+    user_name = logdata.get('user', {}).get('name')
+    if instance:
+        logdata['related']['hosts'] = [instance]
+    if user_id or user_name:
+        logdata['related']['user'] = []
+        if user_id:
+            logdata['related']['user'].append(user_id)
+        if user_name:
+            logdata['related']['user'].append(user_name)
+    if logdata.get('_related_ip'):
+        if 'ip' not in logdata['related']:
+            logdata['related']['ip'] = []
+        logdata['related']['ip'] += logdata['_related_ip']
+        logdata['related']['ip'] = list(set(logdata['related']['ip']))
+        del logdata['_related_ip']
+    if not logdata['related']:
+        del logdata['related']
+    return logdata
+
+
 def transform(logdata):
     # event (ecs)
     module = (logdata['ProductFields']['aws/securityhub/ProductName']).lower()
     logdata['event']['module'] = module
+
+    # @id / _id
+    workflow = logdata['Workflow']['Status']
+    if workflow == 'NEW':
+        logdata['@timestamp'] = logdata['UpdatedAt'].replace('Z', '+00:00')
+    logdata['__doc_id_suffix'] = hashlib.md5(
+        f"{logdata['@timestamp']}{workflow}".encode()).hexdigest()
 
     if module in ('guardduty', 'macie'):
         findngs_type = split_findings_type(str(logdata['Types'][0]))
@@ -105,7 +144,9 @@ def transform(logdata):
         logdata['DetectionMechanism'] = findngs_type.DetectionMechanism
         logdata['Artifact'] = findngs_type.Artifact
 
-    if 'guardduty' in module:
+    if 'security hub' in module:
+        logdata['rule']['id'] = logdata['GeneratorId']
+    elif 'guardduty' in module:
         logdata['event']['category'] = 'intrusion_detection'
 
         action_type = (logdata['ProductFields']
@@ -133,19 +174,37 @@ def transform(logdata):
         if logdata['ThreatPurpose'] in ('Backdoor', 'CryptoCurrency',
                                         'Trojan'):
             logdata['event']['category'] = 'malware'
+    elif 'inspector' in module:
+        v1_id = logdata['ProductFields'].get('aws/inspector/id')
+        if v1_id:
+            logdata['rule']['name'] = v1_id
+            types = logdata['Types']
+        else:
+            # inspector v2
+            if isinstance(logdata['Types'], list):
+                types = logdata['Types'][0]
+            else:
+                types = logdata['Types']
+            try:
+                types = types.split('/CVE')[0]
+            except Exception:
+                types = types
+            if 'Vulnerabilities' in types:
+                cve_id = logdata['Title'].split()[0]
+                types = f"{types}/{cve_id}"
+        logdata['rule']['id'] = types
+        if 'Vulnerabilities' in types:
+            logdata['event']['category'] = 'package'
     elif 'iam access analyzer' in module:
         pass
-    elif 'security hub' in module:
-        logdata['__doc_id_suffix'] = int(
-            datetime.fromisoformat(logdata['@timestamp']).timestamp())
-        logdata['rule']['name'] = logdata['Title']
-    elif 'inspector' in module:
-        logdata['event']['category'] = 'package'
+    elif 'systems manager patch manager' in module:
+        pass
     elif 'macie' in module:
         logdata['event']['category'] = 'intrusion_detection'
-        logdata['rule']['name'] = logdata['Title']
 
+    logdata['rule']['name'] = logdata['rule']['name'].strip().rstrip('.')
     resouce_dict = get_values_from_asff_resources(logdata['Resources'])
     logdata = utils.merge_dicts(logdata, resouce_dict)
+    logdata = extract_related_fields(logdata)
 
     return logdata
