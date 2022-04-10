@@ -17,16 +17,26 @@ def transform(logdata):
         logdata['updatedAt'], '%b %d, %Y, %I:%M:%S %p').timestamp()))
     logdata['__doc_id_suffix'] = last_observed_epoch_str
 
-    if logdata.get('related', {}).get('hosts'):
-        if 'AWS_ECR_CONTAINER_IMAGE' in logdata.get(
-                'vulnerability', {}).get('category', {}):
-            del logdata['related']['hosts']
-
     if 'AWS_ECR_CONTAINER_IMAGE' in logdata['vulnerability'].get('category'):
+        try:
+            del logdata['related']['hosts']
+        except Exception:
+            pass
         try:
             del logdata['cloud']['instance']['id']
         except Exception:
             pass
+
+    if 'PACKAGE_VULNERABILITY' in logdata['type']:
+        print(logdata)
+        logdata['rule']['id'] = (
+            f"PACKAGE_VULNERABILITY_{logdata['vulnerability']['id']}")
+    elif 'NETWORK_REACHABILITY' in logdata['type']:
+        details = logdata['networkReachabilityDetails']
+        logdata['rule']['id'] = (
+            f"NETWORK_REACHABILITY_{details['protocol']}"
+            f"_{details['openPortRange']['begin']}"
+            f"_{details['openPortRange']['end']}")
 
     if logdata.get('description'):
         try:
