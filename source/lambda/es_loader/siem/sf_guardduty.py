@@ -18,6 +18,7 @@ RE_GD_TYPE = re.compile(
 
 
 def transform(logdata):
+    logdata['rule']['name'] = logdata['rule']['name'].strip().rstrip('.')
     if logdata['severity'] <= 3.9:
         label = "low"
     elif logdata['severity'] <= 6.9:
