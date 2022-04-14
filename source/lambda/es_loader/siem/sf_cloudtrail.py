@@ -110,5 +110,12 @@ def transform(logdata):
             status = None
         if status and isinstance(status, str):
             logdata['responseElements']['status'] = {'status': status}
+    elif event_source in ('ssm.amazonaws.com'):
+        try:
+            params = logdata['requestParameters']['parameters']
+        except (KeyError, TypeError):
+            params = None
+        if params and isinstance(params, str):
+            logdata['requestParameters']['parameters'] = {'value': params}
 
     return logdata
