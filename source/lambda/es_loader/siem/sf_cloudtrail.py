@@ -61,7 +61,9 @@ def transform(logdata):
         pass
 
     event_source = logdata.get('eventSource', None)
-    if event_source == 'athena.amazonaws.com':
+    if not event_source:
+        pass
+    elif event_source == 'athena.amazonaws.com':
         # #153
         try:
             tableMetadataList = (
