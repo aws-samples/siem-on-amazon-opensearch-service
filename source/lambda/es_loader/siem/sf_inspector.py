@@ -28,7 +28,6 @@ def transform(logdata):
             pass
 
     if 'PACKAGE_VULNERABILITY' in logdata['type']:
-        print(logdata)
         logdata['rule']['id'] = (
             f"PACKAGE_VULNERABILITY_{logdata['vulnerability']['id']}")
     elif 'NETWORK_REACHABILITY' in logdata['type']:
