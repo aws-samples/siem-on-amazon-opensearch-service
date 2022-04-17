@@ -119,5 +119,12 @@ def transform(logdata):
             params = None
         if params and isinstance(params, str):
             logdata['requestParameters']['parameters'] = {'value': params}
+    elif event_source in ('redshift-data.amazonaws.com'):
+        try:
+            db = logdata['responseElements']['database']
+        except (KeyError, TypeError):
+            db = None
+        if db and isinstance(db, str):
+            logdata['responseElements']['database'] = {'name': db}
 
     return logdata
