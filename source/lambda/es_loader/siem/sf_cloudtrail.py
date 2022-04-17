@@ -60,6 +60,14 @@ def transform(logdata):
     except (KeyError, TypeError):
         pass
 
+    # https://github.com/aws-samples/siem-on-amazon-elasticsearch/issues/242
+    try:
+        status = logdata['responseElements']['status']
+    except (KeyError, TypeError):
+        status = None
+    if status and isinstance(status, str):
+        logdata['responseElements']['status'] = {'status': status}
+
     event_source = logdata.get('eventSource', None)
     if not event_source:
         pass
@@ -104,14 +112,6 @@ def transform(logdata):
             command = None
         if command and isinstance(command, str):
             logdata['requestParameters']['command'] = {'command': command}
-    elif event_source in ('compute-optimizer.amazonaws.com',
-                          'auditmanager.amazonaws.com'):
-        try:
-            status = logdata['responseElements']['status']
-        except (KeyError, TypeError):
-            status = None
-        if status and isinstance(status, str):
-            logdata['responseElements']['status'] = {'status': status}
     elif event_source in ('ssm.amazonaws.com'):
         try:
             params = logdata['requestParameters']['parameters']
