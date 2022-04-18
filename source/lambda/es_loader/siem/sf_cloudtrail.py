@@ -133,5 +133,15 @@ def transform(logdata):
             settings = None
         if settings and isinstance(settings, str):
             logdata['requestParameters']['settings'] = {'value': settings}
+    elif event_source in ('s3.amazonaws.com'):
+        try:
+            rules = (logdata['requestParameters']['ReplicationConfiguration']
+                     ['Rule'])
+        except (KeyError, TypeError):
+            rules = None
+        if rules and isinstance(rules, list):
+            for i, rule in enumerate(rules):
+                if rule.get('Filter'):
+                    rules[i]['Filter'] = str(rule['Filter'])
 
     return logdata
