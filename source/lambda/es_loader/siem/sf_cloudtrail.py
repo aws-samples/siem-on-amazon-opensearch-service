@@ -126,5 +126,12 @@ def transform(logdata):
             db = None
         if db and isinstance(db, str):
             logdata['responseElements']['database'] = {'name': db}
+    elif event_source in ('cloud9.amazonaws.com'):
+        try:
+            settings = logdata['requestParameters']['settings']
+        except (KeyError, TypeError):
+            settings = None
+        if settings and isinstance(settings, str):
+            logdata['requestParameters']['settings'] = {'value': settings}
 
     return logdata
