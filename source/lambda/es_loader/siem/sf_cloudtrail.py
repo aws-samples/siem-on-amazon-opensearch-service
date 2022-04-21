@@ -87,6 +87,20 @@ def transform(logdata):
                         tableMetadata['parameters'].pop(old_field))
                 except KeyError:
                     pass
+        try:
+            partableMetadata = (
+                logdata['responseElements']['tableMetadata'])
+        except (KeyError, TypeError):
+            partableMetadata = None
+        if partableMetadata:
+            old_field = 'projection.part_date.interval.unit'
+            new_field = 'projection.part_date.interval_unit'
+            try:
+                partableMetadata['parameters'][new_field] = (
+                    partableMetadata['parameters'].pop(old_field))
+            except KeyError:
+                pass
+
     elif event_source == 'glue.amazonaws.com':
         # #156, #166
         try:
