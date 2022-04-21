@@ -196,7 +196,12 @@ SIEM に関する OpenSearch Service のアプリケーションの設定を変�
 * フィールドのマッピング、タイプ指定
 * Index State Management による UltraWarm へのインデックスの自動移行や削除
 
-設定は自由にできますが、SIEM on OpenSearch Service としてすでに設定している項目があります。設定値は Dev Tools から以下のコマンドで確認可能です。
+設定は自由にできます。設定方法は 2 種類あり、SIEM on OpenSearch Service のバージョンによって違いますのでご注意ください。
+
+* [Index templates](https://opensearch.org/docs/latest/opensearch/index-templates/) (SIEM on OpenSearch Service v2.4.1 以降)
+* [legacy index templates](https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-templates-v1.html) (SIEM on OpenSearch Service v2.4.0 まで)
+
+SIEM on OpenSearch Service にて初期設定している項目があります。設定値は [こちらの設定ファイル](../source/lambda/deploy_es/data.ini) の [component-templates] と [index-templates] を確認するか、OpenSearch Dashboards の Dev Tools から以下のコマンドで確認可能です。
 
 ```http
 GET 対象のindex名/_settings
@@ -209,21 +214,44 @@ SIEM on OpenSearch Service のテンプレートの予約名
 
 * log[-aws][-サービス名]_aws
 * log[-aws][-サービス名]_rollover
+* component_template_log[-aws][-サービス名] (SIEM on OpenSearch Service v2.4.1 以降のみ)
 
-すでに設定された値を変更する時は、上書きするために order を 1 以上にしてください。
+SIEM on OpenSearch Service の初期値を上書きするには Index templates の priority を 10 以上、または legacy index templates の order を 1 以上にしてください。
 
 設定例
 
 * Dev Tools から CloudTrail のインデックス (log-aws-cloudtrail-*) のシャード数をデフォルトの 3 から 2 に減らす
 
+Index templates (SIEM on OpenSearch Service v2.4.1 以降) の場合
+
 ```http
-POST _template/log-aws-cloudtrai_mine
+POST _index_template/log-aws-cloudtrail_mine
+{
+  "index_patterns": ["log-aws-cloudtrail-*"],
+  "priority": 10,
+  "composed_of": [
+    "component_template_log",
+    "component_template_log-aws",
+    "component_template_log-aws-cloudtrail"
+  ],
+  "template": {
+    "settings": {
+      "number_of_shards": 2
+    }
+  }
+}
+```
+
+Legacy index templates (SIEM on OpenSearch Service v2.4.0 以前) の場合
+
+```http
+POST _template/log-aws-cloudtrail_mine
 {
   "index_patterns": ["log-aws-cloudtrail-*"],
   "order": 1,
   "settings": {
     "index": {
-      "number_of_shards" : 2
+      "number_of_shards": 2
     }
   }
 }
