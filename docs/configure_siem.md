@@ -182,7 +182,12 @@ You can change the application configurations of OpenSearch Service that are rel
 * Field mapping, type
 * Automatic migration (or deletion) of the index to UltraWarm using Index State Management
 
-While you can configure them freely, some items are pre-configured in SIEM on OpenSearch Service. You can check the pre-configured values from Dev Tools using the commands below:
+While you can configure them freely, some items are pre-configured in SIEM on OpenSearch Service. Please note that there are two setting methods, which differ depending on the version of SIEM on OpenSearch Service.
+
+* [Index templates](https://opensearch.org/docs/latest/opensearch/index-templates/) (SIEM on OpenSearch Service v2.4.1 or later)
+* [legacy index templates](https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-templates-v1.html) (SIEM on OpenSearch Service v2.4.0 or prior)
+
+You can check the pre-configured values from [configuration file](../source/lambda/deploy_es/data.ini) or Dev Tools using the commands below:
 
 ```http
 GET target_index_name/_settings
@@ -195,21 +200,44 @@ Reserved words for templates in SIEM on OpenSearch Service:
 
 * log[-aws][-service_name]_aws
 * log[-aws][-service_name]_rollover
+* component_template_log[-aws][-service_name] (SIEM on OpenSearch Service v2.4.1 or later)
 
-If you want to change a pre-configured value, set **order** to 1 or greater to overwrite it.
+If you want to change a pre-configured value, set **priority** of Index templates to 10 or greater, **order** of legacy index templates to 1 or greater to overwrite it.
 
 Example of Configuration:
 
 * Decreasing the number of shards from 3 (default value) to 2 in the CloudTrail index (log-aws-cloudtrail-*) from Dev Tools
 
+Index templates (SIEM on OpenSearch Service v2.4.1 or later)
+
 ```http
-POST _template/log-aws-cloudtrai_mine
+POST _index_template/log-aws-cloudtrail_mine
+{
+  "index_patterns": ["log-aws-cloudtrail-*"],
+  "priority": 10,
+  "composed_of": [
+    "component_template_log",
+    "component_template_log-aws",
+    "component_template_log-aws-cloudtrail"
+  ],
+  "template": {
+    "settings": {
+      "number_of_shards": 2
+    }
+  }
+}
+```
+
+Legacy index templates (SIEM on OpenSearch Service v2.4.0 or prior)
+
+```http
+POST _template/log-aws-cloudtrail_mine
 {
   "index_patterns": ["log-aws-cloudtrail-*"],
   "order": 1,
   "settings": {
     "index": {
-      "number_of_shards" : 2
+      "number_of_shards": 2
     }
   }
 }

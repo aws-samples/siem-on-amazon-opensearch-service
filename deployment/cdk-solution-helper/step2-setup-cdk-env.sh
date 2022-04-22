@@ -31,7 +31,7 @@ fi
 rm /tmp/siem.log
 
 echo "Install Node.js"
-curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 # shellcheck disable=SC1090
 source ~/.nvm/nvm.sh
 nvm install --lts node

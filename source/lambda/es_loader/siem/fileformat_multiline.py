@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1'
+__version__ = '2.7.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -21,15 +21,25 @@ class FileFormatMultiline(FileFormatBase):
     def __init__(self, rawdata=None, logconfig=None, logtype=None):
         super().__init__(rawdata, logconfig, logtype)
         self._multiline_firstline = None
+        self._regex_error_count = {}
+        if logtype not in self._regex_error_count:
+            self._regex_error_count[logtype] = 0
+        self._re_log_pattern_prog
 
     @cached_property
     def _re_log_pattern_prog(self):
         try:
             return self.logconfig['log_pattern']
         except AttributeError:
-            msg = 'No log_pattern(regex). You need to define it in user.ini'
-            logger.exception(msg)
+            msg = (f'Invalid regex pattern of {self.logtype}. '
+                   'You need to define it in user.ini')
+            logger.critical(msg)
             raise AttributeError(msg) from None
+        except KeyError:
+            msg = (f'There is no regex pattern of {self.logtype}. '
+                   'You need to define log_pattern in user.ini')
+            logger.critical(msg)
+            raise KeyError(msg) from None
 
     @property
     def multiline_firstline(self):
@@ -91,9 +101,19 @@ class FileFormatMultiline(FileFormatBase):
         if m:
             logdata_dict = m.groupdict()
         else:
-            msg_dict = {
-                'Exception': f'Invalid regex pattern of {self.logtype}',
-                'rawdata': lograw, 'regex_pattern': self._re_log_pattern_prog}
-            logger.error(msg_dict)
-            raise Exception(repr(msg_dict))
+            msg = f'Invalid regex pattern of {self.logtype}'
+            extra = {'message_rawdata': lograw,
+                     'message_regex_pattern': self._re_log_pattern_prog}
+            self._regex_error_count[self.logtype] += 1
+            if self._regex_error_count[self.logtype] < 10:
+                logger.error(msg, extra=extra)
+            elif self._regex_error_count[self.logtype] == 11:
+                msg_crit = ('There are more than 10 regex errors of '
+                            f'{self.logtype}. The error logs are suppressed '
+                            'now. Logs that will cause future regex errors '
+                            'will not be ingested into OpenSearch and will '
+                            'not be output to the error logs')
+                logger.critical(msg_crit)
+            return 'regex_error'
+
         return logdata_dict

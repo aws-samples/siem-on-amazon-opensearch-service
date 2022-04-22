@@ -9,6 +9,7 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
 1. [共通](#1-共通)
 1. [セキュリティ、ID、およびコンプライアンス](#2-セキュリティIDおよびコンプライアンス)
     * [Amazon GuardDuty](#Amazon-GuardDuty)
+    * [Amazon Inspector](#Amazon-Inspector)
     * [AWS Directory Service](#AWS-Directory-Service)
     * [AWS WAF](#AWS-WAF)
     * [AWS Security Hub](#AWS-Security-Hub)
@@ -16,6 +17,7 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
 1. [管理とガバナンス](#3-管理とガバナンス)
     * [AWS CloudTrail](#AWS-CloudTrail)
     * [AWS Config](#AWS-Config)
+    * [AWS Trusted Advisor](#AWS-Trusted-Advisor)
 1. [ネットワーキングとコンテンツ配信](#4-ネットワーキングとコンテンツ配信)
     * [Amazon CloudFront](#Amazon-CloudFront)
     * [Route 53 Resolver VPC DNS Query Log](#Route-53-Resolver-VPC-DNS-Query-Log)
@@ -74,6 +76,19 @@ s3_key の初期値: `GuardDuty` (デフォルト設定の出力パスの一部)
 
 以上で、設定は完了です。同じ設定画面内の [**結果サンプルの生成**] を選択すると SIEM on OpenSearch Service への取り込み設定の成否を確認できます。
 
+### Amazon Inspector
+
+![Inspector to S3](images/log-source-inspector-to-s3.svg)
+
+s3_key の初期値: `Inspector2_Finding` (Firehose の出力パスに指定)
+
+#### CloudFormation による設定 (Inspector)
+
+| No | CloudFormation | 説明 |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) | Firehose を作成。EventBridge を設定して Events を Firehose に配信します。Security Hub と Config Rules 共通のテンプレート。|
+
 ### AWS Directory Service
 
 ![Directory Service to S3](images/directoryservice-to-s3.jpg)
@@ -82,10 +97,10 @@ s3_key の初期値: `/DirectoryService/MicrosoftAD/` (Firehose の出力パス�
 
 1. [Directory Serviceコンソール](https://console.aws.amazon.com/directoryservicev2/home?)から CloudWatch Logs にログを出力します
 1. 下記の CloudFormation を使って設定します
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-core.template)
         * 基本設定の CloudFormation。ログ転送先のS3バケット名の取得やIAMロールを作成します。他の AWS サービス設定で共通に使用します
 
-    * [siem-log-exporter-ad.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-ad.template)
+    * [siem-log-exporter-ad.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-ad.template)
         * CloudWatch Logs から S3バケットに出力します
 
 ### AWS WAF
@@ -167,8 +182,8 @@ s3_key の初期値: `SecurityHub` または `securityhub` (Firehose の出力�
 
 | No | CloudFormation | 説明 |
 |----------|----------------|---------------|
-| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-basic-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-basic.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-basic.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
-| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-eventbridge-events.template) | Firehose を作成。EventBridge を設定して Events を Firehose に配信します。Security Hub と Config Rules 共通のテンプレート。|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) | Firehose を作成。EventBridge を設定して Events を Firehose に配信します。Security Hub と Config Rules 共通のテンプレート。|
 
 #### 手動による設定 (Security Hub)
 
@@ -300,8 +315,23 @@ s3_key の初期値: `Config.*Rules` (Firehose の出力パスに指定)
 
 | No | CloudFormation | 説明 |
 |----------|----------------|---------------|
-| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-basic-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-basic.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-basic.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
-| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-eventbridge-events.template) | Firehose を作成。EventBridge を設定して Events を Firehose に配信します。Security Hub と Config Rules 共通のテンプレート。|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) | Firehose を作成。EventBridge を設定して Events を Firehose に配信します。Security Hub と Config Rules 共通のテンプレート。|
+
+### AWS Trusted Advisor
+
+![Trusted Advisor check result to S3](images/trustedadvisor-check-result-to-s3.svg)
+
+s3_key の初期値: `(TrustedAdvisor|trustedadvisor)` Lambda functionにより固定値で出力されるので設定不要。
+
+#### CloudFormation による設定 (Trusted Advisor)
+
+※ Trusted Advisor の結果を収集するためには、AWS のサポートプランが、ビジネスサポート、エンタープライズ On-Ramp サポート、エンタープライズサポートのいずれかである必要があります。詳細は[AWS Support プラン比較](https://aws.amazon.com/jp/premiumsupport/plans/)を参照してください。
+
+| No | CloudFormation | 説明 |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+| 2 |[![trustedadvisor](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-trustedadvisor&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-trustedadvisor.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-trustedadvisor.template) | Lambda を作成。EventBridge を設定して Lambda を定期実行し、Trusted Advisor チェック結果 を S3 に書き出します。|
 
 ## 4. ネットワーキングとコンテンツ配信
 
@@ -478,10 +508,10 @@ s3_key の初期値: `aws-fsx-`
 Amazon FSx 監査ログを Kinesis Data Firehose から S3 バケットにエクスポートします。Kinesis Data Firehose の名前は [**aws-fsx-**] から始まることが条件となっており、この名前が S3 バケット出力時のファイル名に含まれているため、これをログ種類の判別に使用しています。
 
 1. 下記の CloudFormation を使って設定します
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-core.template)
         * 基本設定の CloudFormation。ログ転送先のS3バケット名の取得やIAMロールを作成します。他の AWS サービス設定で共通に使用します
 
-    * [siem-log-exporter-fsx.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-fsx.template)
+    * [siem-log-exporter-fsx.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-fsx.template)
         * Firehose を作成してから S3 バケットに出力します。Firehoseの名前は、aws-fsx-XXXXXX としてください。XXXXXは任意の文字列です。
 1. [FSxコンソール](https://console.aws.amazon.com/fsx/home?)から Firehose にログを出力してください
 
@@ -734,9 +764,9 @@ s3_key の初期値: `/[Ww]indows.*[Ee]vent` (Firehose の出力パスに指定)
     * [統合 CloudWatch エージェントをインストールして、メトリクスとログを EC2 インスタンスから CloudWatch にプッシュするように設定する方法を教えてください。](https://aws.amazon.com/jp/premiumsupport/knowledge-center/cloudwatch-push-metrics-unified-agent/)
     * [Windows ログを CloudWatch にアップロードするにはどうすればよいですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/cloudwatch-upload-windows-logs/)
 1. 下記の CloudFormation を使って設定します
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-core.template)
         * 基本設定の CloudFormation。ログ転送先のS3バケット名の取得やIAMロールを作成します。他の AWS サービス設定で共通に使用します
-    * [siem-log-exporter-cwl-nocompress.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-cwl-nocompress.template)
+    * [siem-log-exporter-cwl-nocompress.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-cwl-nocompress.template)
         * Firehose を作成してから S3 バケットに出力します。
         * 出力するプレフィックス: [**AWSLogs/123456789012/EC/Windows/Event/[region]/**]
             * 123456789012 は ご利用の AWS アカウント ID に置換してください
@@ -792,9 +822,9 @@ s3_key の初期値: `(WorkSpaces|workspaces).*(Event|event)` (Firehose の出�
 s3_key の初期値: `(WorkSpaces|workspaces).*(Inventory|inventory)` Lambda functionにより固定値で出力されるので設定不要。
 
 1. 下記の CloudFormation を使って設定します
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-basic.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-core.template)
         * 基本設定の CloudFormation。ログ転送先のS3バケット名の取得やIAMロールを作成します。他の AWS サービス設定で共通に使用します
-    * [siem-log-exporter-workspaces.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-workspaces.template)
+    * [siem-log-exporter-workspaces.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-workspaces.template)
         * WorkSpacesに必要な設定をします
         * S3に出力するプレフィックス: [**AWSLogs/123456789012/WorkSpaces/Event/[region]/**]
             * 123456789012 は ご利用の AWS アカウント ID に置換してください

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1'
+__version__ = '2.7.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -23,7 +23,7 @@ import siem
 from siem import geodb, utils
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
-logger.info('version: ' + __version__)
+logger.info(f'version: {__version__}')
 metrics = Metrics()
 
 SQS_SPLITTED_LOGS_URL = None
@@ -35,13 +35,15 @@ ES_HOSTNAME = utils.get_es_hostname()
 def extract_logfile_from_s3(record):
     if 's3' in record:
         s3key = record['s3']['object']['key']
-        logger.structure_logs(append=True, s3_key=s3key)
+        s3bucket = record['s3']['bucket']['name']
+        logger.structure_logs(append=True, s3_key=s3key, s3_bucket=s3bucket)
         logtype = utils.get_logtype_from_s3key(s3key, logtype_s3key_dict)
         logconfig = create_logconfig(logtype)
         logfile = siem.LogS3(record, logtype, logconfig, s3_client, sqs_queue)
     else:
-        logger.error('invalid input data. exit')
-        raise Exception('invalid input data. exit')
+        logger.warning(
+            'Skipped because there is no S3 object. Invalid input data')
+        return None
     return logfile
 
 
@@ -66,17 +68,30 @@ def get_value_from_etl_config(logtype, key, keytype=None):
                 value = [x.strip() for x in temp.strip('[|]').split(',')]
             else:
                 value = temp.split()
+        elif keytype == 'list_json':
+            temp = etl_config[logtype][key]
+            if temp:
+                value = json.loads(temp)
+            else:
+                value = []
         else:
             value = ''
     except KeyError:
-        logger.exception('unknown error')
-        raise KeyError("Can't find the key in logconfig")
+        logger.exception("Can't find the key in logconfig")
+        raise KeyError("Can't find the key in logconfig") from None
     except re.error:
-        logger.exception(f'invalid regex pattern for {key}')
-        raise Exception(f'invalid regex pattern for {key}') from None
+        msg = (f'invalid regex pattern for {key} of {logtype} in '
+               'aws.ini/user.ini')
+        logger.exception(msg)
+        raise Exception(msg) from None
+    except json.JSONDecodeError:
+        msg = (f'{key} of {logtype} section is invalid list style in '
+               'aws.ini/user.ini')
+        logger.exception(msg)
+        raise Exception(msg) from None
     except Exception:
-        logger.exception('unknown error')
-        raise Exception('unknown error') from None
+        logger.exception('unknown error in aws.ini/user.ini')
+        raise Exception('unknown error in aws.ini/user.ini') from None
     return value
 
 
@@ -114,6 +129,7 @@ def create_logconfig(logtype):
                  'x509.subject.organization',
                  'x509.subject.organizational_unit',
                  'x509.subject.state_or_province']
+    type_list_json = ['timestamp_format_list']
     logconfig = {}
     if logtype in ('unknown', 'nodata'):
         return logconfig
@@ -126,6 +142,9 @@ def create_logconfig(logtype):
             logconfig[key] = get_value_from_etl_config(logtype, key, 'bool')
         elif key in type_list:
             logconfig[key] = get_value_from_etl_config(logtype, key, 'list')
+        elif key in type_list_json:
+            logconfig[key] = get_value_from_etl_config(
+                logtype, key, 'list_json')
         else:
             logconfig[key] = get_value_from_etl_config(logtype, key)
     if logconfig['file_format'] in ('xml', ):
@@ -164,6 +183,7 @@ def check_es_results(results, total_count):
     success, error = 0, 0
     error_reasons = []
     count = total_count
+    retry = False
     if not results['errors']:
         success = len(results['items'])
     else:
@@ -171,14 +191,26 @@ def check_es_results(results, total_count):
             count += 1
             if result['index']['status'] >= 300:
                 # status code
-                # 200:OK, 201:Created, 400:NG
+                # 200:OK, 201:Created
+                # https://github.com/opensearch-project/OpenSearch/blob/1.3.0/server/src/main/java/org/opensearch/rest/RestStatus.java
+                # https://github.com/opensearch-project/logstash-output-opensearch/blob/v1.2.0/lib/logstash/outputs/opensearch.rb#L32-L43
+                if result['index']['status'] in (400, 409):
+                    # 400: BAD_REQUEST such as mapper_parsing_exception
+                    # 409: CONFLICT
+                    pass
+                else:
+                    # 403: FORBIDDEN such as index_create_block_exception,
+                    #      disk_full
+                    # 429: TOO_MANY_REQUESTS
+                    # 503: SERVICE_UNAVAILABLE
+                    retry = True
                 error += 1
                 error_reason = result['index'].get('error')
                 error_reason['log_number'] = count
                 if error_reason:
                     error_reasons.append(error_reason)
 
-    return duration, success, error, error_reasons
+    return duration, success, error, error_reasons, retry
 
 
 def bulkloads_into_opensearch(es_entries, collected_metrics):
@@ -187,6 +219,7 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     results = False
     putdata_list = []
     error_reason_list = []
+    retry_needed = False
     filter_path = ['took', 'errors', 'items.index.status',
                    'items.index.error.reason', 'items.index.error.type']
     for data in es_entries:
@@ -196,7 +229,7 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
         if isinstance(data, str) and output_size > 6000000:
             total_output_size += output_size
             results = es_conn.bulk(putdata_list, filter_path=filter_path)
-            es_took, success, error, error_reasons = check_es_results(
+            es_took, success, error, error_reasons, retry = check_es_results(
                 results, total_count)
             success_count += success
             error_count += error
@@ -205,26 +238,30 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
             total_count += len(putdata_list)
             putdata_list = []
             if len(error_reasons):
-                error_reason_list.extend([error_reasons])
+                error_reason_list.extend(error_reasons)
+            if retry:
+                retry_needed = True
     if output_size > 0:
         total_output_size += output_size
         results = es_conn.bulk(putdata_list, filter_path=filter_path)
         # logger.debug(results)
-        es_took, success, error, error_reasons = check_es_results(
+        es_took, success, error, error_reasons, retry = check_es_results(
             results, total_count)
         success_count += success
         error_count += error
         es_response_time += es_took
         total_count += len(putdata_list)
         if len(error_reasons):
-            error_reason_list.extend([error_reasons])
+            error_reason_list.extend(error_reasons)
+        if retry:
+            retry_needed = True
     collected_metrics['total_output_size'] = total_output_size
     collected_metrics['total_log_load_count'] = total_count
     collected_metrics['success_count'] = success_count
     collected_metrics['error_count'] = error_count
     collected_metrics['es_response_time'] = es_response_time
 
-    return collected_metrics, error_reason_list
+    return collected_metrics, error_reason_list, retry_needed
 
 
 def output_metrics(metrics, record=None, logfile=None, collected_metrics={}):
@@ -309,28 +346,41 @@ def lambda_handler(event, context):
             record = json.loads(record['body'])
         # S3からファイルを取得してログを抽出する
         logfile = extract_logfile_from_s3(record)
-        if logfile.is_ignored:
-            logger.warning(
-                f'Skipped S3 object because {logfile.ignored_reason}')
+        if logfile is None:
+            continue
+        elif logfile.is_ignored:
+            if hasattr(logfile, 'ignored_reason') and logfile.ignored_reason:
+                logger.warning(
+                    f'Skipped S3 object because {logfile.ignored_reason}')
+            elif (hasattr(logfile, 'critical_reason')
+                    and logfile.critical_reason):
+                logger.critical(
+                    f'Skipped S3 object because {logfile.critical_reason}')
             continue
 
         # 抽出したログからESにPUTするデータを作成する
         es_entries = get_es_entries(logfile, exclude_log_patterns)
         # 作成したデータをESにPUTしてメトリクスを収集する
-        collected_metrics, error_reason_list = bulkloads_into_opensearch(
-            es_entries, collected_metrics)
+        (collected_metrics, error_reason_list,
+         retry_needed) = bulkloads_into_opensearch(es_entries,
+                                                   collected_metrics)
         output_metrics(metrics, record=record, logfile=logfile,
                        collected_metrics=collected_metrics)
-        # raise error to retry if error has occuered
+        if logfile.error_logs_count > 0:
+            collected_metrics['error_count'] += logfile.error_logs_count
         if logfile.is_ignored:
             logger.warning(
                 f'Skipped S3 object because {logfile.ignored_reason}')
         elif collected_metrics['error_count']:
+            extra = None
             error_message = (f"{collected_metrics['error_count']} of logs "
                              "were NOT loaded into OpenSearch Service")
-            logger.error(error_message)
-            logger.error(error_reason_list[:5])
-            raise Exception(error_message)
+            if len(error_reason_list) > 0:
+                extra = {'message_error': error_reason_list[:5]}
+            logger.error(error_message, extra=extra)
+            if retry_needed:
+                logger.error('Aborted. It may be retried')
+                raise
         elif collected_metrics['total_log_load_count'] > 0:
             logger.info('All logs were loaded into OpenSearch Service')
         else:

@@ -9,6 +9,7 @@ On this page, we’ll walk you through how to load logs from each AWS service in
 1. [Common Configurations](#1-Common-Configurations)
 1. [Security, Identity, & Compliance](#2-Security-Identity--Compliance)
     * [Amazon GuardDuty](#Amazon-GuardDuty)
+    * [Amazon Inspector](#Amazon-Inspector)
     * [AWS Directory Service](#AWS-Directory-Service)
     * [AWS WAF](#AWS-WAF)
     * [AWS Security Hub](#AWS-Security-Hub)
@@ -16,6 +17,7 @@ On this page, we’ll walk you through how to load logs from each AWS service in
 1. [Management & Governance](#3-Management--Governance)
     * [AWS CloudTrail](#AWS-CloudTrail)
     * [AWS Config](#AWS-Config)
+    * [AWS Trusted Advisor](#AWS-Trusted-Advisor)
 1. [Networking & Content Delivery](#4-Networking--Content-Delivery)
     * [Amazon CloudFront](#Amazon-CloudFront)
     * [Route 53 Resolver VPC DNS Query Logging](#Route-53-Resolver-VPC-DNS-Query-Logging)
@@ -75,6 +77,19 @@ The initial value of s3_key: `GuardDuty` (part of the default output path)
 
 Configuration is now complete. Choose [**Generate sample findings**] on the same settings screen to verify that loading into SIEM on OpenSearch Service has been successfully set up.
 
+### Amazon Inspector
+
+![Inspector to S3](images/log-source-inspector-to-s3.svg)
+
+The initial value of s3_key: `Inspector2_Finding` (specified in the Firehose output path)
+
+#### Configure by CloudFormation (Inspector)
+
+| No | CloudFormation | Description |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) | This template creates Firehose,set up EventBridge to deliver Events to the Firehose. A template common to Security Hub and Config Rules. |
+
 ### AWS Directory Service
 
 ![Directory Service to S3](images/directoryservice-to-s3.jpg)
@@ -83,8 +98,8 @@ The initial value of s3_key : `/DirectoryService/MicrosoftAD/` (specified in the
 
 1. Navigate to the [Directory Service Console](https://console.aws.amazon.com/directoryservicev2/home?) and forward log to CloudWatch Logs.
 1. Configure with CloudFormation
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-basic.template)
-    * [siem-log-exporter-ad.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-ad.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-core.template)
+    * [siem-log-exporter-ad.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-ad.template)
 
 ### AWS WAF
 
@@ -161,8 +176,8 @@ The initial value of s3_key: `SecurityHub` or `securityhub` (specified in the Fi
 
 | No | CloudFormation | Description |
 |----------|----------------|---------------|
-| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-basic-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-basic.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-basic.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
-| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-eventbridge-events.template) | This template creates Firehose,set up EventBridge to deliver Events to the Firehose. A template common to Security Hub and Config Rules. |
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) | This template creates Firehose,set up EventBridge to deliver Events to the Firehose. A template common to Security Hub and Config Rules. |
 
 #### Configure step by step (Security Hub)
 
@@ -281,8 +296,23 @@ The initial value of s3_key: `Config.*Rules` (specified in the Firehose output p
 
 | No | CloudFormation | Description |
 |----------|----------------|---------------|
-| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-basic-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-basic.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-basic.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
-| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.6.1/log-exporter/siem-log-exporter-eventbridge-events.template) | This template creates Firehose,set up EventBridge to deliver Events to the Firehose. A template common to Security Hub and Config Rules. |
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+| 2 |[![eventbridge](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-eventbridge-events&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-eventbridge-events.template) | This template creates Firehose,set up EventBridge to deliver Events to the Firehose. A template common to Security Hub and Config Rules. |
+
+### AWS Trusted Advisor
+
+![ConfigRules to S3](images/trustedadvisor-check-result-to-s3.svg)
+
+The initial value of s3_key: `(TrustedAdvisor|trustedadvisor)` (specified in the Firehose output path)
+
+#### Configure by CloudFormation (AWS Trusted Advisor)
+
+In order to collect Trusted Advisor results, the AWS support plan must be Business Support, Enterprise On-Ramp Support, or Enterprise Support. Please refer to [Compare AWS Support Plans](https://aws.amazon.com/premiumsupport/plans/) for details.
+
+| No | CloudFormation | Description |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+| 2 |[![trustedadvisor](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-trustedadvisor&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-trustedadvisor.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.0/log-exporter/siem-log-exporter-trustedadvisor.template) | This template creates Lambda,set up EventBridge to export Trusted Advisor check results to S3. |
 
 ## 4. Networking & Content Delivery
 
@@ -463,8 +493,8 @@ The initial value of s3_key: `aws-fsx-`
 Amazon FSx for Windows File Server audit logs are exported from Kinesis Data Firehose to the S3 bucket. Kinesis Data Firehose names must start with [**aws-fsx-**], and because this prefix is included in the file names when they are output to the S3 bucket, we are using it to determine the log type.
 
 1. Configure with CloudFormation
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-basic.template)
-    * [siem-log-exporter-fsx.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-fsx.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-core.template)
+    * [siem-log-exporter-fsx.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-fsx.template)
 1. Navigate to the [FSx Console](https://console.aws.amazon.com/fsx/home?) and forward logs to Firehose.
 
 ### Amazon S3 access logs
@@ -589,8 +619,8 @@ Here’s an outline of the steps:
 1. Install CloudWatch Agent in the EC2 instance deployed as Windows Server
 1. Forward logs to CloudWatch Logs
 1. Configure with CloudFormation
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-basic.template)
-    * [siem-log-exporter-cwl-nocompress.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-cwl-nocompress.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-core.template)
+    * [siem-log-exporter-cwl-nocompress.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-cwl-nocompress.template)
     * Prefix to output logs : [**AWSLogs/123456789012/EC2/Windows/Event/[region]/**]
         * Replace 123456789012 with your AWS account ID
 
@@ -645,8 +675,8 @@ The initial value of s3_key : `(WorkSpaces|workspaces).*(Event|event)` (specifie
 The initial value of s3_key : `(WorkSpaces|workspaces).*(Inventory|inventory)`
 
 1. Configure with CloudFormation
-    * [siem-log-exporter-basic.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-basic.template)
-    * [siem-log-exporter-workspaces.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.6.1/deployment/log-exporter/siem-log-exporter-workspaces.template)
+    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-core.template)
+    * [siem-log-exporter-workspaces.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.7.0/deployment/log-exporter/siem-log-exporter-workspaces.template)
 
 ## 11. Multiple regions / multiple accounts
 

@@ -2,7 +2,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 __copyright__ = 'Amazon.com, Inc. or its affiliates'
-__version__ = '2.6.1'
+__version__ = '2.7.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -20,7 +20,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import boto3
 import requests
 from crhelper import CfnResource
-from requests_aws4auth import AWS4Auth
+from opensearchpy import AWSV4SignerAuth
 
 print('version: ' + __version__)
 
@@ -37,19 +37,18 @@ s3_client = boto3.resource('s3')
 
 accountid = os.environ['accountid']
 region = os.environ['AWS_REGION']
-aesdomain = os.environ['aes_domain_name']
-myaddress = os.environ['allow_source_address'].split()
-aes_admin_role = os.environ['aes_admin_role']
-es_loader_role = os.environ['es_loader_role']
+aesdomain = os.getenv('aes_domain_name')
+myaddress = os.getenv('allow_source_address', '').split()
+aes_admin_role = os.getenv('aes_admin_role')
+es_loader_role = os.getenv('es_loader_role')
+metrics_exporter_role = os.getenv('metrics_exporter_role')
 myiamarn = [accountid]
 KIBANAADMIN = 'aesadmin'
 KIBANA_HEADERS = {'Content-Type': 'application/json', 'kbn-xsrf': 'true'}
 DASHBOARDS_HEADERS = {'Content-Type': 'application/json', 'osd-xsrf': 'true'}
-vpc_subnet_id = os.environ['vpc_subnet_id']
-s3_snapshot = os.environ['s3_snapshot']
-if vpc_subnet_id == 'None':
-    vpc_subnet_id = None
-security_group_id = os.environ['security_group_id']
+vpc_subnet_id = os.getenv('vpc_subnet_id')
+security_group_id = os.getenv('security_group_id')
+s3_snapshot = os.getenv('s3_snapshot')
 LOGGROUP_RETENTIONS = [
     (f'/aws/OpenSearchService/domains/{aesdomain}/application-logs', 14),
     ('/aws/lambda/aes-siem-configure-aes', 90),
@@ -107,8 +106,8 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': aesdomain,
-    # 'EngineVersion': 'OpenSearch_1.0',
-    'ElasticsearchVersion': 'OpenSearch_1.0',
+    # 'EngineVersion': 'OpenSearch_1.2',
+    'ElasticsearchVersion': 'OpenSearch_1.2',
     # 'ClusterConfig': {
     'ElasticsearchClusterConfig': {
         # 'InstanceType': 't3.medium.search',
@@ -152,9 +151,9 @@ config_domain = {
     'NodeToNodeEncryptionOptions': {
         'Enabled': True
     },
-    # AdvancedOptions={
-    #     'string': 'string'
-    # },
+    'AdvancedOptions': {
+        "override_main_response_version": "true"
+    },
     'LogPublishingOptions': {
         'ES_APPLICATION_LOGS': {
             'CloudWatchLogsLogGroupArn': (
@@ -181,7 +180,8 @@ if vpc_subnet_id:
     config_domain['VPCOptions'] = {'SubnetIds': [vpc_subnet_id, ],
                                    'SecurityGroupIds': [security_group_id, ]}
 
-s3_snapshot_bucket = s3_client.Bucket(s3_snapshot)
+if s3_snapshot:
+    s3_snapshot_bucket = s3_client.Bucket(s3_snapshot)
 
 
 def make_password(length):
@@ -213,10 +213,8 @@ def create_kibanaadmin(kibanapass):
 
 
 def auth_aes(es_endpoint):
-    service = 'es'
     credentials = boto3.Session().get_credentials()
-    awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region,
-                       service, session_token=credentials.token)
+    awsauth = AWSV4SignerAuth(credentials, region)
     return awsauth
 
 
@@ -324,6 +322,8 @@ def configure_opendistro(es_endpoint, es_app_data):
                         added_role=es_loader_role)
     upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
                         added_role=es_loader_ec2_role)
+    upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
+                        added_role=metrics_exporter_role)
 
 
 def upsert_policy(es_endpoint, awsauth, items):
@@ -502,7 +502,7 @@ def set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth):
         url = f'{base_url}/auth/login?security_tenant={tenant}'
         response = requests.post(
             url, headers=headers, json=json.dumps(auth))
-    elif isinstance(auth, AWS4Auth):
+    elif isinstance(auth, AWSV4SignerAuth):
         url = f'{base_url}/app/dashboards?security_tenant={tenant}'
         response = requests.get(url, headers=headers, auth=auth)
     else:

@@ -22,12 +22,14 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 |       |AWS Service|Log|
 |-------|-----------|---|
 |セキュリティ、ID、およびコンプライアンス|Amazon GuardDuty|GuardDuty findings|
+|セキュリティ、ID、およびコンプライアンス|Amazon Inspector|Inspector findings|
 |セキュリティ、ID、およびコンプライアンス|AWS Directory Service|Microsoft AD|
 |セキュリティ、ID、およびコンプライアンス|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |セキュリティ、ID、およびコンプライアンス|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
 |セキュリティ、ID、およびコンプライアンス|AWS Network Firewall|Flow logs<br>Alert logs|
 |管理とガバナンス|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
 |管理とガバナンス|AWS Config|Configuration 履歴<br>Configuration スナップショット<br>Config Rules|
+|管理とガバナンス|AWS Trusted Advisor|Trusted Advisor チェック結果|
 |ネットワーキングとコンテンツ配信|Amazon CloudFront|Standard access log<br>Real-time log|
 |ネットワーキングとコンテンツ配信|Amazon Route 53 Resolver|VPC DNS query log|
 |ネットワーキングとコンテンツ配信|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
@@ -183,12 +185,14 @@ SIEM on OpenSearch Service または SIEM on Amazon ES を新しいバージョ�
 
 ### OpenSearch Service のドメインのアップグレード
 
-OpenSearch Service の 1.0 か、Elasticsearch の 7.10 にアップグレードします
+OpenSearch Service を OpenSearch の 1.2, 1.1、1.0 または Elasticsearch の 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.1 以上を前提にしているため、推奨バージョンは OpenSearch 1.2 の「互換性モードを有効化」です。
 
 1. [OpenSearch Service コンソール](https://console.aws.amazon.com/es/home?) に移動
 1. [**aes-siem**] ドメインを選択
 1. [**アクション**] アイコンを選択して、プルダウンリストから [**ドメインのアップグレード**] を選択
-1. アップグレード先のバージョンで [**OpenSearch 1.0**] または、[**Elasticsearch 7.10**] を選んで、[**送信**] を選択
+1. アップグレード先のバージョンで [**OpenSearch 1.2**] (推奨)、 [**OpenSearch 1.1**]、[**OpenSearch 1.0**] または [**Elasticsearch 7.10**] を選択
+1. OpenSearch の場合は、「互換性モードを有効化」にチェックを入れる (推奨)
+1. [**送信**] を選択
 
 CloudFormation で初期インストールした場合は次へ進み、AWS CDK で初期インストールしている場合は [高度なデプロイ](docs/deployment_ja.md) のアップデートを参照してください。
 
@@ -232,19 +236,25 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 
 |AWS Resource|Resource Name|目的|
 |------------|----|----|
-|OpenSearch Service 1.0 or Elasticsearch 7.X|aes-siem|SIEM 本体|
+|OpenSearch Service 1.X or Elasticsearch 7.X|aes-siem|SIEM 本体|
 |S3 bucket|aes-siem-[AWS_Account]-log|ログを集約するため|
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|OpenSearch Service の手動スナップショット取得|
 |S3 bucket|aes-siem-[AWS_Account]-geo|ダウンロードした GeoIP を保存|
 |Lambda function|aes-siem-es-loader|ログを正規化し OpenSearch Service へロード|
+|Lambda function|aes-siem-es-loader-stopper|非常時に es-loader をスロットリングするため|
 |Lambda function|aes-siem-deploy-aes|OpenSearch Service のドメイン作成|
 |Lambda function|aes-siem-configure-aes|OpenSearch Service の設定|
 |Lambda function|aes-siem-geoip-downloader|GeoIP のダウンロード|
+|Lambda function|aes-siem-index-metrics-exporter|OpenSearch Service の index に関する メトリクスを収集|
 |Lambda function|aes-siem-BucketNotificationsHandler|ログ用 S3 バケットのイベント通知を設定|
 |AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|ログの暗号化に使用|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|処理するログ行数が多い時は分割。それを管理するキュー|
 |Amazon SQS Queue|aes-siem-dlq|OpenSearch Service のログ取り込み失敗用 Dead Letter Queue|
-|CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader|aes-siem-geoip-downloader を12時間毎に実行|
+|CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|OpenSearch Service クラスターの合計空き容量が 200MB 以下の状態が 30 分間継続した場合に発報|
+|CloudWatch dashboards|SIEM|SIEM on OpenSearch Service で利用するリソース情報のダッシュボード|
+|EventBridge events|aes-siem-CwlRuleLambdaGeoipDownloader|aes-siem-geoip-downloader を12時間毎に実行|
+|EventBridge events|aes-siem-EsLoaderStopperRule|アラートイベントを es-loader-stopper に渡す|
+|EventBridge events|aes-siem-EventBridgeRuleLambdaMetricsExporter|aes-siem-index-metrics-exporter を1 時間毎に実行|
 |Amazon SNS Topic|aes-siem-alert|OpenSearch Service の Alerting の Destinations で選択|
 |Amazon SNS Subscription|inputed email|Alert の送信先メールアドレス|
 
@@ -268,6 +278,15 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 export AWS_DEFAULT_REGION=<AWS_REGION>
 aws kms delete-alias --alias-name  "alias/aes-siem-key"
 ```
+
+## 非常時の es-loader のスロットリングについて
+
+es-loader の不必要な呼び出しを避けるため、以下の条件で es-loader をスロットリングします。
+- OpenSearch Service クラスターの合計空き容量が 200MB 以下の状態が 30 分間継続し、`aes-siem-TotalFreeStorageSpaceRemainsLowAlarm` が発報した場合。
+  - OpenSearch クラスターのストレージの空き容量が不足している状態です。復旧するには空き容量を増やす必要があります。詳しくは[使用可能なストレージ領域の不足](https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/handling-errors.html#handling-errors-watermark)を参照してください。
+
+ログの取り込みを再開する場合は、AWS マネジメントコンソールや AWS CLI から Lambda 関数 `aes-siem-es-loader` の予約済同時実行数を0から10に戻してください。  
+また、[SQS のキューからの取り込み](docs/configure_siem_ja.md#sqs-のキューからの取り込み)を参考にデッドレターキュー (aes-siem-dlq) からメッセージを取り込んでください。
 
 ## Security
 

@@ -1,9 +1,9 @@
-Description: "SIEM on Amazon OpenSearch Service v2.6.1: log exporter - Active Directory"
+Description: "SIEM on Amazon OpenSearch Service v2.7.0: log exporter - Active Directory"
 Parameters:
   KdfAdName:
     Type: String
     Default: siem-ad-event-to-s3
-    Description: Kinesis Data Firehose Name to deliver AD event
+    Description: Define new Kinesis Data Firehose Name to deliver AD event
   KdfBufferSize:
     Type: Number
     Default: 1
@@ -19,7 +19,7 @@ Parameters:
   CwlAdName:
     Type: String
     Default: /aws/directoryservice/d-XXXXXXXXXXXXXXXXX
-    Description: CloudWatch Logs group name
+    Description: Specify CloudWatch Logs group name
 Resources:
   KDFForAdEventLog:
     Type: AWS::KinesisFirehose::DeliveryStream
@@ -31,7 +31,7 @@ Resources:
           Fn::Join:
             - ""
             - - "arn:aws-cn:s3:::"
-              - Fn::ImportValue: sime-log-bucket-name
+              - Fn::ImportValue: sime-log-bucket-name-v2
         BufferingHints:
           IntervalInSeconds:
             Ref: KdfBufferInterval
@@ -50,7 +50,7 @@ Resources:
             - - "arn:aws-cn:iam::"
               - Ref: AWS::AccountId
               - :role/service-role/
-              - Fn::ImportValue: siem-kdf-to-s3-role-name
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
   KinesisSubscription:
     Type: AWS::Logs::SubscriptionFilter
     Properties:
@@ -67,5 +67,5 @@ Resources:
           - - "arn:aws-cn:iam::"
             - Ref: AWS::AccountId
             - :role/
-            - Fn::ImportValue: siem-cwl-to-kdf-role-name
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
 

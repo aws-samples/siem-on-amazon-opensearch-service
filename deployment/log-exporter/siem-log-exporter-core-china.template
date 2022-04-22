@@ -1,17 +1,17 @@
-Description: "SIEM on Amazon OpenSearch Service v2.6.1: log exporter - basic resource"
+Description: "SIEM on Amazon OpenSearch Service v2.7.0: log exporter - core resource"
 Parameters:
   siemLogBucketName:
     Type: String
     Default: aes-siem-111111111111-log
-    Description: S3 Bucket name which store logs to load SIEM. Replace 111111111111 to your AWS account
-  kdfToS3RoleName:
+    Description: Define S3 Bucket name which store logs to load SIEM. Replace 111111111111 to your AWS account
+  roleNameCwlToKdf:
     Type: String
-    Default: siem-role-cwl-to-firehose-YOUR-REGION
-    Description: role name for CloudWatch Logs to send data to Kinsis Data Firehose. Replace YOUR-REGION
+    Default: siem-role-cwl-to-firehose
+    Description: Define IAM role name for CloudWatch Logs to send data to Kinsis Data Firehose.
   roleNameKdfToS3:
     Type: String
-    Default: siem-role-firehose-to-s3-YOUR-REGION
-    Description: role name for Kinesis Data Firehose to send data to S3. Replace YOUR-REGION
+    Default: siem-role-firehose-to-s3
+    Description: Define IAM role name for Kinesis Data Firehose to send data to S3.
 Resources:
   cwlRole94D20248:
     Type: AWS::IAM::Role
@@ -41,11 +41,15 @@ Resources:
                       - ":"
                       - Ref: AWS::AccountId
                       - :*
-                Sid: CwlToFirehosePolicyGeneratedBySeimCfn
+                Sid: CwlToFirehosePolicyGeneratedBySiemCfn
             Version: "2012-10-17"
           PolicyName: cwl-to-firehose
       RoleName:
-        Ref: kdfToS3RoleName
+        Fn::Join:
+          - ""
+          - - Ref: roleNameCwlToKdf
+            - -v2-
+            - Ref: AWS::Region
   firehoseRoleE5891AF8:
     Type: AWS::IAM::Role
     Properties:
@@ -97,21 +101,25 @@ Resources:
             Version: "2012-10-17"
           PolicyName: for-logigng
       RoleName:
-        Ref: roleNameKdfToS3
+        Fn::Join:
+          - ""
+          - - Ref: roleNameKdfToS3
+            - -v2-
+            - Ref: AWS::Region
 Outputs:
   logBucketName:
     Value:
       Ref: siemLogBucketName
     Export:
-      Name: sime-log-bucket-name
+      Name: sime-log-bucket-name-v2
   cwlRoleName:
     Value:
       Ref: cwlRole94D20248
     Export:
-      Name: siem-cwl-to-kdf-role-name
+      Name: siem-cwl-to-kdf-role-name-v2
   kdfRoleName:
     Value:
       Ref: firehoseRoleE5891AF8
     Export:
-      Name: siem-kdf-to-s3-role-name
+      Name: siem-kdf-to-s3-role-name-v2
 

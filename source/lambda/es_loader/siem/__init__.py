@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1'
+__version__ = '2.7.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -41,6 +41,7 @@ class LogS3:
     最後に、生ファイルを個々のログに分割してリスト型として返す
     """
     def __init__(self, record, logtype, logconfig, s3_client, sqs_queue):
+        self.error_logs_count = 0
         self.record = record
         self.logtype = logtype
         self.logconfig = logconfig
@@ -60,8 +61,9 @@ class LogS3:
         self.file_format = self.logconfig['file_format']
         self.max_log_count = self.logconfig['max_log_count']
         self.__rawdata = self.extract_rawdata_from_s3obj()
-        self.__file_timestamp = self.extract_file_timestamp()
-        self.rawfile_instacne = self.set_rawfile_instance()
+        if self.__rawdata:
+            self.__file_timestamp = self.extract_file_timestamp()
+            self.rawfile_instacne = self.set_rawfile_instance()
 
     def __iter__(self):
         if self.is_ignored:
@@ -83,6 +85,7 @@ class LogS3:
     ###########################################################################
     @cached_property
     def is_ignored(self):
+        # normal reason
         if self.s3key[-1] == '/':
             self.ignored_reason = f'this s3 key is just path, {self.s3key}'
             return True
@@ -97,6 +100,19 @@ class LogS3:
                 self.ignored_reason = (fr'"s3_key_ignored" {re_s3_key_ignored}'
                                        fr' matched with {self.s3key}')
                 return True
+
+        # critical reson
+        if not self.logconfig.get('file_format'):
+            self.critical_reason = (
+                f'of unknown file format for {self.logtype}. '
+                'Configure file_format in user/ini')
+            return True
+        elif not self.logconfig.get('index_name'):
+            self.critical_reason = (
+                f'of no index_name for {self.logtype}. '
+                'Configure index_name in user/ini')
+            return True
+
         return False
 
     @cached_property
@@ -177,6 +193,11 @@ class LogS3:
                 self.rawdata, self.logconfig, self.logtype)
         elif self.file_format == 'xml':
             return FileFormatXml(self.rawdata, self.logconfig, self.logtype)
+        elif not self.file_format:
+            self.is_ignored = True
+            self.ignored_reason = (
+                f'Skipped because there is no file format of {self.logtype}'
+                'in user.ini')
         else:
             return FileFormatBase(self.rawdata, self.logconfig, self.logtype)
 
@@ -190,7 +211,10 @@ class LogS3:
         if self.via_cwl:
             for lograw, logmeta in self.extract_cwl_log(start, end, logmeta):
                 logdict = self.rawfile_instacne.convert_lograw_to_dict(lograw)
-                yield (lograw, logdict, logmeta)
+                if isinstance(logdict, dict):
+                    yield (lograw, logdict, logmeta)
+                elif logdict == 'regex_error':
+                    self.error_logs_count += 1
         elif self.via_firelens:
             for lograw, logdict, logmeta in self.extract_firelens_log(
                     start, end, logmeta):
@@ -239,7 +263,7 @@ class LogS3:
             else:
                 msg = (f'invalid file timestamp format regex, '
                        f're_file_timestamp_format, for {self.s3key}')
-                logger.exception(msg)
+                logger.critical(msg)
                 raise Exception(msg) from None
             return dt
         else:
@@ -317,7 +341,7 @@ class LogS3:
                 firelens_logmeta['ec2_instance_id'] = ec2_instance_id
             # original log
             logdata = obj['log']
-            # stderr
+            # ignore stderr if necessary
             if firelens_logmeta['container_source'] == 'stderr':
                 if ignore_container_stderr_bool:
                     reason = "log is container's stderr"
@@ -325,9 +349,13 @@ class LogS3:
                     firelens_logmeta['ignored_reason'] = reason
                     yield (logdata, logdict, firelens_logmeta)
                     continue
+
             try:
                 logdict = (
                     self.rawfile_instacne.convert_lograw_to_dict(logdata))
+                if (logdict == 'regex_error'
+                        and firelens_logmeta['container_source'] == 'stderr'):
+                    raise Exception('regex_error')
             except Exception as err:
                 firelens_logmeta['__skip_normalization'] = True
                 firelens_logmeta['__error_message'] = logdata
@@ -445,6 +473,12 @@ class LogParser:
         self.has_nanotime = self.logconfig['timestamp_nano']
 
     def __call__(self, lograw, logdict, logmeta):
+        if isinstance(logdict, dict):
+            pass
+        elif logdict == 'regex_error':
+            self.logfile.error_logs_count += 1
+            return
+
         self.__skip_normalization = False
         self.lograw = lograw
         self.__logdata_dict = logdict
@@ -768,32 +802,64 @@ class LogParser:
         return False
 
     def get_timestamp(self):
-        if self.logconfig['timestamp_key'] and not self.__skip_normalization:
-            if self.logconfig['timestamp_key'] == 'cwe_timestamp':
-                self.__logdata_dict['cwe_timestamp'] = self.cwe_timestamp
-            elif self.logconfig['timestamp_key'] == 'cwl_timestamp':
-                self.__logdata_dict['cwl_timestamp'] = self.cwl_timestamp
-            elif self.logconfig['timestamp_key'] == 'file_timestamp':
-                return self.file_timestamp
-            timestr = utils.get_timestr_from_logdata_dict(
-                self.__logdata_dict, self.logconfig['timestamp_key'],
-                self.has_nanotime)
-            dt = utils.convert_timestr_to_datetime(
-                timestr, self.logconfig['timestamp_key'],
-                self.logconfig['timestamp_format'], self.timestamp_tz)
+        if ((self.logconfig['timestamp_key']
+                or self.logconfig['timestamp_key_list'])
+                and not self.__skip_normalization):
+
+            timestamp_key_list = self.logconfig['timestamp_key_list']
+            if timestamp_key_list:
+                timestamp_key_list = timestamp_key_list.split()
+            else:
+                timestamp_key_list = [self.logconfig['timestamp_key'], ]
+
+            timestamp_format_list = self.logconfig['timestamp_format_list']
+            if not timestamp_format_list:
+                timestamp_format_list = [self.logconfig['timestamp_format']]
+
+            for timestamp_key in timestamp_key_list:
+                if timestamp_key == 'cwe_timestamp':
+                    self.__logdata_dict['cwe_timestamp'] = self.cwe_timestamp
+                elif timestamp_key == 'cwl_timestamp':
+                    self.__logdata_dict['cwl_timestamp'] = self.cwl_timestamp
+                elif timestamp_key == 'file_timestamp':
+                    return self.file_timestamp
+                timestr = utils.get_timestr_from_logdata_dict(
+                    self.__logdata_dict, timestamp_key, self.has_nanotime)
+                if timestr:
+                    break
+
+            if not timestr:
+                msg = f'there is no valid timestamp_key for {self.logtype}'
+                logger.error(msg)
+                raise ValueError(msg)
+            dt = utils.convert_timestr_to_datetime_wrapper(
+                timestr, timestamp_key, timestamp_format_list,
+                self.timestamp_tz)
             if not dt:
                 msg = f'there is no timestamp format for {self.logtype}'
                 logger.error(msg)
                 raise ValueError(msg)
+        elif '@timestamp' in self.__logdata_dict:
+            timestr = utils.get_timestr_from_logdata_dict(
+                self.__logdata_dict, '@timestamp', self.has_nanotime)
+            dt = utils.convert_timestr_to_datetime(
+                timestr, '@timestamp', self.logconfig['timestamp_format'],
+                self.timestamp_tz)
         else:
-            if self.file_timestamp:
+            if hasattr(self, 'file_timestamp') and self.file_timestamp:
                 # This may be firelens and error log
                 return self.file_timestamp
             elif hasattr(self, 'cwl_timestamp') and self.cwl_timestamp:
                 # This may be CWL and truncated JSON such as opensearch audit
                 return utils.convert_epoch_to_datetime(
                     self.cwl_timestamp, utils.TIMEZONE_UTC)
+            # impossible to find any timestamp.
+            # Set the current time as @timestamp
             dt = datetime.now(timezone.utc)
+        if not dt:
+            msg = f'there is no valid timestamp for {self.logtype}'
+            logger.error(msg)
+            raise ValueError(msg)
         return dt
 
     def del_none(self, d):

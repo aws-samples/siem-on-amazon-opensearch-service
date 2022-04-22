@@ -13,6 +13,7 @@
 * [S3 Accesslog](#S3-Accesslog)
 * [Amazon Relational Database Service (RDS)](#Amazon-RDS)
 * [Amazon WorkSpaces](#Amazon-WorkSpaces)
+* [Amazon OpenSearch Service Metrics](#Amazon-OpenSearch-Service-Metrics)
 
 ## AWS Security Hub
 
@@ -59,5 +60,9 @@
 ## Amazon WorkSpaces
 
 ![Amazon WorkSpaces](images/dashboard-workspaces.jpg)
+
+## Amazon OpenSearch Service Metrics
+
+![Amazon OpenSearch Service Metrics](images/dashboard-opensearch-metrics.jpg)
 
 [READMEに戻る](../README_ja.md)

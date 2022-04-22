@@ -20,11 +20,13 @@ SIEM on OpenSearch Service 能够加载并关联以下日志类型。
 |       |Amazon 服务|日志|
 |-------|-----------|---|
 |Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty 问题清单|
+|Security, Identity, & Compliance|Amazon Inspector|Inspector 问题清单|
 |Security, Identity, & Compliance|AWS Directory Service|Microsoft AD|
 |Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL 流量信息<br>AWS WAF Classic Web ACL 流量信息|
 |Security, Identity, & Compliance|AWS Security Hub|Security Hub 问题清单<br>GuardDuty 问题清单<br>Amazon Macie 问题清单<br>Amazon Inspector 问题清单<br>AWS IAM Access Analyzer 问题清单|
 |Security, Identity, & Compliance|AWS Network Firewall|Flow logs<br>Alert logs|
 |Management & Governance|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
+|Management & Governance|AWS Trusted Advisor|Trusted Advisor Check Result|
 |Networking & Content Delivery|Amazon CloudFront|标准访问日志<br>实时日志|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS 查询日志|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
@@ -210,7 +212,7 @@ SIEM on OpenSearch Service将日志保存在索引当中，并每月轮换一次
 
 |AWS 资源|资源名称|用途|
 |------------|----|----|
-|penSearch Service 1.0 or Elasticsearch 7.X|aes-siem|SIEM 本体|
+|penSearch Service 1.x or Elasticsearch 7.X|aes-siem|SIEM 本体|
 |S3 存储桶|aes-siem-[AWS_Account]-log|用於收集日志|
 |S3 存储桶|aes-siem-[AWS_Account]-snapshot|用於捕捉OpenSearch Service手动快照|
 |S3 存储桶|aes-siem-[AWS_Account]-geo|用於存储下载得到的GeoIP|
@@ -222,7 +224,11 @@ SIEM on OpenSearch Service将日志保存在索引当中，并每月轮换一次
 |AWS Key Management Service<br>(AWS KMS) CMK 与别名|aes-siem-key|用於加密日志|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|如果日志中包含多个待处理行，则将各行划分为多个部分；代表用於协调的队列|
 |Amazon SQS Queue|aes-siem-dlq|在将日志加载至OpenSearch Service中发生失败时，使用的**死信队列**|
-|CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader| 用於每天执行aes-siem-geoip-downloader|
+|CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|Triggered when total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes|
+|CloudWatch dashboards|SIEM|Dashboard of resource information used by SIEM on OpenSearch Service|
+|EventBridge events|aes-siem-CwlRuleLambdaGeoipDownloader| 用於每天执行aes-siem-geoip-downloader|
+|EventBridge events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
+|EventBridge events|aes-siem-EventBridgeRuleLambdaMetricsExporter| For executing aes-siem-geoip-downloader every 1 hour|
 |Amazon SNS Topic|aes-siem-alert|被选定为OpenSearch Service中的警报发送目的地|
 |Amazon SNS Subscription|inputd email|作为警报发送目标的电子邮件地址|
 

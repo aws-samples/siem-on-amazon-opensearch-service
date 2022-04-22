@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1'
+__version__ = '2.7.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -60,8 +60,18 @@ def transform(logdata):
     except (KeyError, TypeError):
         pass
 
+    # https://github.com/aws-samples/siem-on-amazon-elasticsearch/issues/242
+    try:
+        status = logdata['responseElements']['status']
+    except (KeyError, TypeError):
+        status = None
+    if status and isinstance(status, str):
+        logdata['responseElements']['status'] = {'status': status}
+
     event_source = logdata.get('eventSource', None)
-    if event_source == 'athena.amazonaws.com':
+    if not event_source:
+        pass
+    elif event_source == 'athena.amazonaws.com':
         # #153
         try:
             tableMetadataList = (
@@ -77,6 +87,20 @@ def transform(logdata):
                         tableMetadata['parameters'].pop(old_field))
                 except KeyError:
                     pass
+        try:
+            partableMetadata = (
+                logdata['responseElements']['tableMetadata'])
+        except (KeyError, TypeError):
+            partableMetadata = None
+        if partableMetadata:
+            old_field = 'projection.part_date.interval.unit'
+            new_field = 'projection.part_date.interval_unit'
+            try:
+                partableMetadata['parameters'][new_field] = (
+                    partableMetadata['parameters'].pop(old_field))
+            except KeyError:
+                pass
+
     elif event_source == 'glue.amazonaws.com':
         # #156, #166
         try:
@@ -102,13 +126,36 @@ def transform(logdata):
             command = None
         if command and isinstance(command, str):
             logdata['requestParameters']['command'] = {'command': command}
-    elif event_source in ('compute-optimizer.amazonaws.com',
-                          'auditmanager.amazonaws.com'):
+    elif event_source in ('ssm.amazonaws.com'):
         try:
-            status = logdata['responseElements']['status']
+            params = logdata['requestParameters']['parameters']
         except (KeyError, TypeError):
-            status = None
-        if status and isinstance(status, str):
-            logdata['responseElements']['status'] = {'status': status}
+            params = None
+        if params and isinstance(params, str):
+            logdata['requestParameters']['parameters'] = {'value': params}
+    elif event_source in ('redshift-data.amazonaws.com'):
+        try:
+            db = logdata['responseElements']['database']
+        except (KeyError, TypeError):
+            db = None
+        if db and isinstance(db, str):
+            logdata['responseElements']['database'] = {'name': db}
+    elif event_source in ('cloud9.amazonaws.com'):
+        try:
+            settings = logdata['requestParameters']['settings']
+        except (KeyError, TypeError):
+            settings = None
+        if settings and isinstance(settings, str):
+            logdata['requestParameters']['settings'] = {'value': settings}
+    elif event_source in ('s3.amazonaws.com'):
+        try:
+            rules = (logdata['requestParameters']['ReplicationConfiguration']
+                     ['Rule'])
+        except (KeyError, TypeError):
+            rules = None
+        if rules and isinstance(rules, list):
+            for i, rule in enumerate(rules):
+                if rule.get('Filter'):
+                    rules[i]['Filter'] = str(rule['Filter'])
 
     return logdata

@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.6.1: log exporter - Workspaces"
+Description: "SIEM on Amazon OpenSearch Service v2.7.0: log exporter - Workspaces"
 Parameters:
   cweRulesFrequency:
     Type: Number
@@ -7,7 +7,7 @@ Parameters:
   KdfWorkSpacesName:
     Type: String
     Default: siem-workspaces-event-to-s3
-    Description: Kinesis Data Firehose Name to deliver workspaces event
+    Description: Define new Kinesis Data Firehose Name to deliver workspaces event
   KdfBufferSize:
     Type: Number
     Default: 1
@@ -43,7 +43,7 @@ Resources:
               - Action: workspaces:Describe*
                 Effect: Allow
                 Resource: "*"
-                Sid: DescribeWorkSpacesPolicyGeneratedBySeimCfn
+                Sid: DescribeWorkSpacesPolicyGeneratedBySiemCfn
             Version: "2012-10-17"
           PolicyName: describe-workspaces
         - PolicyDocument:
@@ -54,9 +54,9 @@ Resources:
                   Fn::Join:
                     - ""
                     - - "arn:aws-cn:s3:::"
-                      - Fn::ImportValue: sime-log-bucket-name
+                      - Fn::ImportValue: sime-log-bucket-name-v2
                       - /*
-                Sid: FirehoseToS3PolicyGeneratedBySeimCfn
+                Sid: FirehoseToS3PolicyGeneratedBySiemCfn
             Version: "2012-10-17"
           PolicyName: firehose-to-s3
       RoleName: siem-get-workspaces-inventory-role
@@ -69,7 +69,7 @@ Resources:
           # SPDX-License-Identifier: MIT-0
           __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                            'All Rights Reserved.')
-          __version__ = '2.6.1'
+          __version__ = '2.7.0'
           __license__ = 'MIT-0'
           __author__ = 'Akihiro Nakajima'
           __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -89,6 +89,13 @@ Resources:
           bucket = s3_resource.Bucket(os.environ['log_bucket_name'])
           AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
           AWS_REGION = os.environ['AWS_DEFAULT_REGION']
+
+
+          def json_serial(obj):
+              if isinstance(obj, datetime.datetime):
+                  return obj.isoformat()
+              else:
+                  return str(obj)
 
 
           def lambda_handler(event, context):
@@ -139,7 +146,7 @@ Resources:
                           pass
                       jsonobj['detail']['Workspaces'].append(item)
                   num += len(response['Workspaces'])
-                  f.write(json.dumps(jsonobj, default=str))
+                  f.write(json.dumps(jsonobj, default=json_serial))
                   f.flush()
                   # sleep 0.75 second to avoid reaching AWS API rate limit (2rps)
                   time.sleep(0.75)
@@ -156,7 +163,7 @@ Resources:
       Environment:
         Variables:
           log_bucket_name:
-            Fn::ImportValue: sime-log-bucket-name
+            Fn::ImportValue: sime-log-bucket-name-v2
       FunctionName: siem-get-workspaces-inventory
       Handler: index.lambda_handler
       MemorySize: 160
@@ -204,7 +211,7 @@ Resources:
           Fn::Join:
             - ""
             - - "arn:aws-cn:s3:::"
-              - Fn::ImportValue: sime-log-bucket-name
+              - Fn::ImportValue: sime-log-bucket-name-v2
         BufferingHints:
           IntervalInSeconds:
             Ref: KdfBufferInterval
@@ -223,7 +230,7 @@ Resources:
             - - "arn:aws-cn:iam::"
               - Ref: AWS::AccountId
               - :role/service-role/
-              - Fn::ImportValue: siem-kdf-to-s3-role-name
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
   KDFForWorkSpacesEventEventsRole7D362B9D:
     Type: AWS::IAM::Role
     Properties:

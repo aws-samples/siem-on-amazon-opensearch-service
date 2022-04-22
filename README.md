@@ -20,12 +20,14 @@ SIEM on OpenSearch Service can load and correlate the following log types.
 |       |AWS Service|Log|
 |-------|-----------|---|
 |Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty findings|
+|Security, Identity, & Compliance|Amazon Inspector|Inspector findings|
 |Security, Identity, & Compliance|AWS Directory Service|Microsoft AD|
 |Security, Identity, & Compliance|AWS WAF|AWS WAF Web ACL traffic information<br>AWS WAF Classic Web ACL traffic information|
 |Security, Identity, & Compliance|AWS Security Hub|Security Hub findings<br>GuardDuty findings<br>Amazon Macie findings<br>Amazon Inspector findings<br>AWS IAM Access Analyzer findings|
 |Security, Identity, & Compliance|AWS Network Firewall|Flow logs<br>Alert logs|
 |Management & Governance|AWS CloudTrail|CloudTrail Log Event<br>CloudTrail Insight Event|
 |Management & Governance|AWS Config|Configuration History<br>Configuration Snapshot<br>Config Rules|
+|Management & Governance|AWS Trusted Advisor|Trusted Advisor Check Result|
 |Networking & Content Delivery|Amazon CloudFront|Standard access log<br>Real-time log|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS query log|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
@@ -174,12 +176,14 @@ If you want to update "SIEM on OpenSearch Service/SIEM on Amazon ES" to the late
 
 ### Upgrading the OpenSearch Service domain
 
-Upgrade the domain to OpenSearch 1.0 or Elasticsearch version 7.10:
+Upgrade the domain to OpenSearch 1.2, 1.1, 1.0 or Elasticsearch version 7.10. Some Dashboards assume OpenSearch Service 1.1 or higher, so the recommended version is OpenSearch Service 1.2 with "Enable compatibility mode":
 
 1. Navigate to the [OpenSearch Service console](https://console.aws.amazon.com/es/home?)
 1. Choose domain: [**aes-siem**]
 1. Choose [**Actions**] icon, and choose [**Upgrade domain**] from the drop-down menu
-1. For "Version to upgrade to", choose [**OpenSearch 1.0**] or [**Elasticsearch 7.10**] and then choose [**Submit**]
+1. For "Version to upgrade to", choose [**OpenSearch 1.2**] (Recommended), [**OpenSearch 1.1**], [**OpenSearch 1.0**] or [**Elasticsearch 7.10**]
+1. Choose "Enable compatibility mode" (Recommended)
+1. Then choose [**Submit**]
 
 If you completed the initial setup using CloudFormation, move on to the next step. If you completed the initial setup using the AWS CDK, see  
 "Updating SIEM with the AWS CDK" section in [Advanced Deployment](docs/deployment.md).
@@ -224,19 +228,25 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 
 |AWS Resource|Resource Name|Purpose|
 |------------|----|----|
-|OpenSearch Service 1.0 or Elasticsearch 7.X|aes-siem|SIEM itself|
+|OpenSearch Service 1.X or Elasticsearch 7.X|aes-siem|SIEM itself|
 |S3 bucket|aes-siem-[AWS_Account]-log|For collecting logs|
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|For capturing manual snapshots of OpenSearch Service|
 |S3 bucket|aes-siem-[AWS_Account]-geo|For storing downloaded GeoIPs|
 |Lambda function|aes-siem-es-loader|For normalizing logs and loading them into OpenSearch Service|
+|Lambda function|aes-siem-es-loader-stopper|For throttling es-loader in case of emergency|
 |Lambda function|aes-siem-deploy-aes|For creating the OpenSearch Service domain|
 |Lambda function|aes-siem-configure-aes|For configuring OpenSearch Service|
 |Lambda function|aes-siem-geoip-downloader|For downloading GeoIPs|
+|Lambda function|aes-siem-index-metrics-exporter| For OpenSearch Service index metrics|
 |Lambda function|aes-siem-BucketNotificationsHandler|For configuring invent notification for the S3 bucket that stores logs|
 |AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|For encrypting logs|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|A log is split into multiple parts if it has many lines to process. This is the queue to coordinate it|
 |Amazon SQS Queue|aes-siem-dlq|A dead-letter queue used when loading logs into OpenSearch Service fails|
-|CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader| For executing aes-siem-geoip-downloader every day|
+|CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|Triggered when total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes|
+|CloudWatch dashboards|SIEM|Dashboard of resource information used by SIEM on OpenSearch Service|
+|EventBridge events|aes-siem-CwlRuleLambdaGeoipDownloader| For executing aes-siem-geoip-downloader every 12 hours|
+|EventBridge events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
+|EventBridge events|aes-siem-EventBridgeRuleLambdaMetricsExporter| For executing aes-siem-geoip-downloader every 1 hour|
 |Amazon SNS Topic|aes-siem-alert|This is selected as the destination for alerting in OpenSearch Service|
 |Amazon SNS Subscription|inputed email|This is the email address where alerts are sent|
 
@@ -260,6 +270,15 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 export AWS_DEFAULT_REGION=<AWS_REGION>
 aws kms delete-alias --alias-name  "alias/aes-siem-key"
 ```
+
+## Throttling of es-loader in an emergency
+
+To avoid unnecessary invocation of es-loader, throttle es-loader under the following conditions:
+- If total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes and `aes-siem-TotalFreeStorageSpaceRemainsLowAlarm` is triggered.
+  - The OpenSearch cluster is running out of storage space. More free space is needed for recovery. To learn more, see [Lack of available storage space](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/handling-errors.html#handling-errors-watermark).
+
+If you want to resume loading logs, set the reserved concurrency of the Lambda function `aes-siem-es-loader` back to 10 from the AWS Management Console or AWS CLI.  
+You can also load messages from the dead-letter queue (aes-siem-dlq) by referring to [Loading from SQS queue](docs/configure_siem.md#loading-from-sqs-queue).
 
 ## Security
 

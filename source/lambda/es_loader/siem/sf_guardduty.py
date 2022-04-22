@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1'
+__version__ = '2.7.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -18,6 +18,7 @@ RE_GD_TYPE = re.compile(
 
 
 def transform(logdata):
+    logdata['rule']['name'] = logdata['rule']['name'].strip().rstrip('.')
     if logdata['severity'] <= 3.9:
         label = "low"
     elif logdata['severity'] <= 6.9:

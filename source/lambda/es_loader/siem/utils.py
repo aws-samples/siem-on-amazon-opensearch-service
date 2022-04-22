@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1'
+__version__ = '2.7.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -21,8 +21,7 @@ import boto3
 import botocore
 import requests
 from aws_lambda_powertools import Logger
-from opensearchpy import OpenSearch, RequestsHttpConnection
-from requests_aws4auth import AWS4Auth
+from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
 logger = Logger(child=True)
 
@@ -158,6 +157,22 @@ def get_timestr_from_logdata_dict(logdata_dict, timestamp_key, has_nanotime):
     return timestr
 
 
+def convert_timestr_to_datetime_wrapper(timestr, timestamp_key,
+                                        timestamp_format, TZ):
+    if type(timestamp_format) == list:
+        timestamp_format_list = timestamp_format
+    else:
+        timestamp_format_list = [timestamp_format, ]
+
+    for timestamp_format in timestamp_format_list:
+        dt = convert_timestr_to_datetime(
+            timestr, timestamp_key, timestamp_format, TZ)
+        if dt:
+            break
+
+    return dt
+
+
 @lru_cache(maxsize=100000)
 def convert_timestr_to_datetime(timestr, timestamp_key, timestamp_format, TZ):
     dt = None
@@ -175,7 +190,10 @@ def convert_timestr_to_datetime(timestr, timestamp_key, timestamp_format, TZ):
 
 @lru_cache(maxsize=1024)
 def convert_epoch_to_datetime(timestr, TZ):
-    epoch = float(timestr)
+    try:
+        epoch = float(timestr)
+    except ValueError:
+        return None
     if 1000000000000000 > epoch > 1000000000000:
         # milli epoch
         epoch_seconds = epoch / 1000.0
@@ -207,6 +225,8 @@ def convert_syslog_to_datetime(timestr, TZ):
     now = NOW + TD_OFFSET12
     # timezoneを考慮して、12時間を早めた現在時刻を基準とする
     m = RE_SYSLOG_FORMAT.match(timestr)
+    if not m:
+        return None
     try:
         # コンマ以下の秒があったら
         microsec = int(m.group(7).ljust(6, '0'))
@@ -257,9 +277,10 @@ def convert_custom_timeformat_to_datetime(timestr, TZ, timestamp_format,
     try:
         dt = datetime.strptime(timestr, timestamp_format)
     except ValueError:
-        msg = f'timestamp key {timestamp_key} is wrong'
-        logger.exception(msg)
-        raise ValueError(msg) from None
+        return None
+        # msg = f'timestamp key, {timestamp_key} is wrong'
+        # logger.exception(msg)
+        # raise ValueError(msg) from None
     if TZ and not dt.tzinfo:
         dt = dt.replace(tzinfo=TZ)
     return dt
@@ -292,10 +313,7 @@ def create_awsauth(es_hostname):
     # For Debug
     # boto3.set_stream_logger('botocore', level='DEBUG')
     credentials = boto3.Session().get_credentials()
-    service = 'es'
-    awsauth = AWS4Auth(
-        credentials.access_key, credentials.secret_key, es_region, service,
-        session_token=credentials.token)
+    awsauth = AWSV4SignerAuth(credentials, es_region)
     return awsauth
 
 
@@ -311,12 +329,12 @@ def create_es_conn(awsauth, es_hostname):
 def get_read_only_indices(es_conn, awsauth, ES_HOSTNAME):
     read_only_indices = []
     # cold tier
-    # GET _cold/indices/_search?page_size=100
+    # GET _cold/indices/_search?page_size=2000
     url = f'https://{ES_HOSTNAME}/_cold/indices/_search'
     headers = {'Content-Type': 'application/json'}
     try:
         res = requests.get(
-            url, params={'page_size': 100}, auth=awsauth, timeout=3.0)
+            url, params={'page_size': 2000}, auth=awsauth, timeout=3.0)
     except requests.exceptions.Timeout:
         logger.warning('timeout: impossible to get cold index')
         return tuple(read_only_indices)

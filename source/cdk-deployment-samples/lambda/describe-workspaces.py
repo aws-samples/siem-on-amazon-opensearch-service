@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1'
+__version__ = '2.7.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -22,6 +22,13 @@ s3_resource = boto3.resource('s3')
 bucket = s3_resource.Bucket(os.environ['log_bucket_name'])
 AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
 AWS_REGION = os.environ['AWS_DEFAULT_REGION']
+
+
+def json_serial(obj):
+    if isinstance(obj, datetime.datetime):
+        return obj.isoformat()
+    else:
+        return str(obj)
 
 
 def lambda_handler(event, context):
@@ -72,7 +79,7 @@ def lambda_handler(event, context):
                 pass
             jsonobj['detail']['Workspaces'].append(item)
         num += len(response['Workspaces'])
-        f.write(json.dumps(jsonobj, default=str))
+        f.write(json.dumps(jsonobj, default=json_serial))
         f.flush()
         # sleep 0.75 second to avoid reaching AWS API rate limit (2rps)
         time.sleep(0.75)

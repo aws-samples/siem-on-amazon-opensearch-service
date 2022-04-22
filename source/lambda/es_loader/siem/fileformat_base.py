@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.6.1'
+__version__ = '2.7.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -74,7 +74,10 @@ class FileFormatBase(object):
         return 0
 
     def extract_log(self, start=0, end=0, logmeta={}):
-        raise Exception('Impossible to extract unknown log format')
+        logger.critical('Impossible to extract unknown log format of '
+                        f'{self.logtype}. You should configure "file_format" '
+                        'in user.ini')
+        return
 
     def convert_lograw_to_dict(self, lograw, logconfig=None):
         return lograw
