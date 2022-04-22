@@ -24,7 +24,6 @@ TIMEOUT = 10.0
 ES_ENDPOINT = os.getenv('ES_ENDPOINT')
 REGION = ES_ENDPOINT.split('.')[1]
 BUCKET_NAME = os.getenv('LOG_BUCKET')
-AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
 PERIOD_HOUR = int(os.getenv('PERIOD_HOUR', 1))
 
 credentials = boto3.Session().get_credentials()
@@ -440,6 +439,10 @@ CLUSTER_ID, CLUSTER_NAME = get_cluster_id_name()
 
 
 def lambda_handler(event, context):
+    try:
+        AWS_ID = str(context.invoked_function_arn.split(':')[4])
+    except Exception:
+        AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
     file_name = f'aos_index_metrics_{uuid.uuid4().hex}.json.gz'
     index_status_dict = get_hotwarm_index_status_dict('hot')
     index_status_dict = get_hotwarm_index_status_dict(
