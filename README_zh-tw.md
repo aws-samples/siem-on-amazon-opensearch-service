@@ -236,7 +236,11 @@ SIEM on OpenSearch Service將日誌保存在索引當中，並每月輪換一次
 |AWS Key Management Service<br>(AWS KMS) CMK 與別名|aes-siem-key|用於加密日誌|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|如果日誌中包含多個待處理行，則將各行劃分爲多個部分；代表用於協調的隊列|
 |Amazon SQS Queue|aes-siem-dlq|在將日誌加載至OpenSearch Service中發生失敗時，使用的**死信隊列**|
-|CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader| 用於每天執行aes-siem-geoip-downloader|
+|CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|Triggered when total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes|
+|CloudWatch dashboards|SIEM|Dashboard of resource information used by SIEM on OpenSearch Service|
+|EventBridge events|aes-siem-CwlRuleLambdaGeoipDownloader| 用於每天執行aes-siem-geoip-downloader|
+|EventBridge events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
+|EventBridge events|aes-siem-EventBridgeRuleLambdaMetricsExporter| For executing aes-siem-geoip-downloader every 1 hour|
 |Amazon SNS Topic|aes-siem-alert|被選定爲OpenSearch Service中的警報發送目的地|
 |Amazon SNS Subscription|inputd email|作爲警報發送目標的電子郵件地址|
 

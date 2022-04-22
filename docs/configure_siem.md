@@ -241,6 +241,7 @@ POST _template/log-aws-cloudtrail_mine
     }
   }
 }
+```
 
 ## Loading non-AWS services logs
 

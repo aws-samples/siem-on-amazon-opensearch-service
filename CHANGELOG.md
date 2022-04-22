@@ -6,6 +6,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2022-04-22
+### Added
+- Supported OpenSearch Service version: 1.1, 1.2 #210,#237
+- Supported and normalized log: AWS Trusted Advisor, Amazon Inspector #8,#207,#236
+- Ability to stop log ingestion in an emergency when disk is full #44,#234
+- CloudWatch dashboards to monitor SIEM status #233
+- Dashboard in OpenSearch to monitor metrics of indices and shards #227
+- New parsing logic of timestamp #226
+### Changed
+- ECS Normalization of Security Hub #239
+- ECS Normalization of GuardDuty #238
+- Initial version of Amazon OpenSearch Service to v1.2 from v1.0 #237
+- Error handling in es-loader. Until v2.6.1, when an error occurred in es-loader, processing was stopped and all error logs were sent to SQS for reprocessing. From this version, parsing errors will not be reprocessed and will not be sent to SQS and DLQ either #231
+- Reduce default number of shards: log-aws-inspector, log-aws-securityhub, log-aws-workspaces, log-aws-trustedadvisor, .opendistro-alerting-alerts, .opendistro-alerting-config, .opendistro-ism-config, .opendistro-job-scheduler-lock, #211,#228
+- Increase the refresh interval #211
+### Removed
+- [Legacy index templates](https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-templates-v1.html) is removed. Please use [new index templates](https://opensearch.org/docs/latest/opensearch/index-templates/) if you configure index settings. See the [doc](docs/configure_siem.md#changing-opensearch-service-configuration-settings-for-advanced-users) #152
+- KMS VPC endpoint. If you use client-side encryption, add it manually #235
+### Fixed
+- Fixed parse issue: (CloudTrail) responseElements.session, responseElements.database, requestParameters.imageId, requestParameters.description, responseElements.data, requestParameters.metrics, requestParameters.CreateLaunchTemplateRequest.LaunchTemplateData.TagSpecification.Tag.Value, requestParameters.parameters, requestParameters.parameters, esponseElements.status,requestParameters.settings, requestParameters.ReplicationConfiguration.Rule.Filter, responseElements.networkInterface.tagSet.items.value, requestParameters.tagSpecificationSet.items.tags.value, responseElements.tableMetadata.parameters.projection.part_date.interval, requestParameters.accountIds #163,#187,#188,#189,#190,#191,#192,#193,#240,#242,#243,#245,#246,#247,#249
+- Invalid datetime format of workspaces inventory #229
+- Fixed parse error of CloudTrail Insights, 0 bytes ALB access log #219,#241
+
 ## [2.6.1] - 2022-02-14
 ### Added
 - Added connection status to Workspaces log #201

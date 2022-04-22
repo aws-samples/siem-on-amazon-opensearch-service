@@ -243,9 +243,10 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|A log is split into multiple parts if it has many lines to process. This is the queue to coordinate it|
 |Amazon SQS Queue|aes-siem-dlq|A dead-letter queue used when loading logs into OpenSearch Service fails|
 |CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|Triggered when total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes|
-|CloudWatch Events|aes-siem-CwlRuleLambdaGeoipDownloader| For executing aes-siem-geoip-downloader every 12 hours|
-|CloudWatch Events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
-|CloudWatch Events|aes-siem-EventBridgeRuleLambdaMetricsExporter| For executing aes-siem-geoip-downloader every 1 hour|
+|CloudWatch dashboards|SIEM|Dashboard of resource information used by SIEM on OpenSearch Service|
+|EventBridge events|aes-siem-CwlRuleLambdaGeoipDownloader| For executing aes-siem-geoip-downloader every 12 hours|
+|EventBridge events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
+|EventBridge events|aes-siem-EventBridgeRuleLambdaMetricsExporter| For executing aes-siem-geoip-downloader every 1 hour|
 |Amazon SNS Topic|aes-siem-alert|This is selected as the destination for alerting in OpenSearch Service|
 |Amazon SNS Subscription|inputed email|This is the email address where alerts are sent|
 
