@@ -235,6 +235,7 @@ class MyAesSiemStack(core.Stack):
         if vpc_type == 'new':
             is_vpc = True
             vpc_cidr = self.node.try_get_context('new_vpc_nw_cidr_block')
+            vpc_cidr_blocks = [vpc_cidr]
             subnet_cidr_mask = int(
                 self.node.try_get_context('new_vpc_subnet_cidr_mask'))
             is_vpc = True
@@ -259,7 +260,9 @@ class MyAesSiemStack(core.Stack):
             vpc_id = self.node.try_get_context('imported_vpc_id')
             vpc_aes_siem = aws_ec2.Vpc.from_lookup(
                 self, 'VpcAesSiem', vpc_id=vpc_id)
-
+            boto3_vpc = ec2_resource.Vpc(vpc_id)
+            vpc_cidr_blocks = (
+                [x['CidrBlock'] for x in boto3_vpc.cidr_block_association_set])
             subnet_ids = get_subnet_ids(self)
             subnets = []
             for number, subnet_id in enumerate(subnet_ids, 1):
@@ -281,9 +284,10 @@ class MyAesSiemStack(core.Stack):
                 self, 'AesSiemVpcSecurityGroup',
                 security_group_name='aes-siem-vpc-sg',
                 vpc=vpc_aes_siem)
-            sg_vpc_aes_siem.add_ingress_rule(
-                peer=aws_ec2.Peer.ipv4(vpc_aes_siem.vpc_cidr_block),
-                connection=aws_ec2.Port.tcp(443),)
+            for vpc_cidr_block in vpc_cidr_blocks:
+                sg_vpc_aes_siem.add_ingress_rule(
+                    peer=aws_ec2.Peer.ipv4(vpc_cidr_block),
+                    connection=aws_ec2.Port.tcp(443),)
             sg_vpc_opt = sg_vpc_aes_siem.node.default_child.cfn_options
             sg_vpc_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
