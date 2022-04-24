@@ -476,6 +476,7 @@ class LogParser:
         if isinstance(logdict, dict):
             pass
         elif logdict == 'regex_error':
+            self.__logdata_dict = {'is_ignored': True}
             self.logfile.error_logs_count += 1
             return
 
