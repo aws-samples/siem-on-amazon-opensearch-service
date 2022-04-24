@@ -784,11 +784,16 @@ class LogParser:
 
     def add_field_prefix(self):
         if self.logconfig.get('field_prefix'):
-            self.__logdata_dict[self.logconfig.get('field_prefix')] = {}
+            field_prefix = self.logconfig.get('field_prefix')
+            if (field_prefix in self.__logdata_dict
+                    and isinstance(self.__logdata_dict[field_prefix], dict)):
+                pass
+            else:
+                self.__logdata_dict[field_prefix] = {}
             for field in self.original_fields:
                 try:
-                    self.__logdata_dict[self.logconfig.get(
-                        'field_prefix')][field] = self.__logdata_dict[field]
+                    self.__logdata_dict[field_prefix][field] = (
+                        self.__logdata_dict[field])
                     del self.__logdata_dict[field]
                 except KeyError:
                     pass
