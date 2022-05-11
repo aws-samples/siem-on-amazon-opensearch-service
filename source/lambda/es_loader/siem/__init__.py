@@ -761,7 +761,13 @@ class LogParser:
 
     def transform_by_script(self):
         if self.logconfig['script_ecs']:
-            self.__logdata_dict = self.sf_module.transform(self.__logdata_dict)
+            try:
+                self.__logdata_dict = self.sf_module.transform(
+                    self.__logdata_dict)
+            except Exception:
+                # self.logfile.error_logs_count += 1
+                logger.exception(
+                    f'Exception error has occurs in sf_{self.logtype}.py')
 
     def enrich(self):
         enrich_dict = {}
