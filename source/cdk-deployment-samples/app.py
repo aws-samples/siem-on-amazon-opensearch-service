@@ -12,6 +12,7 @@ from aws_cdk import core
 
 from deployment_samples.deployment_samples_stack import (
     ADLogExporterStack,
+    CloudHsmCWLogsExporterStack,
     CoreLogExporterStack,
     CWLNoCompressExporterStack,
     DeploymentSamplesStack,
@@ -49,6 +50,10 @@ ad_logging = ADLogExporterStack(
     app, "siem-log-exporter-ad",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - Active Directory'))
+cloudhsm_logging = CloudHsmCWLogsExporterStack(
+    app, "siem-log-exporter-cloudhsm-cwl",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - CloudHSM'))
 eventbridge_events_logging = EventBridgeEventsExporterStack(
     app, "siem-log-exporter-eventbridge-events",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '

@@ -4,6 +4,7 @@
 
 * [AWS Security Hub](#AWS-Security-Hub)
 * [AWS WAF](#AWS-WAF)
+* [AWS CloudHSM](#AWS-CloudHSM)
 * [Amazon GuardDuty](#Amazon-GuardDuty)
 * [AWS CloudTrail](#AWS-CloudTrail)
 * [Amazon CloudFront](#Amazon-CloudFront)
@@ -24,6 +25,10 @@
 该仪表板有[AWS WAF Dashboard](https://github.com/aws-samples/aws-waf-dashboard) 导入并进行定制化
 
 ![AWS WAF Dashboard](images/dashboard-awswaf.jpg)
+
+## AWS CloudHSM
+
+![AWS CloudHSM Dashboard](images/dashboard-cloudhsm.jpg)
 
 ## Amazon GuardDuty
 

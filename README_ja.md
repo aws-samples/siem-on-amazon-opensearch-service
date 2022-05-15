@@ -21,6 +21,7 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 
 |       |AWS Service|Log|
 |-------|-----------|---|
+|セキュリティ、ID、およびコンプライアンス|AWS CloudHSM|HSM audit logs|
 |セキュリティ、ID、およびコンプライアンス|Amazon GuardDuty|GuardDuty findings|
 |セキュリティ、ID、およびコンプライアンス|Amazon Inspector|Inspector findings|
 |セキュリティ、ID、およびコンプライアンス|AWS Directory Service|Microsoft AD|

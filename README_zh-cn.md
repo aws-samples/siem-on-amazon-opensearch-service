@@ -19,6 +19,7 @@ SIEM on OpenSearch Service 能够加载并关联以下日志类型。
 
 |       |Amazon 服务|日志|
 |-------|-----------|---|
+|Security, Identity, & Compliance|AWS CloudHSM|HSM audit logs|
 |Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty 问题清单|
 |Security, Identity, & Compliance|Amazon Inspector|Inspector 问题清单|
 |Security, Identity, & Compliance|AWS Directory Service|Microsoft AD|

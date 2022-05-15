@@ -693,6 +693,74 @@ class TrustedAdvisorLogExporterStack(cdk.Stack):
         rule.add_target(aws_events_targets.LambdaFunction(lambda_func))
 
 
+class CloudHsmCWLogsExporterStack(cdk.Stack):
+    def __init__(self, scope: cdk.Construct, construct_id: str,
+                 **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
+        role_name_cwl_to_kdf = cdk.Fn.import_value(
+            'siem-cwl-to-kdf-role-name-v2')
+        role_name_kdf_to_s3 = cdk.Fn.import_value(
+            'siem-kdf-to-s3-role-name-v2')
+
+        kdf_hsm_name = cdk.CfnParameter(
+            self, 'KdfHsmName',
+            description=('Define new Kinesis Data Firehose Name '
+                         'to deliver CloudHSM CloudWatch Logs'),
+            default='siem-cloudhsm-cwl-to-s3')
+        kdf_buffer_size = cdk.CfnParameter(
+            self, 'KdfBufferSize', type='Number',
+            description='Enter a buffer size between 64 - 128 (MiB)',
+            default=64, min_value=64, max_value=128)
+        kdf_buffer_interval = cdk.CfnParameter(
+            self, 'KdfBufferInterval', type='Number',
+            description='Enter a buffer interval between 60 - 900 (seconds.)',
+            default=60, min_value=60, max_value=900)
+        cwl_hsm_name = cdk.CfnParameter(
+            self, 'CwlHsmName',
+            description='Specify CloudWatch Logs group name',
+            default='/aws/cloudhsm/cluster-XXXXXXXXXXX')
+
+        self.template_options.metadata = {
+            'AWS::CloudFormation::Interface': {
+                'ParameterGroups': [
+                    {'Label': {'default': 'CloudWatch Logs'},
+                     'Parameters': [cwl_hsm_name.logical_id]},
+                    {'Label': {'default': 'Amazon Kinesis Data Firehose'},
+                     'Parameters': [kdf_hsm_name.logical_id,
+                                    kdf_buffer_size.logical_id,
+                                    kdf_buffer_interval.logical_id]}]
+            }
+        }
+
+        kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "Kdf",
+            delivery_stream_name=kdf_hsm_name.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                error_output_prefix="ErrorLogs/",
+                prefix=(f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/CloudHSM/'
+                        f'{cdk.Aws.REGION}/'),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}'),
+            )
+        )
+
+        aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscription',
+            destination_arn=kdf_to_s3.attr_arn,
+            filter_pattern='',
+            log_group_name=cwl_hsm_name.value_as_string,
+            role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}')
+        )
+
+
 class CoreLogExporterStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str,
                  **kwargs) -> None:
