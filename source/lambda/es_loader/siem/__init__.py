@@ -905,7 +905,7 @@ class LogParser:
             if isinstance(value, dict):
                 self.truncate_big_field(value)
             elif (isinstance(value, str) and (len(value) >= 16383)
-                    and len(value.encode('utf-8')) >= 32766):
+                    and len(value.encode('utf-8', 'surrogatepass')) >= 32766):
                 if key not in ("@message", ):
                     d[key] = self.truncate_txt(d[key], 32753) + '<<TRUNCATED>>'
                     logger.warning(
