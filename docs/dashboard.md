@@ -8,6 +8,7 @@
 * [Amazon GuardDuty](#Amazon-GuardDuty)
 * [AWS CloudTrail](#AWS-CloudTrail)
 * [Amazon CloudFront](#Amazon-CloudFront)
+* [AWS Client VPN](#AWS-Client-VPN)
 * [Amazon VPC Flow Logs](#Amazon-VPC-Flow-Logs)
 * [Amazon VPC Flow Logs Custom](#Amazon-VPC-Flow-Logs-Custom)
 * [Elastic Load Balancing](#Elastic-Load-Balancing)
@@ -41,6 +42,10 @@ This dashboard was imported from [AWS WAF Dashboard](https://github.com/aws-samp
 ## Amazon CloudFront
 
 ![Amazon CloudFront Dashboard](images/dashboard-cloudfront.jpg)
+
+## Amazon ClientVPN
+
+![Amazon ClientVPN Dashboard](images/dashboard-clientvpn.jpg)
 
 ## Amazon VPC Flow Logs
 

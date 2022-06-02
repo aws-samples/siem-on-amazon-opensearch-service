@@ -12,6 +12,7 @@ from aws_cdk import core
 
 from deployment_samples.deployment_samples_stack import (
     ADLogExporterStack,
+    ClientVpnLogExporterStack,
     CloudHsmCWLogsExporterStack,
     CoreLogExporterStack,
     CWLNoCompressExporterStack,
@@ -54,6 +55,10 @@ cloudhsm_logging = CloudHsmCWLogsExporterStack(
     app, "siem-log-exporter-cloudhsm-cwl",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - CloudHSM'))
+clientvpn_logging = ClientVpnLogExporterStack(
+    app, "siem-log-exporter-clientvpn",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - ClientVPN'))
 eventbridge_events_logging = EventBridgeEventsExporterStack(
     app, "siem-log-exporter-eventbridge-events",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '

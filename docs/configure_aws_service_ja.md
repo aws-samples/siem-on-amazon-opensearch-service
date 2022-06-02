@@ -24,6 +24,7 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
     * [Route 53 Resolver VPC DNS Query Log](#Route-53-Resolver-VPC-DNS-Query-Log)
     * [Amazon Virtual Private Cloud (Amazon VPC) Flow Logs](#Amazon-VPC-Flow-Logs)
     * [Elastic Load Balancing (ELB)](#Elastic-Load-Balancing-ELB)
+    * [AWS Client VPN](#aws-client-vpn)
 1. [ストレージ](#5-ストレージ)
     * [Amazon FSx for Windows File Server audit log](#Amazon-FSx-for-Windows-File-Server-audit-log)
     * [Amazon Simple Storage Service (Amazon S3) access log](#Amazon-S3-access-log)
@@ -511,6 +512,32 @@ s3_key の初期値はデフォルトの出力パスとファイル名を正規�
         * この場所の作成: チェックをせず
         * [**保存**] を選択して設定完了です
 
+### AWS Client VPN
+
+![clientvpn to S3](images/clientvpn-to-s3.jpg)
+
+s3_key の初期値: `ClientVPN，固定値で出力されるので設定不要。
+ClientVPNのログはまずCloudWatch Logsに送信し，その後はAmazon Kinesis Data Firehose経由してS3バケットに出力します。
+ClientVPNログはCloudWatch Logsに送信するのは手動による設定必要です。CLoudWatchからS3バケットに出力するのはCloudFormationによる展開できます。
+
+#### I.手動による設定(CloudWatchに出力の準備）
+
+1. [CloudWatch コンソール](https://console.aws.amazon.com/cloudwatch/home?)に移動します。
+    1. **ロググループ** を選択し、**ロググループを作成** をクリックします。
+    1. ロググループを作成。**ロググループ名** を `/aws/clientvpn` として、それ以外はデフォルトで、作成をクリックします。
+    1. ログストリームの作成。先ほど作成した、`/aws/clientvpn`というロググループをクリックします。**ログストリーム** タブを選択して、**ログストリームを作成** をクリックします。ログストリーム名に `connection-log` と入力して、Createをクリックします。
+1. [VPC コンソール](https://console.aws.amazon.com/vpc/home?) に移動します。
+    1. 左側ペインから **クライアント VPN エンドポイント** を選択し、**クライアント VPN エンドポイントの作成** をクリックします。
+    1. **CloudWatch Logsロググループ名** に `/aws/clientvpn`　を選択，**CloudWatch Logsログストリーム名** に `connection-log` を選択すればCloudWatch Logsに出力の準備は完了です。
+
+#### II.CloudFormation による設定(S3に出力の準備)
+
+| No | CloudFormation | 説明 |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.1-beta.1/log-exporter/siem-log-exporter-clientvpn.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.7.1-beta.1/log-exporter/siem-log-exporter-clientvpn.template) | パラメータの設定について。 **Stack name** は任意に設定してください。**BucketName** は `aes-siem-${YourAccountID}-log` の${YourAccountID}部分はご利用の AWS アカウント ID に置換してください。他のパラメータはデフォルトのままにスタックを作成してください。|
+
+以上設定完了です。
+参考：[AWS Client VPN Basic ハンズオン](https://catalog.us-east-1.prod.workshops.aws/workshops/be2b90c2-06a1-4ae6-84b3-c705049d2b6f/ja-JP)
 ## 5. ストレージ
 
 ### Amazon FSx for Windows File Server audit log
