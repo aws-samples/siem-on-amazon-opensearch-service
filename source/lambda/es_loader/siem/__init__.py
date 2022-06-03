@@ -24,6 +24,7 @@ from aws_lambda_powertools import Logger
 
 from siem import utils
 from siem.fileformat_base import FileFormatBase
+from siem.fileformat_cef import FileFormatCef
 from siem.fileformat_csv import FileFormatCsv
 from siem.fileformat_json import FileFormatJson
 from siem.fileformat_multiline import FileFormatMultiline
@@ -193,6 +194,8 @@ class LogS3:
                 self.rawdata, self.logconfig, self.logtype)
         elif self.file_format == 'xml':
             return FileFormatXml(self.rawdata, self.logconfig, self.logtype)
+        elif self.file_format == 'cef':
+            return FileFormatCef(self.rawdata, self.logconfig, self.logtype)
         elif not self.file_format:
             self.is_ignored = True
             self.ignored_reason = (
