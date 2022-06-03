@@ -32,6 +32,7 @@ SIEM on OpenSearch Service 能够加载并关联以下日志类型。
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS 查询日志|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
 |Networking & Content Delivery|Elastic Load Balancing|Application Load Balancer 访问日志<br>Network Load Balancer 访问日志<br>Classic Load Balancer 访问日志|
+|Networking & Content Delivery|AWS Client VPN|connection log 连接日志|
 |Storage|Amazon FSx for Windows File Server|audit log|
 |Storage|Amazon Simple Storage Service (Amazon S3)|访问日志|
 |Database|Amazon Relational Database Service (Amazon RDS)<br>(**试验中**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
