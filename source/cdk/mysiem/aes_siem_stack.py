@@ -34,7 +34,8 @@ INDEX_METRICS_PERIOD_HOUR = 1
 
 iam_client = boto3.client('iam')
 ec2_resource = boto3.resource('ec2')
-ec2_client = boto3.resource('ec2')
+ec2_client = boto3.client('ec2')
+lambda_client = boto3.client('lambda')
 
 
 def validate_cdk_json(context):
@@ -132,6 +133,19 @@ def check_iam_role(pathprefix):
     if len(role_iterator['Roles']) == 1:
         return True
     else:
+        return False
+
+
+def same_lambda_func_version(func_name):
+    try:
+        response = lambda_client.list_versions_by_function(
+            FunctionName=func_name)
+        exist_ver = response['Versions'][1]['Description']
+        if exist_ver == __version__:
+            return True
+        else:
+            return False
+    except Exception:
         return False
 
 
@@ -566,9 +580,10 @@ class MyAesSiemStack(core.Stack):
                 'vpc_subnets': vpc_subnets,
             }
 
+        function_name = 'aes-siem-es-loader'
         lambda_es_loader = aws_lambda.Function(
             self, 'LambdaEsLoader', **lambda_es_loader_vpc_kwargs,
-            function_name='aes-siem-es-loader',
+            function_name=function_name,
             description=f'{SOLUTION_NAME} / es-loader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
@@ -594,7 +609,8 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
-        lambda_es_loader.current_version
+        if not same_lambda_func_version(function_name):
+            lambda_es_loader.current_version
 
         # send only
         # sqs_aes_siem_dlq.grant(lambda_es_loader, 'sqs:SendMessage')
@@ -617,9 +633,10 @@ class MyAesSiemStack(core.Stack):
             'sqs:ReceiveMessage*', 'sqs:DeleteMessage*')
 
         # setup lambda of es_loader_stopper
+        function_name = 'aes-siem-es-loader-stopper'
         lambda_es_loader_stopper = aws_lambda.Function(
             self, 'LambdaEsLoaderStopper',
-            function_name='aes-siem-es-loader-stopper',
+            function_name=function_name,
             description=f'{SOLUTION_NAME} / es-loader-stopper',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
@@ -637,11 +654,13 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
-        lambda_es_loader_stopper.current_version
+        if not same_lambda_func_version(function_name):
+            lambda_es_loader_stopper.current_version
 
+        function_name = 'aes-siem-geoip-downloader'
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',
-            function_name='aes-siem-geoip-downloader',
+            function_name=function_name,
             description=f'{SOLUTION_NAME} / geoip-downloader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
@@ -660,12 +679,14 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
-        lambda_geo.current_version
+        if not same_lambda_func_version(function_name):
+            lambda_geo.current_version
 
         # setup lambda of opensearch index metrics
+        function_name = 'aes-siem-index-metrics-exporter'
         lambda_metrics_exporter = aws_lambda.Function(
             self, 'LambdaMetricsExporter', **lambda_es_loader_vpc_kwargs,
-            function_name='aes-siem-index-metrics-exporter',
+            function_name=function_name,
             description=f'{SOLUTION_NAME} / index-metrics-exporter',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             architecture=aws_lambda.Architecture.X86_64,
@@ -681,14 +702,16 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
-        lambda_metrics_exporter.current_version
+        if not same_lambda_func_version(function_name):
+            lambda_metrics_exporter.current_version
 
         ######################################################################
         # setup OpenSearch Service
         ######################################################################
+        function_name = 'aes-siem-deploy-aes'
         lambda_deploy_es = aws_lambda.Function(
             self, 'LambdaDeployAES',
-            function_name='aes-siem-deploy-aes',
+            function_name=function_name,
             description=f'{SOLUTION_NAME} / opensearch domain deployment',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
@@ -711,7 +734,8 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
-        lambda_deploy_es.current_version
+        if not same_lambda_func_version(function_name):
+            lambda_deploy_es.current_version
         lambda_deploy_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
@@ -732,6 +756,7 @@ class MyAesSiemStack(core.Stack):
             'SQS_SPLITTED_LOGS_URL', sqs_aes_siem_splitted_logs.queue_url)
         lambda_metrics_exporter.add_environment('ES_ENDPOINT', es_endpoint)
 
+        function_name = 'aes-siem-configure-aes'
         lambda_configure_es_vpc_kwargs = {}
         if vpc_type:
             lambda_configure_es_vpc_kwargs = {
@@ -740,7 +765,7 @@ class MyAesSiemStack(core.Stack):
                 'vpc_subnets': aws_ec2.SubnetSelection(subnets=[subnet1, ]), }
         lambda_configure_es = aws_lambda.Function(
             self, 'LambdaConfigureAES', **lambda_configure_es_vpc_kwargs,
-            function_name='aes-siem-configure-aes',
+            function_name=function_name,
             description=f'{SOLUTION_NAME} / opensearch configuration',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
@@ -764,7 +789,8 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
-        lambda_configure_es.current_version
+        if not same_lambda_func_version(function_name):
+            lambda_configure_es.current_version
         lambda_configure_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
