@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.1] - 2022-06-05
+### Added
+- Access Point ARN field to s3 access log #260
+- CEF File format #28,#259
+- Supported and normalized log: AWS Client VPN, AWS ClouhdHSM #197,#253,#257
+- Dashboard: AWS Client VPN, AWS ClouhdHSM #197,#253,#257
+- Support for multiple CIDR blocks in vpc #252
+### Changed
+- Enhanced error handling of deplyment-aes when opensearch domain exists #262
+### Fixed
+- Fixed issue with updating cdk.json #261
+- UnicodeEncodeError when non utf8 code includs in log #255
+- Fixed regex issue: S3 accesslog #254
+
 ## [2.7.0] - 2022-04-22
 ### Added
 - Supported OpenSearch Service version: 1.1, 1.2 #210,#237

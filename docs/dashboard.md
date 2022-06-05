@@ -43,9 +43,9 @@ This dashboard was imported from [AWS WAF Dashboard](https://github.com/aws-samp
 
 ![Amazon CloudFront Dashboard](images/dashboard-cloudfront.jpg)
 
-## Amazon ClientVPN
+## AWS Client VPN
 
-![Amazon ClientVPN Dashboard](images/dashboard-clientvpn.jpg)
+![AWS Client VPN Dashboard](images/dashboard-clientvpn.jpg)
 
 ## Amazon VPC Flow Logs
 

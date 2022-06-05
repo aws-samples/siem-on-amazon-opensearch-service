@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1-beta.1'
+__version__ = '2.7.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -16,8 +16,8 @@ def convert_text_into_dict(temp_value):
 
 
 def extract_instance_id(logdata):
-    event_source = logdata.get('eventSource')
-    event_name = logdata.get('eventName')
+    event_source = logdata.get('eventSource', '')
+    event_name = logdata.get('eventName', '')
     instance_id = None
     if event_source == 'ssm.amazonaws.com':
         if event_name in ('StartSession', 'GetConnectionStatus'):
