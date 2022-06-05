@@ -2,7 +2,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 __copyright__ = 'Amazon.com, Inc. or its affiliates'
-__version__ = '2.7.0'
+__version__ = '2.7.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -592,8 +592,14 @@ def aes_domain_create(event, context):
     if event:
         logger.debug(json.dumps(event, default=json_serial))
     setup_aes_system_log()
-    # opensearch_client.create_domain(**config_domain)
-    client.create_elasticsearch_domain(**config_domain)
+    # response = opensearch_client.create_domain(**config_domain)
+    response = client.create_elasticsearch_domain(**config_domain)
+    time.sleep(3)
+    logger.debug(json.dumps(response, default=json_serial))
+    if (response['DomainStatus']['Created']
+            and not response['DomainStatus']['Processing']):
+        raise Exception('OpenSearch Domain already exists. Aborted. '
+                        'Remove the domain and re-deploy')
     kibanapass = make_password(8)
     helper_domain.Data.update({"kibanapass": kibanapass})
     logger.info("End Create. To be continue in poll create")

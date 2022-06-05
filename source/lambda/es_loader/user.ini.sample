@@ -1,6 +1,6 @@
 [DEFAULT]
 # デフォルトの設定を上書き
-index_rotation = auto
+# index_rotation = auto
 
 # ECS 上のコンテナで動作している apache のログを取り込む例
 [apache-ecs]
@@ -24,6 +24,35 @@ static_ecs = @log_type
 @log_type = apache
 
 geoip = source
+
+
+[cloudhsm-cwl]
+# export CWL CloudHSM log group to S3 with prefix 'cloudhsm-cwl/awsaccountid/region/xxxxxxxxxxx'
+# xxxxxxxxxxx is your culster name
+# ex) cloudhsm-cwl/123456789012/ap-northeast-1/cluster-dxejcute66n
+#
+# export S3_HSM='esxample-bucket-cloudhsm'
+# aws s3 ls s3://$S3_HSM/cloudhsm-cwl/ --recursive > hsm.list
+# ./index.py -b $S3_HSM -l hsm.list
+
+index_name = ${cloudhsm:index_name}
+file_format = ${cloudhsm:file_format}
+timestamp_key = ${cloudhsm:timestamp_key}
+timestamp_format = ${cloudhsm:timestamp_format}
+field_prefix = ${cloudhsm:field_prefix}
+log_pattern = ${cloudhsm:log_pattern}
+
+s3_key = cloudhsm-cwl/
+index_rotation = monthly
+multiline_firstline = ^20\d{2}-\d{2}-\d{2}
+
+ecs = user.id
+user.id = user_id
+
+static_ecs = @log_type
+@log_type = cloudhsm
+
+script_ecs = cloud.instance.id user.name
 
 
 [deepsecurity]
@@ -85,3 +114,4 @@ event.kind = event
 event.category = web
 
 geoip = source
+

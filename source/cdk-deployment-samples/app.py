@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.0'
+__version__ = '2.7.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -12,6 +12,8 @@ from aws_cdk import core
 
 from deployment_samples.deployment_samples_stack import (
     ADLogExporterStack,
+    ClientVpnLogExporterStack,
+    CloudHsmCWLogsExporterStack,
     CoreLogExporterStack,
     CWLNoCompressExporterStack,
     DeploymentSamplesStack,
@@ -49,6 +51,14 @@ ad_logging = ADLogExporterStack(
     app, "siem-log-exporter-ad",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - Active Directory'))
+cloudhsm_logging = CloudHsmCWLogsExporterStack(
+    app, "siem-log-exporter-cloudhsm-cwl",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - CloudHSM'))
+clientvpn_logging = ClientVpnLogExporterStack(
+    app, "siem-log-exporter-clientvpn",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - ClientVPN'))
 eventbridge_events_logging = EventBridgeEventsExporterStack(
     app, "siem-log-exporter-eventbridge-events",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '

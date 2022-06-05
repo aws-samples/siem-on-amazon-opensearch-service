@@ -19,6 +19,7 @@ SIEM on OpenSearch Service 能夠加載並關聯以下日誌類型。
 
 |       |Amazon 服務|日誌|
 |-------|-----------|---|
+|Security, Identity, & Compliance|AWS CloudHSM|HSM audit logs|
 |Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty 問題清單|
 |Security, Identity, & Compliance|Amazon Inspector|Inspector 問題清單|
 |Security, Identity, & Compliance|AWS Directory Service|Microsoft AD|
@@ -32,6 +33,7 @@ SIEM on OpenSearch Service 能夠加載並關聯以下日誌類型。
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS 查詢日誌|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
 |Networking & Content Delivery|Elastic Load Balancing|Application Load Balancer 訪問日誌<br>Network Load Balancer 訪問日誌<br>Classic Load Balancer 訪問日誌|
+|Networking & Content Delivery|AWS Client VPN|connection log 連接日誌|
 |Storage|Amazon FSx for Windows File Server|audit log|
 |Storage|Amazon Simple Storage Service (Amazon S3)|訪問日誌|
 |Database|Amazon Relational Database Service (Amazon RDS)<br>(**試驗中**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|

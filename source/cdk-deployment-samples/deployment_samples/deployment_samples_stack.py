@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.0'
+__version__ = '2.7.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -22,7 +22,7 @@ LAMBDA_GET_WORKSPACES_INVENTORY = '''# Copyright Amazon.com, Inc. or its affilia
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.0'
+__version__ = '2.7.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -114,7 +114,7 @@ def lambda_handler(event, context):
 LAMBDA_GET_TRUSTEDADVISOR_CHECK_RESULT = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 __copyright__ = 'Amazon.com, Inc. or its affiliates'
-__version__ = '2.7.0'
+__version__ = '2.7.1'
 __license__ = 'MIT-0'
 __author__ = 'Katsuya Matsuoka'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -691,6 +691,142 @@ class TrustedAdvisorLogExporterStack(cdk.Stack):
             schedule=aws_events.Schedule.rate(
                 cdk.Duration.minutes(cwe_frequency.value_as_number)))
         rule.add_target(aws_events_targets.LambdaFunction(lambda_func))
+
+
+class CloudHsmCWLogsExporterStack(cdk.Stack):
+    def __init__(self, scope: cdk.Construct, construct_id: str,
+                 **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
+        role_name_cwl_to_kdf = cdk.Fn.import_value(
+            'siem-cwl-to-kdf-role-name-v2')
+        role_name_kdf_to_s3 = cdk.Fn.import_value(
+            'siem-kdf-to-s3-role-name-v2')
+
+        kdf_hsm_name = cdk.CfnParameter(
+            self, 'KdfHsmName',
+            description=('Define new Kinesis Data Firehose Name '
+                         'to deliver CloudHSM CloudWatch Logs'),
+            default='siem-cloudhsm-cwl-to-s3')
+        kdf_buffer_size = cdk.CfnParameter(
+            self, 'KdfBufferSize', type='Number',
+            description='Enter a buffer size between 64 - 128 (MiB)',
+            default=64, min_value=64, max_value=128)
+        kdf_buffer_interval = cdk.CfnParameter(
+            self, 'KdfBufferInterval', type='Number',
+            description='Enter a buffer interval between 60 - 900 (seconds.)',
+            default=60, min_value=60, max_value=900)
+        cwl_hsm_name = cdk.CfnParameter(
+            self, 'CwlHsmName',
+            description='Specify CloudWatch Logs group name',
+            default='/aws/cloudhsm/cluster-XXXXXXXXXXX')
+
+        self.template_options.metadata = {
+            'AWS::CloudFormation::Interface': {
+                'ParameterGroups': [
+                    {'Label': {'default': 'CloudWatch Logs'},
+                     'Parameters': [cwl_hsm_name.logical_id]},
+                    {'Label': {'default': 'Amazon Kinesis Data Firehose'},
+                     'Parameters': [kdf_hsm_name.logical_id,
+                                    kdf_buffer_size.logical_id,
+                                    kdf_buffer_interval.logical_id]}]
+            }
+        }
+
+        kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "Kdf",
+            delivery_stream_name=kdf_hsm_name.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                error_output_prefix="ErrorLogs/",
+                prefix=(f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/CloudHSM/'
+                        f'{cdk.Aws.REGION}/'),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}'),
+            )
+        )
+
+        aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscription',
+            destination_arn=kdf_to_s3.attr_arn,
+            filter_pattern='',
+            log_group_name=cwl_hsm_name.value_as_string,
+            role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}')
+        )
+
+
+class ClientVpnLogExporterStack(cdk.Stack):
+    def __init__(self, scope: cdk.Construct, construct_id: str,
+                 **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
+        role_name_cwl_to_kdf = cdk.Fn.import_value(
+            'siem-cwl-to-kdf-role-name-v2')
+        role_name_kdf_to_s3 = cdk.Fn.import_value(
+            'siem-kdf-to-s3-role-name-v2')
+
+        kdf_clientvpn_name = cdk.CfnParameter(
+            self, 'KdfClientVpnName',
+            description=('Define new Kinesis Data Firehose Name '
+                         'to deliver Client VPN CloudWatch Logs'),
+            default='siem-clientvpn-to-s3')
+        kdf_buffer_size = cdk.CfnParameter(
+            self, 'KdfBufferSize', type='Number',
+            description='Enter a buffer size between 64 - 128 (MiB)',
+            default=64, min_value=64, max_value=128)
+        kdf_buffer_interval = cdk.CfnParameter(
+            self, 'KdfBufferInterval', type='Number',
+            description='Enter a buffer interval between 60 - 900 (seconds.)',
+            default=60, min_value=60, max_value=900)
+        cwl_clientvpn_name = cdk.CfnParameter(
+            self, 'CwlClientVpnName',
+            description='Specify Client VPN CloudWatch Logs group name',
+            default='/aws/clientvpn')
+
+        self.template_options.metadata = {
+            'AWS::CloudFormation::Interface': {
+                'ParameterGroups': [
+                    {'Label': {'default': 'CloudWatch Logs'},
+                     'Parameters': [cwl_clientvpn_name.logical_id]},
+                    {'Label': {'default': 'Amazon Kinesis Data Firehose'},
+                     'Parameters': [kdf_clientvpn_name.logical_id,
+                                    kdf_buffer_size.logical_id,
+                                    kdf_buffer_interval.logical_id]}]
+            }
+        }
+
+        kdf_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "Kdf",
+            delivery_stream_name=kdf_clientvpn_name.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                error_output_prefix="ErrorLogs/",
+                prefix=(f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/ClientVPN/'
+                        f'{cdk.Aws.REGION}/'),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}'),
+            )
+        )
+
+        aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscription',
+            destination_arn=kdf_to_s3.attr_arn,
+            filter_pattern='',
+            log_group_name=cwl_clientvpn_name.value_as_string,
+            role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}')
+        )
 
 
 class CoreLogExporterStack(cdk.Stack):

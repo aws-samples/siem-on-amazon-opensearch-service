@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.0'
+__version__ = '2.7.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -24,6 +24,7 @@ from aws_lambda_powertools import Logger
 
 from siem import utils
 from siem.fileformat_base import FileFormatBase
+from siem.fileformat_cef import FileFormatCef
 from siem.fileformat_csv import FileFormatCsv
 from siem.fileformat_json import FileFormatJson
 from siem.fileformat_multiline import FileFormatMultiline
@@ -193,6 +194,8 @@ class LogS3:
                 self.rawdata, self.logconfig, self.logtype)
         elif self.file_format == 'xml':
             return FileFormatXml(self.rawdata, self.logconfig, self.logtype)
+        elif self.file_format == 'cef':
+            return FileFormatCef(self.rawdata, self.logconfig, self.logtype)
         elif not self.file_format:
             self.is_ignored = True
             self.ignored_reason = (
@@ -476,6 +479,7 @@ class LogParser:
         if isinstance(logdict, dict):
             pass
         elif logdict == 'regex_error':
+            self.__logdata_dict = {'is_ignored': True}
             self.logfile.error_logs_count += 1
             return
 
@@ -760,7 +764,13 @@ class LogParser:
 
     def transform_by_script(self):
         if self.logconfig['script_ecs']:
-            self.__logdata_dict = self.sf_module.transform(self.__logdata_dict)
+            try:
+                self.__logdata_dict = self.sf_module.transform(
+                    self.__logdata_dict)
+            except Exception:
+                # self.logfile.error_logs_count += 1
+                logger.exception(
+                    f'Exception error has occurs in sf_{self.logtype}.py')
 
     def enrich(self):
         enrich_dict = {}
@@ -783,11 +793,16 @@ class LogParser:
 
     def add_field_prefix(self):
         if self.logconfig.get('field_prefix'):
-            self.__logdata_dict[self.logconfig.get('field_prefix')] = {}
+            field_prefix = self.logconfig.get('field_prefix')
+            if (field_prefix in self.__logdata_dict
+                    and isinstance(self.__logdata_dict[field_prefix], dict)):
+                pass
+            else:
+                self.__logdata_dict[field_prefix] = {}
             for field in self.original_fields:
                 try:
-                    self.__logdata_dict[self.logconfig.get(
-                        'field_prefix')][field] = self.__logdata_dict[field]
+                    self.__logdata_dict[field_prefix][field] = (
+                        self.__logdata_dict[field])
                     del self.__logdata_dict[field]
                 except KeyError:
                     pass
@@ -893,7 +908,7 @@ class LogParser:
             if isinstance(value, dict):
                 self.truncate_big_field(value)
             elif (isinstance(value, str) and (len(value) >= 16383)
-                    and len(value.encode('utf-8')) >= 32766):
+                    and len(value.encode('utf-8', 'surrogatepass')) >= 32766):
                 if key not in ("@message", ):
                     d[key] = self.truncate_txt(d[key], 32753) + '<<TRUNCATED>>'
                     logger.warning(

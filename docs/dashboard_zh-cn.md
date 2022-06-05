@@ -4,9 +4,11 @@
 
 * [AWS Security Hub](#AWS-Security-Hub)
 * [AWS WAF](#AWS-WAF)
+* [AWS CloudHSM](#AWS-CloudHSM)
 * [Amazon GuardDuty](#Amazon-GuardDuty)
 * [AWS CloudTrail](#AWS-CloudTrail)
 * [Amazon CloudFront](#Amazon-CloudFront)
+* [AWS Client VPN](#AWS-Client-VPN)
 * [Amazon VPC Flow Logs](#Amazon-VPC-Flow-Logs)
 * [Amazon VPC Flow Logs Custom](#Amazon-VPC-Flow-Logs-Custom)
 * [Elastic Load Balancing](#Elastic-Load-Balancing)
@@ -25,6 +27,10 @@
 
 ![AWS WAF Dashboard](images/dashboard-awswaf.jpg)
 
+## AWS CloudHSM
+
+![AWS CloudHSM Dashboard](images/dashboard-cloudhsm.jpg)
+
 ## Amazon GuardDuty
 
 ![Amazon GuardDuty Dashboard](images/dashboard-guardduty.jpg)
@@ -36,6 +42,10 @@
 ## Amazon CloudFront
 
 ![Amazon CloudFront Dashboard](images/dashboard-cloudfront.jpg)
+
+## AWS Client VPN
+
+![AWS Client VPN Dashboard](images/dashboard-clientvpn.jpg)
 
 ## Amazon VPC Flow Logs
 

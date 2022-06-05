@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.0'
+__version__ = '2.7.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -13,6 +13,42 @@ def convert_text_into_dict(temp_value):
         return {'value': temp_value}
     else:
         return temp_value
+
+
+def extract_instance_id(logdata):
+    event_source = logdata.get('eventSource', '')
+    event_name = logdata.get('eventName', '')
+    instance_id = None
+    if event_source == 'ssm.amazonaws.com':
+        if event_name in ('StartSession', 'GetConnectionStatus'):
+            instance_id = logdata.get('requestParameters', {}).get('target')
+    elif event_source in ('sts.amazonaws.com'):
+        if logdata.get('userAgent') == 'ec2.amazonaws.com':
+            instance_id = logdata.get(
+                'requestParameters', {}).get('roleSessionName')
+
+    elif event_source in ('cloudhsm.amazonaws.com'):
+        logdata['related'] = {'hosts': []}
+        try:
+            cluster_id = logdata.get('requestParameters', {}).get('clusterId')
+        except Exception:
+            cluster_id = None
+        if cluster_id:
+            logdata['related']['hosts'].append(cluster_id)
+        try:
+            hsm_id = logdata['responseElements']['hsmId']
+        except Exception:
+            try:
+                hsm_id = logdata['responseElements']['hsm']['hsmId']
+            except Exception:
+                hsm_id = None
+        if hsm_id:
+            logdata['cloud']['instance'] = {'id': hsm_id}
+            logdata['related']['hosts'].append(hsm_id)
+
+    if instance_id:
+        logdata['cloud']['instance'] = {'id': instance_id}
+    return logdata
 
 
 def transform(logdata):
@@ -26,6 +62,7 @@ def transform(logdata):
             logdata['user']['name'] = name.split(':')[-1].split('/')[-1]
     except KeyError:
         pass
+    logdata = extract_instance_id(logdata)
 
     # https://github.com/aws-samples/siem-on-amazon-elasticsearch/issues/33
     try:
@@ -157,5 +194,12 @@ def transform(logdata):
             for i, rule in enumerate(rules):
                 if rule.get('Filter'):
                     rules[i]['Filter'] = str(rule['Filter'])
+    elif event_source in ('inspector2.amazonaws.com'):
+        try:
+            ids = logdata['requestParameters']['accountIds']
+        except (KeyError, TypeError):
+            ids = None
+        if ids and isinstance(ids, list) and isinstance(ids[0], dict):
+            logdata['requestParameters']['accountIds'] = str(ids)
 
     return logdata

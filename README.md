@@ -19,6 +19,7 @@ SIEM on OpenSearch Service can load and correlate the following log types.
 
 |       |AWS Service|Log|
 |-------|-----------|---|
+|Security, Identity, & Compliance|AWS CloudHSM|HSM audit logs|
 |Security, Identity, & Compliance|Amazon GuardDuty|GuardDuty findings|
 |Security, Identity, & Compliance|Amazon Inspector|Inspector findings|
 |Security, Identity, & Compliance|AWS Directory Service|Microsoft AD|
@@ -32,6 +33,7 @@ SIEM on OpenSearch Service can load and correlate the following log types.
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS query log|
 |Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
 |Networking & Content Delivery|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
+|Networking & Content Delivery|AWS Client VPN|connection log|
 |Storage|Amazon FSx for Windows File Server|audit log|
 |Storage|Amazon Simple Storage Service (Amazon S3)|access log|
 |Database|Amazon Relational Database Service (Amazon RDS)<br>(**Experimental Support**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
