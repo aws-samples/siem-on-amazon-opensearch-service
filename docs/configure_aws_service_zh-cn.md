@@ -208,7 +208,7 @@ s3_key初始值：`(TrustedAdvisor |trustedadvisor)` 无需设置初始值，Lam
 
 ![cloudfront starndard to s3](images/cloudfront-standard-to-s3.jpg)
 
- s3_key 初始值: `(^|\/)[0-9A-Z]{13,14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\.gz$$`
+ s3_key 初始值: `(^|\/)[0-9A-Z]{12,14}\.20\d{2}-\d{2}-\d{2}-\d{2}.[0-9a-z]{8}\.gz$$`
 
 日志类型由使用正则表达式的默认输出文件名来确定。 由于CloudFront标准日志不包含 AWS 账户 ID，因此您应该将它们包含在 S3 前缀中。
 
