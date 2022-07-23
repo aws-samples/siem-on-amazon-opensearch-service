@@ -488,11 +488,11 @@ class MyAesSiemStack(core.Stack):
         aes_siem_snapshot_role = aws_iam.Role(
             self, 'AesSiemSnapshotRole',
             role_name='aes-siem-snapshot-role',
-            inline_policies=[policydoc_snapshot, ],
+            inline_policies={'s3access': policydoc_snapshot},
             assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
         )
 
-        policydoc_assume_snapshrole = aws_iam.PolicyDocument(
+        policydoc_assume_snapshotrole = aws_iam.PolicyDocument(
             statements=[
                 aws_iam.PolicyStatement(
                     actions=['iam:PassRole'],
@@ -510,8 +510,11 @@ class MyAesSiemStack(core.Stack):
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
                     'service-role/AWSLambdaBasicExecutionRole'),
             ],
-            inline_policies=[policydoc_assume_snapshrole, policydoc_snapshot,
-                             policydoc_create_loggroup, policydoc_crhelper],
+            inline_policies={
+                'assume_snapshotrole': policydoc_assume_snapshotrole,
+                's3access': policydoc_snapshot,
+                'cwl_loggroup': policydoc_create_loggroup,
+                'crhelper': policydoc_crhelper},
             assumed_by=aws_iam.ServicePrincipal('lambda.amazonaws.com')
         )
 
