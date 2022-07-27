@@ -451,11 +451,12 @@ class LogParser:
     フィールドのECSへの統一、最後にJSON化、する
     """
     def __init__(self, logfile, logconfig, sf_module, geodb_instance,
-                 exclude_log_patterns):
+                 ioc_instance, exclude_log_patterns):
         self.logfile = logfile
         self.logconfig = logconfig
         self.sf_module = sf_module
         self.geodb_instance = geodb_instance
+        self.ioc_instance = ioc_instance
         self.exclude_log_patterns = exclude_log_patterns
 
         self.logtype = logfile.logtype
@@ -772,8 +773,23 @@ class LogParser:
                 logger.exception(
                     f'Exception error has occurs in sf_{self.logtype}.py')
 
+    def create_ioc_ip_dict(self, ioc_ip_dict, ip, field):
+        if ip not in ioc_ip_dict:
+            ioc_ip_dict[ip] = [field]
+        else:
+            ioc_ip_dict[ip].append(field)
+        return ioc_ip_dict
+
+    def create_ioc_domain_dict(self, ioc_domain_dict, domain, field):
+        if domain not in ioc_domain_dict:
+            ioc_domain_dict[domain] = [field]
+        else:
+            ioc_domain_dict[domain].append(field)
+        return ioc_domain_dict
+
     def enrich(self):
         enrich_dict = {}
+
         # geoip
         geoip_list = self.logconfig['geoip'].split()
         for geoip_ecs in geoip_list:
@@ -788,6 +804,53 @@ class LogParser:
                 enrich_dict[geoip_ecs].update({'as': asn})
             elif asn:
                 enrich_dict[geoip_ecs] = {'as': asn}
+
+        # IOC
+        enrich_dict['threat.enrichments'] = []
+
+        ioc_ip_list = self.logconfig['ioc_ip']
+        if ioc_ip_list and self.ioc_instance.is_enabled:
+            ioc_ip_dict = {}
+            for field in ioc_ip_list:
+                ips = utils.value_from_nesteddict_by_dottedkey(
+                    self.__logdata_dict, field)
+                if isinstance(ips, str):
+                    ioc_ip_dict = self.create_ioc_ip_dict(
+                        ioc_ip_dict, ips, field)
+                elif isinstance(ips, list):
+                    for ip in ips:
+                        ioc_ip_dict = self.create_ioc_ip_dict(
+                            ioc_ip_dict, ip, field)
+            for ipaddr, fields in ioc_ip_dict.items():
+                enrichments = self.ioc_instance.check_ipaddress(ipaddr)
+                if enrichments:
+                    enrichments = self.ioc_instance.add_mached_fields(
+                        enrichments, fields)
+                    enrich_dict['threat.enrichments'].append(enrichments)
+
+        ioc_domain_list = self.logconfig['ioc_domain']
+        if ioc_domain_list and self.ioc_instance.is_enabled:
+            ioc_domain_dict = {}
+            for field in ioc_domain_list:
+                domains = utils.value_from_nesteddict_by_dottedkey(
+                    self.__logdata_dict, field)
+                if isinstance(domains, str):
+                    ioc_domain_dict = self.create_ioc_domain_dict(
+                        ioc_domain_dict, domains, field)
+                elif isinstance(domains, list):
+                    for domain in domains:
+                        ioc_domain_dict = self.create_ioc_domain_dict(
+                            ioc_domain_dict, domain, field)
+            for domain, fields in ioc_domain_dict.items():
+                enrichments = self.ioc_instance.check_domain(domain)
+                if enrichments:
+                    enrichments = self.ioc_instance.add_mached_fields(
+                        enrichments, fields)
+                    enrich_dict['threat.enrichments'].append(enrichments)
+        if len(enrich_dict['threat.enrichments']) == 0:
+            del enrich_dict['threat.enrichments']
+
+        # merge all enrichment
         self.__logdata_dict = utils.merge_dicts(
             self.__logdata_dict, enrich_dict)
 

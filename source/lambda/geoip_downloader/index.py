@@ -18,11 +18,8 @@ import urllib.request
 import boto3
 
 # get var from lambda environment
-try:
-    s3bucket_name = os.environ['s3bucket_name']
-    license_key = os.environ['license_key']
-except KeyError:
-    raise Exception('ERROR: impossible to get lambda environment')
+s3bucket_name = os.environ['s3bucket_name']
+license_key = os.environ.get('license_key', '')
 s3key_prefix = os.environ.get('s3key_prefix', 'GeoLite2/')
 
 s3 = boto3.resource('s3')
@@ -76,8 +73,11 @@ def put_to_s3(filename):
 def send(event, context, responseStatus, responseData, physicalResourceId=None,
          noEcho=False):
     # https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/cfn-lambda-function-code-cfnresponsemodule.html
-    responseUrl = event['ResponseURL']
-    print(responseUrl)
+    responseUrl = event.get('ResponseURL')
+    if responseUrl:
+        print(responseUrl)
+    else:
+        return False
 
     response_body = {}
     response_body['Status'] = responseStatus
@@ -111,22 +111,25 @@ def lambda_handler(event, context):
     status = 'None'
     if event:
         print(json.dumps(event))
-    try:
-        for filename in put_files:
-            status = download_file(filename)
-            if status == 401:
-                break
-            put_to_s3(filename)
-    except Exception as e:
-        print(e)
-        if event and 'RequestType' in event:
-            response = {'failed_reason': e}
-            send(event, context, 'FAILED', response, physicalResourceId)
+    if len(license_key) != 16 or license_key == 'x' * 16:
+        print('Skip. There is no valid maxmind license')
+        status = 401
+    else:
+        try:
+            for filename in put_files:
+                status = download_file(filename)
+                if status == 401:
+                    break
+                put_to_s3(filename)
+        except Exception as e:
+            print(e)
 
+    if status == 200:
+        response = {'status': 'geodb files were downloaded'}
+    elif status == 401:
+        response = {'status': 'invalide license key'}
+    else:
+        response = {'status': 'unknown error'}
     if event and 'RequestType' in event:
-        if status == 401:
-            response = {'status': 'invalide_license_key'}
-        else:
-            response = {'status': 'downloaded'}
         send(event, context, 'SUCCESS', response, physicalResourceId)
-        return(json.dumps(response))
+    return response

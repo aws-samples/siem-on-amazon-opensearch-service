@@ -20,7 +20,7 @@ from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
 import siem
-from siem import geodb, utils
+from siem import geodb, ioc, utils
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
 logger.info(f'version: {__version__}')
@@ -107,7 +107,9 @@ def create_logconfig(logtype):
                  'dns.header_flags', 'dns.resolved_ip', 'dns.type',
                  'ecs', 'static_ecs',
                  'event.category', 'event.type', 'file.attributes',
-                 'host.ip', 'host.mac', 'observer.ip', 'observer.mac',
+                 'host.ip', 'host.mac',
+                 'ioc_domain', 'ioc_ip',
+                 'observer.ip', 'observer.mac',
                  'process.args', 'registry.data.strings',
                  'related.hash', 'related.hosts', 'related.ip', 'related.user',
                  'renamed_newfields',
@@ -164,7 +166,8 @@ def get_es_entries(logfile, exclude_log_patterns):
     sf_module = utils.load_sf_module(logfile, logconfig, user_libs_list)
 
     logparser = siem.LogParser(
-        logfile, logconfig, sf_module, geodb_instance, exclude_log_patterns)
+        logfile, logconfig, sf_module, geodb_instance, ioc_instance,
+        exclude_log_patterns)
     for lograw, logdata, logmeta in logfile:
         logparser(lograw, logdata, logmeta)
         if logparser.is_ignored:
@@ -334,6 +337,7 @@ s3_client = boto3.client('s3', config=s3_session_config)
 sqs_queue = utils.sqs_queue(SQS_SPLITTED_LOGS_URL)
 
 geodb_instance = geodb.GeoDB()
+ioc_instance = ioc.DB()
 utils.show_local_dir()
 
 
