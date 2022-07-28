@@ -540,7 +540,8 @@ class MyAesSiemStack(core.Stack):
             self, 'AesSiemSnapshotRole',
             role_name='aes-siem-snapshot-role',
             inline_policies={'s3access': policydoc_snapshot},
-            assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
+            assumed_by=aws_iam.ServicePrincipal(
+                'opensearchservice.amazonaws.com')
         )
 
         policydoc_assume_snapshotrole = aws_iam.PolicyDocument(
@@ -579,7 +580,8 @@ class MyAesSiemStack(core.Stack):
         aes_siem_sns_role = aws_iam.Role(
             self, 'AesSiemSnsRole',
             role_name='aes-siem-sns-role',
-            assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
+            assumed_by=aws_iam.ServicePrincipal(
+                'opensearchservice.amazonaws.com')
         )
 
         # EC2 role
@@ -598,11 +600,12 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         # in VPC
         ######################################################################
-        aes_role_exist = check_iam_role('/aws-service-role/es.amazonaws.com/')
+        aes_role_exist = check_iam_role(
+            '/aws-service-role/opensearchservice.amazonaws.com/')
         if vpc_type and not aes_role_exist:
             slr_aes = aws_iam.CfnServiceLinkedRole(
                 self, 'AWSServiceRoleForAmazonOpenSearchService',
-                aws_service_name='es.amazonaws.com',
+                aws_service_name='opensearchservice.amazonaws.com',
                 description='Created by cloudformation of siem stack'
             )
             slr_aes.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN

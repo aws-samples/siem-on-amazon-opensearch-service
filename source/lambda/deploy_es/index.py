@@ -18,6 +18,7 @@ from datetime import date, datetime
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import boto3
+import botocore
 import requests
 from crhelper import CfnResource
 from opensearchpy import AWSV4SignerAuth
@@ -30,9 +31,7 @@ helper_domain = CfnResource(json_logging=False, log_level='DEBUG',
 helper_config = CfnResource(json_logging=False, log_level='DEBUG',
                             boto_level='CRITICAL', sleep_on_delete=120)
 
-# opensearch_client = boto3.client('opensearch')
-# boto3 1.19.0 or later is needed
-client = boto3.client('es')
+opensearch_client = boto3.client('opensearch')
 s3_client = boto3.resource('s3')
 
 accountid = os.environ['accountid']
@@ -65,7 +64,7 @@ cwl_resource_policy = {
     'Statement': [
         {
             'Effect': 'Allow',
-            'Principal': {'Service': "es.amazonaws.com"},
+            'Principal': {'Service': "opensearchservice.amazonaws.com"},
             "Action": [
                 'logs:PutLogEvents',
                 'logs:CreateLogStream',
@@ -106,12 +105,9 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': aesdomain,
-    # 'EngineVersion': 'OpenSearch_1.2',
-    'ElasticsearchVersion': 'OpenSearch_1.2',
-    # 'ClusterConfig': {
-    'ElasticsearchClusterConfig': {
-        # 'InstanceType': 't3.medium.search',
-        'InstanceType': 't3.medium.elasticsearch',
+    'EngineVersion': 'OpenSearch_1.3',
+    'ClusterConfig': {
+        'InstanceType': 't3.medium.search',
         'InstanceCount': 1,
         'DedicatedMasterEnabled': False,
         'ZoneAwarenessEnabled': False,
@@ -126,7 +122,7 @@ config_domain = {
     },
     'EBSOptions': {
         'EBSEnabled': True,
-        'VolumeType': 'gp2',
+        # 'VolumeType': 'gp2',
         'VolumeSize': 10,
     },
     'AccessPolicies': access_policies_json,
@@ -197,8 +193,7 @@ def make_password(length):
 
 
 def create_kibanaadmin(kibanapass):
-    # response = opensearch_client.update_domain_config(
-    response = client.update_elasticsearch_domain_config(
+    response = opensearch_client.update_domain_config(
         DomainName=aesdomain,
         AdvancedSecurityOptions={
             # 'Enabled': True,
@@ -592,8 +587,12 @@ def aes_domain_create(event, context):
     if event:
         logger.debug(json.dumps(event, default=json_serial))
     setup_aes_system_log()
-    # response = opensearch_client.create_domain(**config_domain)
-    response = client.create_elasticsearch_domain(**config_domain)
+    try:
+        response = opensearch_client.create_domain(**config_domain)
+    except botocore.exceptions.ClientError:
+        logger.exception('retry in 60s')
+        time.sleep(60)
+        response = opensearch_client.create_domain(**config_domain)
     time.sleep(3)
     logger.debug(json.dumps(response, default=json_serial))
     if (response['DomainStatus']['Created']
@@ -614,8 +613,7 @@ def aes_domain_poll_create(event, context):
     kibanapass = helper_domain.Data.get('kibanapass')
     if not kibanapass:
         kibanapass = 'MASKED'
-    # response = opensearch_client.describe_domain(DomainName=aesdomain)
-    response = client.describe_elasticsearch_domain(DomainName=aesdomain)
+    response = opensearch_client.describe_domain(DomainName=aesdomain)
     logger.debug('Processing domain creation')
     logger.debug(json.dumps(response, default=json_serial))
     is_processing = response['DomainStatus']['Processing']
@@ -641,8 +639,7 @@ def aes_domain_poll_create(event, context):
     while not es_endpoint:
         time.sleep(10)  # wait to finish setup of endpoint
         logger.debug('Processing ES endpoint creation')
-        # response = opensearch_client.describe_domain(DomainName=aesdomain)
-        response = client.describe_elasticsearch_domain(DomainName=aesdomain)
+        response = opensearch_client.describe_domain(DomainName=aesdomain)
         es_endpoint = response['DomainStatus'].get('Endpoint')
         if not es_endpoint and 'Endpoints' in response['DomainStatus']:
             es_endpoint = response['DomainStatus']['Endpoints']['vpc']
@@ -666,8 +663,7 @@ def aes_domain_poll_create(event, context):
 @helper_domain.update
 def aes_domain_update(event, context):
     logger.info("Got Update")
-    # response = opensearch_client.describe_domain(DomainName=aesdomain)
-    response = client.describe_elasticsearch_domain(DomainName=aesdomain)
+    response = opensearch_client.describe_domain(DomainName=aesdomain)
     es_endpoint = response['DomainStatus'].get('Endpoint')
     if not es_endpoint and 'Endpoints' in response['DomainStatus']:
         es_endpoint = response['DomainStatus']['Endpoints']['vpc']
