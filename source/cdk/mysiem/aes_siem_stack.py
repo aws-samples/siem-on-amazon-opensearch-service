@@ -644,8 +644,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / es-loader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             # code=aws_lambda.Code.from_asset('../lambda/es_loader.zip'),
             code=aws_lambda.Code.from_asset('../lambda/es_loader'),
             handler='index.lambda_handler',
@@ -668,6 +666,10 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_es_loader.current_version
+        lambda_es_loader.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
 
         # send only
         # sqs_aes_siem_dlq.grant(lambda_es_loader, 'sqs:SendMessage')
@@ -713,6 +715,10 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_es_loader_stopper.current_version
+        lambda_es_loader_stopper.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
 
         function_name = 'aes-siem-geoip-downloader'
         lambda_geo = aws_lambda.Function(
@@ -721,8 +727,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / geoip-downloader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.from_asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
             memory_size=320,
@@ -738,6 +742,10 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_geo.current_version
+        lambda_geo.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
 
         # IOC StepFunctions
         function_name = 'aes-siem-ioc-plan'
@@ -747,8 +755,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / ioc-plan',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.plan',
             memory_size=128,
@@ -765,6 +771,10 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
+        lambda_ioc_plan.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
         function_name = 'aes-siem-ioc-download'
         lambda_ioc_download = aws_lambda.Function(
             self, 'LambdaIocDownload',
@@ -772,8 +782,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / ioc-download',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.download',
             memory_size=128,
@@ -788,6 +796,10 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
+        lambda_ioc_download.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
         function_name = 'aes-siem-ioc-createdb'
         lambda_ioc_createdb = aws_lambda.Function(
             self, 'LambdaIocCreatedb',
@@ -795,8 +807,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / ioc-createdb',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.createdb',
             memory_size=384,
@@ -809,6 +819,10 @@ class MyAesSiemStack(core.Stack):
                 removal_policy=core.RemovalPolicy.RETAIN,
                 description=__version__
             ),
+        )
+        lambda_ioc_createdb.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
         )
         task_ioc_plan = aws_stepfunctions_tasks.LambdaInvoke(
             self, "IocPlan",
@@ -868,6 +882,10 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_metrics_exporter.current_version
+        lambda_metrics_exporter.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
 
         ######################################################################
         # setup OpenSearch Service
@@ -879,8 +897,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / opensearch domain deployment',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             # code=aws_lambda.Code.from_asset('../lambda/deploy_es.zip'),
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_domain_handler',
@@ -900,6 +916,10 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_deploy_es.current_version
+        lambda_deploy_es.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
         lambda_deploy_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
@@ -934,8 +954,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / opensearch configuration',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
             memory_size=128,
@@ -956,6 +974,10 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_configure_es.current_version
+        lambda_configure_es.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
         lambda_configure_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
