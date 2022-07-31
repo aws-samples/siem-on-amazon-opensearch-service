@@ -187,7 +187,7 @@ CloudFormation テンプレートと同じパラーメーターを指定して C
 パラメーター付きでの実行例)
 
 ```bash
-cdk deploy \
+cdk deploy --no-rollback \
     --parameters AllowedSourceIpAddresses="10.0.0.0/8 192.168.0.1" \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
@@ -215,7 +215,7 @@ git pull --rebase
 ```sh
 cd ~/siem-on-amazon-opensearch-service/source/cdk/
 source .env/bin/activate
-cdk deploy
+cdk deploy --no-rollback
 ```
 
 更新される差分が表示されるので確認して、[**y**] を入力。数分でアップデートは完了します。

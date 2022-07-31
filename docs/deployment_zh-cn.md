@@ -176,7 +176,7 @@ cdk context  --j
 部署 AWS CDK:
 
 ```bash
-cdk deploy
+cdk deploy --no-rollback
 ```
 
 你可以指定同 CloudFormation 模板一样的参数。
@@ -194,7 +194,7 @@ cdk deploy
 部署参数示例)
 
 ```bash
-cdk deploy \
+cdk deploy --no-rollback \
     --parameters AllowedSourceIpAddresses="10.0.0.0/8 192.168.0.1" \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
@@ -217,7 +217,7 @@ git pull --rebase
 ```sh
 cd source/cdk/
 source .env/bin/activate
-cdk deploy
+cdk deploy --no-rollback
 ```
 
 将显示更新的差异。 输入 [**y**] 进行确认。 更新将在几分钟内完成。

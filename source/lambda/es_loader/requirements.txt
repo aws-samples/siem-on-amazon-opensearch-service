@@ -1,8 +1,9 @@
-requests==2.27.1
-opensearch-py==1.1.0
-geoip2==4.5.0
-aws-lambda-powertools==1.25.6
-git+https://github.com/martinblech/xmltodict.git@ae19c452ca000bf243bfc16274c060bf3bf7cf51  # v0.12.0 + some commits
+requests==2.28.1
+opensearch-py==2.0.0
+geoip2==4.6.0
+aws-lambda-powertools==1.26.7
+xmltodict==0.13.0
+attrs~=21.2
 # in lambada env
 boto3==1.20.32
 botocore==1.23.32
