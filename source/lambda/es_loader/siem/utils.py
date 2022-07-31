@@ -262,10 +262,11 @@ def convert_iso8601_to_datetime(timestr, TZ, timestamp_key):
     try:
         dt = datetime.fromisoformat(timestr)
     except ValueError:
-        msg = (f'You set {timestamp_key} field as ISO8601 format. '
-               f'Timestamp string is {timestr} and NOT ISO8601.')
-        logger.exception(msg)
-        raise ValueError(msg) from None
+        return None
+        # msg = (f'You set {timestamp_key} field as ISO8601 format. '
+        #        f'Timestamp string is {timestr} and NOT ISO8601.')
+        # logger.exception(msg)
+        # raise ValueError(msg) from None
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=TZ)
     return dt
