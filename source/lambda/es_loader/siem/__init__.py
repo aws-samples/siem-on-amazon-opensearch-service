@@ -22,7 +22,7 @@ from typing import Tuple
 
 from aws_lambda_powertools import Logger
 
-from siem import utils
+from siem import user_agent, utils
 from siem.fileformat_base import FileFormatBase
 from siem.fileformat_cef import FileFormatCef
 from siem.fileformat_csv import FileFormatCsv
@@ -849,6 +849,20 @@ class LogParser:
                     enrich_dict['threat.enrichments'].append(enrichments)
         if len(enrich_dict['threat.enrichments']) == 0:
             del enrich_dict['threat.enrichments']
+
+        # user-agent
+        ua_field = self.logconfig['user_agent_enrichment_field']
+        if ua_field:
+            ua_value = self.__logdata_dict.get(ua_field)
+            if ua_value:
+                try:
+                    original = self.__logdata_dict[ua_field]['original']
+                except KeyError:
+                    original = None
+                if isinstance(original, list):
+                    original = original[0]
+                if isinstance(original, str):
+                    enrich_dict[ua_field] = user_agent.enrich(original)
 
         # merge all enrichment
         self.__logdata_dict = utils.merge_dicts(
