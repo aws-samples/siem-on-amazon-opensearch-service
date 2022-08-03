@@ -43,7 +43,7 @@ def transform(logdata):
     logdata = utils.merge_dicts(logdata, gd)
     if "OUTBOUND" in direction:
         logdata['source'], logdata['destination'] = (
-            logdata.get('destination'), logdata.get('source'))
+            logdata.get('source', logdata.get('destination')))
         if not logdata['source']:
             del logdata['source']
         if not logdata['destination']:
