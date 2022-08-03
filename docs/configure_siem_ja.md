@@ -359,6 +359,7 @@ S3 バケットに保存されているログをバッチで OpenSearch Service 
     ```python
     cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
     pip3 install -r requirements.txt -U -t .
+    pip3 install pandas -U
     ```
 
 #### 環境変数の設定

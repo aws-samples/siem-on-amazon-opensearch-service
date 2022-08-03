@@ -13,6 +13,7 @@ import os
 import re
 import sys
 import time
+import urllib.parse
 from functools import lru_cache, wraps
 
 import boto3
@@ -34,7 +35,8 @@ ES_HOSTNAME = utils.get_es_hostname()
 
 def extract_logfile_from_s3(record):
     if 's3' in record:
-        s3key = record['s3']['object']['key']
+        s3key = urllib.parse.unquote_plus(
+            record['s3']['object']['key'], encoding='utf-8')
         s3bucket = record['s3']['bucket']['name']
         logger.structure_logs(append=True, s3_key=s3key, s3_bucket=s3bucket)
         logtype = utils.get_logtype_from_s3key(s3key, logtype_s3key_dict)

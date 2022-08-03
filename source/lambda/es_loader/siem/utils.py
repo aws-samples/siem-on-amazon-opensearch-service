@@ -32,7 +32,7 @@ logger = Logger(child=True)
 # REGEXP
 RE_INSTANCEID = re.compile(
     r'(\W|_|^)(?P<instanceid>i-([0-9a-z]{8}|[0-9a-z]{17}))(\W|_|$)')
-RE_ACCOUNT = re.compile(r'/([0-9]{12})/')
+RE_ACCOUNT = re.compile(r'\W([0-9]{12})/')
 RE_REGION = re.compile(
     r'(global|(us|ap|ca|eu|me|sa|af|cn)-(gov-)?[a-zA-Z]+-[0-9])')
 # for timestamp
@@ -588,6 +588,8 @@ def get_mime_type(data):
         return 'zip'
     elif data.startswith(b'\x42\x5a'):
         return 'bzip2'
+    elif data.startswith(b'\x50\x41\x52\x31'):
+        return 'parquet'
     textchars = bytearray(
         {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7f})
     if bool(data.translate(None, textchars)):

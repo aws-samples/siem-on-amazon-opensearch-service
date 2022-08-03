@@ -345,6 +345,7 @@ You can batch load logs stored in the S3 bucket into OpenSearch Service. Normall
    ```python
    cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
    pip3 install -r requirements.txt -U -t .
+   pip3 install pandas -U
    ```
 
 #### Setting environment variables

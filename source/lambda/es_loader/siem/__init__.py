@@ -28,6 +28,7 @@ from siem.fileformat_cef import FileFormatCef
 from siem.fileformat_csv import FileFormatCsv
 from siem.fileformat_json import FileFormatJson
 from siem.fileformat_multiline import FileFormatMultiline
+from siem.fileformat_parquet import FileFormatParquet
 from siem.fileformat_text import FileFormatText
 from siem.fileformat_winevtxml import FileFormatWinEvtXml
 from siem.fileformat_xml import FileFormatXml
@@ -52,7 +53,8 @@ class LogS3:
         self.loggroup = None
         self.logstream = None
         self.s3bucket = self.record['s3']['bucket']['name']
-        self.s3key = self.record['s3']['object']['key']
+        self.s3key = urllib.parse.unquote_plus(
+            self.record['s3']['object']['key'], encoding='utf-8')
 
         logger.info(self.startmsg())
         if self.is_ignored:
@@ -124,7 +126,7 @@ class LogS3:
             elif self.via_firelens:
                 log_count = len(self.rawdata.readlines())
             else:
-                # text, json, csv, winevtxml, multiline, xml
+                # text, json, csv, winevtxml, multiline, xml, parquet
                 log_count = self.rawfile_instacne.log_count
             if log_count == 0:
                 self.is_ignored = True
@@ -192,6 +194,9 @@ class LogS3:
         elif self.file_format == 'multiline':
             return FileFormatMultiline(
                 self.rawdata, self.logconfig, self.logtype)
+        elif self.file_format == 'parquet':
+            return FileFormatParquet(
+                self.rawdata, self.logconfig, self.logtype)
         elif self.file_format == 'xml':
             return FileFormatXml(self.rawdata, self.logconfig, self.logtype)
         elif self.file_format == 'cef':
@@ -228,7 +233,7 @@ class LogS3:
                 else:
                     yield (lograw, logdict, logmeta)
         else:
-            # json, text, csv, multiline, xml, winevtxml
+            # json, text, csv, multiline, xml, winevtxml, parquet
             yield from self.rawfile_instacne.extract_log(start, end, logmeta)
 
     def set_start_end_position(self, ignore_header_line_number=None):
@@ -369,9 +374,8 @@ class LogS3:
 
     def extract_rawdata_from_s3obj(self):
         try:
-            safe_s3_key = urllib.parse.unquote_plus(self.s3key)
             obj = self.s3_client.get_object(
-                Bucket=self.s3bucket, Key=safe_s3_key)
+                Bucket=self.s3bucket, Key=self.s3key)
         except Exception:
             msg = f'Failed to download S3 object from {self.s3key}'
             logger.exception(msg)
@@ -389,20 +393,44 @@ class LogS3:
         rawbody = io.BytesIO(obj['Body'].read())
         mime_type = utils.get_mime_type(rawbody.read(16))
         rawbody.seek(0)
-        if mime_type == 'gzip':
-            body = gzip.open(rawbody, mode='rt', encoding='utf8',
-                             errors='ignore')
-        elif mime_type == 'text':
+        if mime_type == 'text':
             body = io.TextIOWrapper(rawbody, encoding='utf8', errors='ignore')
+        elif mime_type == 'parquet':
+            body = rawbody
+            self.file_format = 'parquet'
+        elif mime_type == 'gzip':
+            body = gzip.open(rawbody, mode='rb')
         elif mime_type == 'zip':
             z = zipfile.ZipFile(rawbody)
-            body = open(z.namelist()[0], encoding='utf8', errors='ignore')
+            body = open(z.namelist()[0])
         elif mime_type == 'bzip2':
-            body = bz2.open(rawbody, mode='rt', encoding='utf8',
-                            errors='ignore')
+            body = bz2.open(rawbody, mode='rb')
         else:
             logger.error('unknown file format')
             raise Exception('unknown file format')
+
+        if mime_type not in ('text', 'parquet'):
+            mime_type2 = utils.get_mime_type(body.read(16))
+            if mime_type2 == 'parquet':
+                body.seek(0)
+                self.file_format = 'parquet'
+            elif mime_type2 == 'text':
+                rawbody.seek(0)
+                if mime_type == 'gzip':
+                    body = gzip.open(rawbody, mode='rt', encoding='utf8',
+                                     errors='ignore')
+                elif mime_type == 'zip':
+                    z = zipfile.ZipFile(rawbody)
+                    body = open(z.namelist()[0], encoding='utf8',
+                                errors='ignore')
+                elif mime_type == 'bzip2':
+                    body = bz2.open(rawbody, mode='rt', encoding='utf8',
+                                    errors='ignore')
+            elif mime_type2 in ('gzip', 'zip', 'bzip2'):
+                msg = f'double archived file. {mime_type2} in {mime_type}'
+                logger.error(msg)
+                raise Exception(msg)
+
         return body
 
     def split_logs(self, log_count, max_log_count):

@@ -167,6 +167,7 @@ class MyAesSiemStack(core.Stack):
         elb_id_temp = region_info.FactName.ELBV2_ACCOUNT
         elb_map_temp = region_info.RegionInfo.region_map(elb_id_temp)
         region_dict = {}
+        # https://aws-data-wrangler.readthedocs.io/en/stable/layers.html
         for region in elb_map_temp:
             # ELB account ID
             region_dict[region] = {'ElbV2AccountId': elb_map_temp[region]}
@@ -176,9 +177,15 @@ class MyAesSiemStack(core.Stack):
                           'eu-central-1', 'eu-west-1', 'eu-west-2'):
                 region_dict[region]['LambdaArch'] = (
                     aws_lambda.Architecture.ARM_64.name)
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":336392948345:layer:AWSDataWrangler-Python38-Arm64:4")
             else:
                 region_dict[region]['LambdaArch'] = (
                     aws_lambda.Architecture.X86_64.name)
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":336392948345:layer:AWSDataWrangler-Python38:8")
         region_mapping = core.CfnMapping(
             scope=self, id='RegionMap', mapping=region_dict)
 
@@ -637,6 +644,12 @@ class MyAesSiemStack(core.Stack):
                 'vpc_subnets': vpc_subnets,
             }
 
+        wrangler_layer = aws_lambda.LayerVersion.from_layer_version_arn(
+            self, id="AwsDataWranglerLambdaLayer",
+            layer_version_arn=(
+                f"arn:aws:lambda:{core.Aws.REGION}"
+                ":336392948345:layer:AWSDataWrangler-Python38:1")
+        )
         function_name = 'aes-siem-es-loader'
         lambda_es_loader = aws_lambda.Function(
             self, 'LambdaEsLoader', **lambda_es_loader_vpc_kwargs,
@@ -663,12 +676,17 @@ class MyAesSiemStack(core.Stack):
                 removal_policy=core.RemovalPolicy.RETAIN,
                 description=__version__
             ),
+            layers=[wrangler_layer],
         )
         if not same_lambda_func_version(function_name):
             lambda_es_loader.current_version
         lambda_es_loader.node.default_child.add_property_override(
             "Architectures", [region_mapping.find_in_map(
                 core.Aws.REGION, 'LambdaArch')]
+        )
+        lambda_es_loader.node.default_child.add_property_override(
+            "Layers", [region_mapping.find_in_map(
+                core.Aws.REGION, 'DataWranglerLayer')]
         )
 
         # send only
