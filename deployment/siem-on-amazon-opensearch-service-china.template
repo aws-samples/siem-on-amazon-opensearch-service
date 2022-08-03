@@ -1,5 +1,5 @@
 {
-  "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.2",
+  "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3",
   "Metadata": {
     "AWS::CloudFormation::Interface": {
       "ParameterGroups": [
@@ -39,107 +39,133 @@
     "RegionMap": {
       "af-south-1": {
         "ElbV2AccountId": "098369216593",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:af-south-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "ap-east-1": {
         "ElbV2AccountId": "754344448648",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:ap-east-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "ap-northeast-1": {
         "ElbV2AccountId": "582318560864",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:ap-northeast-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "ap-northeast-2": {
         "ElbV2AccountId": "600734575887",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:ap-northeast-2:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "ap-northeast-3": {
         "ElbV2AccountId": "383597477331",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:ap-northeast-3:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "ap-south-1": {
         "ElbV2AccountId": "718504428378",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:ap-south-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "ap-southeast-1": {
         "ElbV2AccountId": "114774131450",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:ap-southeast-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "ap-southeast-2": {
         "ElbV2AccountId": "783225319266",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:ap-southeast-2:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "ap-southeast-3": {
         "ElbV2AccountId": "589379963580",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:ap-southeast-3:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "ca-central-1": {
         "ElbV2AccountId": "985666609251",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:ca-central-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "cn-north-1": {
         "ElbV2AccountId": "638102146993",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:cn-north-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "cn-northwest-1": {
         "ElbV2AccountId": "037604701340",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:cn-northwest-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "eu-central-1": {
         "ElbV2AccountId": "054676820928",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:eu-central-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "eu-north-1": {
         "ElbV2AccountId": "897822967062",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:eu-north-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "eu-south-1": {
         "ElbV2AccountId": "635631232127",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:eu-south-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "eu-west-1": {
         "ElbV2AccountId": "156460612806",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:eu-west-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "eu-west-2": {
         "ElbV2AccountId": "652711504416",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:eu-west-2:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "eu-west-3": {
         "ElbV2AccountId": "009996457667",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:eu-west-3:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "me-south-1": {
         "ElbV2AccountId": "076674570225",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:me-south-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "sa-east-1": {
         "ElbV2AccountId": "507241528517",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:sa-east-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "us-east-1": {
         "ElbV2AccountId": "127311923021",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:us-east-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "us-east-2": {
         "ElbV2AccountId": "033677994240",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:us-east-2:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "us-gov-east-1": {
         "ElbV2AccountId": "190560391635",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:us-gov-east-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "us-gov-west-1": {
         "ElbV2AccountId": "048591011584",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:us-gov-west-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "us-west-1": {
         "ElbV2AccountId": "027434742980",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:us-west-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "us-west-2": {
         "ElbV2AccountId": "797873946194",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws-cn:lambda:us-west-2:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       }
     }
   },
@@ -1649,7 +1675,15 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
         "DeadLetterConfig": {
           "TargetArn": {
@@ -1659,7 +1693,7 @@
             ]
           }
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.2 / es-loader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / es-loader",
         "Environment": {
           "Variables": {
             "ES_ENDPOINT": {
@@ -1691,6 +1725,17 @@
         },
         "FunctionName": "aes-siem-es-loader",
         "Handler": "index.lambda_handler",
+        "Layers": [
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "DataWranglerLayer"
+            ]
+          }
+        ],
         "MemorySize": 2048,
         "ReservedConcurrentExecutions": {
           "Ref": "ReservedConcurrency"
@@ -1703,13 +1748,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderCurrentVersion9DFE6955c66083af4844e5e6aa4ba9811a6e77ee": {
+    "LambdaEsLoaderCurrentVersion9DFE6955b99431c8237dc1ea809a2daec4aafa17": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.7.2-beta.2"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -1797,9 +1842,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.2 / es-loader-stopper",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / es-loader-stopper",
         "Environment": {
           "Variables": {
             "AES_SIEM_ALERT_TOPIC_ARN": {
@@ -1827,13 +1880,13 @@
         "LambdaEsLoaderStopperServiceRole83AABC1A"
       ]
     },
-    "LambdaEsLoaderStopperCurrentVersion312AA8502c5273d26c134d4d8e724af8dba933dd": {
+    "LambdaEsLoaderStopperCurrentVersion312AA8506f460e3585208a0c5ce31000a78350fd": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoaderStopper35C1D57B"
         },
-        "Description": "2.7.2-beta.2"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -1932,9 +1985,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.2 / geoip-downloader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / geoip-downloader",
         "Environment": {
           "Variables": {
             "license_key": {
@@ -1965,13 +2026,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderCurrentVersion7F1CD34F134bf06c89403f22d90a84c2882bef26": {
+    "LambdaGeoipDownloaderCurrentVersion7F1CD34Fb425164b66b80bc93584b0b9860a0da0": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.7.2-beta.2"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2021,9 +2082,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.2 / ioc-plan",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / ioc-plan",
         "Environment": {
           "Variables": {
             "GEOIP_BUCKET": {
@@ -2154,9 +2223,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.2 / ioc-download",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / ioc-download",
         "Environment": {
           "Variables": {
             "GEOIP_BUCKET": {
@@ -2282,9 +2359,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.2 / ioc-createdb",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / ioc-createdb",
         "Environment": {
           "Variables": {
             "GEOIP_BUCKET": {
@@ -2664,9 +2749,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.2 / index-metrics-exporter",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / index-metrics-exporter",
         "Environment": {
           "Variables": {
             "ES_ENDPOINT": {
@@ -2701,13 +2794,13 @@
         "LambdaMetricsExporterServiceRoleDDE0BD95"
       ]
     },
-    "LambdaMetricsExporterCurrentVersion79B0413F57071b0002fca253d342e933ed2ec853": {
+    "LambdaMetricsExporterCurrentVersion79B0413F460ba606868f90555ea93039374d0fb9": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaMetricsExporter2737F589"
         },
-        "Description": "2.7.2-beta.2"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2726,9 +2819,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.2 / opensearch domain deployment",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / opensearch domain deployment",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -2759,13 +2860,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESCurrentVersion047915F16edeab56a7733cf659c7471afffda0f9": {
+    "LambdaDeployAESCurrentVersion047915F18e41b7785035114c682df8dce8f1386c": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.7.2-beta.2"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2779,7 +2880,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.7.2-beta.2"
+        "ConfigVersion": "2.7.2-beta.3"
       },
       "DependsOn": [
         "AesSiemDeployRoleForLambda654D64F2"
@@ -2799,9 +2900,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.2 / opensearch configuration",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / opensearch configuration",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -2849,13 +2958,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESCurrentVersion651147681908b11eb368ea34db27d7f5d574e13e": {
+    "LambdaConfigureAESCurrentVersion65114768de36055af8baa560e57126a6a9be74bc": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.7.2-beta.2"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2869,7 +2978,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.7.2-beta.2"
+        "ConfigVersion": "2.7.2-beta.3"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"
@@ -3001,7 +3110,7 @@
       "Properties": {
         "Description": "AWS CloudFormation handler for \"Custom::S3BucketNotifications\" resources (@aws-cdk/aws-s3)",
         "Code": {
-          "ZipFile": "import boto3  # type: ignore\nimport json\nimport logging\nimport urllib.request\n\ns3 = boto3.client(\"s3\")\n\nCONFIGURATION_TYPES = [\"TopicConfigurations\", \"QueueConfigurations\", \"LambdaFunctionConfigurations\"]\n\ndef handler(event: dict, context):\n    response_status = \"SUCCESS\"\n    error_message = \"\"\n    try:\n        props = event[\"ResourceProperties\"]\n        bucket = props[\"BucketName\"]\n        notification_configuration = props[\"NotificationConfiguration\"]\n        request_type = event[\"RequestType\"]\n        managed = props.get('Managed', 'true').lower() == 'true'\n        stack_id = event['StackId']\n\n        if managed:\n          config = handle_managed(request_type, notification_configuration)\n        else:\n          config = handle_unmanaged(bucket, stack_id, request_type, notification_configuration)\n\n        put_bucket_notification_configuration(bucket, config)\n    except Exception as e:\n        logging.exception(\"Failed to put bucket notification configuration\")\n        response_status = \"FAILED\"\n        error_message = f\"Error: {str(e)}. \"\n    finally:\n        submit_response(event, context, response_status, error_message)\n\n\ndef handle_managed(request_type, notification_configuration):\n  if request_type == 'Delete':\n    return {}\n  return notification_configuration\n\n\ndef handle_unmanaged(bucket, stack_id, request_type, notification_configuration):\n\n  # find external notifications\n  external_notifications = find_external_notifications(bucket, stack_id)\n\n  # if delete, that's all we need\n  if request_type == 'Delete':\n    return external_notifications\n\n  def with_id(notification):\n    notification['Id'] = f\"{stack_id}-{hash(json.dumps(notification, sort_keys=True))}\"\n    return notification\n\n  # otherwise, merge external with incoming config and augment with id\n  notifications = {}\n  for t in CONFIGURATION_TYPES:\n    external = external_notifications.get(t, [])\n    incoming = [with_id(n) for n in notification_configuration.get(t, [])]\n    notifications[t] = external + incoming\n  return notifications\n\n\ndef find_external_notifications(bucket, stack_id):\n  existing_notifications = get_bucket_notification_configuration(bucket)\n  external_notifications = {}\n  for t in CONFIGURATION_TYPES:\n    # if the notification was created by us, we know what id to expect\n    # so we can filter by it.\n    external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'].startswith(f\"{stack_id}-\")]\n\n  return external_notifications\n\n\ndef get_bucket_notification_configuration(bucket):\n  return s3.get_bucket_notification_configuration(Bucket=bucket)\n\n\ndef put_bucket_notification_configuration(bucket, notification_configuration):\n  s3.put_bucket_notification_configuration(Bucket=bucket, NotificationConfiguration=notification_configuration)\n\n\ndef submit_response(event: dict, context, response_status: str, error_message: str):\n    response_body = json.dumps(\n        {\n            \"Status\": response_status,\n            \"Reason\": f\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\",\n            \"PhysicalResourceId\": event.get(\"PhysicalResourceId\") or event[\"LogicalResourceId\"],\n            \"StackId\": event[\"StackId\"],\n            \"RequestId\": event[\"RequestId\"],\n            \"LogicalResourceId\": event[\"LogicalResourceId\"],\n            \"NoEcho\": False,\n        }\n    ).encode(\"utf-8\")\n    headers = {\"content-type\": \"\", \"content-length\": str(len(response_body))}\n    try:\n        req = urllib.request.Request(url=event[\"ResponseURL\"], headers=headers, data=response_body, method=\"PUT\")\n        with urllib.request.urlopen(req) as response:\n            print(response.read().decode(\"utf-8\"))\n        print(\"Status code: \" + response.reason)\n    except Exception as e:\n        print(\"send(..) failed executing request.urlopen(..): \" + str(e))\n"
+          "ZipFile": "import boto3  # type: ignore\nimport json\nimport logging\nimport urllib.request\n\ns3 = boto3.client(\"s3\")\n\nEVENTBRIDGE_CONFIGURATION = 'EventBridgeConfiguration'\n\nCONFIGURATION_TYPES = [\"TopicConfigurations\", \"QueueConfigurations\", \"LambdaFunctionConfigurations\"]\n\ndef handler(event: dict, context):\n  response_status = \"SUCCESS\"\n  error_message = \"\"\n  try:\n    props = event[\"ResourceProperties\"]\n    bucket = props[\"BucketName\"]\n    notification_configuration = props[\"NotificationConfiguration\"]\n    request_type = event[\"RequestType\"]\n    managed = props.get('Managed', 'true').lower() == 'true'\n    stack_id = event['StackId']\n\n    if managed:\n      config = handle_managed(request_type, notification_configuration)\n    else:\n      config = handle_unmanaged(bucket, stack_id, request_type, notification_configuration)\n\n    put_bucket_notification_configuration(bucket, config)\n  except Exception as e:\n    logging.exception(\"Failed to put bucket notification configuration\")\n    response_status = \"FAILED\"\n    error_message = f\"Error: {str(e)}. \"\n  finally:\n    submit_response(event, context, response_status, error_message)\n\ndef handle_managed(request_type, notification_configuration):\n  if request_type == 'Delete':\n    return {}\n  return notification_configuration\n\ndef handle_unmanaged(bucket, stack_id, request_type, notification_configuration):\n  external_notifications = find_external_notifications(bucket, stack_id)\n\n  if request_type == 'Delete':\n    return external_notifications\n\n  def with_id(notification):\n    notification['Id'] = f\"{stack_id}-{hash(json.dumps(notification, sort_keys=True))}\"\n    return notification\n\n  notifications = {}\n  for t in CONFIGURATION_TYPES:\n    external = external_notifications.get(t, [])\n    incoming = [with_id(n) for n in notification_configuration.get(t, [])]\n    notifications[t] = external + incoming\n\n  if EVENTBRIDGE_CONFIGURATION in notification_configuration:\n    notifications[EVENTBRIDGE_CONFIGURATION] = notification_configuration[EVENTBRIDGE_CONFIGURATION]\n  elif EVENTBRIDGE_CONFIGURATION in external_notifications:\n    notifications[EVENTBRIDGE_CONFIGURATION] = external_notifications[EVENTBRIDGE_CONFIGURATION]\n\n  return notifications\n\ndef find_external_notifications(bucket, stack_id):\n  existing_notifications = get_bucket_notification_configuration(bucket)\n  external_notifications = {}\n  for t in CONFIGURATION_TYPES:\n    external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'].startswith(f\"{stack_id}-\")]\n\n  if EVENTBRIDGE_CONFIGURATION in existing_notifications:\n    external_notifications[EVENTBRIDGE_CONFIGURATION] = existing_notifications[EVENTBRIDGE_CONFIGURATION]\n\n  return external_notifications\n\ndef get_bucket_notification_configuration(bucket):\n  return s3.get_bucket_notification_configuration(Bucket=bucket)\n\ndef put_bucket_notification_configuration(bucket, notification_configuration):\n  s3.put_bucket_notification_configuration(Bucket=bucket, NotificationConfiguration=notification_configuration)\n\ndef submit_response(event: dict, context, response_status: str, error_message: str):\n  response_body = json.dumps(\n    {\n      \"Status\": response_status,\n      \"Reason\": f\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\",\n      \"PhysicalResourceId\": event.get(\"PhysicalResourceId\") or event[\"LogicalResourceId\"],\n      \"StackId\": event[\"StackId\"],\n      \"RequestId\": event[\"RequestId\"],\n      \"LogicalResourceId\": event[\"LogicalResourceId\"],\n      \"NoEcho\": False,\n    }\n  ).encode(\"utf-8\")\n  headers = {\"content-type\": \"\", \"content-length\": str(len(response_body))}\n  try:\n    req = urllib.request.Request(url=event[\"ResponseURL\"], headers=headers, data=response_body, method=\"PUT\")\n    with urllib.request.urlopen(req) as response:\n      print(response.read().decode(\"utf-8\"))\n    print(\"Status code: \" + response.reason)\n  except Exception as e:\n      print(\"send(..) failed executing request.urlopen(..): \" + str(e))\n"
         },
         "Handler": "index.handler",
         "Role": {
