@@ -62,41 +62,41 @@ def split_findings_type(finding_type):
 
 
 def get_values_from_asff_resources(resources):
-    resouce_dict = {}
-    resouce_dict['_related_ip'] = []
-    for resouce in resources:
-        if resouce['Type'] == 'AwsEc2Instance':
-            instanceid = resouce['Id'].split('/')[-1]
-            resouce_dict['cloud'] = {'instance': {'id': instanceid}}
-            if ('Details' in resouce
-                    and 'AwsEc2Instance' in resouce['Details']):
-                resouce_dict['_related_ip'] += resouce['Details'].get(
+    resource_dict = {}
+    resource_dict['_related_ip'] = []
+    for resource in resources:
+        if resource['Type'] == 'AwsEc2Instance':
+            instanceid = resource['Id'].split('/')[-1]
+            resource_dict['cloud'] = {'instance': {'id': instanceid}}
+            if ('Details' in resource
+                    and 'AwsEc2Instance' in resource['Details']):
+                resource_dict['_related_ip'] += resource['Details'].get(
                     'AwsEc2Instance').get('IpV4Addresses', [])
-                resouce_dict['_related_ip'] += resouce['Details'].get(
+                resource_dict['_related_ip'] += resource['Details'].get(
                     'AwsEc2Instance').get('IpV6Addresses', [])
-        elif resouce['Type'] == 'AwsIamAccessKey':
-            accesskey = resouce['Id'].split(':')[-1]
+        elif resource['Type'] == 'AwsIamAccessKey':
+            accesskey = resource['Id'].split(':')[-1]
             if accesskey == 'null':
-                accesskey = (resouce['Details']['AwsIamAccessKey']
+                accesskey = (resource['Details']['AwsIamAccessKey']
                              ['PrincipalId']).split(':')[0]
-            name = resouce['Details']['AwsIamAccessKey']['PrincipalName']
-            resouce_dict['user'] = {'id': accesskey, 'name': name}
-        elif resouce['Type'] == 'AwsEc2Volume':
+            name = resource['Details']['AwsIamAccessKey']['PrincipalName']
+            resource_dict['user'] = {'id': accesskey, 'name': name}
+        elif resource['Type'] == 'AwsEc2Volume':
             try:
-                instanceid = (resouce['Details']['AwsEc2Volume']['Attachments']
+                instanceid = (resource['Details']['AwsEc2Volume']['Attachments']
                               [0]['InstanceId'])
             except Exception:
                 continue
-            resouce_dict['cloud'] = {'instance': {'id': instanceid}}
-        elif resouce['Type'] == 'AwsIamRole':
-            name = resouce['Id'].split('/')[-1]
-            resouce_dict['user'] = {'name': name}
-        elif resouce['Type'] == 'AwsS3Bucket':
+            resource_dict['cloud'] = {'instance': {'id': instanceid}}
+        elif resource['Type'] == 'AwsIamRole':
+            name = resource['Id'].split('/')[-1]
+            resource_dict['user'] = {'name': name}
+        elif resource['Type'] == 'AwsS3Bucket':
             pass
-        elif resouce['Type'] == 'AwsEksCluster':
+        elif resource['Type'] == 'AwsEksCluster':
             pass
 
-    return resouce_dict
+    return resource_dict
 
 
 def extract_related_fields(logdata):
@@ -203,8 +203,8 @@ def transform(logdata):
         logdata['event']['category'] = 'intrusion_detection'
 
     logdata['rule']['name'] = logdata['rule']['name'].strip().rstrip('.')
-    resouce_dict = get_values_from_asff_resources(logdata['Resources'])
-    logdata = utils.merge_dicts(logdata, resouce_dict)
+    resource_dict = get_values_from_asff_resources(logdata['Resources'])
+    logdata = utils.merge_dicts(logdata, resource_dict)
     logdata = extract_related_fields(logdata)
 
     return logdata
