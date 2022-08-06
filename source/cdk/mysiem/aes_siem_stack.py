@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.7.2-beta.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -18,11 +18,14 @@ from aws_cdk import (
     aws_kms,
     aws_lambda,
     aws_lambda_event_sources,
+    aws_logs,
     aws_s3,
     aws_s3_notifications,
     aws_sns,
     aws_sns_subscriptions,
     aws_sqs,
+    aws_stepfunctions,
+    aws_stepfunctions_tasks,
     core,
     region_info,
 )
@@ -164,6 +167,7 @@ class MyAesSiemStack(core.Stack):
         elb_id_temp = region_info.FactName.ELBV2_ACCOUNT
         elb_map_temp = region_info.RegionInfo.region_map(elb_id_temp)
         region_dict = {}
+        # https://aws-data-wrangler.readthedocs.io/en/stable/layers.html
         for region in elb_map_temp:
             # ELB account ID
             region_dict[region] = {'ElbV2AccountId': elb_map_temp[region]}
@@ -173,9 +177,15 @@ class MyAesSiemStack(core.Stack):
                           'eu-central-1', 'eu-west-1', 'eu-west-2'):
                 region_dict[region]['LambdaArch'] = (
                     aws_lambda.Architecture.ARM_64.name)
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":336392948345:layer:AWSDataWrangler-Python38-Arm64:4")
             else:
                 region_dict[region]['LambdaArch'] = (
                     aws_lambda.Architecture.X86_64.name)
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":336392948345:layer:AWSDataWrangler-Python38:8")
         region_mapping = core.CfnMapping(
             scope=self, id='RegionMap', mapping=region_dict)
 
@@ -184,7 +194,8 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         allow_source_address = core.CfnParameter(
             self, 'AllowedSourceIpAddresses', allowed_pattern=r'^[0-9./\s]*',
-            description='Space-delimited list of CIDR blocks',
+            description=('Space-delimited list of CIDR blocks. This parameter '
+                         'applies only during the initial deployment'),
             default='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16')
         sns_email = core.CfnParameter(
             self, 'SnsEmail', allowed_pattern=r'^[0-9a-zA-Z@_\-\+\.]*',
@@ -192,16 +203,63 @@ class MyAesSiemStack(core.Stack):
                          'OpenSearch Service will send alerts to'),
             default='user+sns@example.com')
         geoip_license_key = core.CfnParameter(
-            self, 'GeoLite2LicenseKey', allowed_pattern=r'^[0-9a-zA-Z]{16}$',
-            default='xxxxxxxxxxxxxxxx',
+            self, 'GeoLite2LicenseKey',
+            allowed_pattern=r'^([0-9a-zA-Z]{16}|)$', default='x' * 16,
+            max_length=16,
             description=("If you wolud like to enrich geoip locaiton such as "
                          "IP address's country, get a license key form MaxMind"
-                         " and input the key. If you not, keep "
-                         "xxxxxxxxxxxxxxxx"))
+                         " and input the key"))
         reserved_concurrency = core.CfnParameter(
             self, 'ReservedConcurrency', default=10, type='Number',
-            description=('Input reserved concurrency. Increase this value if '
-                         'there are steady logs delay despite no errors'))
+            description=('Input lambda reserved concurrency for es-loader. '
+                         'Increase this value if there are steady logs delay '
+                         'despite withou errors'))
+        otx_api_key = core.CfnParameter(
+            self, 'OtxApiKey', allowed_pattern=r'^([0-9a-f,x]{64}|)$',
+            default='x' * 64, max_length=64,
+            description=('(experimental) '
+                         'If you wolud like to download IoC from AlienVault '
+                         'OTX, please enter OTX API Key. '
+                         'See details: https://otx.alienvault.com'))
+        enable_tor = core.CfnParameter(
+            self, 'EnableTor', allowed_values=['true', 'false'],
+            description=('(experimental) '
+                         'Would you like to download TOR IoC? '
+                         'See details: https://check.torproject.org/api/bulk'),
+            default='false')
+        enable_abuse_ch = core.CfnParameter(
+            self, 'EnableAbuseCh', allowed_values=['true', 'false'],
+            description=(
+                '(experimental) '
+                'Would you like to download IoC from abuse.ch? '
+                'See details: https://feodotracker.abuse.ch/blocklist/'),
+            default='false')
+        ioc_download_interval = core.CfnParameter(
+            self, 'IocDownloadInterval', type='Number',
+            description=('(experimental) '
+                         'Specify interval in minute to download IoC, '
+                         'default is  720 miniutes ( = 12 hours )'),
+            min_value=30, max_value=1440, default=720)
+
+        # Pretfify parameters
+        self.template_options.metadata = {
+            'AWS::CloudFormation::Interface': {
+                'ParameterGroups': [
+                    {'Label': {'default': 'Initial Deployment Parameters'},
+                     'Parameters': [allow_source_address.logical_id]},
+                    {'Label': {'default': 'Basic Configuration'},
+                     'Parameters': [sns_email.logical_id,
+                                    reserved_concurrency.logical_id]},
+                    {'Label': {'default': 'Log Enrichment'},
+                     'Parameters': [geoip_license_key.logical_id,
+                                    otx_api_key.logical_id,
+                                    enable_tor.logical_id,
+                                    enable_abuse_ch.logical_id,
+                                    ioc_download_interval.logical_id]}
+                ]
+            }
+        }
+
         aes_domain_name = self.node.try_get_context('aes_domain_name')
         bucket = f'{aes_domain_name}-{core.Aws.ACCOUNT_ID}'
         s3bucket_name_geo = f'{bucket}-geo'
@@ -489,7 +547,8 @@ class MyAesSiemStack(core.Stack):
             self, 'AesSiemSnapshotRole',
             role_name='aes-siem-snapshot-role',
             inline_policies={'s3access': policydoc_snapshot},
-            assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
+            assumed_by=aws_iam.ServicePrincipal(
+                'opensearchservice.amazonaws.com')
         )
 
         policydoc_assume_snapshotrole = aws_iam.PolicyDocument(
@@ -528,7 +587,8 @@ class MyAesSiemStack(core.Stack):
         aes_siem_sns_role = aws_iam.Role(
             self, 'AesSiemSnsRole',
             role_name='aes-siem-sns-role',
-            assumed_by=aws_iam.ServicePrincipal('es.amazonaws.com')
+            assumed_by=aws_iam.ServicePrincipal(
+                'opensearchservice.amazonaws.com')
         )
 
         # EC2 role
@@ -547,11 +607,12 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         # in VPC
         ######################################################################
-        aes_role_exist = check_iam_role('/aws-service-role/es.amazonaws.com/')
+        aes_role_exist = check_iam_role(
+            '/aws-service-role/opensearchservice.amazonaws.com/')
         if vpc_type and not aes_role_exist:
             slr_aes = aws_iam.CfnServiceLinkedRole(
                 self, 'AWSServiceRoleForAmazonOpenSearchService',
-                aws_service_name='es.amazonaws.com',
+                aws_service_name='opensearchservice.amazonaws.com',
                 description='Created by cloudformation of siem stack'
             )
             slr_aes.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
@@ -583,6 +644,12 @@ class MyAesSiemStack(core.Stack):
                 'vpc_subnets': vpc_subnets,
             }
 
+        wrangler_layer = aws_lambda.LayerVersion.from_layer_version_arn(
+            self, id="AwsDataWranglerLambdaLayer",
+            layer_version_arn=(
+                f"arn:aws:lambda:{core.Aws.REGION}"
+                ":336392948345:layer:AWSDataWrangler-Python38:1")
+        )
         function_name = 'aes-siem-es-loader'
         lambda_es_loader = aws_lambda.Function(
             self, 'LambdaEsLoader', **lambda_es_loader_vpc_kwargs,
@@ -590,8 +657,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / es-loader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             # code=aws_lambda.Code.from_asset('../lambda/es_loader.zip'),
             code=aws_lambda.Code.from_asset('../lambda/es_loader'),
             handler='index.lambda_handler',
@@ -611,9 +676,18 @@ class MyAesSiemStack(core.Stack):
                 removal_policy=core.RemovalPolicy.RETAIN,
                 description=__version__
             ),
+            layers=[wrangler_layer],
         )
         if not same_lambda_func_version(function_name):
             lambda_es_loader.current_version
+        lambda_es_loader.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
+        lambda_es_loader.node.default_child.add_property_override(
+            "Layers", [region_mapping.find_in_map(
+                core.Aws.REGION, 'DataWranglerLayer')]
+        )
 
         # send only
         # sqs_aes_siem_dlq.grant(lambda_es_loader, 'sqs:SendMessage')
@@ -659,6 +733,10 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_es_loader_stopper.current_version
+        lambda_es_loader_stopper.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
 
         function_name = 'aes-siem-geoip-downloader'
         lambda_geo = aws_lambda.Function(
@@ -667,8 +745,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / geoip-downloader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.from_asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
             memory_size=320,
@@ -684,6 +760,123 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_geo.current_version
+        lambda_geo.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
+
+        # IOC StepFunctions
+        function_name = 'aes-siem-ioc-plan'
+        lambda_ioc_plan = aws_lambda.Function(
+            self, 'LambdaIocPlan',
+            function_name=function_name,
+            description=f'{SOLUTION_NAME} / ioc-plan',
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            architecture=aws_lambda.Architecture.X86_64,
+            code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
+            handler='lambda_function.plan',
+            memory_size=128,
+            timeout=core.Duration.seconds(300),
+            environment={
+                'GEOIP_BUCKET': s3bucket_name_geo,
+                'OTX_API_KEY': otx_api_key.value_as_string,
+                'TOR': enable_tor.value_as_string,
+                'ABUSE_CH': enable_abuse_ch.value_as_string,
+                'LOG_LEVEL': 'WARNING'
+            },
+            current_version_options=aws_lambda.VersionOptions(
+                removal_policy=core.RemovalPolicy.RETAIN,
+                description=__version__
+            ),
+        )
+        lambda_ioc_plan.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
+        function_name = 'aes-siem-ioc-download'
+        lambda_ioc_download = aws_lambda.Function(
+            self, 'LambdaIocDownload',
+            function_name=function_name,
+            description=f'{SOLUTION_NAME} / ioc-download',
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            architecture=aws_lambda.Architecture.X86_64,
+            code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
+            handler='lambda_function.download',
+            memory_size=128,
+            timeout=core.Duration.seconds(900),
+            environment={
+                'GEOIP_BUCKET': s3bucket_name_geo,
+                'OTX_API_KEY': otx_api_key.value_as_string,
+                'LOG_LEVEL': 'WARNING'
+            },
+            current_version_options=aws_lambda.VersionOptions(
+                removal_policy=core.RemovalPolicy.RETAIN,
+                description=__version__
+            ),
+        )
+        lambda_ioc_download.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
+        function_name = 'aes-siem-ioc-createdb'
+        lambda_ioc_createdb = aws_lambda.Function(
+            self, 'LambdaIocCreatedb',
+            function_name=function_name,
+            description=f'{SOLUTION_NAME} / ioc-createdb',
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            architecture=aws_lambda.Architecture.X86_64,
+            code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
+            handler='lambda_function.createdb',
+            memory_size=384,
+            timeout=core.Duration.seconds(900),
+            environment={
+                'GEOIP_BUCKET': s3bucket_name_geo,
+                'LOG_LEVEL': 'WARNING'
+            },
+            current_version_options=aws_lambda.VersionOptions(
+                removal_policy=core.RemovalPolicy.RETAIN,
+                description=__version__
+            ),
+        )
+        lambda_ioc_createdb.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
+        task_ioc_plan = aws_stepfunctions_tasks.LambdaInvoke(
+            self, "IocPlan",
+            payload=aws_stepfunctions.TaskInput.from_text(''),
+            lambda_function=lambda_ioc_plan,
+            output_path="$.Payload")
+        map_download = aws_stepfunctions.Map(
+            self, 'MapDownload',
+            items_path=aws_stepfunctions.JsonPath.string_at("$.mapped"),
+            parameters={"mapped.$": "$$.Map.Item.Value"},
+            max_concurrency=5
+        )
+        task_ioc_download = aws_stepfunctions_tasks.LambdaInvoke(
+            self, "IocDownload",
+            lambda_function=lambda_ioc_download,
+            output_path="$.Payload"
+        )
+        task_ioc_createdb = aws_stepfunctions_tasks.LambdaInvoke(
+            self, "IocCreatedb",
+            lambda_function=lambda_ioc_createdb,
+            output_path=None)
+        definition = task_ioc_plan.next(
+            map_download).next(task_ioc_createdb)
+        map_download.iterator(task_ioc_download)
+        ioc_state_machine_log_group = aws_logs.LogGroup(
+            self, "IocStateMachineLogGroup",
+            log_group_name='/aws/vendedlogs/states/aes-siem-ioc-logs',
+            retention=aws_logs.RetentionDays.ONE_MONTH,
+            removal_policy=core.RemovalPolicy.DESTROY)
+        ioc_state_machine = aws_stepfunctions.StateMachine(
+            self, "IocStateMachine",
+            state_machine_name='aes-siem-ioc-state-machine',
+            definition=definition,
+            logs=aws_stepfunctions.LogOptions(
+                destination=ioc_state_machine_log_group,
+                level=aws_stepfunctions.LogLevel.ALL))
 
         # setup lambda of opensearch index metrics
         function_name = 'aes-siem-index-metrics-exporter'
@@ -707,6 +900,10 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_metrics_exporter.current_version
+        lambda_metrics_exporter.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
 
         ######################################################################
         # setup OpenSearch Service
@@ -718,8 +915,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / opensearch domain deployment',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             # code=aws_lambda.Code.from_asset('../lambda/deploy_es.zip'),
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_domain_handler',
@@ -739,6 +934,10 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_deploy_es.current_version
+        lambda_deploy_es.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
         lambda_deploy_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
@@ -752,6 +951,7 @@ class MyAesSiemStack(core.Stack):
             self, 'AesSiemDomainDeployedR2',
             service_token=lambda_deploy_es.function_arn,)
         aes_domain.add_override('Properties.ConfigVersion', __version__)
+        aes_domain.node.add_dependency(aes_siem_deploy_role_for_lambda)
 
         es_endpoint = aes_domain.get_att('es_endpoint').to_string()
         lambda_es_loader.add_environment('ES_ENDPOINT', es_endpoint)
@@ -772,8 +972,6 @@ class MyAesSiemStack(core.Stack):
             description=f'{SOLUTION_NAME} / opensearch configuration',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             architecture=aws_lambda.Architecture.X86_64,
-            # architecture=region_mapping.find_in_map(
-            #    core.Aws.REGION, 'LambdaArm'),
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
             memory_size=128,
@@ -794,6 +992,10 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_configure_es.current_version
+        lambda_configure_es.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
         lambda_configure_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
@@ -891,6 +1093,8 @@ class MyAesSiemStack(core.Stack):
         # s3 notification and grant permisssion
         ######################################################################
         s3_geo.grant_read_write(lambda_geo)
+        s3_geo.grant_read_write(lambda_ioc_download)
+        s3_geo.grant_read_write(lambda_ioc_createdb)
         s3_geo.grant_read(lambda_es_loader)
         s3_geo.grant_read(aes_siem_es_loader_ec2_role)
         s3_log.grant_read(lambda_es_loader)
@@ -917,11 +1121,18 @@ class MyAesSiemStack(core.Stack):
             service_token=lambda_geo.function_arn,)
         get_geodb.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
-        # Download geoip every day at 6PM UTC
+        # Download geoip every 12 hours
         rule = aws_events.Rule(
             self, 'CwlRuleLambdaGeoipDownloaderDilly',
             schedule=aws_events.Schedule.rate(core.Duration.hours(12)))
         rule.add_target(aws_events_targets.LambdaFunction(lambda_geo))
+
+        # Download IOC Database every xxx minutes
+        rule = aws_events.Rule(
+            self, 'EventBridgeRuleStepFunctionsIoc',
+            schedule=aws_events.Schedule.rate(
+                core.Duration.minutes(ioc_download_interval.value_as_number)))
+        rule.add_target(aws_events_targets.SfnStateMachine(ioc_state_machine))
 
         # collect index metrics every 1 hour
         rule_metrics_exporter = aws_events.Rule(
@@ -1013,6 +1224,14 @@ class MyAesSiemStack(core.Stack):
             actions=['s3:PutObject', 's3:GetObject', 's3:DeleteObject'],
             resources=[s3_geo.bucket_arn + '/*'],)
         s3_geo.add_to_resource_policy(bucket_policy_geo1)
+
+        s3_geo.add_lifecycle_rule(
+            enabled=True,
+            expiration=core.Duration.days(7),
+            expired_object_delete_marker=False,
+            id="delete-ioc-temp-files",
+            prefix='IOC/tmp/'
+        )
 
         # ES Snapshot
         bucket_policy_snapshot = aws_iam.PolicyStatement(

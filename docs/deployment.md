@@ -174,7 +174,7 @@ cdk context  --j
 Deploy the AWS CDK:
 
 ```bash
-cdk deploy
+cdk deploy --no-rollback
 ```
 
 You can specify the same parameters as for the CloudFormation template.
@@ -192,7 +192,7 @@ If you have more than one parameter, repeat --parameters
 Example of deployment with parameters)
 
 ```bash
-cdk deploy \
+cdk deploy --no-rollback \
     --parameters AllowedSourceIpAddresses="10.0.0.0/8 192.168.0.1" \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
@@ -215,7 +215,7 @@ Note that [5. Setting Installation Options with the AWS CDK] and the subsequent 
 ```sh
 cd source/cdk/
 source .env/bin/activate
-cdk deploy
+cdk deploy --no-rollback
 ```
 
 Updated diffs will be displayed. Enter [**y**] to confirm. The update will be complete in a few minutes.

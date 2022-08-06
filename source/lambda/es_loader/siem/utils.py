@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.7.2-beta.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -32,7 +32,7 @@ logger = Logger(child=True)
 # REGEXP
 RE_INSTANCEID = re.compile(
     r'(\W|_|^)(?P<instanceid>i-([0-9a-z]{8}|[0-9a-z]{17}))(\W|_|$)')
-RE_ACCOUNT = re.compile(r'/([0-9]{12})/')
+RE_ACCOUNT = re.compile(r'\W([0-9]{12})/')
 RE_REGION = re.compile(
     r'(global|(us|ap|ca|eu|me|sa|af|cn)-(gov-)?[a-zA-Z]+-[0-9])')
 # for timestamp
@@ -262,10 +262,11 @@ def convert_iso8601_to_datetime(timestr, TZ, timestamp_key):
     try:
         dt = datetime.fromisoformat(timestr)
     except ValueError:
-        msg = (f'You set {timestamp_key} field as ISO8601 format. '
-               f'Timestamp string is {timestr} and NOT ISO8601.')
-        logger.exception(msg)
-        raise ValueError(msg) from None
+        return None
+        # msg = (f'You set {timestamp_key} field as ISO8601 format. '
+        #        f'Timestamp string is {timestr} and NOT ISO8601.')
+        # logger.exception(msg)
+        # raise ValueError(msg) from None
     if not dt.tzinfo:
         dt = dt.replace(tzinfo=TZ)
     return dt
@@ -587,6 +588,8 @@ def get_mime_type(data):
         return 'zip'
     elif data.startswith(b'\x42\x5a'):
         return 'bzip2'
+    elif data.startswith(b'\x50\x41\x52\x31'):
+        return 'parquet'
     textchars = bytearray(
         {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)) - {0x7f})
     if bool(data.translate(None, textchars)):

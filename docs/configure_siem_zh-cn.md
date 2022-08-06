@@ -315,6 +315,7 @@ Lambda 层的压缩文件内的目录结构应如下所示：
    ```python
    cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
    pip3 install -r requirements.txt -U -t .
+   pip3 install pandas -U
    ```
 
 #### 设置环境变量

@@ -1,110 +1,171 @@
 {
-  "Description": "SIEM on Amazon OpenSearch Service v2.7.1",
+  "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3",
+  "Metadata": {
+    "AWS::CloudFormation::Interface": {
+      "ParameterGroups": [
+        {
+          "Label": {
+            "default": "Initial Deployment Parameters"
+          },
+          "Parameters": [
+            "AllowedSourceIpAddresses"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Basic Configuration"
+          },
+          "Parameters": [
+            "SnsEmail",
+            "ReservedConcurrency"
+          ]
+        },
+        {
+          "Label": {
+            "default": "Log Enrichment"
+          },
+          "Parameters": [
+            "GeoLite2LicenseKey",
+            "OtxApiKey",
+            "EnableTor",
+            "EnableAbuseCh",
+            "IocDownloadInterval"
+          ]
+        }
+      ]
+    }
+  },
   "Mappings": {
     "RegionMap": {
       "af-south-1": {
         "ElbV2AccountId": "098369216593",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:af-south-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "ap-east-1": {
         "ElbV2AccountId": "754344448648",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:ap-east-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "ap-northeast-1": {
         "ElbV2AccountId": "582318560864",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws:lambda:ap-northeast-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "ap-northeast-2": {
         "ElbV2AccountId": "600734575887",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:ap-northeast-2:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "ap-northeast-3": {
         "ElbV2AccountId": "383597477331",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:ap-northeast-3:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "ap-south-1": {
         "ElbV2AccountId": "718504428378",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws:lambda:ap-south-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "ap-southeast-1": {
         "ElbV2AccountId": "114774131450",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws:lambda:ap-southeast-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "ap-southeast-2": {
         "ElbV2AccountId": "783225319266",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws:lambda:ap-southeast-2:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "ap-southeast-3": {
         "ElbV2AccountId": "589379963580",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:ap-southeast-3:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "ca-central-1": {
         "ElbV2AccountId": "985666609251",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:ca-central-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "cn-north-1": {
         "ElbV2AccountId": "638102146993",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:cn-north-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "cn-northwest-1": {
         "ElbV2AccountId": "037604701340",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:cn-northwest-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "eu-central-1": {
         "ElbV2AccountId": "054676820928",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws:lambda:eu-central-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "eu-north-1": {
         "ElbV2AccountId": "897822967062",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:eu-north-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "eu-south-1": {
         "ElbV2AccountId": "635631232127",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:eu-south-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "eu-west-1": {
         "ElbV2AccountId": "156460612806",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws:lambda:eu-west-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "eu-west-2": {
         "ElbV2AccountId": "652711504416",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws:lambda:eu-west-2:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "eu-west-3": {
         "ElbV2AccountId": "009996457667",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:eu-west-3:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "me-south-1": {
         "ElbV2AccountId": "076674570225",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:me-south-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "sa-east-1": {
         "ElbV2AccountId": "507241528517",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:sa-east-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "us-east-1": {
         "ElbV2AccountId": "127311923021",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws:lambda:us-east-1:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "us-east-2": {
         "ElbV2AccountId": "033677994240",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws:lambda:us-east-2:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       },
       "us-gov-east-1": {
         "ElbV2AccountId": "190560391635",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:us-gov-east-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "us-gov-west-1": {
         "ElbV2AccountId": "048591011584",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:us-gov-west-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "us-west-1": {
         "ElbV2AccountId": "027434742980",
-        "LambdaArch": "x86_64"
+        "LambdaArch": "x86_64",
+        "DataWranglerLayer": "arn:aws:lambda:us-west-1:336392948345:layer:AWSDataWrangler-Python38:8"
       },
       "us-west-2": {
         "ElbV2AccountId": "797873946194",
-        "LambdaArch": "arm64"
+        "LambdaArch": "arm64",
+        "DataWranglerLayer": "arn:aws:lambda:us-west-2:336392948345:layer:AWSDataWrangler-Python38-Arm64:4"
       }
     }
   },
@@ -113,7 +174,7 @@
       "Type": "String",
       "Default": "10.0.0.0/8 172.16.0.0/12 192.168.0.0/16",
       "AllowedPattern": "^[0-9./\\s]*",
-      "Description": "Space-delimited list of CIDR blocks"
+      "Description": "Space-delimited list of CIDR blocks. This parameter applies only during the initial deployment"
     },
     "SnsEmail": {
       "Type": "String",
@@ -124,13 +185,46 @@
     "GeoLite2LicenseKey": {
       "Type": "String",
       "Default": "xxxxxxxxxxxxxxxx",
-      "AllowedPattern": "^[0-9a-zA-Z]{16}$",
-      "Description": "If you wolud like to enrich geoip locaiton such as IP address's country, get a license key form MaxMind and input the key. If you not, keep xxxxxxxxxxxxxxxx"
+      "AllowedPattern": "^([0-9a-zA-Z]{16}|)$",
+      "Description": "If you wolud like to enrich geoip locaiton such as IP address's country, get a license key form MaxMind and input the key",
+      "MaxLength": 16
     },
     "ReservedConcurrency": {
       "Type": "Number",
       "Default": 10,
-      "Description": "Input reserved concurrency. Increase this value if there are steady logs delay despite no errors"
+      "Description": "Input lambda reserved concurrency for es-loader. Increase this value if there are steady logs delay despite withou errors"
+    },
+    "OtxApiKey": {
+      "Type": "String",
+      "Default": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "AllowedPattern": "^([0-9a-f,x]{64}|)$",
+      "Description": "(experimental) If you wolud like to download IoC from AlienVault OTX, please enter OTX API Key. See details: https://otx.alienvault.com",
+      "MaxLength": 64
+    },
+    "EnableTor": {
+      "Type": "String",
+      "Default": "false",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Description": "(experimental) Would you like to download TOR IoC? See details: https://check.torproject.org/api/bulk"
+    },
+    "EnableAbuseCh": {
+      "Type": "String",
+      "Default": "false",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Description": "(experimental) Would you like to download IoC from abuse.ch? See details: https://feodotracker.abuse.ch/blocklist/"
+    },
+    "IocDownloadInterval": {
+      "Type": "Number",
+      "Default": 720,
+      "Description": "(experimental) Specify interval in minute to download IoC, default is  720 miniutes ( = 12 hours )",
+      "MaxValue": 1440,
+      "MinValue": 30
     }
   },
   "Conditions": {
@@ -386,6 +480,17 @@
               },
               "-geo"
             ]
+          ]
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "ExpirationInDays": 7,
+              "ExpiredObjectDeleteMarker": false,
+              "Id": "delete-ioc-temp-files",
+              "Prefix": "IOC/tmp/",
+              "Status": "Enabled"
+            }
           ]
         },
         "PublicAccessBlockConfiguration": {
@@ -915,7 +1020,7 @@
               "Action": "sts:AssumeRole",
               "Effect": "Allow",
               "Principal": {
-                "Service": "es.amazonaws.com"
+                "Service": "opensearchservice.amazonaws.com"
               }
             }
           ],
@@ -960,7 +1065,7 @@
               ],
               "Version": "2012-10-17"
             },
-            "PolicyName": "0"
+            "PolicyName": "s3access"
           }
         ],
         "RoleName": "aes-siem-snapshot-role"
@@ -1024,7 +1129,7 @@
               ],
               "Version": "2012-10-17"
             },
-            "PolicyName": "0"
+            "PolicyName": "assume_snapshotrole"
           },
           {
             "PolicyDocument": {
@@ -1064,7 +1169,7 @@
               ],
               "Version": "2012-10-17"
             },
-            "PolicyName": "1"
+            "PolicyName": "s3access"
           },
           {
             "PolicyDocument": {
@@ -1155,7 +1260,7 @@
               ],
               "Version": "2012-10-17"
             },
-            "PolicyName": "2"
+            "PolicyName": "cwl_loggroup"
           },
           {
             "PolicyDocument": {
@@ -1176,7 +1281,7 @@
               ],
               "Version": "2012-10-17"
             },
-            "PolicyName": "3"
+            "PolicyName": "crhelper"
           }
         ],
         "RoleName": "aes-siem-deploy-role-for-lambda"
@@ -1191,7 +1296,7 @@
               "Action": "sts:AssumeRole",
               "Effect": "Allow",
               "Principal": {
-                "Service": "es.amazonaws.com"
+                "Service": "opensearchservice.amazonaws.com"
               }
             }
           ],
@@ -1570,7 +1675,15 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
         "DeadLetterConfig": {
           "TargetArn": {
@@ -1580,7 +1693,7 @@
             ]
           }
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.1 / es-loader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / es-loader",
         "Environment": {
           "Variables": {
             "ES_ENDPOINT": {
@@ -1612,6 +1725,17 @@
         },
         "FunctionName": "aes-siem-es-loader",
         "Handler": "index.lambda_handler",
+        "Layers": [
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "DataWranglerLayer"
+            ]
+          }
+        ],
         "MemorySize": 2048,
         "ReservedConcurrentExecutions": {
           "Ref": "ReservedConcurrency"
@@ -1624,13 +1748,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderCurrentVersion9DFE69557d200c0238935b26a0e4bd418f1fe3b8": {
+    "LambdaEsLoaderCurrentVersion9DFE6955b99431c8237dc1ea809a2daec4aafa17": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.7.1"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -1718,9 +1842,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.1 / es-loader-stopper",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / es-loader-stopper",
         "Environment": {
           "Variables": {
             "AES_SIEM_ALERT_TOPIC_ARN": {
@@ -1748,13 +1880,13 @@
         "LambdaEsLoaderStopperServiceRole83AABC1A"
       ]
     },
-    "LambdaEsLoaderStopperCurrentVersion312AA850010dfc42e0f5a9141acd7ec86bc3caf8": {
+    "LambdaEsLoaderStopperCurrentVersion312AA8506f460e3585208a0c5ce31000a78350fd": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoaderStopper35C1D57B"
         },
-        "Description": "2.7.1"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -1853,9 +1985,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.1 / geoip-downloader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / geoip-downloader",
         "Environment": {
           "Variables": {
             "license_key": {
@@ -1886,16 +2026,623 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderCurrentVersion7F1CD34F244e9cf6c19f4d275fb9a5c50fcf23b3": {
+    "LambdaGeoipDownloaderCurrentVersion7F1CD34Fb425164b66b80bc93584b0b9860a0da0": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.7.1"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
+    },
+    "LambdaIocPlanServiceRole6CDE7C5D": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "LambdaIocPlan6E369BFB": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "%%BUCKET_NAME%%",
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaIocPlanServiceRole6CDE7C5D",
+            "Arn"
+          ]
+        },
+        "Architectures": [
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / ioc-plan",
+        "Environment": {
+          "Variables": {
+            "GEOIP_BUCKET": {
+              "Fn::Join": [
+                "",
+                [
+                  "aes-siem-",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "-geo"
+                ]
+              ]
+            },
+            "OTX_API_KEY": {
+              "Ref": "OtxApiKey"
+            },
+            "TOR": {
+              "Ref": "EnableTor"
+            },
+            "ABUSE_CH": {
+              "Ref": "EnableAbuseCh"
+            },
+            "LOG_LEVEL": "WARNING"
+          }
+        },
+        "FunctionName": "aes-siem-ioc-plan",
+        "Handler": "lambda_function.plan",
+        "MemorySize": 128,
+        "Runtime": "python3.9",
+        "Timeout": 300
+      },
+      "DependsOn": [
+        "LambdaIocPlanServiceRole6CDE7C5D"
+      ]
+    },
+    "LambdaIocDownloadServiceRoleEB9001C6": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+                "s3:DeleteObject*",
+                "s3:PutObject*",
+                "s3:Abort*"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "S3BucketForGeoip04B5F171",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "S3BucketForGeoip04B5F171",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942",
+        "Roles": [
+          {
+            "Ref": "LambdaIocDownloadServiceRoleEB9001C6"
+          }
+        ]
+      }
+    },
+    "LambdaIocDownload5519716E": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "%%BUCKET_NAME%%",
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaIocDownloadServiceRoleEB9001C6",
+            "Arn"
+          ]
+        },
+        "Architectures": [
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / ioc-download",
+        "Environment": {
+          "Variables": {
+            "GEOIP_BUCKET": {
+              "Fn::Join": [
+                "",
+                [
+                  "aes-siem-",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "-geo"
+                ]
+              ]
+            },
+            "OTX_API_KEY": {
+              "Ref": "OtxApiKey"
+            },
+            "LOG_LEVEL": "WARNING"
+          }
+        },
+        "FunctionName": "aes-siem-ioc-download",
+        "Handler": "lambda_function.download",
+        "MemorySize": 128,
+        "Runtime": "python3.9",
+        "Timeout": 900
+      },
+      "DependsOn": [
+        "LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942",
+        "LambdaIocDownloadServiceRoleEB9001C6"
+      ]
+    },
+    "LambdaIocCreatedbServiceRole555565C0": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+                "s3:DeleteObject*",
+                "s3:PutObject*",
+                "s3:Abort*"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "S3BucketForGeoip04B5F171",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "S3BucketForGeoip04B5F171",
+                          "Arn"
+                        ]
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4",
+        "Roles": [
+          {
+            "Ref": "LambdaIocCreatedbServiceRole555565C0"
+          }
+        ]
+      }
+    },
+    "LambdaIocCreatedb04F35777": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "%%BUCKET_NAME%%",
+          "S3Key": "%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaIocCreatedbServiceRole555565C0",
+            "Arn"
+          ]
+        },
+        "Architectures": [
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
+        ],
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / ioc-createdb",
+        "Environment": {
+          "Variables": {
+            "GEOIP_BUCKET": {
+              "Fn::Join": [
+                "",
+                [
+                  "aes-siem-",
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "-geo"
+                ]
+              ]
+            },
+            "LOG_LEVEL": "WARNING"
+          }
+        },
+        "FunctionName": "aes-siem-ioc-createdb",
+        "Handler": "lambda_function.createdb",
+        "MemorySize": 384,
+        "Runtime": "python3.9",
+        "Timeout": 900
+      },
+      "DependsOn": [
+        "LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4",
+        "LambdaIocCreatedbServiceRole555565C0"
+      ]
+    },
+    "IocStateMachineLogGroupC1AB417E": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/vendedlogs/states/aes-siem-ioc-logs",
+        "RetentionInDays": 30
+      },
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete"
+    },
+    "IocStateMachineRole095AC46F": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "states.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      }
+    },
+    "IocStateMachineRoleDefaultPolicy2B85C920": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "logs:CreateLogDelivery",
+                "logs:GetLogDelivery",
+                "logs:UpdateLogDelivery",
+                "logs:DeleteLogDelivery",
+                "logs:ListLogDeliveries",
+                "logs:PutResourcePolicy",
+                "logs:DescribeResourcePolicies",
+                "logs:DescribeLogGroups"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "LambdaIocPlan6E369BFB",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "LambdaIocPlan6E369BFB",
+                          "Arn"
+                        ]
+                      },
+                      ":*"
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "LambdaIocCreatedb04F35777",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "LambdaIocCreatedb04F35777",
+                          "Arn"
+                        ]
+                      },
+                      ":*"
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "LambdaIocDownload5519716E",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "LambdaIocDownload5519716E",
+                          "Arn"
+                        ]
+                      },
+                      ":*"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "IocStateMachineRoleDefaultPolicy2B85C920",
+        "Roles": [
+          {
+            "Ref": "IocStateMachineRole095AC46F"
+          }
+        ]
+      }
+    },
+    "IocStateMachine01BE6E56": {
+      "Type": "AWS::StepFunctions::StateMachine",
+      "Properties": {
+        "RoleArn": {
+          "Fn::GetAtt": [
+            "IocStateMachineRole095AC46F",
+            "Arn"
+          ]
+        },
+        "DefinitionString": {
+          "Fn::Join": [
+            "",
+            [
+              "{\"StartAt\":\"IocPlan\",\"States\":{\"IocPlan\":{\"Next\":\"MapDownload\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$.Payload\",\"Resource\":\"arn:",
+              {
+                "Ref": "AWS::Partition"
+              },
+              ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+              {
+                "Fn::GetAtt": [
+                  "LambdaIocPlan6E369BFB",
+                  "Arn"
+                ]
+              },
+              "\",\"Payload\":\"\"}},\"MapDownload\":{\"Type\":\"Map\",\"Next\":\"IocCreatedb\",\"Parameters\":{\"mapped.$\":\"$$.Map.Item.Value\"},\"Iterator\":{\"StartAt\":\"IocDownload\",\"States\":{\"IocDownload\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$.Payload\",\"Resource\":\"arn:",
+              {
+                "Ref": "AWS::Partition"
+              },
+              ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+              {
+                "Fn::GetAtt": [
+                  "LambdaIocDownload5519716E",
+                  "Arn"
+                ]
+              },
+              "\",\"Payload.$\":\"$\"}}}},\"ItemsPath\":\"$.mapped\",\"MaxConcurrency\":5},\"IocCreatedb\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"arn:",
+              {
+                "Ref": "AWS::Partition"
+              },
+              ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+              {
+                "Fn::GetAtt": [
+                  "LambdaIocCreatedb04F35777",
+                  "Arn"
+                ]
+              },
+              "\",\"Payload.$\":\"$\"}}}}"
+            ]
+          ]
+        },
+        "LoggingConfiguration": {
+          "Destinations": [
+            {
+              "CloudWatchLogsLogGroup": {
+                "LogGroupArn": {
+                  "Fn::GetAtt": [
+                    "IocStateMachineLogGroupC1AB417E",
+                    "Arn"
+                  ]
+                }
+              }
+            }
+          ],
+          "Level": "ALL"
+        },
+        "StateMachineName": "aes-siem-ioc-state-machine"
+      },
+      "DependsOn": [
+        "IocStateMachineRoleDefaultPolicy2B85C920",
+        "IocStateMachineRole095AC46F"
+      ]
+    },
+    "IocStateMachineEventsRoleC1BF1919": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "events.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      }
+    },
+    "IocStateMachineEventsRoleDefaultPolicyC412ACCE": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "states:StartExecution",
+              "Effect": "Allow",
+              "Resource": {
+                "Ref": "IocStateMachine01BE6E56"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "IocStateMachineEventsRoleDefaultPolicyC412ACCE",
+        "Roles": [
+          {
+            "Ref": "IocStateMachineEventsRoleC1BF1919"
+          }
+        ]
+      }
     },
     "LambdaMetricsExporterServiceRoleDDE0BD95": {
       "Type": "AWS::IAM::Role",
@@ -2002,9 +2749,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.1 / index-metrics-exporter",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / index-metrics-exporter",
         "Environment": {
           "Variables": {
             "ES_ENDPOINT": {
@@ -2039,13 +2794,13 @@
         "LambdaMetricsExporterServiceRoleDDE0BD95"
       ]
     },
-    "LambdaMetricsExporterCurrentVersion79B0413Fe7077c3b40a4eaf31d92aaad13c32b52": {
+    "LambdaMetricsExporterCurrentVersion79B0413F460ba606868f90555ea93039374d0fb9": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaMetricsExporter2737F589"
         },
-        "Description": "2.7.1"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2064,9 +2819,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.1 / opensearch domain deployment",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / opensearch domain deployment",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -2097,13 +2860,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESCurrentVersion047915F1fa085dcd3385eb859105da8bd5238729": {
+    "LambdaDeployAESCurrentVersion047915F18e41b7785035114c682df8dce8f1386c": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.7.1"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2117,8 +2880,11 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.7.1"
-      }
+        "ConfigVersion": "2.7.2-beta.3"
+      },
+      "DependsOn": [
+        "AesSiemDeployRoleForLambda654D64F2"
+      ]
     },
     "LambdaConfigureAESA0471961": {
       "Type": "AWS::Lambda::Function",
@@ -2134,9 +2900,17 @@
           ]
         },
         "Architectures": [
-          "x86_64"
+          {
+            "Fn::FindInMap": [
+              "RegionMap",
+              {
+                "Ref": "AWS::Region"
+              },
+              "LambdaArch"
+            ]
+          }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.7.1 / opensearch configuration",
+        "Description": "SIEM on Amazon OpenSearch Service v2.7.2-beta.3 / opensearch configuration",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -2184,13 +2958,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESCurrentVersion651147680b945276af5a1282f38f1d1259fcacdf": {
+    "LambdaConfigureAESCurrentVersion65114768de36055af8baa560e57126a6a9be74bc": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.7.1"
+        "Description": "2.7.2-beta.3"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2204,7 +2978,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.7.1"
+        "ConfigVersion": "2.7.2-beta.3"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"
@@ -2336,7 +3110,7 @@
       "Properties": {
         "Description": "AWS CloudFormation handler for \"Custom::S3BucketNotifications\" resources (@aws-cdk/aws-s3)",
         "Code": {
-          "ZipFile": "import boto3  # type: ignore\nimport json\nimport logging\nimport urllib.request\n\ns3 = boto3.client(\"s3\")\n\nCONFIGURATION_TYPES = [\"TopicConfigurations\", \"QueueConfigurations\", \"LambdaFunctionConfigurations\"]\n\ndef handler(event: dict, context):\n    response_status = \"SUCCESS\"\n    error_message = \"\"\n    try:\n        props = event[\"ResourceProperties\"]\n        bucket = props[\"BucketName\"]\n        notification_configuration = props[\"NotificationConfiguration\"]\n        request_type = event[\"RequestType\"]\n        managed = props.get('Managed', 'true').lower() == 'true'\n        stack_id = event['StackId']\n\n        if managed:\n          config = handle_managed(request_type, notification_configuration)\n        else:\n          config = handle_unmanaged(bucket, stack_id, request_type, notification_configuration)\n\n        put_bucket_notification_configuration(bucket, config)\n    except Exception as e:\n        logging.exception(\"Failed to put bucket notification configuration\")\n        response_status = \"FAILED\"\n        error_message = f\"Error: {str(e)}. \"\n    finally:\n        submit_response(event, context, response_status, error_message)\n\n\ndef handle_managed(request_type, notification_configuration):\n  if request_type == 'Delete':\n    return {}\n  return notification_configuration\n\n\ndef handle_unmanaged(bucket, stack_id, request_type, notification_configuration):\n\n  # find external notifications\n  external_notifications = find_external_notifications(bucket, stack_id)\n\n  # if delete, that's all we need\n  if request_type == 'Delete':\n    return external_notifications\n\n  def with_id(notification):\n    notification['Id'] = f\"{stack_id}-{hash(json.dumps(notification, sort_keys=True))}\"\n    return notification\n\n  # otherwise, merge external with incoming config and augment with id\n  notifications = {}\n  for t in CONFIGURATION_TYPES:\n    external = external_notifications.get(t, [])\n    incoming = [with_id(n) for n in notification_configuration.get(t, [])]\n    notifications[t] = external + incoming\n  return notifications\n\n\ndef find_external_notifications(bucket, stack_id):\n  existing_notifications = get_bucket_notification_configuration(bucket)\n  external_notifications = {}\n  for t in CONFIGURATION_TYPES:\n    # if the notification was created by us, we know what id to expect\n    # so we can filter by it.\n    external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'].startswith(f\"{stack_id}-\")]\n\n  return external_notifications\n\n\ndef get_bucket_notification_configuration(bucket):\n  return s3.get_bucket_notification_configuration(Bucket=bucket)\n\n\ndef put_bucket_notification_configuration(bucket, notification_configuration):\n  s3.put_bucket_notification_configuration(Bucket=bucket, NotificationConfiguration=notification_configuration)\n\n\ndef submit_response(event: dict, context, response_status: str, error_message: str):\n    response_body = json.dumps(\n        {\n            \"Status\": response_status,\n            \"Reason\": f\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\",\n            \"PhysicalResourceId\": event.get(\"PhysicalResourceId\") or event[\"LogicalResourceId\"],\n            \"StackId\": event[\"StackId\"],\n            \"RequestId\": event[\"RequestId\"],\n            \"LogicalResourceId\": event[\"LogicalResourceId\"],\n            \"NoEcho\": False,\n        }\n    ).encode(\"utf-8\")\n    headers = {\"content-type\": \"\", \"content-length\": str(len(response_body))}\n    try:\n        req = urllib.request.Request(url=event[\"ResponseURL\"], headers=headers, data=response_body, method=\"PUT\")\n        with urllib.request.urlopen(req) as response:\n            print(response.read().decode(\"utf-8\"))\n        print(\"Status code: \" + response.reason)\n    except Exception as e:\n        print(\"send(..) failed executing request.urlopen(..): \" + str(e))\n"
+          "ZipFile": "import boto3  # type: ignore\nimport json\nimport logging\nimport urllib.request\n\ns3 = boto3.client(\"s3\")\n\nEVENTBRIDGE_CONFIGURATION = 'EventBridgeConfiguration'\n\nCONFIGURATION_TYPES = [\"TopicConfigurations\", \"QueueConfigurations\", \"LambdaFunctionConfigurations\"]\n\ndef handler(event: dict, context):\n  response_status = \"SUCCESS\"\n  error_message = \"\"\n  try:\n    props = event[\"ResourceProperties\"]\n    bucket = props[\"BucketName\"]\n    notification_configuration = props[\"NotificationConfiguration\"]\n    request_type = event[\"RequestType\"]\n    managed = props.get('Managed', 'true').lower() == 'true'\n    stack_id = event['StackId']\n\n    if managed:\n      config = handle_managed(request_type, notification_configuration)\n    else:\n      config = handle_unmanaged(bucket, stack_id, request_type, notification_configuration)\n\n    put_bucket_notification_configuration(bucket, config)\n  except Exception as e:\n    logging.exception(\"Failed to put bucket notification configuration\")\n    response_status = \"FAILED\"\n    error_message = f\"Error: {str(e)}. \"\n  finally:\n    submit_response(event, context, response_status, error_message)\n\ndef handle_managed(request_type, notification_configuration):\n  if request_type == 'Delete':\n    return {}\n  return notification_configuration\n\ndef handle_unmanaged(bucket, stack_id, request_type, notification_configuration):\n  external_notifications = find_external_notifications(bucket, stack_id)\n\n  if request_type == 'Delete':\n    return external_notifications\n\n  def with_id(notification):\n    notification['Id'] = f\"{stack_id}-{hash(json.dumps(notification, sort_keys=True))}\"\n    return notification\n\n  notifications = {}\n  for t in CONFIGURATION_TYPES:\n    external = external_notifications.get(t, [])\n    incoming = [with_id(n) for n in notification_configuration.get(t, [])]\n    notifications[t] = external + incoming\n\n  if EVENTBRIDGE_CONFIGURATION in notification_configuration:\n    notifications[EVENTBRIDGE_CONFIGURATION] = notification_configuration[EVENTBRIDGE_CONFIGURATION]\n  elif EVENTBRIDGE_CONFIGURATION in external_notifications:\n    notifications[EVENTBRIDGE_CONFIGURATION] = external_notifications[EVENTBRIDGE_CONFIGURATION]\n\n  return notifications\n\ndef find_external_notifications(bucket, stack_id):\n  existing_notifications = get_bucket_notification_configuration(bucket)\n  external_notifications = {}\n  for t in CONFIGURATION_TYPES:\n    external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'].startswith(f\"{stack_id}-\")]\n\n  if EVENTBRIDGE_CONFIGURATION in existing_notifications:\n    external_notifications[EVENTBRIDGE_CONFIGURATION] = existing_notifications[EVENTBRIDGE_CONFIGURATION]\n\n  return external_notifications\n\ndef get_bucket_notification_configuration(bucket):\n  return s3.get_bucket_notification_configuration(Bucket=bucket)\n\ndef put_bucket_notification_configuration(bucket, notification_configuration):\n  s3.put_bucket_notification_configuration(Bucket=bucket, NotificationConfiguration=notification_configuration)\n\ndef submit_response(event: dict, context, response_status: str, error_message: str):\n  response_body = json.dumps(\n    {\n      \"Status\": response_status,\n      \"Reason\": f\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\",\n      \"PhysicalResourceId\": event.get(\"PhysicalResourceId\") or event[\"LogicalResourceId\"],\n      \"StackId\": event[\"StackId\"],\n      \"RequestId\": event[\"RequestId\"],\n      \"LogicalResourceId\": event[\"LogicalResourceId\"],\n      \"NoEcho\": False,\n    }\n  ).encode(\"utf-8\")\n  headers = {\"content-type\": \"\", \"content-length\": str(len(response_body))}\n  try:\n    req = urllib.request.Request(url=event[\"ResponseURL\"], headers=headers, data=response_body, method=\"PUT\")\n    with urllib.request.urlopen(req) as response:\n      print(response.read().decode(\"utf-8\"))\n    print(\"Status code: \" + response.reason)\n  except Exception as e:\n      print(\"send(..) failed executing request.urlopen(..): \" + str(e))\n"
         },
         "Handler": "index.handler",
         "Role": {
@@ -2400,6 +3174,38 @@
             "Arn"
           ]
         }
+      }
+    },
+    "EventBridgeRuleStepFunctionsIoc6CE991F5": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "ScheduleExpression": {
+          "Fn::Join": [
+            "",
+            [
+              "rate(",
+              {
+                "Ref": "IocDownloadInterval"
+              },
+              " minutes)"
+            ]
+          ]
+        },
+        "State": "ENABLED",
+        "Targets": [
+          {
+            "Arn": {
+              "Ref": "IocStateMachine01BE6E56"
+            },
+            "Id": "Target0",
+            "RoleArn": {
+              "Fn::GetAtt": [
+                "IocStateMachineEventsRoleC1BF1919",
+                "Arn"
+              ]
+            }
+          }
+        ]
       }
     },
     "EventBridgeRuleLambdaMetricsExporterE956E7F2": {

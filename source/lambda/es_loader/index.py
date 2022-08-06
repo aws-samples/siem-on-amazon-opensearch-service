@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.7.2-beta.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -13,6 +13,7 @@ import os
 import re
 import sys
 import time
+import urllib.parse
 from functools import lru_cache, wraps
 
 import boto3
@@ -20,7 +21,7 @@ from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
 import siem
-from siem import geodb, utils
+from siem import geodb, ioc, utils
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
 logger.info(f'version: {__version__}')
@@ -34,7 +35,8 @@ ES_HOSTNAME = utils.get_es_hostname()
 
 def extract_logfile_from_s3(record):
     if 's3' in record:
-        s3key = record['s3']['object']['key']
+        s3key = urllib.parse.unquote_plus(
+            record['s3']['object']['key'], encoding='utf-8')
         s3bucket = record['s3']['bucket']['name']
         logger.structure_logs(append=True, s3_key=s3key, s3_bucket=s3bucket)
         logtype = utils.get_logtype_from_s3key(s3key, logtype_s3key_dict)
@@ -107,7 +109,9 @@ def create_logconfig(logtype):
                  'dns.header_flags', 'dns.resolved_ip', 'dns.type',
                  'ecs', 'static_ecs',
                  'event.category', 'event.type', 'file.attributes',
-                 'host.ip', 'host.mac', 'observer.ip', 'observer.mac',
+                 'host.ip', 'host.mac',
+                 'ioc_domain', 'ioc_ip',
+                 'observer.ip', 'observer.mac',
                  'process.args', 'registry.data.strings',
                  'related.hash', 'related.hosts', 'related.ip', 'related.user',
                  'renamed_newfields',
@@ -164,7 +168,8 @@ def get_es_entries(logfile, exclude_log_patterns):
     sf_module = utils.load_sf_module(logfile, logconfig, user_libs_list)
 
     logparser = siem.LogParser(
-        logfile, logconfig, sf_module, geodb_instance, exclude_log_patterns)
+        logfile, logconfig, sf_module, geodb_instance, ioc_instance,
+        exclude_log_patterns)
     for lograw, logdata, logmeta in logfile:
         logparser(lograw, logdata, logmeta)
         if logparser.is_ignored:
@@ -334,6 +339,7 @@ s3_client = boto3.client('s3', config=s3_session_config)
 sqs_queue = utils.sqs_queue(SQS_SPLITTED_LOGS_URL)
 
 geodb_instance = geodb.GeoDB()
+ioc_instance = ioc.DB()
 utils.show_local_dir()
 
 
