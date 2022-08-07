@@ -83,8 +83,8 @@ def get_values_from_asff_resources(resources):
             resource_dict['user'] = {'id': accesskey, 'name': name}
         elif resource['Type'] == 'AwsEc2Volume':
             try:
-                instanceid = (resource['Details']['AwsEc2Volume']['Attachments']
-                              [0]['InstanceId'])
+                instanceid = (resource['Details']['AwsEc2Volume']
+                              ['Attachments'][0]['InstanceId'])
             except Exception:
                 continue
             resource_dict['cloud'] = {'instance': {'id': instanceid}}
@@ -149,21 +149,28 @@ def transform(logdata):
     elif 'guardduty' in module:
         logdata['event']['category'] = 'intrusion_detection'
 
-        action_type = (logdata['ProductFields']
-                       ['aws/guardduty/service/action/actionType'])
-        if 'NETWORK_CONNECTION' in action_type:
+        try:
+            action_type = (logdata['ProductFields']
+                           ['aws/guardduty/service/action/actionType'])
+        except Exception:
+            action_type = ''
+        if action_type == 'NETWORK_CONNECTION':
             direction_key = ('aws/guardduty/service/action/'
                              'networkConnectionAction/connectionDirection')
             direction = logdata['ProductFields'][direction_key].lower()
-        elif 'DNS_REQUEST' in action_type:
+        elif action_type == 'DNS_REQUEST':
             direction = "outbound"
+        elif logdata['ThreatFamilyName'] in ('SuspiciousFile',
+                                             'MaliciousFile'):
+            direction = None
         else:
             direction = "inbound"
-        if 'network' in logdata:
-            logdata['network']['direction'] = direction
-        else:
-            logdata['network'] = {'direction': direction}
-        if "outbound" in direction:
+        if direction:
+            if 'network' in logdata:
+                logdata['network']['direction'] = direction.lower()
+            else:
+                logdata['network'] = {'direction': direction.lower()}
+        if direction == "outbound":
             logdata['source'], logdata['destination'] = (
                 logdata.get('destination'), logdata.get('source'))
             if not logdata['source']:
@@ -173,6 +180,9 @@ def transform(logdata):
         # event.category
         if logdata['ThreatPurpose'] in ('Backdoor', 'CryptoCurrency',
                                         'Trojan'):
+            logdata['event']['category'] = 'malware'
+        elif logdata['ThreatFamilyName'] in ('SuspiciousFile',
+                                             'MaliciousFile'):
             logdata['event']['category'] = 'malware'
     elif 'inspector' in module:
         v1_id = logdata['ProductFields'].get('aws/inspector/id')
