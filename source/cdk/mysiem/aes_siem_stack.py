@@ -743,7 +743,7 @@ class MyAesSiemStack(core.Stack):
             self, 'LambdaGeoipDownloader',
             function_name=function_name,
             description=f'{SOLUTION_NAME} / geoip-downloader',
-            runtime=aws_lambda.Runtime.PYTHON_3_8,
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
             architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
@@ -789,6 +789,8 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
+        if not same_lambda_func_version(function_name):
+            lambda_ioc_plan.current_version
         lambda_ioc_plan.node.default_child.add_property_override(
             "Architectures", [region_mapping.find_in_map(
                 core.Aws.REGION, 'LambdaArch')]
@@ -814,6 +816,8 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
+        if not same_lambda_func_version(function_name):
+            lambda_ioc_download.current_version
         lambda_ioc_download.node.default_child.add_property_override(
             "Architectures", [region_mapping.find_in_map(
                 core.Aws.REGION, 'LambdaArch')]
@@ -838,6 +842,8 @@ class MyAesSiemStack(core.Stack):
                 description=__version__
             ),
         )
+        if not same_lambda_func_version(function_name):
+            lambda_ioc_createdb.current_version
         lambda_ioc_createdb.node.default_child.add_property_override(
             "Architectures", [region_mapping.find_in_map(
                 core.Aws.REGION, 'LambdaArch')]
@@ -846,12 +852,13 @@ class MyAesSiemStack(core.Stack):
             self, "IocPlan",
             payload=aws_stepfunctions.TaskInput.from_text(''),
             lambda_function=lambda_ioc_plan,
-            output_path="$.Payload")
+            output_path="$.Payload"
+        )
         map_download = aws_stepfunctions.Map(
             self, 'MapDownload',
             items_path=aws_stepfunctions.JsonPath.string_at("$.mapped"),
             parameters={"mapped.$": "$$.Map.Item.Value"},
-            max_concurrency=5
+            max_concurrency=6
         )
         task_ioc_download = aws_stepfunctions_tasks.LambdaInvoke(
             self, "IocDownload",
@@ -873,7 +880,7 @@ class MyAesSiemStack(core.Stack):
         ioc_state_machine = aws_stepfunctions.StateMachine(
             self, "IocStateMachine",
             state_machine_name='aes-siem-ioc-state-machine',
-            definition=definition,
+            definition=definition, timeout=core.Duration.minutes(60),
             logs=aws_stepfunctions.LogOptions(
                 destination=ioc_state_machine_log_group,
                 level=aws_stepfunctions.LogLevel.ALL))
@@ -1123,7 +1130,7 @@ class MyAesSiemStack(core.Stack):
 
         # Download geoip every 12 hours
         rule = aws_events.Rule(
-            self, 'CwlRuleLambdaGeoipDownloaderDilly',
+            self, 'EventBridgeRuleLambdaGeoipDownloader',
             schedule=aws_events.Schedule.rate(core.Duration.hours(12)))
         rule.add_target(aws_events_targets.LambdaFunction(lambda_geo))
 

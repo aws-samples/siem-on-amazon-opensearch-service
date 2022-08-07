@@ -27,6 +27,7 @@ past*
 python_dateutil-2.8.1*
 requests*
 typing_extensions*
+ua_parser*
 urllib3*
 wrapt*
 xmltodict*
@@ -42,6 +43,7 @@ deployment/open-source/
 es_loader.zip
 es_loader_stopper.zip
 geoip_downloader.zip
+ioc_database.zip
 deploy_es.zip
 index_china.py
 restore_samplelog.zip

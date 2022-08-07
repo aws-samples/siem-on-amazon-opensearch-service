@@ -156,9 +156,6 @@ class DB():
             ip_int_upper = ip_int >> 80
             ip_int_middle = ip_int >> 32 & (1 << 48) - 1
             ip_int_lower = ip_int & (1 << 32) - 1
-            print(str(ip))
-            print(f'{str(ip_int_upper)} - {str(ip_int_middle)} - '
-                  f'{str(ip_int_lower)}')
             self.cur.execute(
                 """SELECT provider, type, name, reference, first_seen,
                     last_seen, modified, description

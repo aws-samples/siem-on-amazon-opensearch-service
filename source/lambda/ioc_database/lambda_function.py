@@ -11,6 +11,7 @@ import base64
 import datetime
 import email.utils
 import hashlib
+import http.client
 import ipaddress
 import json
 import logging
@@ -47,24 +48,37 @@ config = Config(connect_timeout=5, retries={'max_attempts': 0})
 s3 = boto3.client('s3', config=config)
 
 
-def _download_file_from_interet(url, file_name=None, headers=[]):
-    req = urllib.request.Request(url)
-    if not file_name:
-        file_name = url.split('/')[-1]
-    if len(headers) > 0:
-        for header in headers:
-            req.add_header(header[0], header[1])
-    local_file = f'{TMP_DIR}/{file_name}'
+def _download_file_from_interet(url, file_name=None, http_conn=None,
+                                headers={}):
+    if http_conn:
+        http_conn.request('GET', url, body=None, headers=headers)
+    else:
+        req = urllib.request.Request(url)
+        if len(headers) > 0:
+            for header, value in headers.items():
+                req.add_header(header, value)
     try:
-        with open(local_file, mode="wb") as f:
-            with urllib.request.urlopen(req, timeout=61) as response:
-                f.write(response.read())
+        if http_conn:
+            response = http_conn.getresponse()
+            status_code = response.status
+
+        else:
+            response = urllib.request.urlopen(req, timeout=61)
+            status_code = response.code
     except Exception:
         logger.exception(f'failed to download from {url}')
-        if os.path.exists(local_file):
-            os.remove(local_file)
         return None
-    status_code = response.code
+
+    if not file_name:
+        file_name = url.split('/')[-1]
+    local_file = f'{TMP_DIR}/{file_name}'
+    with open(local_file, mode="wb") as f:
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            f.write(chunk)
+
     try:
         modified = email.utils.parsedate_to_datetime(
             response.headers['Last-Modified']).astimezone(
@@ -277,7 +291,7 @@ def _put_db_to_s3(conn, cur):
             f'The IoC database is too large at {db_size/1024/1024} MB.'
             f'The file must be {DB_MAX_SIZE_MB} MB or less.')
     _put_file_to_s3(DB_FILEPATH, S3_DB_KEY)
-    return ioc_type_dict
+    return ioc_type_dict, db_size
 
 
 def _list_keys_or_create_dir(prefix, obj_limit=OBJ_LIMIT):
@@ -362,7 +376,8 @@ class TOR:
     def download(self):
         res = _download_file_from_interet(self.TOR_URL)
         if not res or res['status_code'] != 200:
-            return False
+            # use existing downloaded file
+            return {'ioc': 'tor'}
         file_name = res['file_name']
         local_file = f'{TMP_DIR}/{file_name}'
         _put_file_to_s3(local_file, self.S3_KEY)
@@ -434,7 +449,8 @@ class AbuseCh:
     def download(self):
         res = _download_file_from_interet(self.ABUSE_CH_URL)
         if not res or res['status_code'] != 200:
-            return False
+            # use existing downloaded file
+            return {'ioc': 'abuse_ch'}
         file_name = res['file_name']
         local_file = f'{TMP_DIR}/{file_name}'
         _put_file_to_s3(local_file, self.S3_KEY)
@@ -481,22 +497,24 @@ class AbuseCh:
 
 class OTX:
     PREFIX_S3_KEY = 'IOC/tmp/OTX/'
-    SLICE = 500
+    SLICE = 300
+    URL = 'https://otx.alienvault.com/'
 
     @classmethod
     def plan(self, mapped):
         if (OTX_API_KEY
                 and len(OTX_API_KEY) == 64
                 and 'xxxxxxxxxx' not in OTX_API_KEY):
-            url = ('https://otx.alienvault.com/api/v1/pulses/'
-                   'subscribed_pulse_ids')
+            api = 'api/v1/pulses/subscribed_pulse_ids'
+            url = f'{self.URL}{api}'
             file_name = 'subscribed_pulse_ids'
-            headers = [('X-OTX-API-KEY', OTX_API_KEY)]
+            local_file = f'{TMP_DIR}/{file_name}'
+            headers = {'X-OTX-API-KEY': OTX_API_KEY}
             res = _download_file_from_interet(
                 url, file_name=file_name, headers=headers)
             if not res:
                 return mapped
-            with open('/tmp/subscribed_pulse_ids', 'rt') as f:
+            with open(local_file, 'rt') as f:
                 subscribed_pulse = json.load(f)
             logger.warning(
                 f'Number of subscribed pulse is {subscribed_pulse["count"]}')
@@ -507,7 +525,7 @@ class OTX:
                 url = subscribed_pulse["next"]
                 res = _download_file_from_interet(
                     url, file_name=file_name, headers=headers)
-                with open('/tmp/subscribed_pulse_ids', 'rt') as f:
+                with open(local_file, 'rt') as f:
                     subscribed_pulse = json.load(f)
                 all_ids.extend(subscribed_pulse['results'])
 
@@ -517,16 +535,22 @@ class OTX:
             n = self.SLICE
             for i in range(0, len(all_ids), n):
                 mapped.append({'ioc': 'otx', 'ids': all_ids[i: i + n]})
+            if os.path.exists(local_file):
+                os.remove(local_file)
 
         return mapped
 
     @classmethod
     def download(self, ids):
-        headers = [('X-OTX-API-KEY', OTX_API_KEY)]
+        o = urllib.parse.urlparse(self.URL)
+        if o.scheme == 'https':
+            conn = http.client.HTTPSConnection(o.hostname, o.port, timeout=900)
+        headers = {'X-OTX-API-KEY': OTX_API_KEY}
+        api = 'api/v1/pulses/'
         for id in ids:
-            url = f'https://otx.alienvault.com//api/v1/pulses/{id}'
+            url = f'{self.URL}{api}{id}'
             res = _download_file_from_interet(
-                url, file_name=id, headers=headers)
+                url, file_name=id, headers=headers, http_conn=conn)
             if res and res['status_code'] == 200:
                 local_file = f'{TMP_DIR}/{id}'
                 s3_key = f'{self.PREFIX_S3_KEY}{id}.json'
@@ -647,12 +671,16 @@ def createdb(event, context):
     is_tor, is_abuse_ch, is_otx = None, None, None
     provider = {'built-in': 1}
     for item in event:
-        if item['ioc'] == 'tor':
+        try:
+            ioc_type = item['ioc']
+        except Exception:
+            continue
+        if ioc_type == 'tor':
             is_tor = True
-        elif item['ioc'] == 'abuse_ch':
+        elif ioc_type == 'abuse_ch':
             is_abuse_ch = True
             abuse_ch_modified = item['modified']
-        elif item['ioc'] == 'otx':
+        elif ioc_type == 'otx':
             is_otx = True
     conn, cur = _initialize_db()
     cur, provider['custom TXT'] = createdb_custom_txt(conn, cur)
@@ -666,9 +694,10 @@ def createdb(event, context):
     if is_otx:
         cur, count = OTX.createdb(conn, cur)
         provider['AlienVault OTX'] = count
-    ioc_type_dict = _put_db_to_s3(conn, cur)
+    ioc_type_dict, ioc_db_size = _put_db_to_s3(conn, cur)
     result = {'status': 200, 'ioc_provider': provider,
-              'ioc_type': ioc_type_dict}
+              'ioc_type': ioc_type_dict,
+              'ioc_db_size': f'{ioc_db_size/1024/1024} MB'}
     logger.warning(result)
     return result
 
