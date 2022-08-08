@@ -392,6 +392,9 @@ class TOR:
         org_ioc = 0
         inserted_count = 0
         _get_file_from_s3(self.S3_KEY, LOCAL_TMP_FILE)
+        if not os.path.exists(LOCAL_TMP_FILE):
+            logger.error('There is no downloaed TOR file')
+            return cur, inserted_count
         with open(LOCAL_TMP_FILE) as f:
             # ExitNode 5C3F3217F99D6CFA711D9415AFED1003971201AF
             # Published 2022-06-18 20:05:14
@@ -464,6 +467,9 @@ class AbuseCh:
         org_ioc = 0
         inserted_count = 0
         _get_file_from_s3(self.S3_KEY, LOCAL_TMP_FILE)
+        if not os.path.exists(LOCAL_TMP_FILE):
+            logger.error('There is no downloaed abuse.ch file')
+            return cur, inserted_count
         with open(LOCAL_TMP_FILE) as f:
             objs = json.load(f)
         for obj in objs:
@@ -623,7 +629,8 @@ class OTX:
                         modified=modified, description=description)
                     if res:
                         inserted_count += 1
-
+            if os.path.exists(LOCAL_TMP_FILE):
+                os.remove(LOCAL_TMP_FILE)
             logger.info(f'{provider} {s3_key}: Original IOC is {org_ioc}')
             logger.info(
                 f'{provider} {s3_key}: Inserted IOC is {inserted_count}')
@@ -668,20 +675,23 @@ def download(event, context):
 
 def createdb(event, context):
     logger.warning('Starting to create database')
+    if os.path.exists(DB_FILEPATH):
+        os.remove(DB_FILEPATH)
     is_tor, is_abuse_ch, is_otx = None, None, None
     provider = {'built-in': 1}
     for item in event:
         try:
-            ioc_type = item['ioc']
+            is_provider = item['ioc']
         except Exception:
             continue
-        if ioc_type == 'tor':
-            is_tor = True
-        elif ioc_type == 'abuse_ch':
-            is_abuse_ch = True
-            abuse_ch_modified = item['modified']
-        elif ioc_type == 'otx':
-            is_otx = True
+        if is_provider:
+            if is_provider == 'tor':
+                is_tor = True
+            elif is_provider == 'abuse_ch':
+                is_abuse_ch = True
+                abuse_ch_modified = item['modified']
+            elif is_provider == 'otx':
+                is_otx = True
     conn, cur = _initialize_db()
     cur, provider['custom TXT'] = createdb_custom_txt(conn, cur)
     cur, provider['custom STIX2'] = createdb_custom_stix2(conn, cur)
