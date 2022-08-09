@@ -176,6 +176,9 @@ if vpc_subnet_id:
     config_domain['VPCOptions'] = {'SubnetIds': [vpc_subnet_id, ],
                                    'SecurityGroupIds': [security_group_id, ]}
 
+if region == 'ap-northeast-3':
+    config_domain['ClusterConfig']['InstanceType'] = 'r5.large.search'
+
 if s3_snapshot:
     s3_snapshot_bucket = s3_client.Bucket(s3_snapshot)
 
