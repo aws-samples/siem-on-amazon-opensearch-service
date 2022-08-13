@@ -24,8 +24,22 @@ class FileFormatCsv(FileFormatBase):
 
     @cached_property
     def log_count(self):
-        # _log_count = len(self.rawdata.readlines())
-        return sum(1 for line in self.rawdata)
+        header_num = self.ignore_header_line_number
+        # _line_count = len(self.rawdata.readlines())
+        _line_count = sum(1 for line in self.rawdata) - header_num
+        if self.csv_delimiter:
+            self.rawdata.seek(0)
+            spamreader = csv.reader(self.rawdata, delimiter=self.csv_delimiter)
+            _row_count = sum(1 for row in spamreader) - header_num
+        else:
+            self.is_multiline = False
+            return _line_count
+        if _line_count == _row_count:
+            self.is_multiline = False
+            return _line_count
+        else:
+            self.is_multiline = True
+            return _row_count
 
     @property
     def ignore_header_line_number(self):
@@ -48,6 +62,21 @@ class FileFormatCsv(FileFormatBase):
         start_index = start - 1
         end_index = end
         if self.csv_delimiter:
+            try:
+                is_multiline = self.is_multiline
+            except AttributeError:
+                _line_count = sum(1 for line in self.rawdata)
+                self.rawdata.seek(0)
+                spamreader = csv.reader(
+                    self.rawdata, delimiter=self.csv_delimiter)
+                _row_count = sum(1 for row in spamreader)
+                self.rawdata.seek(0)
+                if _line_count == _row_count:
+                    is_multiline = False
+                else:
+                    is_multiline = True
+
+        if self.csv_delimiter and (is_multiline is False):
             for logdata in self.rawdata.readlines()[start_index:end_index]:
                 lograw = logdata.strip()
                 lograw_tuple = None
@@ -55,6 +84,19 @@ class FileFormatCsv(FileFormatBase):
                     lograw_tuple = x
                 logdict = dict(zip(self._csv_header, lograw_tuple))
                 yield (lograw, logdict, logmeta)
+        elif self.csv_delimiter and (is_multiline is True):
+            if start <= 2:
+                start = 1
+            reader = csv.DictReader(self.rawdata, delimiter=self.csv_delimiter)
+            row_count = 1
+            for row in reader:
+                if start <= row_count <= end:
+                    # pseudo lorwar
+                    lograw = ','.join([f'"{v}"' for v in row.values()])
+                    yield (lograw, row, logmeta)
+                if row_count >= end:
+                    break
+                row_count += 1
         else:
             for logdata in self.rawdata.readlines()[start_index:end_index]:
                 lograw = logdata.strip()
