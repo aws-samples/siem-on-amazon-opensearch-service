@@ -112,6 +112,11 @@ def rename_config_field_name(logdata):
             logdata['configuration']['state'].pop('name'))
     except (AttributeError, KeyError, TypeError):
         pass
+    try:
+        logdata['tags']['AmazonFSx_FileSystemId'] = (
+            logdata['tags'].pop('AmazonFSx.FileSystemId'))
+    except Exception:
+        pass
 
     # "resourceType": "AWS::Lambda::Function"
     try:
