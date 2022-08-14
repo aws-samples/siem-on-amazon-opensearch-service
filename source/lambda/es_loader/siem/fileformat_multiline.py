@@ -86,6 +86,8 @@ class FileFormatMultiline(FileFormatBase):
                     multilog = []
                     is_in_scope = True
                     multilog.append(line)
+                elif count > end:
+                    break
                 else:
                     continue
             elif is_in_scope:

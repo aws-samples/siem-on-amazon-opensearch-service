@@ -74,6 +74,8 @@ class FileFormatWinEvtXml(FileFormatBase):
                 count += 1
                 if start <= count <= end:
                     is_in_scope = True
+                elif count > end:
+                    break
                 else:
                     continue
             elif not is_in_scope:
