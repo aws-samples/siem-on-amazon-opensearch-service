@@ -161,6 +161,8 @@ class MyAesSiemStack(core.Stack):
             validate_cdk_json(self)
 
         ES_LOADER_TIMEOUT = 600
+        PARTITION = region_info.Fact.find(
+            self.region, region_info.FactName.PARTITION)
         ######################################################################
         # REGION mapping / ELB & Lambda Arch
         ######################################################################
@@ -171,21 +173,102 @@ class MyAesSiemStack(core.Stack):
         for region in elb_map_temp:
             # ELB account ID
             region_dict[region] = {'ElbV2AccountId': elb_map_temp[region]}
+            arm = aws_lambda.Architecture.ARM_64.name
+            x86 = aws_lambda.Architecture.X86_64.name
             # Lambda Arch
-            if region in ('us-east-1', 'us-east-2', 'us-west-2', 'ap-south-1',
-                          'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1',
-                          'eu-central-1', 'eu-west-1', 'eu-west-2'):
-                region_dict[region]['LambdaArch'] = (
-                    aws_lambda.Architecture.ARM_64.name)
+            if region in ('ap-northeast-1', 'ap-southeast-1', 'ap-southeast-2',
+                          'eu-central-1', 'eu-west-1', 'eu-west-2',
+                          'us-east-1', 'us-east-2', 'us-west-2'):
+                region_dict[region]['LambdaArch'] = arm
+                region_dict[region]['HasDataWranglerLayer'] = True
                 region_dict[region]['DataWranglerLayer'] = (
                     f"arn:aws:lambda:{region}"
                     ":336392948345:layer:AWSDataWrangler-Python38-Arm64:4")
-            else:
-                region_dict[region]['LambdaArch'] = (
-                    aws_lambda.Architecture.X86_64.name)
+            elif region in ('ap-south-1'):
+                region_dict[region]['LambdaArch'] = arm
+                region_dict[region]['HasDataWranglerLayer'] = True
                 region_dict[region]['DataWranglerLayer'] = (
                     f"arn:aws:lambda:{region}"
-                    ":336392948345:layer:AWSDataWrangler-Python38:8")
+                    ":336392948345:layer:AWSDataWrangler-Python38-Arm64:5")
+            elif region in ('eu-north-1', 'sa-east-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = True
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":336392948345:layer:AWSDataWrangler-Python38:4")
+            elif region in ('ap-northeast-2', 'ap-northeast-3', 'ap-south-1',
+                            'eu-west-3'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = True
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":336392948345:layer:AWSDataWrangler-Python38:5")
+            elif region in ('us-west-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = True
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":336392948345:layer:AWSDataWrangler-Python38:7")
+            elif region in ('eu-west-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = True
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":336392948345:layer:AWSDataWrangler-Python38:10")
+            elif region in ('af-south-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = False
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":012438385374:layer:LambdaInsightsExtension:11")
+            elif region in ('ap-east-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = False
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":519774774795:layer:LambdaInsightsExtension:11")
+            elif region in ('ap-southeast-3'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = False
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":418787028745:layer:AWS-AppConfig-Extension:24")
+            elif region in ('ca-central-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = False
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":580247275435:layer:LambdaInsightsExtension:18")
+            elif region in ('eu-south-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = False
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":339249233099:layer:LambdaInsightsExtension:11")
+            elif region in ('me-south-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = False
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws:lambda:{region}"
+                    ":285320876703:layer:LambdaInsightsExtension:11")
+            elif region in ('cn-north-1', 'cn-northwest-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = False
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws-cn:lambda:{region}"
+                    ":488211338238:layer:LambdaInsightsExtension:11")
+            elif region in ('us-gov-east-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = False
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws-us-gov:lambda:{region}"
+                    ":138526772879:layer:AWSLambda-Python-AWS-SDK:5")
+            elif region in ('us-gov-west-1'):
+                region_dict[region]['LambdaArch'] = x86
+                region_dict[region]['HasDataWranglerLayer'] = False
+                region_dict[region]['DataWranglerLayer'] = (
+                    f"arn:aws-us-gov:lambda:{region}"
+                    ":556739011827:layer:AWSLambda-Python-AWS-SDK:5")
         region_mapping = core.CfnMapping(
             scope=self, id='RegionMap', mapping=region_dict)
 
@@ -448,7 +531,9 @@ class MyAesSiemStack(core.Stack):
             resources=['*'],
             conditions={'StringLike': {
                 'kms:EncryptionContext:aws:cloudtrail:arn': [
-                    f'arn:aws:cloudtrail:*:{core.Aws.ACCOUNT_ID}:trail/*']}})
+                    (f'arn:{PARTITION}:cloudtrail:*:{core.Aws.ACCOUNT_ID}:'
+                     'trail/*')
+                ]}})
         kms_aes_siem.add_to_resource_policy(key_policy_trail2)
 
         ######################################################################
@@ -485,7 +570,8 @@ class MyAesSiemStack(core.Stack):
         # IAM Role
         ######################################################################
         # delopyment policy for lambda deploy-aes
-        arn_prefix = f'arn:aws:logs:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
+        arn_prefix = (
+            f'arn:{PARTITION}:logs:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}')
         loggroup_aes = f'log-group:/aws/aes/domains/{aes_domain_name}/*'
         loggroup_opensearch = (
             f'log-group:/aws/OpenSearchService/domains/{aes_domain_name}/*')
@@ -592,10 +678,14 @@ class MyAesSiemStack(core.Stack):
         )
 
         # EC2 role
+        if self.region.startswith('cn-'):
+            ec2_sp = 'ec2.amazonaws.com.cn'
+        else:
+            ec2_sp = 'ec2.amazonaws.com'
         aes_siem_es_loader_ec2_role = aws_iam.Role(
             self, 'AesSiemEsLoaderEC2Role',
             role_name='aes-siem-es-loader-for-ec2',
-            assumed_by=aws_iam.ServicePrincipal('ec2.amazonaws.com'),
+            assumed_by=aws_iam.ServicePrincipal(ec2_sp),
         )
 
         aws_iam.CfnInstanceProfile(
@@ -644,10 +734,16 @@ class MyAesSiemStack(core.Stack):
                 'vpc_subnets': vpc_subnets,
             }
 
-        wrangler_layer = aws_lambda.LayerVersion.from_layer_version_arn(
+        self.has_data_wrangler = core.CfnCondition(
+            self, 'HasDataWranger',
+            expression=core.Fn.condition_equals(
+                region_mapping.find_in_map(
+                    core.Aws.REGION, 'HasDataWranglerLayer'),
+                True))
+        self.wrangler_layer = aws_lambda.LayerVersion.from_layer_version_arn(
             self, id="AwsDataWranglerLambdaLayer",
             layer_version_arn=(
-                f"arn:aws:lambda:{core.Aws.REGION}"
+                f"arn:{PARTITION}:lambda:{core.Aws.REGION}"
                 ":336392948345:layer:AWSDataWrangler-Python38:1")
         )
         function_name = 'aes-siem-es-loader'
@@ -676,7 +772,7 @@ class MyAesSiemStack(core.Stack):
                 removal_policy=core.RemovalPolicy.RETAIN,
                 description=__version__
             ),
-            layers=[wrangler_layer],
+            # layers=[wrangler_layer],
         )
         if not same_lambda_func_version(function_name):
             lambda_es_loader.current_version
@@ -1021,7 +1117,7 @@ class MyAesSiemStack(core.Stack):
         aes_config.add_depends_on(aes_domain)
         aes_config.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
 
-        es_arn = (f'arn:aws:es:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
+        es_arn = (f'arn:{PARTITION}:es:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
                   f':domain/{aes_domain_name}')
         # grant permission to es_loader role
         inline_policy_to_load_entries_into_es = aws_iam.Policy(
@@ -1075,8 +1171,8 @@ class MyAesSiemStack(core.Stack):
         if additional_buckets:
             buckets_list = []
             for bucket in additional_buckets:
-                buckets_list.append(f'arn:aws:s3:::{bucket}')
-                buckets_list.append(f'arn:aws:s3:::{bucket}/*')
+                buckets_list.append(f'arn:{PARTITION}:s3:::{bucket}')
+                buckets_list.append(f'arn:{PARTITION}:s3:::{bucket}/*')
             inline_policy_access_to_additional_buckets = aws_iam.Policy(
                 self, 'access_to_additional_buckets',
                 policy_name='access_to_additional_buckets',
@@ -1257,7 +1353,7 @@ class MyAesSiemStack(core.Stack):
             ##################################################################
             # for CloudTrail
             cond_tail2 = self.make_resource_list(
-                path='arn:aws:cloudtrail:*:', tail=':trail/*',
+                path=f'arn:{PARTITION}:cloudtrail:*:', tail=':trail/*',
                 keys=self.list_without_none(org_mgmt_id, no_org_ids))
             key_policy_mul_trail2 = aws_iam.PolicyStatement(
                 sid=('Allow CloudTrail to encrypt logs for multiaccounts'),
@@ -1282,7 +1378,7 @@ class MyAesSiemStack(core.Stack):
             ##################################################################
             # Buckdet Policy for multiaccount / organizaitons
             ##################################################################
-            s3_log_bucket_arn = 'arn:aws:s3:::' + s3bucket_name_log
+            s3_log_bucket_arn = f'arn:{PARTITION}:s3:::{s3bucket_name_log}'
 
             # for CloudTrail
             s3_mulpaths = self.make_resource_list(
@@ -1747,8 +1843,7 @@ class MyAesSiemStack(core.Stack):
             log_group_names=[f'/aws/lambda/{lambda_es_loader.function_name}'],
             view=aws_cloudwatch.LogQueryVisualizationType.TABLE,
             query_string=r"""fields @timestamp, @message
-                | filter @message =~ /^\[/
-                # filter ^[WARNING], ^[ERROR] and unpredictable error log
+                | filter @message =~ /^\[ERROR]/
                 | filter @message not like /No active exception to reraise/
                 # exclude raise without Exception
                 | sort @timestamp desc

@@ -225,8 +225,7 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     putdata_list = []
     error_reason_list = []
     retry_needed = False
-    filter_path = ['took', 'errors', 'items.index.status',
-                   'items.index.error.reason', 'items.index.error.type']
+    filter_path = ['took', 'errors', 'items.index.status', 'items.index.error']
     for data in es_entries:
         putdata_list.append(data)
         output_size += len(str(data))

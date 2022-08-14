@@ -6,3 +6,4 @@ aws-cdk.aws-iam==1.166.1
 aws-cdk.aws-kinesisfirehose==1.166.1
 aws-cdk.aws-lambda==1.166.1
 aws-cdk.aws-logs==1.166.1
+aws-cdk.region-info==1.166.1

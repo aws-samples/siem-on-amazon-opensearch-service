@@ -71,21 +71,7 @@ function pip_zip_for_lambda () {
     cd ..
 }
 
-function check_china_region_and_update () {
-    if [[ "$1" == "china" ]]; then
-        #Command to replace AWS arn string for China region
-        echo "replace arn for AWS China Region"
-        replace_arn="s/arn:aws/arn:aws-cn/g"
-        sed -e ${replace_arn} "$source_dir/lambda/deploy_es/index.py" > "$source_dir/lambda/deploy_es/index_china.py"
-        echo "china"
-    else
-        echo "not china"
-    fi
-}
-
 cd "${source_dir}"/lambda || exit
-
-check_china_region_and_update "$1"
 
 echo 'rm -f deploy_es/dashboard.ndjson.zip'
 rm -f deploy_es/dashboard.ndjson.zip

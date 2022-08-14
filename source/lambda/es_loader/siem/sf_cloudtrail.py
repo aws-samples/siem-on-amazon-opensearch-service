@@ -73,6 +73,10 @@ def transform(logdata):
         logdata['responseElements']['credentials'] = {}
         if 'arn:aws:iam' in response_cred:
             logdata['responseElements']['credentials']['iam'] = response_cred
+        elif 'arn:aws-cn:iam' in response_cred:
+            logdata['responseElements']['credentials']['iam'] = response_cred
+        elif 'arn:aws-us-gov:iam' in response_cred:
+            logdata['responseElements']['credentials']['iam'] = response_cred
         else:
             logdata['responseElements']['credentials']['value'] = response_cred
 

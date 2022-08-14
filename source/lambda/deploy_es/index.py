@@ -36,6 +36,7 @@ s3_client = boto3.resource('s3')
 
 accountid = os.environ['accountid']
 region = os.environ['AWS_REGION']
+PARTITION = boto3.Session().get_partition_for_region(region)
 aesdomain = os.getenv('aes_domain_name')
 myaddress = os.getenv('allow_source_address', '').split()
 aes_admin_role = os.getenv('aes_admin_role')
@@ -57,7 +58,7 @@ LOGGROUP_RETENTIONS = [
 ]
 
 es_loader_ec2_role = (
-    f'arn:aws:iam::{accountid}:role/aes-siem-es-loader-for-ec2')
+    f'arn:{PARTITION}:iam::{accountid}:role/aes-siem-es-loader-for-ec2')
 
 cwl_resource_policy = {
     'Version': "2012-10-17",
@@ -71,9 +72,9 @@ cwl_resource_policy = {
                 'logs:CreateLogGroup'
             ],
             'Resource': [
-                (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/'
+                (f'arn:{PARTITION}:logs:{region}:{accountid}:log-group:/aws/'
                  f'OpenSearchService/domains/{aesdomain}/*'),
-                (f'arn:aws:logs:{region}:{accountid}:log-group:/aws/'
+                (f'arn:{PARTITION}:logs:{region}:{accountid}:log-group:/aws/'
                  f'OpenSearchService/domains/{aesdomain}/*:*')
             ]
         }
@@ -87,14 +88,16 @@ access_policies = {
             'Effect': 'Allow',
             'Principal': {'AWS': myiamarn},
             'Action': ['es:*'],
-            'Resource': f'arn:aws:es:{region}:{accountid}:domain/{aesdomain}/*'
+            'Resource': (f'arn:{PARTITION}:es:{region}:{accountid}'
+                         f':domain/{aesdomain}/*')
         },
         {
             'Effect': 'Allow',
             'Principal': {'AWS': '*'},
             'Action': ['es:*'],
             'Condition': {'IpAddress': {'aws:SourceIp': myaddress}},
-            'Resource': f'arn:aws:es:{region}:{accountid}:domain/{aesdomain}/*'
+            'Resource': (f'arn:{PARTITION}:es:{region}:{accountid}:'
+                         f'domain/{aesdomain}/*')
         }
     ]
 }
@@ -153,7 +156,7 @@ config_domain = {
     'LogPublishingOptions': {
         'ES_APPLICATION_LOGS': {
             'CloudWatchLogsLogGroupArn': (
-                f'arn:aws:logs:{region}:{accountid}:log-group:/aws/'
+                f'arn:{PARTITION}:logs:{region}:{accountid}:log-group:/aws/'
                 f'OpenSearchService/domains/{aesdomain}/application-logs'),
             'Enabled': True
         }
@@ -220,7 +223,7 @@ def query_aes(es_endpoint, awsauth, method=None, path=None, payload=None,
               headers=None):
     if not headers:
         headers = {'Content-Type': 'application/json'}
-    url = 'https://' + es_endpoint + '/' + path
+    url = f'https://{es_endpoint}/{path}'
     if method.lower() == 'get':
         res = requests.get(url, auth=awsauth, stream=True)
     elif method.lower() == 'post':

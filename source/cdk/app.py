@@ -15,9 +15,11 @@ from aws_cdk import core
 from mysiem.aes_siem_stack import MyAesSiemStack
 
 app = core.App()
+region = os.environ.get("CDK_DEPLOY_REGION", os.environ["CDK_DEFAULT_REGION"])
+account = os.environ.get("CDK_DEPLOY_ACCOUNT",
+                         os.environ["CDK_DEFAULT_ACCOUNT"])
+
 MyAesSiemStack(app, "aes-siem",
                description=f'SIEM on Amazon OpenSearch Service v{__version__}',
-               env=core.Environment(
-                    account=os.environ['CDK_DEFAULT_ACCOUNT'],
-                    region=os.environ['CDK_DEFAULT_REGION']))
+               env=core.Environment(account=account, region=region))
 app.synth()

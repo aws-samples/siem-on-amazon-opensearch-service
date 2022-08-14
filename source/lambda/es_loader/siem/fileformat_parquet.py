@@ -9,7 +9,10 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 from functools import cached_property
 
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 from aws_lambda_powertools import Logger
 
 from siem import FileFormatBase
@@ -20,10 +23,15 @@ logger = Logger(child=True)
 class FileFormatParquet(FileFormatBase):
     def __init__(self, rawdata=None, logconfig=None, logtype=None):
         super().__init__(rawdata, logconfig, logtype)
+        if pd is None:
+            return None
         self.df = pd.read_parquet(rawdata)
 
     @cached_property
     def log_count(self):
+        if pd is None:
+            logger.error('You need to deploy Pandas as Lambda layer manually')
+            return 0
         return len(self.df.index)
 
     def extract_log(self, start, end, logmeta={}):
