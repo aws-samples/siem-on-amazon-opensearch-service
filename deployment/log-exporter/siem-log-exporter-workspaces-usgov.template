@@ -1,0 +1,281 @@
+Description: "SIEM on Amazon OpenSearch Service v2.8.0-beta.1: log exporter - Workspaces"
+Parameters:
+  cweRulesFrequency:
+    Type: Number
+    Default: 720
+    Description: How often do you get WorkSpaces Inventory? (every minutes)
+  KdfWorkSpacesName:
+    Type: String
+    Default: siem-workspaces-event-to-s3
+    Description: Define new Kinesis Data Firehose Name to deliver workspaces event
+  KdfBufferSize:
+    Type: Number
+    Default: 1
+    Description: Enter a buffer size between 1 - 128 (MiB)
+    MaxValue: 128
+    MinValue: 1
+  KdfBufferInterval:
+    Type: Number
+    Default: 60
+    Description: Enter a buffer interval between 60 - 900 (seconds.)
+    MaxValue: 900
+    MinValue: 60
+Resources:
+  getWorkspacesInventoryRoleC66252C0:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action: workspaces:Describe*
+                Effect: Allow
+                Resource: "*"
+                Sid: DescribeWorkSpacesPolicyGeneratedBySiemCfn
+            Version: "2012-10-17"
+          PolicyName: describe-workspaces
+        - PolicyDocument:
+            Statement:
+              - Action: s3:PutObject
+                Effect: Allow
+                Resource:
+                  Fn::Join:
+                    - ""
+                    - - "arn:aws-us-gov:s3:::"
+                      - Fn::ImportValue: sime-log-bucket-name-v2
+                      - /*
+                Sid: FirehoseToS3PolicyGeneratedBySiemCfn
+            Version: "2012-10-17"
+          PolicyName: firehose-to-s3
+      RoleName: siem-get-workspaces-inventory-role
+  lambdaGetWorkspacesInventory04954C41:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+          # SPDX-License-Identifier: MIT-0
+          __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                           'All Rights Reserved.')
+          __version__ = '2.8.0-beta.1'
+          __license__ = 'MIT-0'
+          __author__ = 'Akihiro Nakajima'
+          __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
+
+          import datetime
+          import gzip
+          import json
+          import os
+          import time
+
+          import boto3
+          from botocore.config import Config
+
+          config = Config(retries={'max_attempts': 10, 'mode': 'standard'})
+          ws_client = boto3.client('workspaces', config=config)
+          s3_resource = boto3.resource('s3')
+          bucket = s3_resource.Bucket(os.environ['log_bucket_name'])
+          AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
+          AWS_REGION = os.environ['AWS_DEFAULT_REGION']
+
+
+          def json_serial(obj):
+              if isinstance(obj, datetime.datetime):
+                  return obj.isoformat()
+              else:
+                  return str(obj)
+
+
+          def lambda_handler(event, context):
+              num = 0
+              now = datetime.datetime.now()
+              file_name = f'workspaces-inventory-{now.strftime("%Y%m%d_%H%M%S")}.json.gz'
+              s3file_name = (
+                  f'AWSLogs/{AWS_ID}/WorkSpaces/Inventory/{AWS_REGION}/'
+                  f'{now.strftime("%Y/%m/%d")}/{file_name}')
+              f = gzip.open(f'/tmp/{file_name}', 'tw')
+
+              api = 'describe_workspaces_connection_status'
+              print(api)
+              ws_cons = {}
+              num = 0
+              paginator = ws_client.get_paginator(api)
+              for response in paginator.paginate():
+                  for ws_con in response['WorkspacesConnectionStatus']:
+                      ws_cons[ws_con['WorkspaceId']] = ws_con
+                      num += 1
+                  time.sleep(0.75)
+              print(f'Number of {api}: {num}')
+
+              api = 'describe_workspaces'
+              print(api)
+              num = 0
+              paginator = ws_client.get_paginator(api)
+              response_iterator = paginator.paginate(PaginationConfig={'PageSize': 25})
+              for response in response_iterator:
+                  print(f'{response["ResponseMetadata"]["RequestId"]}: '
+                        f'{len(response["Workspaces"])}')
+                  dt = datetime.datetime.strptime(
+                      response['ResponseMetadata']['HTTPHeaders']['date'],
+                      "%a, %d %b %Y %H:%M:%S GMT")
+                  jsonobj = {
+                      'id': response['ResponseMetadata']['RequestId'],
+                      'time': dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                      'detail-type': 'WorkSpaces Fake',
+                      "source": "aws.fake.workspaces",
+                      "account": AWS_ID,
+                      'region': AWS_REGION,
+                      "resources": [],
+                      'detail': {'Workspaces': []}}
+                  for item in response['Workspaces']:
+                      try:
+                          item = {**item, **ws_cons[item['WorkspaceId']]}
+                      except Exception:
+                          pass
+                      jsonobj['detail']['Workspaces'].append(item)
+                  num += len(response['Workspaces'])
+                  f.write(json.dumps(jsonobj, default=json_serial))
+                  f.flush()
+                  # sleep 0.75 second to avoid reaching AWS API rate limit (2rps)
+                  time.sleep(0.75)
+              print(f'Total nummber of WorkSpaces inventory: {num}')
+
+              f.close()
+              print(f'Upload path: s3://{bucket.name}/{s3file_name}')
+              bucket.upload_file(f'/tmp/{file_name}', s3file_name)
+      Role:
+        Fn::GetAtt:
+          - getWorkspacesInventoryRoleC66252C0
+          - Arn
+      Description: "SIEM: get workspaces inventory"
+      Environment:
+        Variables:
+          log_bucket_name:
+            Fn::ImportValue: sime-log-bucket-name-v2
+      FunctionName: siem-get-workspaces-inventory
+      Handler: index.lambda_handler
+      MemorySize: 160
+      Runtime: python3.9
+      Timeout: 600
+    DependsOn:
+      - getWorkspacesInventoryRoleC66252C0
+  eventBridgeRuleWorkSpaceInventory93C397AF:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: siem-workspaces-inventory-to-lambda
+      ScheduleExpression:
+        Fn::Join:
+          - ""
+          - - rate(
+            - Ref: cweRulesFrequency
+            - " minutes)"
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - lambdaGetWorkspacesInventory04954C41
+              - Arn
+          Id: Target0
+  eventBridgeRuleWorkSpaceInventoryAllowEventRulesiemlogexporterworkspaceslambdaGetWorkspacesInventory7C06DC3EA3096216:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - lambdaGetWorkspacesInventory04954C41
+          - Arn
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+          - eventBridgeRuleWorkSpaceInventory93C397AF
+          - Arn
+  KDFForWorkSpacesEvent:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: KdfWorkSpacesName
+      S3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name-v2
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: GZIP
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/
+              - Ref: AWS::AccountId
+              - /WorkSpaces/Event/
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
+  KDFForWorkSpacesEventEventsRole7D362B9D:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+        Version: "2012-10-17"
+  KDFForWorkSpacesEventEventsRoleDefaultPolicyDAA71A09:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - firehose:PutRecord
+              - firehose:PutRecordBatch
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - KDFForWorkSpacesEvent
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: KDFForWorkSpacesEventEventsRoleDefaultPolicyDAA71A09
+      Roles:
+        - Ref: KDFForWorkSpacesEventEventsRole7D362B9D
+  eventBridgeRuleWorkSpacesEvent4A62FE9E:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        detail-type:
+          - WorkSpaces Access
+        source:
+          - aws.workspaces
+      Name: siem-workspaces-event-to-kdf
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - KDFForWorkSpacesEvent
+              - Arn
+          Id: Target0
+          RoleArn:
+            Fn::GetAtt:
+              - KDFForWorkSpacesEventEventsRole7D362B9D
+              - Arn
+

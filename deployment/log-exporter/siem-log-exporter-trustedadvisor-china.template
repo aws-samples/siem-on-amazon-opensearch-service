@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.7.2-beta.3: log exporter - TrustedAdvisor"
+Description: "SIEM on Amazon OpenSearch Service v2.8.0-beta.1: log exporter - TrustedAdvisor"
 Parameters:
   cweRulesFrequency:
     Type: Number
@@ -61,7 +61,7 @@ Resources:
           # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
           # SPDX-License-Identifier: MIT-0
           __copyright__ = 'Amazon.com, Inc. or its affiliates'
-          __version__ = '2.7.2-beta.3'
+          __version__ = '2.8.0-beta.1'
           __license__ = 'MIT-0'
           __author__ = 'Katsuya Matsuoka'
           __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -76,11 +76,11 @@ Resources:
           import boto3
           import botocore.exceptions
 
-          client = boto3.Session(region_name='us-east-1').client('support')
+          client = boto3.Session(region_name='cn-north-1').client('support')
           s3_resource = boto3.resource('s3')
           bucket = s3_resource.Bucket(os.environ['log_bucket_name'])
           AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
-          AWS_REGION = 'us-east-1'
+          AWS_REGION = 'cn-north-1'
           is_enable_japanese = (os.environ['enable_japanese_description'] == 'Yes')
 
           try:
