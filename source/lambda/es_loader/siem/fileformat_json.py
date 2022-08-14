@@ -89,7 +89,7 @@ class FileFormatJson(FileFormatBase):
             err = e
             if r'Invalid \escape' in str(e):
                 try:
-                    lograw = re.sub(r'([^\\])\\x', r'\1\\\\', lograw)
+                    lograw = re.sub(r'([^\\])\\x', r'\1\\\\x', lograw)
                     logdict = json.loads(lograw, strict=False)
                     return logdict
                 except json.decoder.JSONDecodeError as e:
