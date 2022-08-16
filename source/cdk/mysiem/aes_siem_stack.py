@@ -1606,9 +1606,12 @@ class MyAesSiemStack(core.Stack):
         # OpenSearch Service
         #######################################################################
         aos_title_widget = aws_cloudwatch.TextWidget(
-            markdown=(
-                f'# OpenSearch Service (Indexing): {aes_domain_name} domain'),
+            markdown=f'# OpenSearch Service: {aes_domain_name} domain',
             height=1, width=24)
+        aos_title_widget_read = aws_cloudwatch.TextWidget(
+            markdown='# Read / Search', height=1, width=12)
+        aos_title_widget_write = aws_cloudwatch.TextWidget(
+            markdown='# Write / Indexing', height=1, width=12)
         # CPUUtilization
         aos_cpu_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
@@ -1634,24 +1637,49 @@ class MyAesSiemStack(core.Stack):
             left_y_axis=aws_cloudwatch.YAxisProps(max=100, show_units=False),
             legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
         # EBS
+        aos_read_throughput_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ReadThroughput', statistic="max",
+            label='ReadThroughput (Bytes/Second)')
         aos_write_throughput_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
                             'ClientId': core.Aws.ACCOUNT_ID},
             metric_name='WriteThroughput', statistic="max",
             label='WriteThroughput (Bytes/Second)')
+        aos_read_iops_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ReadIOPS', statistic="max",
+            label='ReadIOPS (Count/Second)')
         aos_write_iops_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
                             'ClientId': core.Aws.ACCOUNT_ID},
             metric_name='WriteIOPS', statistic="max",
             label='WriteIOPS (Count/Second)')
+        aos_read_latency_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='Readatency', statistic="max",
+            label='ReadLatency (Seconds)')
+        aos_read_latency_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ReadLatency', statistic="max",
+            label='ReadLatency (Seconds)')
         aos_write_latency_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
                             'ClientId': core.Aws.ACCOUNT_ID},
             metric_name='WriteLatency', statistic="max",
             label='WriteLatency (Seconds)')
+
         aos_disk_queue_depth_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
@@ -1659,12 +1687,26 @@ class MyAesSiemStack(core.Stack):
             metric_name='DiskQueueDepth', statistic="max",
             label='DiskQueueDepth (Count)')
 
+        aos_read_throughput_iops_widget = aws_cloudwatch.GraphWidget(
+            title='EBS Read Throughput / IOPS',
+            height=4, width=12,
+            left=[aos_read_throughput_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            right=[aos_read_iops_metric],
+            right_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
         aos_write_throughput_iops_widget = aws_cloudwatch.GraphWidget(
             title='EBS Write Throughput / IOPS',
             height=4, width=12,
             left=[aos_write_throughput_metric],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
             right=[aos_write_iops_metric],
+            right_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+        aos_read_latency_queue_widget = aws_cloudwatch.GraphWidget(
+            title='EBS Read Latency / Disk Queue',
+            height=4, width=12,
+            left=[aos_read_latency_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            right=[aos_disk_queue_depth_metric],
             right_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
         aos_write_latency_queue_widget = aws_cloudwatch.GraphWidget(
             title='EBS Write Latency / Disk Queue',
@@ -1674,44 +1716,104 @@ class MyAesSiemStack(core.Stack):
             right=[aos_disk_queue_depth_metric],
             right_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
 
-        # IndexingRate
+        aos_cluster_disk_queue_throttle_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ThroughputThrottle', statistic="max",
+            label='Cluster Disk ThroughputThrottle')
+        aos_cluster_disk_queue_throttle_widget = aws_cloudwatch.GraphWidget(
+            title='Cluster DiskThroughputThrottle',
+            height=4, width=12,
+            left=[aos_cluster_disk_queue_throttle_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            left_annotations=[
+                aws_cloudwatch.HorizontalAnnotation(value=1)])
+        # Search / Indexing Rate
+        aos_search_rate_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='SearchRate', statistic="avg",
+            label='SearchRate (Count)')
         aos_indexing_rate_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
                             'ClientId': core.Aws.ACCOUNT_ID},
-            metric_name='IndexingRate', statistic="avg")
-        aos_indexing_rate_widget = aws_cloudwatch.GraphWidget(
-            title='IndexingRate (Node Average Count)',
-            height=4, width=12,
-            left=[aos_indexing_rate_metric],
-            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
-            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
-        # IndexingLatency
+            metric_name='IndexingRate', statistic="avg",
+            label='IndexingRate (Count)')
+        # Search / Indexing Latency
+        aos_search_latency_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='SearchLatency', statistic="avg",
+            label='SearchLatency (Milliseconds)')
         aos_indexing_latency_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
                             'ClientId': core.Aws.ACCOUNT_ID},
-            metric_name='IndexingLatency', statistic="avg")
-        aos_indexing_latency_widget = aws_cloudwatch.GraphWidget(
-            title='IndexingLatency (Node Average Milliseconds)',
+            metric_name='IndexingLatency', statistic="avg",
+            label='IndexingLatency (Milliseconds)')
+        aos_search_widget = aws_cloudwatch.GraphWidget(
+            title='Search Rate / Latency (Node Average)',
             height=4, width=12,
-            left=[aos_indexing_latency_metric],
+            left=[aos_search_rate_metric],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
-            legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
-        # ThreadpoolWriteQueue
-        aos_writecache_metric = aws_cloudwatch.Metric(
+            right=[aos_search_latency_metric],
+            right_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+        aos_indexing_widget = aws_cloudwatch.GraphWidget(
+            title='Indexing Rate / Latency (Node Average)',
+            height=4, width=12,
+            left=[aos_indexing_rate_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            right=[aos_indexing_latency_metric],
+            right_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+        # Threadpool / Queue
+        aos_searchqueue_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ThreadpoolSearchQueue', statistic="avg")
+        aos_searchqueue_widget = aws_cloudwatch.GraphWidget(
+            title='ThreadpoolReadQueue (Node Average Count)',
+            height=4, width=12,
+            left=[aos_searchqueue_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            legend_position=aws_cloudwatch.LegendPosition.HIDDEN,
+            left_annotations=[
+                aws_cloudwatch.HorizontalAnnotation(value=1000)])
+
+        aos_writequeue_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
                             'ClientId': core.Aws.ACCOUNT_ID},
             metric_name='ThreadpoolWriteQueue', statistic="avg")
-        aos_writecache_widget = aws_cloudwatch.GraphWidget(
+        aos_writequeue_widget = aws_cloudwatch.GraphWidget(
             title='ThreadpoolWriteQueue (Node Average Count)',
             height=4, width=12,
-            left=[aos_writecache_metric],
+            left=[aos_writequeue_metric],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
             legend_position=aws_cloudwatch.LegendPosition.HIDDEN,
             left_annotations=[
                 aws_cloudwatch.HorizontalAnnotation(value=10000)])
+
+        aos_shards_active_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='Shards.active', statistic="avg")
+        aos_shards_activeprimary_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='Shards.activePrimary', statistic="avg")
+        aos_active_shards_widget = aws_cloudwatch.GraphWidget(
+            title='Active Shards Count',
+            height=4, width=12,
+            left=[aos_shards_active_metric,
+                  aos_shards_activeprimary_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
 
         #######################################################################
         # ClusterIndexWritesBlocked
@@ -1728,6 +1830,13 @@ class MyAesSiemStack(core.Stack):
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
             legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
         # Reject count
+        aos_threadpool_search_rejected_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES',
+            dimensions_map={'DomainName': aes_domain_name,
+                            'ClientId': core.Aws.ACCOUNT_ID},
+            metric_name='ThreadpoolSearchRejected',
+            statistic="sum"
+        )
         aos_threadpool_write_rejected_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
@@ -1756,8 +1865,13 @@ class MyAesSiemStack(core.Stack):
             metric_name='ReplicaWriteRejected',
             statistic="sum"
         )
-        rejected_count_widget = aws_cloudwatch.GraphWidget(
-            title='Rejected Count (Node Total Count)',
+        rejected_search_count_widget = aws_cloudwatch.GraphWidget(
+            title='Threadpool Search Rejected Count (Node Total Count)',
+            height=4, width=12,
+            left=[aos_threadpool_search_rejected_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+        rejected_indexing_count_widget = aws_cloudwatch.GraphWidget(
+            title='Threadpool Indexing Rejected Count (Node Total Count)',
             height=4, width=12,
             left=[aos_threadpool_write_rejected_metric,
                   aos_coordinating_write_rejected_metric,
@@ -1860,12 +1974,19 @@ class MyAesSiemStack(core.Stack):
             esloader_duration_widget, esloader_throttles_widget,
             esloader_timeout_widget, esloader_concurrent_widget,
             # aos_title_widget,
+            # cluster
             aos_title_widget,
-            aos_cpu_widget, rejected_count_widget,
-            aos_jvmmem_widget, aos_writecache_widget,
-            aos_write_throughput_iops_widget, aos_indexing_rate_widget,
-            aos_write_latency_queue_widget, aos_indexing_latency_widget,
-            aos_4xx_5xx_widget, aos_cluster_index_writes_blocked_widget,
+            aos_cpu_widget, aos_jvmmem_widget,
+            aos_4xx_5xx_widget, aos_active_shards_widget,
+            aos_cluster_disk_queue_throttle_widget,
+            aos_cluster_index_writes_blocked_widget,
+            # ebs, instance
+            aos_title_widget_read, aos_title_widget_write,
+            aos_read_throughput_iops_widget, aos_write_throughput_iops_widget,
+            aos_read_latency_queue_widget, aos_write_latency_queue_widget,
+            aos_search_widget, aos_indexing_widget,
+            aos_searchqueue_widget, aos_writequeue_widget,
+            rejected_search_count_widget, rejected_indexing_count_widget,
             # sqs_widget
             sqs_widget,
             sqs_splitted_log_visible_widget, sqs_dlq_visible_widget,
