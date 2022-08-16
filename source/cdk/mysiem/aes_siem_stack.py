@@ -548,6 +548,8 @@ class MyAesSiemStack(core.Stack):
         s3_geo = aws_s3.Bucket(
             self, 'S3BucketForGeoip', block_public_access=block_pub,
             bucket_name=s3bucket_name_geo,
+            encryption=aws_s3.BucketEncryption.S3_MANAGED,
+            enforce_ssl=True,
             # removal_policy=core.RemovalPolicy.DESTROY,
         )
 
@@ -563,6 +565,8 @@ class MyAesSiemStack(core.Stack):
         s3_snapshot = aws_s3.Bucket(
             self, 'S3BucketForSnapshot', block_public_access=block_pub,
             bucket_name=s3bucket_name_snapshot,
+            encryption=aws_s3.BucketEncryption.S3_MANAGED,
+            enforce_ssl=True,
             # removal_policy=core.RemovalPolicy.DESTROY,
         )
 
@@ -676,6 +680,8 @@ class MyAesSiemStack(core.Stack):
             assumed_by=aws_iam.ServicePrincipal(
                 'opensearchservice.amazonaws.com')
         )
+        kms_aes_siem.grant(aes_siem_sns_role,
+                           'kms:Decrypt', 'kms:GenerateDataKey')
 
         # EC2 role
         if self.region.startswith('cn-'):
@@ -712,11 +718,15 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         sqs_aes_siem_dlq = aws_sqs.Queue(
             self, 'AesSiemDlq', queue_name='aes-siem-dlq',
+            encryption=aws_sqs.QueueEncryption.KMS_MANAGED,
+            data_key_reuse=core.Duration.hours(24),
             retention_period=core.Duration.days(14))
 
         sqs_aes_siem_splitted_logs = aws_sqs.Queue(
             self, 'AesSiemSqsSplitLogs',
             queue_name='aes-siem-sqs-splitted-logs',
+            encryption=aws_sqs.QueueEncryption.KMS_MANAGED,
+            data_key_reuse=core.Duration.hours(24),
             dead_letter_queue=aws_sqs.DeadLetterQueue(
                 max_receive_count=2, queue=sqs_aes_siem_dlq),
             visibility_timeout=core.Duration.seconds(ES_LOADER_TIMEOUT),
@@ -1429,6 +1439,7 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         sns_topic = aws_sns.Topic(
             self, 'SnsTopic', topic_name='aes-siem-alert',
+            master_key=kms_aes_siem,
             display_name='AES SIEM')
 
         sns_topic.add_subscription(aws_sns_subscriptions.EmailSubscription(
