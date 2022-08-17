@@ -854,7 +854,7 @@ class LogParser:
                 if enrichments:
                     enrichments = self.ioc_instance.add_mached_fields(
                         enrichments, fields)
-                    enrich_dict['threat.enrichments'].append(enrichments)
+                    enrich_dict['threat.enrichments'].extend(enrichments)
 
         ioc_domain_list = self.logconfig['ioc_domain']
         if ioc_domain_list and self.ioc_instance.is_enabled:
@@ -874,9 +874,26 @@ class LogParser:
                 if enrichments:
                     enrichments = self.ioc_instance.add_mached_fields(
                         enrichments, fields)
-                    enrich_dict['threat.enrichments'].append(enrichments)
+                    enrich_dict['threat.enrichments'].extend(enrichments)
         if len(enrich_dict['threat.enrichments']) == 0:
             del enrich_dict['threat.enrichments']
+        else:
+            providers = set()
+            indicators = set()
+            ioc_types = set()
+            names = set()
+            for item in enrich_dict['threat.enrichments']:
+                providers.add(item['indicator']['provider'])
+                ioc_types.add(item['indicator']['type'])
+                indicators.add(item['indicator'].get('ip'))
+                indicators.add(item['matched'].get('atomic'))
+                names.add(item['indicator'].get('name'))
+            indicators = [x for x in indicators if x is not None]
+            names = [x for x in names if x is not None]
+            enrich_dict['threat.matched'] = {
+                'providers': list(providers), 'types': list(ioc_types),
+                'indicators': indicators, 'names': names
+            }
 
         # user-agent
         ua_field = self.logconfig['user_agent_enrichment_field']
