@@ -345,6 +345,15 @@ utils.show_local_dir()
 @observability_decorator_switcher
 def lambda_handler(event, context):
     for record in event['Records']:
+        if 'EventSource' in record and record['EventSource'] == 'aws:sns':
+            recs = json.loads(record['Sns']['Message'])
+            process_records(recs['Records'])
+        else:
+            process_records([record])
+    
+
+def process_records(records):
+    for record in records:
         collected_metrics = {'start_time': time.perf_counter()}
         if 'body' in record:
             # from sqs-splitted-logs
