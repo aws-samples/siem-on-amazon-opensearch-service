@@ -3,7 +3,7 @@
 
 [English](README.md) | [Chinese (简体中文)](README_zh-cn.md) | [Chinese (繁體中文)](README_zh-tw.md)
 
-SIEM on Amazon OpenSearch Service は、セキュリティインシデントを調査するためのソリューションです。Amazon OpenSearch Service (Amazon Elasticsearch Service の後継) を活用して、AWS のマルチアカウント環境下で、複数種類のログを収集し、ログの相関分析や可視化をすることができます。デプロイは、AWS CloudFormation または AWS Cloud Development Kit (AWS CDK) で行います。30分程度でデプロイは終わります。AWS サービスのログを Simple Storage Service (Amazon S3) のバケットに PUT すると、自動的に ETL 処理を行い、SIEM on OpenSearch Service に取り込まれます。ログを取り込んだ後は、ダッシュボードによる可視化や、複数ログの相関分析ができるようになります。
+SIEM on Amazon OpenSearch Service は、セキュリティインシデントを調査するためのソリューションです。Amazon OpenSearch Service を活用して、AWS のマルチアカウント環境下で、複数種類のログを収集し、ログの相関分析や可視化をすることができます。デプロイは、AWS CloudFormation または AWS Cloud Development Kit (AWS CDK) で行います。30分程度でデプロイは終わります。AWS サービスのログを Simple Storage Service (Amazon S3) のバケットに PUT すると、自動的に ETL 処理を行い、SIEM on OpenSearch Service に取り込まれます。ログを取り込んだ後は、ダッシュボードによる可視化や、複数ログの相関分析ができるようになります。
 
 > Amazon OpenSearch Service のサービス名変更に伴い、SIEM on Amazon Elasticsearch Service から SIEM on Amazon OpenSearch Service に名前を変更しました。
 
@@ -13,7 +13,7 @@ Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_servic
 
 ## アーキテクチャ
 
-![Architecture](./docs/images/siem-architecture.png)
+![Architecture](./docs/images/siem-architecture.svg)
 
 ## 対応ログ
 
@@ -72,24 +72,18 @@ IP アドレスに国情報や緯度・経度のロケーション情報を付�
 
 ### 1. クイックスタート
 
-SIEM on OpenSearch Service をデプロイするリージョンを選択してください。
+SIEM on OpenSearch Service をデプロイするリージョンを選択してください。下記にテンプレートがない場合は [CloudFormation テンプレート 全リージョン](docs/cloudformation_list_ja.md) をご確認下さい。
 
 | リージョン | CloudFormation | Template URL |
 |----------|----------------|---------------|
-| アジアパシフィック (東京) ap-northeast-1 |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
-| アジアパシフィック (大阪) ap-northeast-3 (※) |[![Deploy in ap-northeast-3](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-3#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-3.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-northeast-3.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
-| 米国東部 (バージニア北部) us-east-1 |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
-| 米国西部 (オレゴン) us-west-2 |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
-| 欧州 (フランクフルト) eu-central-1 |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
-| 欧州 (ロンドン) eu-west-2 |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| アジアパシフィック (東京)<br>ap-northeast-1 |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| アジアパシフィック (大阪)<br>ap-northeast-3 (※) |[![Deploy in ap-northeast-3](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-3#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-3.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-northeast-3.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 米国東部 (バージニア北部)<br>us-east-1 |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 米国西部 (オレゴン)<br>us-west-2 |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 欧州 (フランクフルト)<br>eu-central-1 |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 欧州 (ロンドン)<br>eu-west-2 |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 
 > (※) 大阪リージョンのみ導入時は r5.large.search インスタンスでデプロイされます
-
-ご希望のリージョンがこのリストない場合は、手動で次のテンプレートを選択してください。
-
-```text
-https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-opensearch-service.template
-```
 
 次の手順に従って CloudFormation のテンプレートを作成することもできます。
 
@@ -187,12 +181,12 @@ SIEM on OpenSearch Service または SIEM on Amazon ES を新しいバージョ�
 
 ### OpenSearch Service のドメインのアップグレード
 
-OpenSearch Service を OpenSearch の 1.2, 1.1、1.0 または Elasticsearch の 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.1 以上を前提にしているため、推奨バージョンは OpenSearch 1.2 の「互換性モードを有効化」です。
+OpenSearch Service を OpenSearch の 1.3、1.2、1.1、1.0 または Elasticsearch の 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.1 以上を前提にしているため、推奨バージョンは OpenSearch 1.3 の「互換性モードを有効化」です。
 
 1. [OpenSearch Service コンソール](https://console.aws.amazon.com/es/home?) に移動
 1. [**aes-siem**] ドメインを選択
 1. [**アクション**] アイコンを選択して、プルダウンリストから [**ドメインのアップグレード**] を選択
-1. アップグレード先のバージョンで [**OpenSearch 1.2**] (推奨)、 [**OpenSearch 1.1**]、[**OpenSearch 1.0**] または [**Elasticsearch 7.10**] を選択
+1. アップグレード先のバージョンで [**OpenSearch 1.3**] (推奨)、[**OpenSearch 1.2**]、[**OpenSearch 1.1**]、[**OpenSearch 1.0**] または [**Elasticsearch 7.10**] を選択
 1. OpenSearch の場合は、「互換性モードを有効化」にチェックを入れる (推奨)
 1. [**送信**] を選択
 
@@ -238,7 +232,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 
 |AWS Resource|Resource Name|目的|
 |------------|----|----|
-|OpenSearch Service 1.X or Elasticsearch 7.X|aes-siem|SIEM 本体|
+|OpenSearch Service|aes-siem|SIEM 本体|
 |S3 bucket|aes-siem-[AWS_Account]-log|ログを集約するため|
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|OpenSearch Service の手動スナップショット取得|
 |S3 bucket|aes-siem-[AWS_Account]-geo|ダウンロードした GeoIP を保存|

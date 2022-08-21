@@ -11,7 +11,7 @@ SIEM on Amazon OpenSearch Service 是一套免費而完整的安全性資訊事�
 
 ## 基本架構
 
-![基本架構](./docs/images/siem-architecture.png)
+![基本架構](./docs/images/siem-architecture.svg)
 
 ## 支援日誌類型
 
@@ -66,11 +66,11 @@ SIEM on OpenSearch Service 能夠加載並關聯以下日誌類型。
 
 您可以將國家/地區信息與緯度/經度位置信息添加至各個IP地址。要獲取位置信息，SIEM on OpenSearch Service將下載並使用 [MaxMind](https://www.maxmind.com) 提供的GeoLite2 Free。如果您希望添加其他位置信息，請從MaxMind獲取免費許可證。
 
-> **_注意：_** CloudFormation模板**將使用（t3.medium.search實例）部署OpenSearch Service。我們建議使用t3以上的高性能類實例來架構你的生產環境SIEM，因為在日誌聚合過程中需要較為強大的處理性能。** 您可以使用Amazon管理控制臺更改實例類型、擴展存儲卷或使用經濟實惠的 [UltraWarm](https://docs.aws.amazon.com/zh_tw/elasticsearch-service/latest/developerguide/ultrawarm.html) 儲存節點。請注意，SIEM on OpenSearch Service的CloudFormation模板在設計上僅適用於初始部署目的，無法實現節點更改/刪除等管理操作。
+> **_注意：_** CloudFormation模板**將使用（t3.medium.search實例）部署OpenSearch Service。我們建議使用t3以上的高性能類實例來架構你的生產環境SIEM，因為在日誌聚合過程中需要較為強大的處理性能。** 您可以使用Amazon管理控制臺更改實例類型、擴展存儲卷或使用經濟實惠的 [UltraWarm](https://docs.aws.amazon.com/zh_tw/opensearch-service/latest/developerguide/ultrawarm.html) 儲存節點。請注意，SIEM on OpenSearch Service的CloudFormation模板在設計上僅適用於初始部署目的，無法實現節點更改/刪除等管理操作。
 
 ### 1. 快速入門
 
-通過以下選項，選擇SIEM on OpenSearch Service部署所在的區域：
+通過以下選項，選擇SIEM on OpenSearch Service部署所在的區域： If there is no region below, please check [CloudFormation Template For All Regions](docs/cloudformation_list_zh-tw.md).
 
 | 區域 | CloudFormation | Template URL |
 |--------|----------------|-----------|
@@ -81,12 +81,6 @@ SIEM on OpenSearch Service 能夠加載並關聯以下日誌類型。
 | 美國西部 (奧勒岡) us-west-2 |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 | 歐洲 (法蘭克福) eu-central-1 |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 | 歐洲 (倫敦) eu-west-2 |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
-
-如果以上列表未包含您希望使用的區域，請手動選擇以下模板：
-
-```text
-https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-opensearch-service.template
-```
 
 或者，您可以按照以下步驟創建自己的模板。
 
@@ -182,7 +176,7 @@ We have published the workshop, [SIEM on Amazon OpenSearch Service Workshop](htt
 1. 導航至 [OpenSearch Service控制臺](https://console.aws.amazon.com/es/home?)
 1. 選定域: [**aes-siem**]
 1. 選擇 [**Actions**] 圖標，而後在下拉清單中選擇 [**Upgrade domain**]
-1. 在 "Version to upgrade to"部分，選擇 [**OpenSearch 1.0**] 後選擇[**Submit**]
+1. 在 "Version to upgrade to"部分，選擇 [**OpenSearch 1.3**] 後選擇[**Submit**]
 
 如果您選擇使用CloudFormation進行初始設置，請繼續執行下一步。如果您使用AWS CDK進行初設置，請參閱[高級部署](docs/deployment.md)中的 “使用AWS CDK更新SIEM” 部分。
 
@@ -226,7 +220,7 @@ SIEM on OpenSearch Service將日誌保存在索引當中，並每月輪換一次
 
 |AWS 資源|資源名稱|用途|
 |------------|----|----|
-|OpenSearch Service 1.0 or Elasticsearch 7.X|aes-siem|SIEM 本體|
+|OpenSearch Service|aes-siem|SIEM 本體|
 |S3 存儲桶|aes-siem-[AWS_Account]-log|用於收集日誌|
 |S3 存儲桶|aes-siem-[AWS_Account]-snapshot|用於捕捉OpenSearch Service手動快照|
 |S3 存儲桶|aes-siem-[AWS_Account]-geo|用於存儲下載得到的GeoIP|
