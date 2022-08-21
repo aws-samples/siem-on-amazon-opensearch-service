@@ -4,6 +4,8 @@
 
 通過以下選項，選擇SIEM on OpenSearch Service部署所在的區域：
 
+## Global Region
+
 | 區域 | CloudFormation | Template URL |
 |----------|----------------|---------------|
 | 美國東部 (維吉尼亞北部) us-east-1 |[![Deploy in us-east-1](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
@@ -36,3 +38,10 @@
 | 南美洲 (聖保羅) sa-east-1 |[![Deploy in sa-east-1](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=sa-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-sa-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-sa-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 
 > (*) When deploying only in the Osaka region, it will be deployed with an r5.large.search instance
+
+## China Region
+
+| Region | CloudFormation | Template URL |
+|--------|----------------|--------------|
+| 中國 (北京) cn-north-1 |[![Deploy in cn-north-1](./images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-north-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template) | `https://aes-siem-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template` |
+| 中國 (寧夏) cn-northwest-1 |[![Deploy in cn-northwest-1](./images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-northwest-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template) | `https://aes-siem-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template` |
