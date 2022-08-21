@@ -22,6 +22,11 @@ from typing import Tuple
 
 from aws_lambda_powertools import Logger
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
 from siem import user_agent, utils
 from siem.fileformat_base import FileFormatBase
 from siem.fileformat_cef import FileFormatCef
@@ -1004,7 +1009,13 @@ class LogParser:
         for key, value in list(d.items()):
             if isinstance(value, dict):
                 self.del_none(value)
-            if isinstance(value, dict) and len(value) == 0:
+            if np:
+                if isinstance(value, np.ndarray):
+                    value = value.tolist()
+                    d[key] = value
+            if isinstance(value, datetime):
+                d[key] = value.isoformat()
+            elif isinstance(value, dict) and len(value) == 0:
                 del d[key]
             elif isinstance(value, list) and len(value) == 0:
                 del d[key]
