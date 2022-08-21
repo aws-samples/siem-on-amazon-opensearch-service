@@ -344,62 +344,91 @@ utils.show_local_dir()
 
 @observability_decorator_switcher
 def lambda_handler(event, context):
-    for record in event['Records']:
-        if 'EventSource' in record and record['EventSource'] == 'aws:sns':
-            recs = json.loads(record['Sns']['Message'])
-            process_records(recs['Records'])
+    main(event, context)
+
+
+def main(event, context):
+    if 'Records' in event:
+        event_source = event['Records'][0].get('eventSource')
+        error_code = event['Records'][0].get(
+            'messageAttributes', {}).get('ErrorCode')
+        if event_source == 'aws:s3':
+            # s3 notification directly
+            for record in event['Records']:
+                process_record(record)
+        elif event_source == 'aws:sqs' and error_code:
+            # DLQ retrive
+            for record in event['Records']:
+                main(json.loads(record['body']), context)
+        elif event_source == 'aws:sqs':
+            # s3 notification from SQS
+            for record in event['Records']:
+                recs = json.loads(record['body'])
+                try:
+                    for record in recs['Records']:
+                        process_record(record)
+                except KeyError:
+                    # from sqs-splitted-logs
+                    process_record(recs)
+        elif event['Records'][0].get('EventSource') == 'aws:sns':
+            # s3 notification from SNS
+            for record in event['Records']:
+                recs = json.loads(record['Sns']['Message'])
+                for record in recs['Records']:
+                    process_record(record)
         else:
-            process_records([record])
-    
+            # local execution
+            for record in event['Records']:
+                process_record(record)
+    elif (event.get('source') == 'aws.s3'
+            and event.get('detail-type') == 'Object Created'):
+        # s3 notification from EventBridge
+        record = {'s3': event['detail']}
+        process_record(record)
 
-def process_records(records):
-    for record in records:
-        collected_metrics = {'start_time': time.perf_counter()}
-        if 'body' in record:
-            # from sqs-splitted-logs
-            record = json.loads(record['body'])
-        # S3からファイルを取得してログを抽出する
-        logfile = extract_logfile_from_s3(record)
-        if logfile is None:
-            continue
-        elif logfile.is_ignored:
-            if hasattr(logfile, 'ignored_reason') and logfile.ignored_reason:
-                logger.warning(
-                    f'Skipped S3 object because {logfile.ignored_reason}')
-            elif (hasattr(logfile, 'critical_reason')
-                    and logfile.critical_reason):
-                logger.critical(
-                    f'Skipped S3 object because {logfile.critical_reason}')
-            continue
 
-        # 抽出したログからESにPUTするデータを作成する
-        es_entries = get_es_entries(logfile, exclude_log_patterns)
-        # 作成したデータをESにPUTしてメトリクスを収集する
-        (collected_metrics, error_reason_list,
-         retry_needed) = bulkloads_into_opensearch(es_entries,
-                                                   collected_metrics)
-        output_metrics(metrics, record=record, logfile=logfile,
-                       collected_metrics=collected_metrics)
-        if logfile.error_logs_count > 0:
-            collected_metrics['error_count'] += logfile.error_logs_count
-        if logfile.is_ignored:
+def process_record(record):
+    collected_metrics = {'start_time': time.perf_counter()}
+    # S3からファイルを取得してログを抽出する
+    logfile = extract_logfile_from_s3(record)
+    if logfile is None:
+        return None
+    elif logfile.is_ignored:
+        if hasattr(logfile, 'ignored_reason') and logfile.ignored_reason:
             logger.warning(
                 f'Skipped S3 object because {logfile.ignored_reason}')
-        elif collected_metrics['error_count']:
-            extra = None
-            error_message = (f"{collected_metrics['error_count']} of logs "
-                             "were NOT loaded into OpenSearch Service")
-            if len(error_reason_list) > 0:
-                extra = {'message_error': error_reason_list[:5]}
-            logger.error(error_message, extra=extra)
-            if retry_needed:
-                logger.error('Aborted. It may be retried')
-                raise
-        elif collected_metrics['total_log_load_count'] > 0:
-            logger.info('All logs were loaded into OpenSearch Service')
-        else:
-            logger.warning('No entries were successed to load')
-        del logfile
+        elif (hasattr(logfile, 'critical_reason')
+                and logfile.critical_reason):
+            logger.critical(
+                f'Skipped S3 object because {logfile.critical_reason}')
+        return None
+    # 抽出したログからESにPUTするデータを作成する
+    es_entries = get_es_entries(logfile, exclude_log_patterns)
+    # 作成したデータをESにPUTしてメトリクスを収集する
+    (collected_metrics, error_reason_list, retry_needed) = (
+        bulkloads_into_opensearch(es_entries, collected_metrics))
+    output_metrics(metrics, record=record, logfile=logfile,
+                   collected_metrics=collected_metrics)
+    if logfile.error_logs_count > 0:
+        collected_metrics['error_count'] += logfile.error_logs_count
+    if logfile.is_ignored:
+        logger.warning(
+            f'Skipped S3 object because {logfile.ignored_reason}')
+    elif collected_metrics['error_count']:
+        extra = None
+        error_message = (f"{collected_metrics['error_count']} of logs "
+                         "were NOT loaded into OpenSearch Service")
+        if len(error_reason_list) > 0:
+            extra = {'message_error': error_reason_list[:5]}
+        logger.error(error_message, extra=extra)
+        if retry_needed:
+            logger.error('Aborted. It may be retried')
+            raise
+    elif collected_metrics['total_log_load_count'] > 0:
+        logger.info('All logs were loaded into OpenSearch Service')
+    else:
+        logger.warning('No entries were successed to load')
+    del logfile
 
 
 if __name__ == '__main__':

@@ -1220,13 +1220,7 @@ class MyAesSiemStack(core.Stack):
         # assign notification for the s3 PUT event type
         # most log system use PUT, but also CLB use POST & Multipart Upload
         s3_log.add_event_notification(
-            aws_s3.EventType.OBJECT_CREATED, notification,
-            aws_s3.NotificationKeyFilter(prefix='AWSLogs/'))
-
-        # For user logs, not AWS logs
-        s3_log.add_event_notification(
-            aws_s3.EventType.OBJECT_CREATED, notification,
-            aws_s3.NotificationKeyFilter(prefix='UserLogs/'))
+            aws_s3.EventType.OBJECT_CREATED, notification)
 
         # Download geoip to S3 once by executing lambda_geo
         get_geodb = aws_cloudformation.CfnCustomResource(
