@@ -910,7 +910,7 @@ class MyAesSiemStack(core.Stack):
             architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.download',
-            memory_size=128,
+            memory_size=192,
             timeout=core.Duration.seconds(900),
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo,
