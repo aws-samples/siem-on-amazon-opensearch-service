@@ -176,99 +176,13 @@ class MyAesSiemStack(core.Stack):
             arm = aws_lambda.Architecture.ARM_64.name
             x86 = aws_lambda.Architecture.X86_64.name
             # Lambda Arch
-            if region in ('ap-northeast-1', 'ap-southeast-1', 'ap-southeast-2',
+            if region in ('ap-northeast-1',
+                          'ap-south-1', 'ap-southeast-1', 'ap-southeast-2',
                           'eu-central-1', 'eu-west-1', 'eu-west-2',
                           'us-east-1', 'us-east-2', 'us-west-2'):
                 region_dict[region]['LambdaArch'] = arm
-                region_dict[region]['HasDataWranglerLayer'] = True
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":336392948345:layer:AWSDataWrangler-Python38-Arm64:4")
-            elif region in ('ap-south-1'):
-                region_dict[region]['LambdaArch'] = arm
-                region_dict[region]['HasDataWranglerLayer'] = True
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":336392948345:layer:AWSDataWrangler-Python38-Arm64:5")
-            elif region in ('eu-north-1', 'sa-east-1'):
+            else:
                 region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = True
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":336392948345:layer:AWSDataWrangler-Python38:4")
-            elif region in ('ap-northeast-2', 'ap-northeast-3', 'ap-south-1',
-                            'eu-west-3'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = True
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":336392948345:layer:AWSDataWrangler-Python38:5")
-            elif region in ('us-west-1'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = True
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":336392948345:layer:AWSDataWrangler-Python38:7")
-            elif region in ('eu-west-1'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = True
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":336392948345:layer:AWSDataWrangler-Python38:10")
-            elif region in ('af-south-1'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = False
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":012438385374:layer:LambdaInsightsExtension:11")
-            elif region in ('ap-east-1'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = False
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":519774774795:layer:LambdaInsightsExtension:11")
-            elif region in ('ap-southeast-3'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = False
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":418787028745:layer:AWS-AppConfig-Extension:24")
-            elif region in ('ca-central-1'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = False
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":580247275435:layer:LambdaInsightsExtension:18")
-            elif region in ('eu-south-1'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = False
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":339249233099:layer:LambdaInsightsExtension:11")
-            elif region in ('me-south-1'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = False
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws:lambda:{region}"
-                    ":285320876703:layer:LambdaInsightsExtension:11")
-            elif region in ('cn-north-1', 'cn-northwest-1'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = False
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws-cn:lambda:{region}"
-                    ":488211338238:layer:LambdaInsightsExtension:11")
-            elif region in ('us-gov-east-1'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = False
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws-us-gov:lambda:{region}"
-                    ":138526772879:layer:AWSLambda-Python-AWS-SDK:5")
-            elif region in ('us-gov-west-1'):
-                region_dict[region]['LambdaArch'] = x86
-                region_dict[region]['HasDataWranglerLayer'] = False
-                region_dict[region]['DataWranglerLayer'] = (
-                    f"arn:aws-us-gov:lambda:{region}"
-                    ":556739011827:layer:AWSLambda-Python-AWS-SDK:5")
         region_mapping = core.CfnMapping(
             scope=self, id='RegionMap', mapping=region_dict)
 
@@ -744,18 +658,6 @@ class MyAesSiemStack(core.Stack):
                 'vpc_subnets': vpc_subnets,
             }
 
-        self.has_data_wrangler = core.CfnCondition(
-            self, 'HasDataWranger',
-            expression=core.Fn.condition_equals(
-                region_mapping.find_in_map(
-                    core.Aws.REGION, 'HasDataWranglerLayer'),
-                True))
-        self.wrangler_layer = aws_lambda.LayerVersion.from_layer_version_arn(
-            self, id="AwsDataWranglerLambdaLayer",
-            layer_version_arn=(
-                f"arn:{PARTITION}:lambda:{core.Aws.REGION}"
-                ":336392948345:layer:AWSDataWrangler-Python38:1")
-        )
         function_name = 'aes-siem-es-loader'
         lambda_es_loader = aws_lambda.Function(
             self, 'LambdaEsLoader', **lambda_es_loader_vpc_kwargs,
@@ -782,17 +684,12 @@ class MyAesSiemStack(core.Stack):
                 removal_policy=core.RemovalPolicy.RETAIN,
                 description=__version__
             ),
-            # layers=[wrangler_layer],
         )
         if not same_lambda_func_version(function_name):
             lambda_es_loader.current_version
         lambda_es_loader.node.default_child.add_property_override(
             "Architectures", [region_mapping.find_in_map(
                 core.Aws.REGION, 'LambdaArch')]
-        )
-        lambda_es_loader.node.default_child.add_property_override(
-            "Layers", [region_mapping.find_in_map(
-                core.Aws.REGION, 'DataWranglerLayer')]
         )
 
         # send only
@@ -814,6 +711,61 @@ class MyAesSiemStack(core.Stack):
         sqs_aes_siem_dlq.grant(
             aes_siem_es_loader_ec2_role, 'sqs:GetQueue*', 'sqs:ListQueues*',
             'sqs:ReceiveMessage*', 'sqs:DeleteMessage*')
+
+        function_name = 'aes-siem-add-pandas-layer'
+        lambda_add_pandas_layer = aws_lambda.Function(
+            self, 'LambdaAddPandasLayer',
+            function_name=function_name,
+            description=f'{SOLUTION_NAME} / add-pandas-layer',
+            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            architecture=aws_lambda.Architecture.X86_64,
+            code=aws_lambda.Code.from_asset('../lambda/add_pandas_layer'),
+            handler='lambda_function.lambda_handler',
+            memory_size=128,
+            timeout=core.Duration.seconds(300),
+            environment={
+                'GEOIP_BUCKET': s3bucket_name_geo
+            },
+            current_version_options=aws_lambda.VersionOptions(
+                removal_policy=core.RemovalPolicy.RETAIN,
+                description=__version__
+            ),
+        )
+        if not same_lambda_func_version(function_name):
+            lambda_add_pandas_layer.current_version
+        lambda_add_pandas_layer.node.default_child.add_property_override(
+            "Architectures", [region_mapping.find_in_map(
+                core.Aws.REGION, 'LambdaArch')]
+        )
+        arn_prefix = f'arn:{PARTITION}:lambda:*:*'
+        lambda_add_pandas_layer.role.attach_inline_policy(
+            aws_iam.Policy(
+                self, 'AddPandasLayerPolicy',
+                policy_name='add-pandas-layer-policy',
+                statements=[
+                    aws_iam.PolicyStatement(
+                        actions=['lambda:UpdateFunctionConfiguration',
+                                 'lambda:GetFunction'],
+                        resources=[lambda_es_loader.function_arn]),
+                    aws_iam.PolicyStatement(
+                        actions=['lambda:PublishLayerVersion'],
+                        resources=[
+                            f'{arn_prefix}:layer:AWSDataWrangler-Python38*']),
+                    aws_iam.PolicyStatement(
+                        actions=['lambda:ListLayers',
+                                 'lambda:GetLayerVersion'],
+                        resources=['*']),
+                    aws_iam.PolicyStatement(
+                        actions=["s3:Get*", "s3:List*"],
+                        resources=['*']
+                    )]))
+        # add pandas layer
+        excec_lambda_add_layer = aws_cloudformation.CfnCustomResource(
+            self, 'ExecLambdaAddPandasLayer',
+            service_token=lambda_add_pandas_layer.function_arn,)
+        excec_lambda_add_layer.add_override(
+            'Properties.ConfigVersion', __version__)
+        excec_lambda_add_layer.node.add_dependency(lambda_es_loader)
 
         # setup lambda of es_loader_stopper
         function_name = 'aes-siem-es-loader-stopper'
@@ -1206,6 +1158,7 @@ class MyAesSiemStack(core.Stack):
         # s3 notification and grant permisssion
         ######################################################################
         s3_geo.grant_read_write(lambda_geo)
+        s3_geo.grant_read_write(lambda_add_pandas_layer)
         s3_geo.grant_read_write(lambda_ioc_download)
         s3_geo.grant_read_write(lambda_ioc_createdb)
         s3_geo.grant_read(lambda_es_loader)
@@ -1323,14 +1276,6 @@ class MyAesSiemStack(core.Stack):
                 'StringEquals': {'s3:x-amz-acl': 'bucket-owner-full-control'}})
         s3_log.add_to_resource_policy(bucket_policy_config1)
         s3_log.add_to_resource_policy(bucket_policy_config2)
-
-        # geoip
-        bucket_policy_geo1 = aws_iam.PolicyStatement(
-            sid='Allow geoip downloader and es-loader to read/write',
-            principals=[lambda_es_loader.role, lambda_geo.role],
-            actions=['s3:PutObject', 's3:GetObject', 's3:DeleteObject'],
-            resources=[s3_geo.bucket_arn + '/*'],)
-        s3_geo.add_to_resource_policy(bucket_policy_geo1)
 
         s3_geo.add_lifecycle_rule(
             enabled=True,
