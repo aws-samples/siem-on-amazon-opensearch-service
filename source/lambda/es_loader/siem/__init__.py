@@ -1004,7 +1004,7 @@ class LogParser:
         for key, value in list(d.items()):
             if isinstance(value, dict):
                 self.del_none(value)
-            elif isinstance(value, dict) and len(value) == 0:
+            if isinstance(value, dict) and len(value) == 0:
                 del d[key]
             elif isinstance(value, list) and len(value) == 0:
                 del d[key]
