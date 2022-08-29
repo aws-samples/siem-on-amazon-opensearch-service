@@ -5,6 +5,7 @@
 ## 目次
 
 * [ログ取り込み方法のカスタマイズ](#ログ取り込み方法のカスタマイズ)
+* [IoC による脅威情報の付与](#IoC-による脅威情報の付与)
 * [ログ取り込みの除外設定](#ログ取り込みの除外設定)
 * [OpenSearch Service の設定変更](#OpenSearch-Service-の設定変更-上級者向け)
 * [AWS サービス以外のログの取り込み](#AWS-サービス以外のログの取り込み)
@@ -93,6 +94,62 @@ AWSマネジメントコンソールから user.ini を直接編集して設定�
 1. [関数コード] パネルの右上にある [**Deploy**] ボタンを選択
 
 設定完了です。SIEM on OpenSearch Service をアップデートすると Lambda 関数 の es-loader が入れ替わり user.ini は削除されるので、再度同じことをしてください。
+
+## IoC による脅威情報の付与
+
+IP アドレス、ドメイン名を元に脅威情報を付与することができます。IoC (Indicators of compromise) の脅威情報ソースとして、以下の Provider を CloudFormation または CDK でのデプロイ時に選択することができます。
+
+* [Tor Project](https://www.torproject.org)
+* [Abuse.ch Feodo Tracker](https://feodotracker.abuse.ch)
+* [AlienVault OTX](https://otx.alienvault.com/)
+
+AlienVault OTX の IoC を利用される方は、[AlienVault OTX](https://otx.alienvault.com/#signup) で API キーを取得して下さい。
+
+独自の IoC も使用することができます。サポートしている IoC のフォーマットは TXT 形式と SITX 2.x 形式です。TXT 形式は、IP アドレスおよび CIDR 範囲を 1 行に 1 つずつ表示する必要があります。
+
+独自の IoC ファイルは以下の場所にアップロードして下さい。**_"your provider name"_** は任意の名前に変えて下さい。"your provider name" フォルダを作成しな場合は、Provider の名前は "custom" になります。
+
+TXT形式
+
+* s3://aes-siem-**_123456789012_**-geo/IOC/TXT/**_your provider name_**/
+
+STIX 2.x 形式
+
+* s3://aes-siem-**_123456789012_**-geo/IOC/STIX2/**_your provider name_**/
+
+Provider 毎に IoC は重複の排除をしているのでファイルに含まれる indicator 数と、実際にデータベースに保存される indicator 数は一致しません。ダウンロードできるファイルは 5,000 個まで、作成される IoC データベースは 320 MB までの制限があります。
+
+作成された IoC データベースの情報は下記を参照して下さい。
+
+1. [Step Functions コンソール](https://console.aws.amazon.com/states/home?) に移動
+1. ステートマシーンの **[aes-siem-ioc-state-machine]** を選択
+1. 成功している最新の実行を選択
+1. タブメニューの [**実行出力**] を選択
+1. Provider 毎の IoC 数、タイプ毎の IoC 数、データベースのサイズを確認できます
+
+IoC のダウンロード及びデータベースの作成は、デプロイ後に最初に実行されるまで最大で24時間かかります。
+
+エンリッチするフィールドは user.ini で指定して下さい。
+
+例) hoge ログの source.ip と destination.ip を元にエンリッチする場合
+
+```conf
+[hoge]
+ioc_ip = source.ip destination.ip
+```
+
+例) fuga ログの DNS のクエリーである ECS フィールドの dns.question.name を元にエンリッチする場合
+
+```conf
+[fuga]
+ioc_domain = dns.question.name
+```
+
+エンリッチされた情報は以下のフィールで確認することができます。
+
+* threat.matched.providers: マッチした IoC を提供した Provider。複数マッチした場合はリスト形式
+* threat.matched.indicators: IoC とマッチした値。複数マッチした場合はリスト形式
+* threat.enrichments: エンリッチされた詳細。nested 形式
 
 ## ログ取り込みの除外設定
 

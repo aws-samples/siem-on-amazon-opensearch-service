@@ -270,5 +270,7 @@ aws kms delete-alias --alias-name  "alias/aes-siem-key"
 
 此產品使用MaxMind創建的GeoLite2數據，並遵循 [CC BY-SA 4.0許可證](https://creativecommons.org/licenses/by-sa/4.0/)，詳見[https://www.maxmind.com](https://www.maxmind.com)。
 
+This product uses Tor exit list created by The Tor Project, Inc and licensed under [CC BY 3.0 US](https://creativecommons.org/licenses/by/3.0/us/), available from [https://www.torproject.org](https://www.torproject.org)
+
 原文連結：
 [https://github.com/aws-samples/siem-on-amazon-opensearch-service/blob/main/README.md](https://github.com/aws-samples/siem-on-amazon-opensearch-service/blob/main/README.md)

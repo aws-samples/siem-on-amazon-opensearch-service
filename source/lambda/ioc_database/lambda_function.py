@@ -25,7 +25,7 @@ from botocore.config import Config
 from botocore.exceptions import ParamValidationError
 
 OBJ_LIMIT = 5000
-DB_MAX_SIZE_MB = 128
+DB_MAX_SIZE_MB = 320
 TMP_DIR = '/tmp'
 DB_FILEPATH = f'{TMP_DIR}/ioc.sqlite'
 LOCAL_TMP_FILE = f'{TMP_DIR}/ioc.tmp'
@@ -271,6 +271,7 @@ def _put_db_to_s3(conn, cur):
     # check ioc number
     ioc_type_dict = {}
     ioc_count = 0
+    db_size = 0
     cur.execute("SELECT type,count(*) FROM ipaddress GROUP BY type")
     for res in cur.fetchall():
         ioc_type_dict[res[0]] = res[1]
@@ -281,7 +282,7 @@ def _put_db_to_s3(conn, cur):
         ioc_count += res[1]
     if ioc_count <= 1:
         logger.error('There is no IoC in IoC database')
-        return ioc_type_dict
+        return ioc_type_dict, db_size
     conn.close()
 
     # check db file size

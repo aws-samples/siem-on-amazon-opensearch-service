@@ -5,6 +5,7 @@
 ## Table of contents
 
 * [Customizing the log loading method](#customizing-the-log-loading-method)
+* [Threat Information Enrichment by IoC](#threat-information-enrichment-by-ioc)
 * [Adding an exclusion to log loading](#adding-an-exclusion-to-log-loading)
 * [Changing OpenSearch Service configuration settings (for advanced users)](#changing-opensearch-service-configuration-settings-for-advanced-users)
 * [Loading Non-AWS services logs](#loading-non-aws-services-logs)
@@ -93,6 +94,62 @@ Alternatively, you can edit user.ini directly from the AWS Management Console to
 1. Choose the [**Deploy**] button at the top right of the [Function code] pane
 
 Configuration is now complete. Note that Lambda function es-loader will be replaced with a new one and user.ini will be deleted whenever SIEM on OpenSearch Service is updated. In that case, repeat the process above.
+
+## Threat Information Enrichment by IoC
+
+Threat information can be enriched based on IP addresses and domain nams. You can select the following providers as threat information sources for IoC (Indicators of Compromise) during deployment with CloudFormation or CDK.
+
+* [Tor Project](https://www.torproject.org)
+* [Abuse.ch Feodo Tracker](https://feodotracker.abuse.ch)
+* [AlienVault OTX](https://otx.alienvault.com/)
+
+If you want to use the IoC on AlienVault OTX, please get your API key at [AlienVault OTX](https://otx.alienvault.com/#signup).
+
+You can also use your own IoC. The supported IoC formats are TXT format and SITX 2.x format. IP addresses and CIDR ranges must appear one per line in TXT format.
+
+Upload your own IoC files to to the following location. Replace **_"your provider name"_** with any name. If you do not create the "your provider name" folder, the provider will be named "custom".
+
+TXT format
+
+* s3://aes-siem-**_123456789012_**-geo/IOC/TXT/**_your provider name_**/
+
+STIX 2.x format
+
+* s3://aes-siem-**_123456789012_**-geo/IOC/STIX2/**_your provider name_**/
+
+Since IoC eliminates duplication for each provider, the number of indicators contained in the file does not match the number of indicators actually saved in the database. There is a limit of 5,000 files that can be downloaded and a limit of 320 MB for the created IoC database.
+
+See below for information on the created IoC database.
+
+1. Go to the [Step Functions console](https://console.aws.amazon.com/states/home?)
+1. Select state machine **[aes-siem-ioc-state-machine]**
+1. Select the latest successful Executions
+1. Select its **[Execution output]** in the tab menu
+1. You can check the number of IoCs by provider, the number of IoCs by IoC type, and the size of the database
+
+The IoC download and database creation can take up to 24 hours to run for the first time after deployment.
+
+Specify the fields to be enriched in user.ini.
+
+e.g. Enrich based on source.ip and destination.ip in foo log
+
+```conf
+[foo]
+ioc_ip = source.ip destination.ip
+```
+
+e.g.) Enrich based on the ECS field dns.question.name which is a DNS query in bar log
+
+```conf
+[bar]
+ioc_domain = dns.question.name
+```
+
+You can check the enriched information in the following fields.
+
+* threat.matched.providers: Enriched Providers. List format if there are multiple
+* threat.matched.indicators: IoC matched values. List format if there are multiple
+* threat.enrichments: enriched details. nested format
 
 ## Adding an exclusion to log loading
 
