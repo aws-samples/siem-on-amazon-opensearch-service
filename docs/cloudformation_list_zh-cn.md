@@ -4,8 +4,17 @@
 
 通过以下选项，选择SIEM on OpenSearch Service部署所在的区域：
 
+## China Region
+
 | 区域 | CloudFormation | Template URL |
-|----------|----------------|---------------|
+|------|----------------|---------------|
+| 中国 (北京) cn-north-1 |[![Deploy in cn-north-1](./images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-north-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template) | `https://aes-siem-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template` |
+| 中国 (宁夏) cn-northwest-1 |[![Deploy in cn-northwest-1](./images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-northwest-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template) | `https://aes-siem-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template` |
+
+## Global Region
+
+| 区域 | CloudFormation | Template URL |
+|------|----------------|---------------|
 | 美国东部 (弗吉尼亚北部) us-east-1 |[![Deploy in us-east-1](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 | 美国东部 (俄亥俄州) us-east-2 |[![Deploy in us-east-2](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-east-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 | 美国西部 (加利福尼亚北部) us-west-1 |[![Deploy in us-west-1](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-west-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |

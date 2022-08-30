@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -13,6 +13,7 @@ import os
 import re
 import sys
 import time
+import urllib.parse
 from functools import lru_cache, wraps
 
 import boto3
@@ -20,7 +21,7 @@ from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
 import siem
-from siem import geodb, utils
+from siem import geodb, ioc, utils
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
 logger.info(f'version: {__version__}')
@@ -34,7 +35,8 @@ ES_HOSTNAME = utils.get_es_hostname()
 
 def extract_logfile_from_s3(record):
     if 's3' in record:
-        s3key = record['s3']['object']['key']
+        s3key = urllib.parse.unquote_plus(
+            record['s3']['object']['key'], encoding='utf-8')
         s3bucket = record['s3']['bucket']['name']
         logger.structure_logs(append=True, s3_key=s3key, s3_bucket=s3bucket)
         logtype = utils.get_logtype_from_s3key(s3key, logtype_s3key_dict)
@@ -107,7 +109,9 @@ def create_logconfig(logtype):
                  'dns.header_flags', 'dns.resolved_ip', 'dns.type',
                  'ecs', 'static_ecs',
                  'event.category', 'event.type', 'file.attributes',
-                 'host.ip', 'host.mac', 'observer.ip', 'observer.mac',
+                 'host.ip', 'host.mac',
+                 'ioc_domain', 'ioc_ip',
+                 'observer.ip', 'observer.mac',
                  'process.args', 'registry.data.strings',
                  'related.hash', 'related.hosts', 'related.ip', 'related.user',
                  'renamed_newfields',
@@ -164,7 +168,8 @@ def get_es_entries(logfile, exclude_log_patterns):
     sf_module = utils.load_sf_module(logfile, logconfig, user_libs_list)
 
     logparser = siem.LogParser(
-        logfile, logconfig, sf_module, geodb_instance, exclude_log_patterns)
+        logfile, logconfig, sf_module, geodb_instance, ioc_instance,
+        exclude_log_patterns)
     for lograw, logdata, logmeta in logfile:
         logparser(lograw, logdata, logmeta)
         if logparser.is_ignored:
@@ -220,8 +225,7 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     putdata_list = []
     error_reason_list = []
     retry_needed = False
-    filter_path = ['took', 'errors', 'items.index.status',
-                   'items.index.error.reason', 'items.index.error.type']
+    filter_path = ['took', 'errors', 'items.index.status', 'items.index.error']
     for data in es_entries:
         putdata_list.append(data)
         output_size += len(str(data))
@@ -334,58 +338,97 @@ s3_client = boto3.client('s3', config=s3_session_config)
 sqs_queue = utils.sqs_queue(SQS_SPLITTED_LOGS_URL)
 
 geodb_instance = geodb.GeoDB()
+ioc_instance = ioc.DB()
 utils.show_local_dir()
 
 
 @observability_decorator_switcher
 def lambda_handler(event, context):
-    for record in event['Records']:
-        collected_metrics = {'start_time': time.perf_counter()}
-        if 'body' in record:
-            # from sqs-splitted-logs
-            record = json.loads(record['body'])
-        # S3からファイルを取得してログを抽出する
-        logfile = extract_logfile_from_s3(record)
-        if logfile is None:
-            continue
-        elif logfile.is_ignored:
-            if hasattr(logfile, 'ignored_reason') and logfile.ignored_reason:
-                logger.warning(
-                    f'Skipped S3 object because {logfile.ignored_reason}')
-            elif (hasattr(logfile, 'critical_reason')
-                    and logfile.critical_reason):
-                logger.critical(
-                    f'Skipped S3 object because {logfile.critical_reason}')
-            continue
+    main(event, context)
 
-        # 抽出したログからESにPUTするデータを作成する
-        es_entries = get_es_entries(logfile, exclude_log_patterns)
-        # 作成したデータをESにPUTしてメトリクスを収集する
-        (collected_metrics, error_reason_list,
-         retry_needed) = bulkloads_into_opensearch(es_entries,
-                                                   collected_metrics)
-        output_metrics(metrics, record=record, logfile=logfile,
-                       collected_metrics=collected_metrics)
-        if logfile.error_logs_count > 0:
-            collected_metrics['error_count'] += logfile.error_logs_count
-        if logfile.is_ignored:
+
+def main(event, context):
+    if 'Records' in event:
+        event_source = event['Records'][0].get('eventSource')
+        error_code = event['Records'][0].get(
+            'messageAttributes', {}).get('ErrorCode')
+        if event_source == 'aws:s3':
+            # s3 notification directly
+            for record in event['Records']:
+                process_record(record)
+        elif event_source == 'aws:sqs' and error_code:
+            # DLQ retrive
+            for record in event['Records']:
+                main(json.loads(record['body']), context)
+        elif event_source == 'aws:sqs':
+            # s3 notification from SQS
+            for record in event['Records']:
+                recs = json.loads(record['body'])
+                try:
+                    for record in recs['Records']:
+                        process_record(record)
+                except KeyError:
+                    # from sqs-splitted-logs
+                    process_record(recs)
+        elif event['Records'][0].get('EventSource') == 'aws:sns':
+            # s3 notification from SNS
+            for record in event['Records']:
+                recs = json.loads(record['Sns']['Message'])
+                for record in recs['Records']:
+                    process_record(record)
+        else:
+            # local execution
+            for record in event['Records']:
+                process_record(record)
+    elif (event.get('source') == 'aws.s3'
+            and event.get('detail-type') == 'Object Created'):
+        # s3 notification from EventBridge
+        record = {'s3': event['detail']}
+        process_record(record)
+
+
+def process_record(record):
+    collected_metrics = {'start_time': time.perf_counter()}
+    # S3からファイルを取得してログを抽出する
+    logfile = extract_logfile_from_s3(record)
+    if logfile is None:
+        return None
+    elif logfile.is_ignored:
+        if hasattr(logfile, 'ignored_reason') and logfile.ignored_reason:
             logger.warning(
                 f'Skipped S3 object because {logfile.ignored_reason}')
-        elif collected_metrics['error_count']:
-            extra = None
-            error_message = (f"{collected_metrics['error_count']} of logs "
-                             "were NOT loaded into OpenSearch Service")
-            if len(error_reason_list) > 0:
-                extra = {'message_error': error_reason_list[:5]}
-            logger.error(error_message, extra=extra)
-            if retry_needed:
-                logger.error('Aborted. It may be retried')
-                raise
-        elif collected_metrics['total_log_load_count'] > 0:
-            logger.info('All logs were loaded into OpenSearch Service')
-        else:
-            logger.warning('No entries were successed to load')
-        del logfile
+        elif (hasattr(logfile, 'critical_reason')
+                and logfile.critical_reason):
+            logger.critical(
+                f'Skipped S3 object because {logfile.critical_reason}')
+        return None
+    # 抽出したログからESにPUTするデータを作成する
+    es_entries = get_es_entries(logfile, exclude_log_patterns)
+    # 作成したデータをESにPUTしてメトリクスを収集する
+    (collected_metrics, error_reason_list, retry_needed) = (
+        bulkloads_into_opensearch(es_entries, collected_metrics))
+    output_metrics(metrics, record=record, logfile=logfile,
+                   collected_metrics=collected_metrics)
+    if logfile.error_logs_count > 0:
+        collected_metrics['error_count'] += logfile.error_logs_count
+    if logfile.is_ignored:
+        logger.warning(
+            f'Skipped S3 object because {logfile.ignored_reason}')
+    elif collected_metrics['error_count']:
+        extra = None
+        error_message = (f"{collected_metrics['error_count']} of logs "
+                         "were NOT loaded into OpenSearch Service")
+        if len(error_reason_list) > 0:
+            extra = {'message_error': error_reason_list[:5]}
+        logger.error(error_message, extra=extra)
+        if retry_needed:
+            logger.error('Aborted. It may be retried')
+            raise
+    elif collected_metrics['total_log_load_count'] > 0:
+        logger.info('All logs were loaded into OpenSearch Service')
+    else:
+        logger.warning('No entries were successed to load')
+    del logfile
 
 
 if __name__ == '__main__':

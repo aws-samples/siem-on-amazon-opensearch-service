@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -10,7 +10,7 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 import re
 import urllib.parse
 
-RE_CLOUDFRONT_DIST_ID = re.compile(r'/([0-9A-Z]{13,14})\.')
+RE_CLOUDFRONT_DIST_ID = re.compile(r'/([0-9A-Z]{12,14})\.')
 
 
 def transform(logdata):

@@ -4,6 +4,8 @@
 
 SIEM on OpenSearch Service をデプロイするリージョンを選択してください。
 
+## グローバルリージョン
+
 | リージョン | CloudFormation | Template URL |
 |----------|----------------|---------------|
 | 米国東部 (バージニア北部) us-east-1 |[![Deploy in us-east-1](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
@@ -36,3 +38,10 @@ SIEM on OpenSearch Service をデプロイするリージョンを選択して�
 | 南米 (サンパウロ) sa-east-1 |[![Deploy in sa-east-1](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=sa-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-sa-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-sa-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 
 > (※) 大阪リージョンのみ導入時は r5.large.search インスタンスでデプロイされます
+
+## 中国リージョン
+
+| リージョン | CloudFormation | Template URL |
+|------------|----------------|--------------|
+| 中国 (北京) cn-north-1 |[![Deploy in cn-north-1](./images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-north-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template) | `https://aes-siem-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template` |
+| 中国 (寧夏) cn-northwest-1 |[![Deploy in cn-northwest-1](./images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-northwest-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template) | `https://aes-siem-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template` |

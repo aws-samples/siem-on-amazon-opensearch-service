@@ -5,11 +5,15 @@
 ## Table of contents
 
 * [Customizing the log loading method](#customizing-the-log-loading-method)
+* [Threat Information Enrichment by IoC](#threat-information-enrichment-by-ioc)
 * [Adding an exclusion to log loading](#adding-an-exclusion-to-log-loading)
-* [Changing OpenSearch Service configuration settings (for advanced users)](#changing-opensearch-service-configuration-settings-for-advanced-users)
+* [Changing OpenSearch Service configuration settings](#changing-opensearch-service-configuration-settings)
 * [Loading Non-AWS services logs](#loading-non-aws-services-logs)
+* [Near-real-time loading from other S3 buckets](#near-real-time-loading-from-other-s3-buckets)
 * [Loading past data stored in the S3 bucket](#loading-past-data-stored-in-the-s3-bucket)
+* [Loading data from Dead SQS Dead Letter Queur](#loading-data-from-dead-sqs-dead-letter-queur)
 * [Monitoring](#monitoring)
+* [Creating a CloudFormation template](#creating-a-cloudformation-template)
 
 ## Customizing the log loading method
 
@@ -94,6 +98,62 @@ Alternatively, you can edit user.ini directly from the AWS Management Console to
 
 Configuration is now complete. Note that Lambda function es-loader will be replaced with a new one and user.ini will be deleted whenever SIEM on OpenSearch Service is updated. In that case, repeat the process above.
 
+## Threat Information Enrichment by IoC
+
+Threat information can be enriched based on IP addresses and domain nams. You can select the following providers as threat information sources for IoC (Indicators of Compromise) during deployment with CloudFormation or CDK.
+
+* [Tor Project](https://www.torproject.org)
+* [Abuse.ch Feodo Tracker](https://feodotracker.abuse.ch)
+* [AlienVault OTX](https://otx.alienvault.com/)
+
+If there are many IoCs, the processing time of Lambda will increase, so please select IoCs carefully. If you want to use the IoC on AlienVault OTX, please get your API key at [AlienVault OTX](https://otx.alienvault.com/#signup).
+
+You can also use your own IoC. The supported IoC formats are TXT format and SITX 2.x format. IP addresses and CIDR ranges must appear one per line in TXT format.
+
+Upload your own IoC files to to the following location. Replace **_"your provider name"_** with any name. If you do not create the "your provider name" folder, the provider will be named "custom".
+
+TXT format
+
+* s3://aes-siem-**_123456789012_**-geo/IOC/TXT/**_your provider name_**/
+
+STIX 2.x format
+
+* s3://aes-siem-**_123456789012_**-geo/IOC/STIX2/**_your provider name_**/
+
+Since IoC eliminates duplication for each provider, the number of indicators contained in the file does not match the number of indicators actually saved in the database. There is a limit of 5,000 files that can be downloaded and a limit of 128 MB for the created IoC database.
+
+See below for information on the created IoC database.
+
+1. Go to the [Step Functions console](https://console.aws.amazon.com/states/home?)
+1. Select state machine **[aes-siem-ioc-state-machine]**
+1. Select the latest successful Executions
+1. Select its **[Execution output]** in the tab menu
+1. You can check the number of IoCs by provider, the number of IoCs by IoC type, and the size of the database
+
+The IoC download and database creation can take up to 24 hours to run for the first time after deployment. If the size is large and the creation of the database fails, after carefully selecting the IoC, delete the cache file `s3://aes-siem-123456789012-geo/IOC/tmp` and execute the Step Functions [ **aes-siem-ioc-state-machine**] manually.
+
+Specify the fields to be enriched in user.ini.
+
+e.g. Enrich based on source.ip and destination.ip in foo log
+
+```conf
+[foo]
+ioc_ip = source.ip destination.ip
+```
+
+e.g.) Enrich based on the ECS field dns.question.name which is a DNS query in bar log
+
+```conf
+[bar]
+ioc_domain = dns.question.name
+```
+
+You can check the enriched information in the following fields.
+
+* threat.matched.providers: Enriched Providers. List format if there are multiple
+* threat.matched.indicators: IoC matched values. List format if there are multiple
+* threat.enrichments: enriched details. nested format
+
 ## Adding an exclusion to log loading
 
 Logs stored in the S3 bucket are automatically loaded into OpenSearch Service, but you can exclude some of them by specifying conditions. This will help save OpenSearch Service resources.
@@ -107,7 +167,7 @@ There are two conditions you can specify:
 
 Whenever CloudTrail or VPC flow logs are output to the S3 bucket, the AWS account ID and region information is added to the logs. You can use this information to add an exclusion to log loading. For example, you can configure not to load logs from your test AWS account.
 
-#### How to add an exclusion:
+#### How to add an exclusion
 
 Specify the string of the log you want to exclude in s3_key_ignored in user.ini (aws.ini). The log will not be loaded if it **contains** the string(s) specified there. Strings can be specified using regular expressions. Note that if the string is too short or a generic word, it may also match logs that you don't want to exclude. Also, some AWS resources’ logs specify s3_key_ignored by default, so ensure to check aws.ini first to avoid overwriting the configuration.
 
@@ -148,7 +208,7 @@ log_type,field,pattern,pattern_type,comment
 | Header | Description |
 |--------|----|
 | log_type | The log section name specified in aws.ini or user.ini. Example) cloudtrail, vpcflowlogs |
-| field | The original field name of the raw log. It is not a normalized field. Fields that are hierarchical such as JSON are separated by dots ( **. ** ). Example) userIdentity.invokedBy |
+| field | The original field name of the raw log. It is not a normalized field. Fields that are hierarchical such as JSON are separated by dots ( **.** ). Example) userIdentity.invokedBy |
 | pattern | Specifies the value of the field as a string. Excluded by an **exact match**. Text format and a regular expression can be used. Example) Text format: 192.0.2.10, Regular expression: 192\\.0\\.2\\..* |
 | pattern_type | [**regex**] for a regular expression and [**text**] for a string |
 | comment | Any string. Does not affect exclusion |
@@ -174,7 +234,7 @@ This excludes logs where the destination IP address (dstaddr) contains string 19
 
 This excludes logs that match {'userIdentity': {'invokedBy': '*.amazonaws.com'}} in CloudTrail. Field names are nested, and should be dot-separated in CSV. In this example, logs of API calls invoked by AWS services (such as config or log delivery) are not loaded.
 
-## Changing OpenSearch Service Configuration Settings (for Advanced Users)
+## Changing OpenSearch Service Configuration Settings
 
 You can change the application configurations of OpenSearch Service that are related to SIEM. The following items can be defined for each index.
 
@@ -198,9 +258,9 @@ To add or change a setting, create an index template to save the value. Avoid us
 
 Reserved words for templates in SIEM on OpenSearch Service:
 
-* log[-aws][-service_name]_aws
-* log[-aws][-service_name]_rollover
-* component_template_log[-aws][-service_name] (SIEM on OpenSearch Service v2.4.1 or later)
+* log\[-aws][-service_name]_aws
+* log\[-aws][-service_name]_rollover
+* component_template_log\[-aws][-service_name] (SIEM on OpenSearch Service v2.4.1 or later)
 
 If you want to change a pre-configured value, set **priority** of Index templates to 10 or greater, **order** of legacy index templates to 1 or greater to overwrite it.
 
@@ -328,6 +388,197 @@ The directory structure inside the zipped file of the Lambda layer should look l
 
 Create a zip file and register it to the Lambda layer and you're done
 
+## Near-real-time loading from other S3 buckets
+
+![Custom S3](images/custom-s3.svg)
+
+By changing the resource policy of the S3 bucket and notification method, logs from buckets in the same account and in the same region can be loaded into OpenSearch Service.
+
+**Do not change the policy of AWS resources created by CDK/CloudFormation. Overwritten by the default policy on SIEM update.**
+
+### Common configuration
+
+Edit the bucket policy for the S3 bucket where the logs are stored so that es-loader can retrieve the logs for the S3 bucket.
+
+1. Get the IAM Role name for es-loader. In IAM Role, search for [**siem-LambdaEsLoaderServiceRole**] and copy the ARN of the IAM Role displayed.
+2. Modify the bucket policy referring to the policy example below
+
+```json
+{
+    "Version": "2012-10-17",
+    "Id": "Policy1234567890",
+    "Statement": [
+        {
+            "Sid": "es-loader-to-s3-bucket",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::123456789012:role/aes-siem-LambdaEsLoaderServiceRoleXXXXXXXX-XXXXXXXXXXXXX"
+            },
+            "Action": "s3:GetObject",
+            "Resource": [
+                "arn:aws:s3:::your-bucket-name/*"
+            ]
+        }
+    ]
+}
+```
+
+### Amazon S3 Event Notifications
+
+![Custom S3 Notification](images/custom-s3-eventnotification.svg)
+
+1. Create an event notification in your S3 bucket
+    * The following are mandatory fields. Enter other values according to your environment.
+    * Check [**All object create events**] for the event type
+    * Destination: Select Lambda function
+    * Lambda function: Select aes-siem-es-loader
+1. [**Save Changes**]
+
+### Amazon SQS
+
+![Custom S3 SQS](images/custom-s3-sqs.svg)
+
+1. Create SQS queue
+    * The following are mandatory fields. Enter other values according to your environment
+    * Standard type
+    * Visibility Timeout: 600 seconds
+1. Modify the SQS access policy by referring to the policy example below
+
+    ```json
+    {
+        "Version": "2008-10-17",
+        "Id": "sqs_access_policy",
+        "Statement": [
+            {
+                "Sid": "__owner_statement",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::123456789012:root"
+                },
+                "Action": "SQS:*",
+                "Resource": "arn:aws:sqs:ap-northeast-1:123456789012:your-sqs-name"
+            },
+            {
+                "Sid": "allow-s3bucket-to-send-message",
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "s3.amazonaws.com"
+                },
+                "Action": "SQS:SendMessage",
+                "Resource": "arn:aws:sqs:ap-northeast-1:123456789012:your-sqs-name",
+                "Condition": {
+                    "StringEquals": {
+                        "aws:SourceAccount": "123456789012"
+                    }
+                }
+            },
+            {
+                "Sid": "allow-es-loader-to-recieve-message",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::123456789012:role/aes-siem-LambdaEsLoaderServiceRoleXXXXXXXX-XXXXXXXXXXXXX"
+                },
+                "Action": [
+                    "SQS:GetQueueAttributes",
+                    "SQS:ChangeMessageVisibility",
+                    "SQS:DeleteMessage",
+                    "SQS:ReceiveMessage"
+                ],
+                "Resource": "arn:aws:sqs:ap-northeast-1:123456789012:your-sqs-name"
+            }
+        ]
+    }
+    ```
+
+1. From the SQS console, configure a [**Lambda triggers**]
+    * select [**aes-siem-es-loader**]
+1. Create an event notification in your S3 bucket
+    * The following are mandatory fields. Enter other values according to your environment.
+    * Check [**All object create events**] for the event type
+    * Destination: Select SQS
+    * SQS: select the created SQS
+
+### Amazon SNS
+
+![Custom S3 SNS](images/custom-s3-sns.svg)
+
+1. Create SNS Topic
+    * Standard type
+1. Modify the SNS access policy by referring to the policy example below
+
+    ```json
+    {
+        "Version": "2008-10-17",
+        "Id": "sns_access_policy",
+        "Statement": [
+            {
+                "Sid": "__default_statement_ID",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "*"
+                },
+                "Action": [
+                    "SNS:GetTopicAttributes",
+                    "SNS:SetTopicAttributes",
+                    "SNS:AddPermission",
+                    "SNS:RemovePermission",
+                    "SNS:DeleteTopic",
+                    "SNS:Subscribe",
+                    "SNS:ListSubscriptionsByTopic",
+                    "SNS:Publish"
+                ],
+                "Resource": "arn:aws:sns:ap-northeast-1:123456789012:your-sns-topic",
+                "Condition": {
+                    "StringEquals": {
+                        "AWS:SourceOwner": "123456789012"
+                    }
+                }
+            },
+            {
+                "Sid": "Example SNS topic policy",
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "s3.amazonaws.com"
+                },
+                "Action": "SNS:Publish",
+                "Resource": "arn:aws:sns:ap-northeast-1:123456789012:your-sns-topic",
+                "Condition": {
+                    "StringEquals": {
+                        "aws:SourceAccount": "123456789012"
+                    }
+                }
+            }
+        ]
+    }
+    ```
+
+1. Create a subscription from the SNS console
+    * Protocol: AWS Lambda
+    * Endpoint: ARN of es-loader
+1. Create an event notification in your S3 bucket
+    * The following are mandatory fields. Enter other values according to your environment.
+    * Check [**All object create events**] for the event type
+    * Destination: Select SNS
+    * SNS: Select the created SNS
+
+### Amazon EventBridge
+
+![Custom S3 EventBridge](images/custom-s3-eventbridge.svg)
+
+1. From the S3 console, turn on Amazon EventBridge for event notifications
+1. Create a rule in the EventBridge console
+    * Define rule detail: Defaults to Next
+    * Build event pattern:
+        * Event source: AWS services
+        * AWS Service: Simple Storage Service (S3)
+        * Event Type: Amazon S3 Event Notification
+    * Select target(s):
+        * Target type: AWS service
+        * Select a target: Lambda Function
+        * Function: aes-siem-es-loader
+    * Configure tags - optional: Defaults to Next
+    * Review and update: Select **Create Rule** to finish
+
 ## Loading past data stored in the S3 bucket
 
 You can batch load logs stored in the S3 bucket into OpenSearch Service. Normally, logs are loaded in real time when they are stored in the preconfigured S3 bucket. On the other hand, backed-up data can also be loaded later for visualization or incident investigation purposes. Likewise, you can also load data that failed real-time loading and were trapped into SQS's dead letter queue.
@@ -345,6 +596,7 @@ You can batch load logs stored in the S3 bucket into OpenSearch Service. Normall
    ```python
    cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
    pip3 install -r requirements.txt -U -t .
+   pip3 install pandas -U
    ```
 
 #### Setting environment variables
@@ -408,7 +660,25 @@ You can batch load logs stored in the S3 bucket into OpenSearch Service. Normall
 
 1. After the loading succeeds, delete the S3 object list(s) you created as well as the log files generated
 
-### Loading from SQS queue
+## Loading data from Dead SQS Dead Letter Queur
+
+Ingest messages from SQS's dead-letter queue for SIEM (aes-siem-dlq). (The substance is the log on the S3 bucket). We have two methods, one by reredriving the DQL and another by processing on the EC2 instance.
+
+### Loading with DQL redrive
+
+1. Navigate to SQS console
+1. Select [**aes-siem-dlq**]
+1. Select [**Start DLQ redrive**] on the upper right of the screen
+1. Transitioned to the screen for Dead-letter queue redrive
+     * Check the box [**Redrive to a custom destination**]
+     * Select [**aes-siem-sqs-split-logs**] in 'Select an existing queue'
+     * Select [**DLQ redrive**] at the bottom right of the screen
+
+Reloading will start.
+
+### Loading with EC2 instance
+
+Use the EC2 instance created in [Loading past data stored in the S3 bucket](#loading-past-data-stored-in-the-s3-bucket)
 
 You can load messages from SQS's dead letter queue for SIEM (aes-siem-dlq). (They are actually logs stored in the S3 bucket)
 
@@ -431,7 +701,23 @@ You can load messages from SQS's dead letter queue for SIEM (aes-siem-dlq). (The
 
 ## Monitoring
 
-### Metrics
+### OpenSearch Index Metrics
+
+For optimal OpenSearch performance, you need to tune the index rotation interval and shard count to get the right number of shards and shard size. You can check how many shards you currently have and whether any shards are too large from the OpenSearch Service dashboard.
+
+Dashboard Name on OpenSaerch Dashboards: OpenSearch Metrics [Sample](./dashboard.md#Amazon-OpenSearch-Service-Metrics)
+
+The data source is saved to the S3 bucket for logs at `/AWSLogs/123456789012/OpenSearch/metrics/` by running the Lambda Function aes-siem-index-metrics-exporter once an hour.
+
+Reference: [Amazon OpenSearch Service Operational Best Practices](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/bp.html)
+
+### CloudWatch Dashboard
+
+You can check the metrics and error logs of the key AWS resources that make up the SIEM. It can be used for performance tuning of Indexing and Search in OpenSearch Service, and for troubleshooting.
+
+Custom Dashboard Name on CloudWatch Dashboard: [SIEM](https://console.aws.amazon.com/cloudwatch/home?#dashboards:name=SIEM)
+
+### CloudWatch Metrics
 
 You can view the metrics of es-loader, which normalizes logs and sends data to OpenSearch Service, in CloudWatch Metrics.
 
@@ -449,7 +735,7 @@ You can view the metrics of es-loader, which normalizes logs and sends data to O
 | TotalLogFileCount | Count | The number of log files processed by es-loader |
 | TotalLogCount | Count | The number of logs targeted for processing from the logs contained in the log files. This includes logs that were not actually loaded due to filtering |
 
-### Logging
+### CloudWatch Logs
 
 You can check the logs of the Lambda functions used for SIEM in CloudWatch Logs.
 The es-loader logs are output in the JSON format, so you can filter and search them in CloudWatch Logs Insights.
@@ -461,5 +747,68 @@ The es-loader logs are output in the JSON format, so you can filter and search t
 | message | Message in the log. In some cases, it’s in the JSON format |
 
 AWS Lambda Powertools Python is used for the other fields. For more information, see the [AWS Lambda Powertools Python](https://awslabs.github.io/aws-lambda-powertools-python/core/metrics/) documentation.
+
+## Creating a CloudFormation template
+
+You can skip this if you have already deployed SIEM on OpenSearch Service using one of the CloudFormation templates in Step 1 above.
+
+### 1. Prerequisites
+
+The following instance and tools need to be in place so that you can create a CloudFormation template:
+
+* AWS CloudShell or Amazon EC2 instance running Amazon Linux 2
+  * "Development Tools"
+  * Python 3.8
+  * Python 3.8 libraries and header files
+  * Git
+
+Run the following commands if the above tools have not been installed yet:
+
+```shell
+sudo yum groups mark install -y "Development Tools"
+sudo yum install -y amazon-linux-extras
+sudo amazon-linux-extras enable python3.8
+sudo yum install -y python38 python38-devel git jq
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+```
+
+### 2. Cloning SIEM on OpenSearch Service
+
+Clone SIEM on OpenSearch Service from our GitHub repository:
+
+```shell
+cd
+git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
+```
+
+### 3. Setting up the enviroment variables
+
+```shell
+export TEMPLATE_OUTPUT_BUCKET=<YOUR_TEMPLATE_OUTPUT_BUCKET> # Name of the S3 bucket where the template is loaded
+export AWS_REGION=<AWS_REGION> # Region where the distribution is deployed
+```
+
+> **_Note:_** $TEMPLATE_OUTPUT_BUCKET indicates an S3 bucket name, so create yours beforehand. This bucket will be used to store files distributed for deployment, so it needs to be publicly accessible. The build-s3-dist.sh script (used to create a template) WILL NOT create any S3 bucket.
+
+### 4. Packaging AWS Lambda functions and creating a template
+
+```shell
+cd ~/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
+chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
+chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
+```
+
+### 5. Uploading the deployment assets to your Amazon S3 bucket
+
+```shell
+aws s3 cp ./global-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl bucket-owner-full-control
+aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl bucket-owner-full-control
+```
+
+> **_Note:_** To run the commands, you'll need to grant permissions to upload files to the S3 bucket. Also ensure to set the right access policy to the files once they are uploaded.
+
+### 6. Deploying SIEM on OpenSearch Service
+
+The uploaded template is now stored in `https://s3.amazonaws.com/$TEMPLATE_OUTPUT_BUCKET/siem-on-amazon-opensearch-service.template`. Deploy this template using AWS CloudFormation.
 
 [Back to README](../README.md)

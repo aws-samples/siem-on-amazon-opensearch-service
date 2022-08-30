@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -22,12 +22,13 @@ from typing import Tuple
 
 from aws_lambda_powertools import Logger
 
-from siem import utils
+from siem import user_agent, utils
 from siem.fileformat_base import FileFormatBase
 from siem.fileformat_cef import FileFormatCef
 from siem.fileformat_csv import FileFormatCsv
 from siem.fileformat_json import FileFormatJson
 from siem.fileformat_multiline import FileFormatMultiline
+from siem.fileformat_parquet import FileFormatParquet
 from siem.fileformat_text import FileFormatText
 from siem.fileformat_winevtxml import FileFormatWinEvtXml
 from siem.fileformat_xml import FileFormatXml
@@ -52,7 +53,8 @@ class LogS3:
         self.loggroup = None
         self.logstream = None
         self.s3bucket = self.record['s3']['bucket']['name']
-        self.s3key = self.record['s3']['object']['key']
+        self.s3key = urllib.parse.unquote_plus(
+            self.record['s3']['object']['key'], encoding='utf-8')
 
         logger.info(self.startmsg())
         if self.is_ignored:
@@ -124,7 +126,7 @@ class LogS3:
             elif self.via_firelens:
                 log_count = len(self.rawdata.readlines())
             else:
-                # text, json, csv, winevtxml, multiline, xml
+                # text, json, csv, winevtxml, multiline, xml, parquet
                 log_count = self.rawfile_instacne.log_count
             if log_count == 0:
                 self.is_ignored = True
@@ -192,6 +194,9 @@ class LogS3:
         elif self.file_format == 'multiline':
             return FileFormatMultiline(
                 self.rawdata, self.logconfig, self.logtype)
+        elif self.file_format == 'parquet':
+            return FileFormatParquet(
+                self.rawdata, self.logconfig, self.logtype)
         elif self.file_format == 'xml':
             return FileFormatXml(self.rawdata, self.logconfig, self.logtype)
         elif self.file_format == 'cef':
@@ -228,7 +233,7 @@ class LogS3:
                 else:
                     yield (lograw, logdict, logmeta)
         else:
-            # json, text, csv, multiline, xml, winevtxml
+            # json, text, csv, multiline, xml, winevtxml, parquet
             yield from self.rawfile_instacne.extract_log(start, end, logmeta)
 
     def set_start_end_position(self, ignore_header_line_number=None):
@@ -369,9 +374,8 @@ class LogS3:
 
     def extract_rawdata_from_s3obj(self):
         try:
-            safe_s3_key = urllib.parse.unquote_plus(self.s3key)
             obj = self.s3_client.get_object(
-                Bucket=self.s3bucket, Key=safe_s3_key)
+                Bucket=self.s3bucket, Key=self.s3key)
         except Exception:
             msg = f'Failed to download S3 object from {self.s3key}'
             logger.exception(msg)
@@ -389,20 +393,44 @@ class LogS3:
         rawbody = io.BytesIO(obj['Body'].read())
         mime_type = utils.get_mime_type(rawbody.read(16))
         rawbody.seek(0)
-        if mime_type == 'gzip':
-            body = gzip.open(rawbody, mode='rt', encoding='utf8',
-                             errors='ignore')
-        elif mime_type == 'text':
+        if mime_type == 'text':
             body = io.TextIOWrapper(rawbody, encoding='utf8', errors='ignore')
+        elif mime_type == 'parquet':
+            body = rawbody
+            self.file_format = 'parquet'
+        elif mime_type == 'gzip':
+            body = gzip.open(rawbody, mode='rb')
         elif mime_type == 'zip':
             z = zipfile.ZipFile(rawbody)
-            body = open(z.namelist()[0], encoding='utf8', errors='ignore')
+            body = open(z.namelist()[0])
         elif mime_type == 'bzip2':
-            body = bz2.open(rawbody, mode='rt', encoding='utf8',
-                            errors='ignore')
+            body = bz2.open(rawbody, mode='rb')
         else:
             logger.error('unknown file format')
             raise Exception('unknown file format')
+
+        if mime_type not in ('text', 'parquet'):
+            mime_type2 = utils.get_mime_type(body.read(16))
+            if mime_type2 == 'parquet':
+                body.seek(0)
+                self.file_format = 'parquet'
+            elif mime_type2 == 'text':
+                rawbody.seek(0)
+                if mime_type == 'gzip':
+                    body = gzip.open(rawbody, mode='rt', encoding='utf8',
+                                     errors='ignore')
+                elif mime_type == 'zip':
+                    z = zipfile.ZipFile(rawbody)
+                    body = open(z.namelist()[0], encoding='utf8',
+                                errors='ignore')
+                elif mime_type == 'bzip2':
+                    body = bz2.open(rawbody, mode='rt', encoding='utf8',
+                                    errors='ignore')
+            elif mime_type2 in ('gzip', 'zip', 'bzip2'):
+                msg = f'double archived file. {mime_type2} in {mime_type}'
+                logger.error(msg)
+                raise Exception(msg)
+
         return body
 
     def split_logs(self, log_count, max_log_count):
@@ -451,11 +479,12 @@ class LogParser:
     フィールドのECSへの統一、最後にJSON化、する
     """
     def __init__(self, logfile, logconfig, sf_module, geodb_instance,
-                 exclude_log_patterns):
+                 ioc_instance, exclude_log_patterns):
         self.logfile = logfile
         self.logconfig = logconfig
         self.sf_module = sf_module
         self.geodb_instance = geodb_instance
+        self.ioc_instance = ioc_instance
         self.exclude_log_patterns = exclude_log_patterns
 
         self.logtype = logfile.logtype
@@ -772,8 +801,23 @@ class LogParser:
                 logger.exception(
                     f'Exception error has occurs in sf_{self.logtype}.py')
 
+    def create_ioc_ip_dict(self, ioc_ip_dict, ip, field):
+        if ip not in ioc_ip_dict:
+            ioc_ip_dict[ip] = [field]
+        else:
+            ioc_ip_dict[ip].append(field)
+        return ioc_ip_dict
+
+    def create_ioc_domain_dict(self, ioc_domain_dict, domain, field):
+        if domain not in ioc_domain_dict:
+            ioc_domain_dict[domain] = [field]
+        else:
+            ioc_domain_dict[domain].append(field)
+        return ioc_domain_dict
+
     def enrich(self):
         enrich_dict = {}
+
         # geoip
         geoip_list = self.logconfig['geoip'].split()
         for geoip_ecs in geoip_list:
@@ -788,6 +832,84 @@ class LogParser:
                 enrich_dict[geoip_ecs].update({'as': asn})
             elif asn:
                 enrich_dict[geoip_ecs] = {'as': asn}
+
+        # IOC
+        enrich_dict['threat.enrichments'] = []
+
+        ioc_ip_list = self.logconfig['ioc_ip']
+        if ioc_ip_list and self.ioc_instance.is_enabled:
+            ioc_ip_dict = {}
+            for field in ioc_ip_list:
+                ips = utils.value_from_nesteddict_by_dottedkey(
+                    self.__logdata_dict, field)
+                if isinstance(ips, str):
+                    ioc_ip_dict = self.create_ioc_ip_dict(
+                        ioc_ip_dict, ips, field)
+                elif isinstance(ips, list):
+                    for ip in ips:
+                        ioc_ip_dict = self.create_ioc_ip_dict(
+                            ioc_ip_dict, ip, field)
+            for ipaddr, fields in ioc_ip_dict.items():
+                enrichments = self.ioc_instance.check_ipaddress(ipaddr)
+                if enrichments:
+                    enrichments = self.ioc_instance.add_mached_fields(
+                        enrichments, fields)
+                    enrich_dict['threat.enrichments'].extend(enrichments)
+
+        ioc_domain_list = self.logconfig['ioc_domain']
+        if ioc_domain_list and self.ioc_instance.is_enabled:
+            ioc_domain_dict = {}
+            for field in ioc_domain_list:
+                domains = utils.value_from_nesteddict_by_dottedkey(
+                    self.__logdata_dict, field)
+                if isinstance(domains, str):
+                    ioc_domain_dict = self.create_ioc_domain_dict(
+                        ioc_domain_dict, domains, field)
+                elif isinstance(domains, list):
+                    for domain in domains:
+                        ioc_domain_dict = self.create_ioc_domain_dict(
+                            ioc_domain_dict, domain, field)
+            for domain, fields in ioc_domain_dict.items():
+                enrichments = self.ioc_instance.check_domain(domain)
+                if enrichments:
+                    enrichments = self.ioc_instance.add_mached_fields(
+                        enrichments, fields)
+                    enrich_dict['threat.enrichments'].extend(enrichments)
+        if len(enrich_dict['threat.enrichments']) == 0:
+            del enrich_dict['threat.enrichments']
+        else:
+            providers = set()
+            indicators = set()
+            ioc_types = set()
+            names = set()
+            for item in enrich_dict['threat.enrichments']:
+                providers.add(item['indicator']['provider'])
+                ioc_types.add(item['indicator']['type'])
+                indicators.add(item['indicator'].get('ip'))
+                indicators.add(item['matched'].get('atomic'))
+                names.add(item['indicator'].get('name'))
+            indicators = [x for x in indicators if x is not None]
+            names = [x for x in names if x is not None]
+            enrich_dict['threat.matched'] = {
+                'providers': list(providers), 'types': list(ioc_types),
+                'indicators': indicators, 'names': names
+            }
+
+        # user-agent
+        ua_field = self.logconfig['user_agent_enrichment_field']
+        if ua_field:
+            ua_value = self.__logdata_dict.get(ua_field)
+            if ua_value:
+                try:
+                    original = self.__logdata_dict[ua_field]['original']
+                except KeyError:
+                    original = None
+                if isinstance(original, list):
+                    original = original[0]
+                if isinstance(original, str):
+                    enrich_dict[ua_field] = user_agent.enrich(original)
+
+        # merge all enrichment
         self.__logdata_dict = utils.merge_dicts(
             self.__logdata_dict, enrich_dict)
 

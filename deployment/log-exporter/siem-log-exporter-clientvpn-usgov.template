@@ -1,0 +1,87 @@
+Description: "SIEM on Amazon OpenSearch Service v2.8.0: log exporter - ClientVPN"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: CloudWatch Logs
+        Parameters:
+          - CwlClientVpnName
+      - Label:
+          default: Amazon Kinesis Data Firehose
+        Parameters:
+          - KdfClientVpnName
+          - KdfBufferSize
+          - KdfBufferInterval
+Parameters:
+  KdfClientVpnName:
+    Type: String
+    Default: siem-clientvpn-to-s3
+    Description: Define new Kinesis Data Firehose Name to deliver Client VPN CloudWatch Logs
+  KdfBufferSize:
+    Type: Number
+    Default: 64
+    Description: Enter a buffer size between 64 - 128 (MiB)
+    MaxValue: 128
+    MinValue: 64
+  KdfBufferInterval:
+    Type: Number
+    Default: 60
+    Description: Enter a buffer interval between 60 - 900 (seconds.)
+    MaxValue: 900
+    MinValue: 60
+  CwlClientVpnName:
+    Type: String
+    Default: /aws/clientvpn
+    Description: Specify Client VPN CloudWatch Logs group name
+Resources:
+  Kdf:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: KdfClientVpnName
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name-v2
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: ErrorLogs/
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/
+              - Ref: AWS::AccountId
+              - /ClientVPN/
+              - Ref: AWS::Region
+              - /
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
+  KinesisSubscription:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::GetAtt:
+          - Kdf
+          - Arn
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwlClientVpnName
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-us-gov:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+

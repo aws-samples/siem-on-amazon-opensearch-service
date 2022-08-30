@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -111,6 +111,11 @@ def rename_config_field_name(logdata):
         logdata['configuration']['state_name'] = (
             logdata['configuration']['state'].pop('name'))
     except (AttributeError, KeyError, TypeError):
+        pass
+    try:
+        logdata['tags']['AmazonFSx_FileSystemId'] = (
+            logdata['tags'].pop('AmazonFSx.FileSystemId'))
+    except Exception:
         pass
 
     # "resourceType": "AWS::Lambda::Function"

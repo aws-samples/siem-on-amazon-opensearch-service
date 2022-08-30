@@ -62,15 +62,14 @@ SIEM on OpenSearch Service 能够加载并关联以下日志类型。
 
 通过以下选项，选择SIEM on OpenSearch Service部署所在的区域： If there is no region below, please check [CloudFormation Template For All Regions](docs/cloudformation_list_zh-cn.md).
 
-| 区域 | CloudFormation |
-|--------|----------------|
-| 宁夏 (cn-northwest-1) |[![Deploy in cn-northwest-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-northwest-1#/stacks/new?stackName=siem&templateURL=https://aws-industry-solutions-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service/v2.5.0/siem-on-amazon-opensearch-service-china.template) |
-| 北京 (cn-north-1) |[![Deploy in cn-north-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-north-1#/stacks/new?stackName=siem&templateURL=https://aws-industry-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service/v2.5.0/siem-on-amazon-opensearch-service-china.template) |
-| 北弗吉尼亚州  (us-east-1) |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 俄勒冈州 (us-west-2) |[![Deploy in us-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 东京 (ap-northeast-1) |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 法兰克福  (eu-central-1) |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
-| 伦敦 (eu-west-2) |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) |
+| 区域 | CloudFormation | Template URL |
+|------|----------------|--------------|
+| 中国 (北京) cn-north-1 |[![Deploy in cn-north-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-north-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template) | `https://aes-siem-solutions-cn-north-1.s3.cn-north-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template` |
+| 中国 (宁夏) cn-northwest-1 |[![Deploy in cn-northwest-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.amazonaws.cn/cloudformation/home?region=cn-northwest-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template) | `https://aes-siem-cn-northwest-1.s3.cn-northwest-1.amazonaws.com.cn/siem-on-amazon-opensearch-service-china.template` |
+| 美国东部 (弗吉尼亚北部) us-east-1 |[![Deploy in us-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-us-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 亚太地区 (香港) ap-east-1 |[![Deploy in ap-east-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-east-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-east-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 亚太地区 (新加坡) ap-southeast-1 |[![Deploy in ap-southeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-southeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-southeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-southeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
+| 亚太区域 (东京) ap-northeast-1 |[![Deploy in ap-northeast-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=ap-northeast-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-ap-northeast-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 
 或者，您可以按照以下步骤创建自己的模板。
 
@@ -120,7 +119,7 @@ export AWS_REGION=<AWS_REGION> # Region where the distribution is deployed
 
 ```shell
 cd ~/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
-chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh china && cd ..
+chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
 chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
 ```
 
@@ -141,7 +140,7 @@ aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl b
 
 SIEM on OpenSearch Service大概需要30分钟来完成部署。随后即可着手配置OpenSearch Dashboards。
 
-注意: OpenSearch Service 的 OpenSearch 控制面板默认安装包括地图服务，但印度和中国区域的域除外。所以在OpenSearch Service 的 Kibana 并不能直接提供地图显示功能。如果需要显示地图，需要自行安装WMS地图服务器。
+注意: OpenSearch Service 的 OpenSearch 控制面板默认安装包括地图服务，但印度和中国区域的域除外。所以在OpenSearch Service 并不能直接提供地图显示功能。如果需要显示地图，需要自行安装WMS地图服务器。
 
 1. 导航至Amazon CloudFormation控制台，选择我们刚刚创建的堆栈，尔后选择右上选项卡清单中的“Outputs”选项。在这里，您将找到用户名、密码与OpenSearch Dashboards的URL。使用相应凭证登录至OpenSearch Dashboards。
 
@@ -212,19 +211,25 @@ SIEM on OpenSearch Service将日志保存在索引当中，并每月轮换一次
 |S3 存储桶|aes-siem-[AWS_Account]-log|用於收集日志|
 |S3 存储桶|aes-siem-[AWS_Account]-snapshot|用於捕捉OpenSearch Service手动快照|
 |S3 存储桶|aes-siem-[AWS_Account]-geo|用於存储下载得到的GeoIP|
+|Step Functions|aes-siem-ioc-state-machine|For downloading IoC and creating database|
+|Lambda 函数|aes-siem-ioc-plan|For creating map to download IoC|
+|Lambda 函数|aes-siem-ioc-createdb|For downloading IoC|
+|Lambda 函数|aes-siem-ioc-download|For creating IoC Database|
+|Lambda 函数|aes-siem-geoip-downloader|用於下载GeoIP|
 |Lambda 函数|aes-siem-es-loader|用於标準化日志，并将结果加载至OpenSearch Service|
 |Lambda 函数|aes-siem-deploy-aes|用於创建OpenSearch Service域|
 |Lambda 函数|aes-siem-configure-aes|用於配置OpenSearch Service|
-|Lambda 函数|aes-siem-geoip-downloader|用於下载GeoIP|
 |Lambda 函数|aes-siem-BucketNotificationsHandler|用於为存储日志的S3存储桶配置发现通知|
+|Lambda 函数|aes-siem-add-pandas-layer|For adding aws_sdk_pandas as Lambda layer to es-loader|
 |AWS Key Management Service<br>(AWS KMS) CMK 与别名|aes-siem-key|用於加密日志|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|如果日志中包含多个待处理行，则将各行划分为多个部分；代表用於协调的队列|
 |Amazon SQS Queue|aes-siem-dlq|在将日志加载至OpenSearch Service中发生失败时，使用的**死信队列**|
 |CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|Triggered when total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes|
 |CloudWatch dashboards|SIEM|Dashboard of resource information used by SIEM on OpenSearch Service|
-|EventBridge events|aes-siem-CwlRuleLambdaGeoipDownloader| 用於每天执行aes-siem-geoip-downloader|
-|EventBridge events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
+|EventBridge events|aes-siem-EventBridgeRuleStepFunctionsIoc|For executing aes-siem-ioc-state-machine regularly|
+|EventBridge events|aes-siem-EventBridgeRuleLambdaGeoipDownloader| 用於每天执行aes-siem-geoip-downloader|
 |EventBridge events|aes-siem-EventBridgeRuleLambdaMetricsExporter| For executing aes-siem-geoip-downloader every 1 hour|
+|EventBridge events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
 |Amazon SNS Topic|aes-siem-alert|被选定为OpenSearch Service中的警报发送目的地|
 |Amazon SNS Subscription|inputd email|作为警报发送目标的电子邮件地址|
 
@@ -258,6 +263,8 @@ aws kms delete-alias  --alias-name  "alias/aes-siem-key"
 此解决方案遵循 MIT-0 授权许可证。详见 [LICENSE](LICENSE) 文件。
 
 此產品使用MaxMind创建的GeoLite2数据，并遵循 [CC BY-SA 4.0许可证](https://creativecommons.org/licenses/by-sa/4.0/)，详见[https://www.maxmind.com](https://www.maxmind.com)。
+
+This product uses Tor exit list created by The Tor Project, Inc and licensed under [CC BY 3.0 US](https://creativecommons.org/licenses/by/3.0/us/), available from [https://www.torproject.org](https://www.torproject.org)
 
 原文连结：
 [https://github.com/aws-samples/siem-on-amazon-opensearch-service/blob/main/README.md](https://github.com/aws-samples/siem-on-amazon-opensearch-service/blob/main/README.md)

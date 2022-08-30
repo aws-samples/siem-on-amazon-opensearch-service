@@ -32,7 +32,7 @@ ignore_container_stderr = False
 
 @timestamp 基于日志加载的时间，因为 STDERR 有许多不同的日志格式，有些日志格式甚至不包含时间字段。
 
-## 我忘记了主用户 (aesadmin) 密码，无法登录 Kibana
+## 我忘记了主用户 (aesadmin) 密码，无法登录 OpenSearch Dashboards
 
 您可以使用 AWS 管理控制台设置新密码。
 

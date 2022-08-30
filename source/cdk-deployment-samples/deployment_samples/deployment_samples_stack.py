@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
+
+import os
 
 from aws_cdk import (
     aws_events,
@@ -16,13 +18,17 @@ from aws_cdk import (
     aws_logs,
 )
 from aws_cdk import core as cdk
+from aws_cdk import region_info
 from aws_cdk.aws_kinesisfirehose import CfnDeliveryStream as CDS
+
+region = os.environ.get("CDK_DEPLOY_REGION", os.environ["CDK_DEFAULT_REGION"])
+PARTITION = region_info.Fact.find(region, region_info.FactName.PARTITION)
 
 LAMBDA_GET_WORKSPACES_INVENTORY = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -114,7 +120,7 @@ def lambda_handler(event, context):
 LAMBDA_GET_TRUSTEDADVISOR_CHECK_RESULT = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 __copyright__ = 'Amazon.com, Inc. or its affiliates'
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Katsuya Matsuoka'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -226,6 +232,11 @@ def lambda_handler(event, context):
     bucket.upload_file(f'/tmp/{file_name}', s3file_name)
 '''
 
+if region.startswith('cn-'):
+    LAMBDA_GET_TRUSTEDADVISOR_CHECK_RESULT = (
+        LAMBDA_GET_TRUSTEDADVISOR_CHECK_RESULT.replace(
+            'us-east-1', 'cn-north-1'))
+
 
 class FirehoseExporterStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str,
@@ -260,13 +271,13 @@ class FirehoseExporterStack(cdk.Stack):
             self, "Kdf",
             delivery_stream_name=kdf_name.value_as_string,
             s3_destination_configuration=CDS.S3DestinationConfigurationProperty(
-                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
                 prefix=s3_desitination_prefix.value_as_string,
                 buffering_hints=CDS.BufferingHintsProperty(
                     interval_in_seconds=kdf_buffer_interval.value_as_number,
                     size_in_m_bs=kdf_buffer_size.value_as_number),
                 compression_format=firehose_compression_format,
-                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                           f'service-role/{role_name_kdf_to_s3}')
             )
         )
@@ -309,13 +320,13 @@ class CWLNoCompressExporterStack(cdk.Stack):
             self, "Kdf",
             delivery_stream_name=kdf_name.value_as_string,
             s3_destination_configuration=CDS.S3DestinationConfigurationProperty(
-                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
                 prefix=s3_desitination_prefix.value_as_string,
                 buffering_hints=CDS.BufferingHintsProperty(
                     interval_in_seconds=kdf_buffer_interval.value_as_number,
                     size_in_m_bs=kdf_buffer_size.value_as_number),
                 compression_format='UNCOMPRESSED',
-                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                           f'service-role/{role_name_kdf_to_s3}')
             )
         )
@@ -325,7 +336,7 @@ class CWLNoCompressExporterStack(cdk.Stack):
             destination_arn=kdf_to_s3.attr_arn,
             filter_pattern='',
             log_group_name=cwl_loggroup_name.value_as_string,
-            role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                       f'{role_name_cwl_to_kdf}')
         )
 
@@ -392,7 +403,7 @@ class EventBridgeEventsExporterStack(cdk.Stack):
             delivery_stream_name=kdf_name.value_as_string,
             extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
                 # Destination settings
-                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
 
                 error_output_prefix="ErrorLogs/",
                 prefix=(s3_desitination_prefix.value_as_string + "!{partitionKeyFromQuery:account}/!{partitionKeyFromQuery:service}/!{partitionKeyFromQuery:detailtype}/!{partitionKeyFromQuery:region}/!{timestamp:yyyy}/!{timestamp:MM}/!{timestamp:dd}/"),
@@ -423,7 +434,7 @@ class EventBridgeEventsExporterStack(cdk.Stack):
                     ]
                 ),
                 # Permissions
-                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                           f'service-role/{role_name_kdf_to_s3}'),
             )
         )
@@ -499,13 +510,13 @@ class ADLogExporterStack(cdk.Stack):
             self, "KDFForAdEventLog",
             delivery_stream_name=kdf_ad_name.value_as_string,
             s3_destination_configuration=CDS.S3DestinationConfigurationProperty(
-                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
                 prefix=f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/DirectoryService/MicrosoftAD/',
                 buffering_hints=CDS.BufferingHintsProperty(
                     interval_in_seconds=kdf_buffer_interval.value_as_number,
                     size_in_m_bs=kdf_buffer_size.value_as_number),
                 compression_format='UNCOMPRESSED',
-                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                           f'service-role/{role_name_kdf_to_s3}')
             )
         )
@@ -515,7 +526,7 @@ class ADLogExporterStack(cdk.Stack):
             destination_arn=kdf_to_s3.attr_arn,
             filter_pattern='',
             log_group_name=cwl_ad_name.value_as_string,
-            role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                       f'{role_name_cwl_to_kdf}')
         )
 
@@ -564,7 +575,7 @@ class WorkSpacesLogExporterStack(cdk.Stack):
                     statements=[
                         aws_iam.PolicyStatement(
                             actions=['s3:PutObject'],
-                            resources=[f'arn:aws:s3:::{log_bucket_name}/*'],
+                            resources=[f'arn:{PARTITION}:s3:::{log_bucket_name}/*'],
                             sid='FirehoseToS3PolicyGeneratedBySiemCfn'
                         )
                     ]
@@ -601,13 +612,13 @@ class WorkSpacesLogExporterStack(cdk.Stack):
             self, "KDFForWorkSpacesEvent",
             delivery_stream_name=kdf_workspaces_name.value_as_string,
             s3_destination_configuration=CDS.S3DestinationConfigurationProperty(
-                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
                 prefix=f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/WorkSpaces/Event/',
                 compression_format='GZIP',
                 buffering_hints=CDS.BufferingHintsProperty(
                     interval_in_seconds=kdf_buffer_interval.value_as_number,
                     size_in_m_bs=kdf_buffer_size.value_as_number),
-                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                           f'service-role/{service_role_kdf_to_s3}')
             )
         )
@@ -658,7 +669,7 @@ class TrustedAdvisorLogExporterStack(cdk.Stack):
                     statements=[
                         aws_iam.PolicyStatement(
                             actions=['s3:PutObject'],
-                            resources=[f'arn:aws:s3:::{log_bucket_name}/*'],
+                            resources=[f'arn:{PARTITION}:s3:::{log_bucket_name}/*'],
                             sid='LambdaToS3PolicyGeneratedBySiemCfn'
                         )
                     ]
@@ -738,7 +749,7 @@ class CloudHsmCWLogsExporterStack(cdk.Stack):
             self, "Kdf",
             delivery_stream_name=kdf_hsm_name.value_as_string,
             extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
-                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
                 error_output_prefix="ErrorLogs/",
                 prefix=(f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/CloudHSM/'
                         f'{cdk.Aws.REGION}/'),
@@ -746,7 +757,7 @@ class CloudHsmCWLogsExporterStack(cdk.Stack):
                     interval_in_seconds=kdf_buffer_interval.value_as_number,
                     size_in_m_bs=kdf_buffer_size.value_as_number),
                 compression_format='UNCOMPRESSED',
-                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                           f'service-role/{role_name_kdf_to_s3}'),
             )
         )
@@ -756,7 +767,7 @@ class CloudHsmCWLogsExporterStack(cdk.Stack):
             destination_arn=kdf_to_s3.attr_arn,
             filter_pattern='',
             log_group_name=cwl_hsm_name.value_as_string,
-            role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                       f'{role_name_cwl_to_kdf}')
         )
 
@@ -806,7 +817,7 @@ class ClientVpnLogExporterStack(cdk.Stack):
             self, "Kdf",
             delivery_stream_name=kdf_clientvpn_name.value_as_string,
             extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
-                bucket_arn=f'arn:aws:s3:::{log_bucket_name}',
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
                 error_output_prefix="ErrorLogs/",
                 prefix=(f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/ClientVPN/'
                         f'{cdk.Aws.REGION}/'),
@@ -814,7 +825,7 @@ class ClientVpnLogExporterStack(cdk.Stack):
                     interval_in_seconds=kdf_buffer_interval.value_as_number,
                     size_in_m_bs=kdf_buffer_size.value_as_number),
                 compression_format='UNCOMPRESSED',
-                role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                           f'service-role/{role_name_kdf_to_s3}'),
             )
         )
@@ -824,7 +835,7 @@ class ClientVpnLogExporterStack(cdk.Stack):
             destination_arn=kdf_to_s3.attr_arn,
             filter_pattern='',
             log_group_name=cwl_clientvpn_name.value_as_string,
-            role_arn=(f'arn:aws:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
                       f'{role_name_cwl_to_kdf}')
         )
 
@@ -850,8 +861,12 @@ class CoreLogExporterStack(cdk.Stack):
                          'to send data to S3.'),
             default='siem-role-firehose-to-s3')
 
-        bucket_arn = f'arn:aws:s3:::{log_bucket_name.value_as_string}'
+        bucket_arn = f'arn:{PARTITION}:s3:::{log_bucket_name.value_as_string}'
 
+        if region.startswith('cn-'):
+            service_principal_logs = f'logs.{cdk.Aws.REGION}.amazonaws.com.cn'
+        else:
+            service_principal_logs = f'logs.{cdk.Aws.REGION}.amazonaws.com'
         role_cwl_to_kdf = aws_iam.Role(
             self, 'cwlRole',
             role_name=(f'{role_name_cwl_to_kdf.value_as_string}-v2-'
@@ -861,15 +876,14 @@ class CoreLogExporterStack(cdk.Stack):
                     statements=[
                         aws_iam.PolicyStatement(
                             actions=["firehose:*"],
-                            resources=[(f'arn:aws:firehose:{cdk.Aws.REGION}:'
+                            resources=[(f'arn:{PARTITION}:firehose:{cdk.Aws.REGION}:'
                                         f'{cdk.Aws.ACCOUNT_ID}:*')],
                             sid='CwlToFirehosePolicyGeneratedBySiemCfn'
                         )
                     ]
                 )
             },
-            assumed_by=aws_iam.ServicePrincipal(
-                f'logs.{cdk.Aws.REGION}.amazonaws.com'))
+            assumed_by=aws_iam.ServicePrincipal(service_principal_logs))
 
         role_kdf_to_s3 = aws_iam.Role(
             self, 'firehoseRole', path='/service-role/',
@@ -893,7 +907,7 @@ class CoreLogExporterStack(cdk.Stack):
                         aws_iam.PolicyStatement(
                             sid='LoggingPolicyGeneratedBySiemCfn',
                             actions=["logs:PutLogEvents"],
-                            resources=[(f'arn:aws:logs:{cdk.Aws.REGION}:'
+                            resources=[(f'arn:{PARTITION}:logs:{cdk.Aws.REGION}:'
                                         f'{cdk.Aws.ACCOUNT_ID}:log-group:/aws/'
                                         f'kinesisfirehose/*:log-stream:*')])],
                 ),

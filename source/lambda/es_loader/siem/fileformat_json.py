@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import json
+import re
 
 from aws_lambda_powertools import Logger
 
@@ -65,10 +66,14 @@ class FileFormatJson(FileFormatBase):
                         count += 1
                         if start <= count <= end:
                             yield (json.dumps(record), record, logmeta)
+                        elif count > end:
+                            break
                 elif not delimiter:
                     count += 1
                     if start <= count <= end:
                         yield (json.dumps(raw_event), raw_event, logmeta)
+                    elif count > end:
+                        break
                 search = json.decoder.WHITESPACE.search(line, offset)
                 if search is None:
                     break
@@ -77,14 +82,23 @@ class FileFormatJson(FileFormatBase):
     def convert_lograw_to_dict(self, lograw, logconfig=None):
         try:
             logdict = json.loads(lograw)
+            return logdict
         except json.decoder.JSONDecodeError as e:
             # this is probablly CWL log and trauncated by original log sender
             # such as opensearch audit log
+            err = e
+            if r'Invalid \escape' in str(e):
+                try:
+                    lograw = re.sub(r'([^\\])\\x', r'\1\\\\x', lograw)
+                    logdict = json.loads(lograw, strict=False)
+                    return logdict
+                except json.decoder.JSONDecodeError as e:
+                    err = e
             logger.warning('This log will be loaded, '
                            'but not parsed because of invalid json')
             logdict = {'__skip_normalization': True,
-                       '__error_message': f'invalid json file: {str(e)}'}
-        return logdict
+                       '__error_message': f'invalid json file: {str(err)}'}
+            return logdict
 
     def _check_cwe_and_strip_header(
             self, dict_obj, logmeta={}, need_meta=False):

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -31,17 +31,23 @@ def transform(logdata):
           'ThreatFamilyName': m['ThreatFamilyName'],
           'DetectionMechanism': m.group('DetectionMechanism'),
           'Artifact': m.group('Artifact')}
-    action_type = logdata['service']['action']['actionType']
-    if 'NETWORK_CONNECTION' in action_type:
+    try:
+        action_type = logdata['service']['action']['actionType']
+    except KeyError:
+        action_type = ''
+    if action_type == 'NETWORK_CONNECTION':
         direction = (logdata['service']['action']
                      ['networkConnectionAction']['connectionDirection'])
-    elif 'DNS_REQUEST' in action_type:
+    elif action_type == 'DNS_REQUEST':
         direction = "OUTBOUND"
+    elif gd['ThreatFamilyName'] in ('SuspiciousFile', 'MaliciousFile'):
+        direction = None
     else:
         direction = "INBOUND"
-    gd['network'] = {'direction': direction}
+    if direction:
+        gd['network'] = {'direction': direction.lower()}
     logdata = utils.merge_dicts(logdata, gd)
-    if "OUTBOUND" in direction:
+    if direction == "OUTBOUND":
         logdata['source'], logdata['destination'] = (
             logdata.get('destination'), logdata.get('source'))
         if not logdata['source']:
@@ -50,5 +56,7 @@ def transform(logdata):
             del logdata['destination']
     # event.category
     if logdata['ThreatPurpose'] in ('Backdoor', 'CryptoCurrency', 'Trojan'):
+        logdata['event']['category'] = 'malware'
+    elif gd['ThreatFamilyName'] in ('SuspiciousFile', 'MaliciousFile'):
         logdata['event']['category'] = 'malware'
     return logdata

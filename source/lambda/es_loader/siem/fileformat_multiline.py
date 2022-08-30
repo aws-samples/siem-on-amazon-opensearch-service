@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.7.1'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -86,6 +86,8 @@ class FileFormatMultiline(FileFormatBase):
                     multilog = []
                     is_in_scope = True
                     multilog.append(line)
+                elif count > end:
+                    break
                 else:
                     continue
             elif is_in_scope:
