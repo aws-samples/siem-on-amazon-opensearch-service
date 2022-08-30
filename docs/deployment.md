@@ -4,10 +4,10 @@
 
 ## Table of contents
 
-* [Conditions that require advanced deployment](#Conditions-that-require-advanced-deployment)
-* [Loading an existing S3 bucket](#Loading-an-existing-S3-bucket)
-* [Deploying with the AWS CDK](#Deploying-with-the-AWS-CDK)
-* [Updating SIEM with the AWS CDK](#Updating-SIEM-with-the-AWS-CDK)
+* [Conditions that require advanced deployment](#conditions-that-require-advanced-deployment)
+* [Loading an existing S3 bucket](#loading-an-existing-s3-bucket)
+* [Deploying with the AWS CDK](#deploying-with-the-aws-cdk)
+* [Updating SIEM with the AWS CDK](#updating-siem-with-the-aws-cdk)
 
 ## Conditions that require advanced deployment
 
@@ -177,14 +177,20 @@ Deploy the AWS CDK:
 cdk deploy --no-rollback
 ```
 
-You can specify the same parameters as for the CloudFormation template.
+You can specify the same parameters as for the CloudFormation template. The parameters can also be changed from the CloudFormation console after deployment with the CDK command.
 
 | Parameter | Description |
 |------------|----|
 | AllowedSourceIpAddresses | The IP addresses that you want to allow access from when deploying SIEM on OpenSearch Service outside of your Amazon VPC. Multiple addresses are space-separated |
-| GeoLite2LicenseKey | Maxmind license key. It will add country information to each IP address |
-| ReservedConcurrency | The maximum number of concurrency executions for es-loader. The default value is 10. Increase this value if you see delays in loading logs or if you see constant throttling occur even though there are no errors |
+|||
 | SnsEmail | Email address. Alerts detected by SIEM on OpenSearch Service will be sent to this email address via SNS |
+| ReservedConcurrency | The maximum number of concurrency executions for es-loader. The default value is 10. Increase this value if you see delays in loading logs or if you see constant throttling occur even though there are no errors |
+|||
+| GeoLite2LicenseKey | Maxmind license key. It will add country information to each IP address |
+|OtxApiKey|If you wolud like to download IoC from AlienVault OTX, please enter OTX API Key.|
+|EnableTor|Would you like to download Tor IoC? Value is "true" or "false" (default)|
+|EnableAbuseCh|Would you like to download IoC from abuse.ch? Value is "true" or "false" (default)|
+|IocDownloadInterval|Specify interval in minute to download IoC, default is 720 miniutes|
 
 Syntax) --parameters Option1=Parameter1 --parameters Option2=Parameter2
 If you have more than one parameter, repeat --parameters

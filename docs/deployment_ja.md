@@ -5,9 +5,9 @@
 ## 目次
 
 * [高度なデプロイが必要なケース](#高度なデプロイが必要なケース)
-* [既存の S3 バケットの取り込み](#既存の-S3-バケットの取り込み)
-* [AWS CDK によるデプロイ](#AWS-CDK-によるデプロイ)
-* [AWS CDK によるアップデート](#AWS-CDK-によるアップデート)
+* [既存の S3 バケットの取り込み](#既存の-s3-バケットの取り込み)
+* [AWS CDK によるデプロイ](#aws-cdk-によるデプロイ)
+* [AWS CDK によるアップデート](#aws-cdk-によるアップデート)
 
 ## 高度なデプロイが必要なケース
 
@@ -172,14 +172,20 @@ cdk context  --j
 
 ### 6. AWS CDK の実行
 
-CloudFormation テンプレートと同じパラーメーターを指定して CDK コマンドを実行します
+CloudFormation テンプレートと同じパラーメーターを指定して CDK コマンドを実行します。パラメーターは、CDK コマンドでデプロイ後に、CloudFormation のコンソールから変更することもできます。
 
 |パラメーター|説明|
 |------------|----|
 |AllowedSourceIpAddresses|Amazon VPC 外に SIEM on OpenSearch Service をデプロイした時に、アクセスを許可するIPアドレス。複数アドレスはスペース区切り|
-|GeoLite2LicenseKey|Maxmindのライセンスキー。IP アドレスに国情報を付与|
-|ReservedConcurrency|es-loaderの同時実行数の上限値。デフォルトは10。エラーがないにもかかわらずログ取り込み遅延やThrottleが常時発生する場合はこの値を増やしてください|
+|||
 |SnsEmail|メールアドレス。SIEM on OpenSearch Service で検知したアラートを SNS 経由で送信する|
+|ReservedConcurrency|es-loaderの同時実行数の上限値。デフォルトは10。エラーがないにもかかわらずログ取り込み遅延やThrottleが常時発生する場合はこの値を増やしてください|
+|||
+|GeoLite2LicenseKey|Maxmindのライセンスキー。IP アドレスに国情報を付与|
+|OtxApiKey|AlienVault OTX の API キー。入力すると AlienVault から IoC をダウンロードする|
+|EnableTor|Tor Project から IoC をダウンロードするかどうか。値は "true" か "false"(初期値)|
+|EnableAbuseCh|Abuse.ch から IoC をダウンロードするかどうか。値は "true" か "false"(初期値)||
+|IocDownloadInterval|IoC をダウンロードする間隔を分で指定。初期値は720分|
 
 文法) --parameters オプション1=パラメータ1 --parameters オプション2=パラメータ2
 複数のパラメーターがある場合は、--parametersを繰り返す

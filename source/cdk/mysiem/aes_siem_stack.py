@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0-beta.2'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -712,7 +712,34 @@ class MyAesSiemStack(core.Stack):
             aes_siem_es_loader_ec2_role, 'sqs:GetQueue*', 'sqs:ListQueues*',
             'sqs:ReceiveMessage*', 'sqs:DeleteMessage*')
 
+        # add pandas layer lambda
         function_name = 'aes-siem-add-pandas-layer'
+        arn_pan = f'arn:{PARTITION}:lambda:*:*:layer:AWSDataWrangler-Python38*'
+        lambda_add_pandas_layer_role = aws_iam.Role(
+            self, "LambdaAddPandasLayerRole",
+            managed_policies=[
+                aws_iam.ManagedPolicy.from_aws_managed_policy_name(
+                    'service-role/AWSLambdaBasicExecutionRole')],
+            inline_policies={
+                'add-pandas-layer-policy': aws_iam.PolicyDocument(
+                    statements=[
+                        aws_iam.PolicyStatement(
+                            actions=['lambda:UpdateFunctionConfiguration',
+                                     'lambda:GetFunction'],
+                            resources=[lambda_es_loader.function_arn]),
+                        aws_iam.PolicyStatement(
+                            actions=['lambda:PublishLayerVersion'],
+                            resources=[arn_pan],),
+                        aws_iam.PolicyStatement(
+                            actions=['lambda:ListLayers',
+                                     'lambda:GetLayerVersion'],
+                            resources=['*']),
+                        aws_iam.PolicyStatement(
+                            actions=["s3:Get*", "s3:List*"],
+                            resources=['*']
+                        )])},
+            assumed_by=aws_iam.ServicePrincipal('lambda.amazonaws.com')
+        )
         lambda_add_pandas_layer = aws_lambda.Function(
             self, 'LambdaAddPandasLayer',
             function_name=function_name,
@@ -730,6 +757,7 @@ class MyAesSiemStack(core.Stack):
                 removal_policy=core.RemovalPolicy.RETAIN,
                 description=__version__
             ),
+            role=lambda_add_pandas_layer_role,
         )
         if not same_lambda_func_version(function_name):
             lambda_add_pandas_layer.current_version
@@ -737,35 +765,15 @@ class MyAesSiemStack(core.Stack):
             "Architectures", [region_mapping.find_in_map(
                 core.Aws.REGION, 'LambdaArch')]
         )
-        arn_prefix = f'arn:{PARTITION}:lambda:*:*'
-        lambda_add_pandas_layer.role.attach_inline_policy(
-            aws_iam.Policy(
-                self, 'AddPandasLayerPolicy',
-                policy_name='add-pandas-layer-policy',
-                statements=[
-                    aws_iam.PolicyStatement(
-                        actions=['lambda:UpdateFunctionConfiguration',
-                                 'lambda:GetFunction'],
-                        resources=[lambda_es_loader.function_arn]),
-                    aws_iam.PolicyStatement(
-                        actions=['lambda:PublishLayerVersion'],
-                        resources=[
-                            f'{arn_prefix}:layer:AWSDataWrangler-Python38*']),
-                    aws_iam.PolicyStatement(
-                        actions=['lambda:ListLayers',
-                                 'lambda:GetLayerVersion'],
-                        resources=['*']),
-                    aws_iam.PolicyStatement(
-                        actions=["s3:Get*", "s3:List*"],
-                        resources=['*']
-                    )]))
-        # add pandas layer
+        # add pandas layer by execute cfn custom resource
         excec_lambda_add_layer = aws_cloudformation.CfnCustomResource(
             self, 'ExecLambdaAddPandasLayer',
             service_token=lambda_add_pandas_layer.function_arn,)
         excec_lambda_add_layer.add_override(
             'Properties.ConfigVersion', __version__)
         excec_lambda_add_layer.node.add_dependency(lambda_es_loader)
+        excec_lambda_add_layer.node.add_dependency(
+            lambda_add_pandas_layer_role)
 
         # setup lambda of es_loader_stopper
         function_name = 'aes-siem-es-loader-stopper'

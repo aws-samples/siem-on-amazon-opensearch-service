@@ -6,12 +6,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2022-08-30
+### Added
+- Support for OCSF #293
+- Support for Parquet file format #275
+- Enabled SQS/SNS/EventBridge to invoke es-loader (Lambda function) and load logs from Non-SIEM-managed S3 Bucket into OpenSearch Service #232,#291
+- Enhance support for China region and US gov-cloud #281
+- Enhance GuardDuty for malware protection #278
+- Enrich logs with user-agent #273
+- Support CSV delimiter #271
+- Support OpenSearch Service v1.3 #270
+- Enrich logs with IoC (experimental) #269
+### Changed
+- Expand log directory to include all logs from AWSLogs/UserLogs #291
+- Updated CloudTrail dashboard #289
+- Updated CloudWatch Dashboard to show AWS resources metrics $287
+- Updated CloudFront dashboard $79
+- Updated OpenSearch Indexing Metrics dashboard $272
+- Default S3 bucket encryption #287
+- Change Lambda platform CPU architecture from x86_64 to arm64 #164
+### Fixed
+- Fixed unnecessary loop for split logs #285
+- Fixed failure to load escaped string in JSON file #284
+- Fixed parse issue: (CloudTrail) responseElements.imageId, additionalEventData.requestParameters, tags.AmazonFSx/tags.AmazonFSx.FileSystemId #265,#282,#283
+- Fixed parse issue: (AWS Config)
+- Fixed failure to deploy in ap-northeast-3 by CDK #280
+- Fixed convert_iso8601_to_datetime except logic #268
+- Fixed issue with deploying with CDK #267
+- Fixed issue with extracting 12 digits distribution_id of CloudFront #61
+
 ## [2.7.1] - 2022-06-05
 ### Added
 - Access Point ARN field to s3 access log #260
 - CEF File format #28,#259
-- Supported and normalized log: AWS Client VPN, AWS ClouhdHSM #197,#253,#257
-- Dashboard: AWS Client VPN, AWS ClouhdHSM #197,#253,#257
+- Supported and normalized log: AWS Client VPN, AWS CloudHSM #197,#253,#257
+- Dashboard: AWS Client VPN, AWS CloudHSM #197,#253,#257
 - Support for multiple CIDR blocks in vpc #252
 ### Changed
 - Enhanced error handling of deplyment-aes when opensearch domain exists #262

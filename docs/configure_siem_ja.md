@@ -5,12 +5,15 @@
 ## 目次
 
 * [ログ取り込み方法のカスタマイズ](#ログ取り込み方法のカスタマイズ)
-* [IoC による脅威情報の付与](#IoC-による脅威情報の付与)
+* [IoC による脅威情報の付与](#ioc-による脅威情報の付与)
 * [ログ取り込みの除外設定](#ログ取り込みの除外設定)
-* [OpenSearch Service の設定変更](#OpenSearch-Service-の設定変更-上級者向け)
-* [AWS サービス以外のログの取り込み](#AWS-サービス以外のログの取り込み)
-* [S3 バケットに保存された過去データの取り込み](#S3-バケットに保存された過去データの取り込み)
+* [OpenSearch Service の設定変更](#opensearch-service-の設定変更)
+* [AWS サービス以外のログの取り込み](#aws-サービス以外のログの取り込み)
+* [他の S3 バケットからニアリアルタイムの取り込み](#他の-s3-バケットからニアリアルタイムの取り込み)
+* [S3 バケットに保存された過去データの取り込み](#s3-バケットに保存された過去データの取り込み)
+* [SQS の Dead Letter Queue からの取り込み](#sqs-の-dead-letter-queue-からの取り込み)
 * [モニタリング](#モニタリング)
+* [CloudFormation テンプレートの作成](#cloudformation-テンプレートの作成)
 
 ## ログ取り込み方法のカスタマイズ
 
@@ -103,7 +106,7 @@ IP アドレス、ドメイン名を元に脅威情報を付与することが�
 * [Abuse.ch Feodo Tracker](https://feodotracker.abuse.ch)
 * [AlienVault OTX](https://otx.alienvault.com/)
 
-AlienVault OTX の IoC を利用される方は、[AlienVault OTX](https://otx.alienvault.com/#signup) で API キーを取得して下さい。
+IoC 数が多いとは Lambda の処理時間が増えるので、IoC は厳選して下さい。AlienVault OTX の IoC を利用される方は、[AlienVault OTX](https://otx.alienvault.com/#signup) で API キーを取得して下さい。
 
 独自の IoC も使用することができます。サポートしている IoC のフォーマットは TXT 形式と SITX 2.x 形式です。TXT 形式は、IP アドレスおよび CIDR 範囲を 1 行に 1 つずつ表示する必要があります。
 
@@ -117,7 +120,7 @@ STIX 2.x 形式
 
 * s3://aes-siem-**_123456789012_**-geo/IOC/STIX2/**_your provider name_**/
 
-Provider 毎に IoC は重複の排除をしているのでファイルに含まれる indicator 数と、実際にデータベースに保存される indicator 数は一致しません。ダウンロードできるファイルは 5,000 個まで、作成される IoC データベースは 320 MB までの制限があります。
+Provider 毎に IoC は重複の排除をしているのでファイルに含まれる indicator 数と、実際にデータベースに保存される indicator 数は一致しません。ダウンロードできるファイルは 5,000 個まで、作成される IoC データベースは 128 MB までの制限があります。
 
 作成された IoC データベースの情報は下記を参照して下さい。
 
@@ -127,7 +130,7 @@ Provider 毎に IoC は重複の排除をしているのでファイルに含ま
 1. タブメニューの [**実行出力**] を選択
 1. Provider 毎の IoC 数、タイプ毎の IoC 数、データベースのサイズを確認できます
 
-IoC のダウンロード及びデータベースの作成は、デプロイ後に最初に実行されるまで最大で24時間かかります。
+IoC のダウンロード及びデータベースの作成は、デプロイ後に最初に実行されるまで最大で24時間かかります。サイズが大きくて、データベースの作成に失敗している場合は、IoC を厳選後に、キャッシュファイルの `s3://aes-siem-123456789012-geo/IOC/tmp` を削除して、Step Functions の [**aes-siem-ioc-state-machine**] を手動で実行して下さい。
 
 エンリッチするフィールドは user.ini で指定して下さい。
 
@@ -245,7 +248,7 @@ VPC Flow Logs で、送信先 IP ポート(dstport) が 80 または 443 の 2 �
 
 CloudTrail で、{'userIdentity': {'invokedBy': '*.amazonaws.com'}} と一致した場合に除外する。フィールド名が入れ子になっているので、CSVではドット区切りで指定。この例は、Config や ログ配信などのAWS のサービスがリクエストしたAPI Callのログを取り込まない。
 
-## OpenSearch Service の設定変更 (上級者向け)
+## OpenSearch Service の設定変更
 
 SIEM に関する OpenSearch Service のアプリケーションの設定を変更できます。設定は以下のような項目がありインデックス毎に定義できます。
 
@@ -269,9 +272,9 @@ GET 対象のindex名/_mapping
 
 SIEM on OpenSearch Service のテンプレートの予約名
 
-* log[-aws][-サービス名]_aws
-* log[-aws][-サービス名]_rollover
-* component_template_log[-aws][-サービス名] (SIEM on OpenSearch Service v2.4.1 以降のみ)
+* log\[-aws][-サービス名]_aws
+* log\[-aws][-サービス名]_rollover
+* component_template_log\[-aws][-サービス名] (SIEM on OpenSearch Service v2.4.1 以降のみ)
 
 SIEM on OpenSearch Service の初期値を上書きするには Index templates の priority を 10 以上、または legacy index templates の order を 1 以上にしてください。
 
@@ -399,6 +402,196 @@ Lambda レイヤーの zip 圧縮ファイルの内部は以下のディレク�
 
 zip を作成し Lambda レイヤーに登録すれば設定完了です
 
+## 他の S3 バケットからニアリアルタイムの取り込み
+
+![Custom S3](images/custom-s3.svg)
+
+S3バケット、通知手段のリソースポリシーを変更することで、同一アカウント、同一リージョンのバケットのログをOpenSearch Service に取り込むことができます。
+
+※ CDK / CloudFormation で作成された AWS リソースのポリシーの変更はしないでください。SIEM のアップデート時にデフォルトのポリシーで上書きされます。
+
+### 共通設定
+
+es-loader が S3 バケットのログを取得できるように、ログが保存されている S3 バケットのバケットポリシーを編集します。
+
+1. es-loader の IAM ロール名を取得する。IAM Role で、[**siem-LambdaEsLoaderServiceRole**] で検索して表示される IAM ロールの ARN をコピーして下さい。
+2. 以下のポリシー例を参考にバケットポリシーを修正
+
+```json
+{
+    "Version": "2012-10-17",
+    "Id": "Policy1234567890",
+    "Statement": [
+        {
+            "Sid": "es-loader-to-s3-bucket",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::123456789012:role/aes-siem-LambdaEsLoaderServiceRoleXXXXXXXX-XXXXXXXXXXXXX"
+            },
+            "Action": "s3:GetObject",
+            "Resource": [
+                "arn:aws:s3:::your-bucket-name/*"
+            ]
+        }
+    ]
+}
+```
+
+### Amazon S3 Event Notifications
+
+![Custom S3 Notification](images/custom-s3-eventnotification.svg)
+
+1. S3 バケットでイベント通知を作成
+    * 以下は必須項目です。他の値は環境に合わせて入力して下さい。
+    * イベントタイプは[**すべてのオブジェクト作成イベント**] にチェック
+    * 送信先: Lambda 関数 を選択
+    * Lambda 関数: aes-siem-es-loader を選択
+1. [**変更の保存**]
+
+### Amazon SQS
+
+![Custom S3 SQS](images/custom-s3-sqs.svg)
+
+1. SQS キューの作成
+    * 以下は必須項目です。他の値は環境に合わせて入力して下さい。
+    * 標準タイプ
+    * 可視性タイムアウト: 600秒
+1. 以下のポリシー例を参考にSQSのアクセスポリシーを修正
+
+    ```json
+    {
+        "Version": "2008-10-17",
+        "Id": "sqs_access_policy",
+        "Statement": [
+            {
+                "Sid": "__owner_statement",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::123456789012:root"
+                },
+                "Action": "SQS:*",
+                "Resource": "arn:aws:sqs:ap-northeast-1:123456789012:your-sqs-name"
+            },
+            {
+                "Sid": "allow-s3bucket-to-send-message",
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "s3.amazonaws.com"
+                },
+                "Action": "SQS:SendMessage",
+                "Resource": "arn:aws:sqs:ap-northeast-1:123456789012:your-sqs-name",
+                "Condition": {
+                    "StringEquals": {
+                        "aws:SourceAccount": "123456789012"
+                    }
+                }
+            },
+            {
+                "Sid": "allow-es-loader-to-recieve-message",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "arn:aws:iam::123456789012:role/aes-siem-LambdaEsLoaderServiceRoleXXXXXXXX-XXXXXXXXXXXXX"
+                },
+                "Action": [
+                    "SQS:GetQueueAttributes",
+                    "SQS:ChangeMessageVisibility",
+                    "SQS:DeleteMessage",
+                    "SQS:ReceiveMessage"
+                ],
+                "Resource": "arn:aws:sqs:ap-northeast-1:123456789012:your-sqs-name"
+            }
+        ]
+    }
+    ```
+
+1. SQS コンソールから、[**Lambda トリガー**] を設定する
+    * [**aes-siem-es-loader**] を選択
+1. S3 バケットでイベント通知を作成
+    * 以下は必須項目です。他の値は環境に合わせて入力して下さい。
+    * イベントタイプは[**すべてのオブジェクト作成イベント**] にチェック
+    * 送信先: SQS を選択
+    * SQS: 作成した SQS を選択
+
+### Amazon SNS
+
+![Custom S3 SNS](images/custom-s3-sns.svg)
+
+1. SNS トピックを作成
+    * スタンダードタイプ
+1. 以下のポリシー例を参考に SNS のアクセスポリシーを修正
+
+    ```json
+    {
+        "Version": "2008-10-17",
+        "Id": "sns_access_policy",
+        "Statement": [
+            {
+                "Sid": "__default_statement_ID",
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "*"
+                },
+                "Action": [
+                    "SNS:GetTopicAttributes",
+                    "SNS:SetTopicAttributes",
+                    "SNS:AddPermission",
+                    "SNS:RemovePermission",
+                    "SNS:DeleteTopic",
+                    "SNS:Subscribe",
+                    "SNS:ListSubscriptionsByTopic",
+                    "SNS:Publish"
+                ],
+                "Resource": "arn:aws:sns:ap-northeast-1:123456789012:your-sns-topic",
+                "Condition": {
+                    "StringEquals": {
+                        "AWS:SourceOwner": "123456789012"
+                    }
+                }
+            },
+            {
+                "Sid": "Example SNS topic policy",
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "s3.amazonaws.com"
+                },
+                "Action": "SNS:Publish",
+                "Resource": "arn:aws:sns:ap-northeast-1:123456789012:your-sns-topic",
+                "Condition": {
+                    "StringEquals": {
+                        "aws:SourceAccount": "123456789012"
+                    }
+                }
+            }
+        ]
+    }
+    ```
+
+1. SNS のコンソール画面から、サブスクリプションを作成
+    * プロトコル: AWS Lambda
+    * エンドポイント: es-loader の ARN
+1. S3 バケットでイベント通知を作成
+    * 以下は必須項目です。他の値は環境に合わせて入力して下さい。
+    * イベントタイプは[**すべてのオブジェクト作成イベント**] にチェック
+    * 送信先: SNS を選択
+    * SNS: 作成した SNS を選択
+
+### Amazon EventBridge
+
+![Custom S3 EventBridge](images/custom-s3-eventbridge.svg)
+
+1. S3 コンソールから、イベント通知の Amazon EventBridge をオンにする
+1. EventBridge コンソールでルールを作成
+    * ルールの詳細: デフォルトで次へ
+    * イベントパターンを構築:
+        * イベントソース: AWS のサービス
+        * AWS のサービス: Simple Storage Service (S3)
+        * イベントタイプ: Amazon S3 イベント通知
+    * ターゲットを選択:
+        * ターゲットタイプ: AWS のサービス
+        * ターゲットを選択: Lambda 関数
+        * 関数: aes-siem-es-loader
+    * [**ルールの作成**] を選択して完了
+
 ## S3 バケットに保存された過去データの取り込み
 
 S3 バケットに保存されているログをバッチで OpenSearch Service に取り込みます。通常は S3 バケットに保存された時にリアルタイムで取り込みます。一方で、バックアップをしていたデータを可視化やインシデント調査のために後から取り込むこともできます。同様の方法で、リアルタイムの取り込みに失敗して SQS のデッドレターキューに待避されたデータも取り込めます。
@@ -480,9 +673,25 @@ S3 バケットに保存されているログをバッチで OpenSearch Service 
 
 1. 全ての取り込みが成功したら、読み込み用に作成した S3 オブジェクトリストと、生成されたログファイルを削除してください
 
-### SQS のキューからの取り込み
+## SQS の Dead Letter Queue からの取り込み
 
-SQS の SIEM 用のデッドレターキュー (aes-siem-dlq) からメッセージを取り込みます。(実体は S3 バケット上のログ)
+SQS の SIEM 用のデッドレターキュー (aes-siem-dlq) からメッセージを取り込みます。(実体は S3 バケット上のログ)。DQLの再処理による方法と、EC2 インスタンスで処理する方法の 2 つの方法があります。
+
+### DLQ再処理による取り込み
+
+1. SQS のコンソールに移動します
+1. [**aes-siem-dlq**] を選択します
+1. 画面右上の、[**DLQ 再処理の開始**] を選択
+1. デッドレターキューの再処理の画面に遷移しました
+    * [**再処理のためにカスタム送信先に移動**]にチェックボックスを入れます
+    *「既存のキューを選択」で [**aes-siem-sqs-split-logs**] を選択
+    * 画面右下の [**DQLの再処理**] を選択
+
+以上で、再取り込みが始まります。
+
+### EC インスタンスによる取り込み
+
+[S3 バケットに保存された過去データの取り込み](#s3-バケットに保存された過去データの取り込み) で作成した EC2 インスタンスを使います。
 
 1. リージョンを指定してから es-loader を実行します
 
@@ -503,7 +712,23 @@ SQS の SIEM 用のデッドレターキュー (aes-siem-dlq) からメッセー
 
 ## モニタリング
 
-### メトリクス
+### OpenSearch Index Metrics
+
+OpenSearch のパフォーマンスを最適にするためには、Index のローテーション間隔とシャード数を調整して、シャード数、シャードサイズを適切にする必要があります。現在、シャード数がどれくらいあるか、大きすぎるシャードはあるかなどを OpenSearch Service のダッシュボードから確認できます。
+
+OpenSearch Dashboards のダッシュボード名: OpenSearch Metrics [サンプル](./dashboard_ja.md#Amazon-OpenSearch-Service-Metrics)
+
+基となるデータは、1 時間 に 1 回、Lambda Function の aes-siem-index-metrics-exporter を実行して、ログ用 S3 バケットの `/AWSLogs/123456789012/OpenSearch/metrics/` に保存されます。
+
+参考: [Amazon OpenSearch Service の運用上のベストプラクティス](https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/bp.html)
+
+### CloudWatch Dashboard
+
+SIEM を構成する主要な AWS リソースのメトリックスやエラーログを確認できます。OpenSearch Service での Indexing や Search のパフォーマンスチューニング、不具合時などのトラブルシュートに活用できます。
+
+CloudWatch Dashboard のカスタムダッシュボード名: [SIEM](https://console.aws.amazon.com/cloudwatch/home?#dashboards:name=SIEM)
+
+### CloudWatch Metrics
 
 ログを正規化して OpenSearch Service にデータを送信する es-loader のメトリクスを、CloudWatch Metrics で確認できます。
 
@@ -521,7 +746,7 @@ SQS の SIEM 用のデッドレターキュー (aes-siem-dlq) からメッセー
 |TotalLogFileCount|Count|es-loader が 処理をしたログファイルの数|
 |TotalLogCount|Count|ログファイルに含まれるログから処理対象となったログの数。フィルターをして取り込まれなかったログも含む|
 
-### ロギング
+### CloudWatch Logs
 
 SIEM で利用している Lambda 関数のログを CloudWatch Logs で確認できます。
 es-loader のログは JSON 形式で出力しているため、CloudWatch Logs Insights でフィルターをして検索できます。
@@ -533,5 +758,70 @@ es-loader のログは JSON 形式で出力しているため、CloudWatch Logs 
 |message|ログのメッセージ。場合によっては JSON 形式|
 
 その他のフィールドは、AWS Lambda Powertools Python を使用しています。詳細は、[AWS Lambda Powertools Python のドキュメント](https://awslabs.github.io/aws-lambda-powertools-python/core/metrics/)を参照してください。
+
+## CloudFormation テンプレートの作成
+
+クイックスタートでデプロイされた方は CloudFormation テンプレートの作成はスキップしてください。
+
+### 1. 準備
+
+AWS CloudShell または Amazon Linux 2 を実行している Amazon Elastic Compute Cloud (Amazon EC2) インスタンスを使って CloudFormation テンプレートを作成します
+
+前提の環境)
+
+* AWS CloudShell または Amazon Linux 2 on Amazon EC2
+  * "Development Tools"
+  * Python 3.8
+  * Python 3.8 libraries and header files
+  * Git
+
+上記がインストールされてない場合は以下を実行
+
+```shell
+sudo yum groups mark install -y "Development Tools"
+sudo yum install -y amazon-linux-extras
+sudo amazon-linux-extras enable python3.8
+sudo yum install -y python38 python38-devel git jq
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+```
+
+### 2. SIEM on OpenSearch Service の clone
+
+GitHub レポジトリからコードを clone します
+
+```shell
+cd
+git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
+```
+
+### 3. 環境変数の設定
+
+```shell
+export TEMPLATE_OUTPUT_BUCKET=<YOUR_TEMPLATE_OUTPUT_BUCKET> # Name for the S3 bucket where the template will be located
+export AWS_REGION=<AWS_REGION> # region where the distributable is deployed
+```
+
+> **_注)_** $TEMPLATE_OUTPUT_BUCKET は S3 バケット名です。事前に作成してください。デプロイ用のファイルの配布に使用します。ファイルはパブリックからアクセスできる必要があります。テンプレート作成時に使用する build-s3-dist.sh は S3 バケットの作成をしません。
+
+### 4. AWS Lambda 関数のパッケージングとテンプレートの作成
+
+```shell
+cd ~/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
+chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
+chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
+```
+
+### 5. Amazon S3 バケットへのアップロード
+
+```shell
+aws s3 cp ./global-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl bucket-owner-full-control
+aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl bucket-owner-full-control
+```
+
+> **注)** コマンドを実行するために S3 バケットへファイルをアップロードする権限を付与し、アップロードしたファイルに適切なアクセスポリシーを設定してください。
+
+### 6. SIEM on OpenSearch Service のデプロイ
+
+コピーしたテンプレートは、`https://s3.amazonaws.com/$TEMPLATE_OUTPUT_BUCKET/siem-on-amazon-opensearch-service.template` にあります。このテンプレートを AWS CloudFormation に指定してデプロイしてください。
 
 [READMEに戻る](../README_ja.md)

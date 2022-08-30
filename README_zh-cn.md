@@ -140,7 +140,7 @@ aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl b
 
 SIEM on OpenSearch Service大概需要30分钟来完成部署。随后即可着手配置OpenSearch Dashboards。
 
-注意: OpenSearch Service 的 OpenSearch 控制面板默认安装包括地图服务，但印度和中国区域的域除外。所以在OpenSearch Service 的 Kibana 并不能直接提供地图显示功能。如果需要显示地图，需要自行安装WMS地图服务器。
+注意: OpenSearch Service 的 OpenSearch 控制面板默认安装包括地图服务，但印度和中国区域的域除外。所以在OpenSearch Service 并不能直接提供地图显示功能。如果需要显示地图，需要自行安装WMS地图服务器。
 
 1. 导航至Amazon CloudFormation控制台，选择我们刚刚创建的堆栈，尔后选择右上选项卡清单中的“Outputs”选项。在这里，您将找到用户名、密码与OpenSearch Dashboards的URL。使用相应凭证登录至OpenSearch Dashboards。
 
@@ -211,19 +211,25 @@ SIEM on OpenSearch Service将日志保存在索引当中，并每月轮换一次
 |S3 存储桶|aes-siem-[AWS_Account]-log|用於收集日志|
 |S3 存储桶|aes-siem-[AWS_Account]-snapshot|用於捕捉OpenSearch Service手动快照|
 |S3 存储桶|aes-siem-[AWS_Account]-geo|用於存储下载得到的GeoIP|
+|Step Functions|aes-siem-ioc-state-machine|For downloading IoC and creating database|
+|Lambda 函数|aes-siem-ioc-plan|For creating map to download IoC|
+|Lambda 函数|aes-siem-ioc-createdb|For downloading IoC|
+|Lambda 函数|aes-siem-ioc-download|For creating IoC Database|
+|Lambda 函数|aes-siem-geoip-downloader|用於下载GeoIP|
 |Lambda 函数|aes-siem-es-loader|用於标準化日志，并将结果加载至OpenSearch Service|
 |Lambda 函数|aes-siem-deploy-aes|用於创建OpenSearch Service域|
 |Lambda 函数|aes-siem-configure-aes|用於配置OpenSearch Service|
-|Lambda 函数|aes-siem-geoip-downloader|用於下载GeoIP|
 |Lambda 函数|aes-siem-BucketNotificationsHandler|用於为存储日志的S3存储桶配置发现通知|
+|Lambda 函数|aes-siem-add-pandas-layer|For adding aws_sdk_pandas as Lambda layer to es-loader|
 |AWS Key Management Service<br>(AWS KMS) CMK 与别名|aes-siem-key|用於加密日志|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|如果日志中包含多个待处理行，则将各行划分为多个部分；代表用於协调的队列|
 |Amazon SQS Queue|aes-siem-dlq|在将日志加载至OpenSearch Service中发生失败时，使用的**死信队列**|
 |CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|Triggered when total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes|
 |CloudWatch dashboards|SIEM|Dashboard of resource information used by SIEM on OpenSearch Service|
-|EventBridge events|aes-siem-CwlRuleLambdaGeoipDownloader| 用於每天执行aes-siem-geoip-downloader|
-|EventBridge events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
+|EventBridge events|aes-siem-EventBridgeRuleStepFunctionsIoc|For executing aes-siem-ioc-state-machine regularly|
+|EventBridge events|aes-siem-EventBridgeRuleLambdaGeoipDownloader| 用於每天执行aes-siem-geoip-downloader|
 |EventBridge events|aes-siem-EventBridgeRuleLambdaMetricsExporter| For executing aes-siem-geoip-downloader every 1 hour|
+|EventBridge events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
 |Amazon SNS Topic|aes-siem-alert|被选定为OpenSearch Service中的警报发送目的地|
 |Amazon SNS Subscription|inputd email|作为警报发送目标的电子邮件地址|
 

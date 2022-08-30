@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0-beta.2'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -25,7 +25,7 @@ from botocore.config import Config
 from botocore.exceptions import ParamValidationError
 
 OBJ_LIMIT = 5000
-DB_MAX_SIZE_MB = 320
+DB_MAX_SIZE_MB = 128
 TMP_DIR = '/tmp'
 DB_FILEPATH = f'{TMP_DIR}/ioc.sqlite'
 LOCAL_TMP_FILE = f'{TMP_DIR}/ioc.tmp'

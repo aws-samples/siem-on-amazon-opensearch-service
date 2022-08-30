@@ -66,6 +66,8 @@ In this tutorial, you will create a publicly accessible SIEM on OpenSearch Servi
 
 You can add country information as well as latitude/longitude location information to each IP address. To get location information, SIEM on OpenSearch Service downloads and uses GeoLite2 Free by [MaxMind](https://www.maxmind.com). If you want to add location information, get your free license from MaxMind.
 
+Threat information can be enriched based on IP addresses and domain names (EXPERIMANTAL). Threat information sources include your own IoCs (Indicators of compromise) in TXT and STIX 2.x formats, [Tor Project](https://www.torproject.org), [Abuse.ch Feodo Tracker]( https://feodotracker.abuse.ch), [AlienVault OTX](https://otx.alienvault.com/). If there are many IoCs, the processing time of Lambda will increase, so please select IoCs carefully. If you want to use the IoC on AlienVault OTX, please get your API key at [AlienVault OTX](https://otx.alienvault.com/#signup). See [Threat Information Enrichment by IoC](./docs/configure_siem.md#threat-information-enrichment-by-ioc) for more details.
+
 > **_Note:_** The CloudFormation template will deploy OpenSearch Service with **a t3.medium.search instance. It's not the AWS Free Tier. Change it to an instance type that can deliver higher performance than t3 when using SIEM in the production environment as it requires higher processing power when aggregating many logs.** Use the AWS Management Console to change the instance type, extend the volume, or use UltraWarm. This is because the CloudFormation template for SIEM on OpenSearch Service is designed for the initial deployment purpose only, and cannot be used for management purposes like changing/deleting nodes.
 
 ### 1. Quick Start
@@ -81,74 +83,11 @@ Choose a region where you want to deploy SIEM on OpenSearch Service from the fol
 | Europe (Frankfurt)<br>eu-central-1 |[![Deploy in eu-central-1](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-central-1#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-central-1.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 | Europe (London)<br>eu-west-2 |[![Deploy in eu-west-2](./docs/images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home?region=eu-west-2#/stacks/new?stackName=siem&templateURL=https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template) | `https://aes-siem-eu-west-2.s3.amazonaws.com/siem-on-amazon-opensearch-service.template` |
 
-Or you can create your own template by following the steps below.
+Or you can create your own template by the [steps](./docs/configure_siem.md#creating-a-cloudFormation-template).
 
-### 2. Creating a CloudFormation template
+### 2. Configuring OpenSearch Dashboards
 
-You can skip this if you have already deployed SIEM on OpenSearch Service using one of the CloudFormation templates in Step 1 above.
-
-#### 2-1. Prerequisites
-
-The following instance and tools need to be in place so that you can create a CloudFormation template:
-
-* AWS CloudShell or Amazon EC2 instance running Amazon Linux 2
-  * "Development Tools"
-  * Python 3.8
-  * Python 3.8 libraries and header files
-  * Git
-
-Run the following commands if the above tools have not been installed yet:
-
-```shell
-sudo yum groups mark install -y "Development Tools"
-sudo yum install -y amazon-linux-extras
-sudo amazon-linux-extras enable python3.8
-sudo yum install -y python38 python38-devel git jq
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
-```
-
-#### 2-2. Cloning SIEM on OpenSearch Service
-
-Clone SIEM on OpenSearch Service from our GitHub repository:
-
-```shell
-cd
-git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
-```
-
-#### 2-3. Setting up the enviroment variables
-
-```shell
-export TEMPLATE_OUTPUT_BUCKET=<YOUR_TEMPLATE_OUTPUT_BUCKET> # Name of the S3 bucket where the template is loaded
-export AWS_REGION=<AWS_REGION> # Region where the distribution is deployed
-```
-
-> **_Note:_** $TEMPLATE_OUTPUT_BUCKET indicates an S3 bucket name, so create yours beforehand. This bucket will be used to store files distributed for deployment, so it needs to be publicly accessible. The build-s3-dist.sh script (used to create a template) WILL NOT create any S3 bucket.
-
-#### 2-4. Packaging AWS Lambda functions and creating a template
-
-```shell
-cd ~/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
-chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
-chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
-```
-
-#### 2-5. Uploading the deployment assets to your Amazon S3 bucket
-
-```shell
-aws s3 cp ./global-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl bucket-owner-full-control
-aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl bucket-owner-full-control
-```
-
-> **_Note:_** To run the commands, you'll need to grant permissions to upload files to the S3 bucket. Also ensure to set the right access policy to the files once they are uploaded.
-
-#### 2-6. Deploying SIEM on OpenSearch Service
-
-The uploaded template is now stored in `https://s3.amazonaws.com/$TEMPLATE_OUTPUT_BUCKET/siem-on-amazon-opensearch-service.template`. Deploy this template using AWS CloudFormation.
-
-### 3. Configuring OpenSearch Dashboards
-
-It will take about 30 mins for the deployment of SIEM on OpenSearch Service to complete. You can then continue to configure OpenSearch Dashboards (the successor to Kibana).
+It will take about 30 mins for the deployment of SIEM on OpenSearch Service to complete. You can then continue to configure OpenSearch Dashboards.
 
 1. Navigate to the AWS CloudFormation console, choose the stack that you've just created, and then choose "Outputs" from the tab menu at the top right. You can find your username, password, and URL for OpenSearch Dashboards. Log into OpenSearch Dashboards using the credentials.
 1. When you login for the first time, [Select your tenant] is displayed. Select [**Global**]. You can use the prepared dashboard etc.
@@ -156,19 +95,20 @@ It will take about 30 mins for the deployment of SIEM on OpenSearch Service to c
     1. To import OpenSearch Dashboards' configuration files such as dashboard, download [saved_objects.zip](https://aes-siem.s3.amazonaws.com/assets/saved_objects.zip). Then unzip the file.
     1. Navigate to the OpenSearch Dashboards console. Click on "Stack Management" in the left pane, then choose "Saved Objects" --> "Import" --> "Import". Choose dashboard.ndjson which is contained in the unzipped folder. Then log out and log in again so that the imported configurations take effect.
 
-### 4. Loading logs into OpenSearch Service
+### 3. Loading logs into OpenSearch Service
 
 All you need to do to load logs into SIEM on OpenSearch Service is PUT logs to the S3 Bucket named **aes-siem-<YOUR_AWS_ACCOUNT>-log**. Then the logs will be automatically loaded into SIEM on OpenSearch Service. See [this](docs/configure_aws_service.md) for detailed instructions on how to output AWS services logs to the S3 bucket.
 
 ## Workshop
 
-We have published the workshop, [SIEM on Amazon OpenSearch Service Workshop](https://security-log-analysis-platform.workshop.aws/en/). In this workshop, we will build the SIEM, ingest AWS resource logs, learn OpenSearch Dashboards / Kibana, investigate security incident, create dashboard, configure alerts and ingest logs of Apache HTTPD server.
+We have published the workshop, [SIEM on Amazon OpenSearch Service Workshop](https://security-log-analysis-platform.workshop.aws/en/). In this workshop, we will build the SIEM, ingest AWS resource logs, learn OpenSearch Dashboards, investigate security incident, create dashboard, configure alerts and ingest logs of Apache HTTPD server.
 
 ## Updating SIEM
 
 If you want to update "SIEM on OpenSearch Service/SIEM on Amazon ES" to the latest version, upgrade the OpenSearch / Elasticsearch domain and then update it in the same way as you did for the initial setup (using CloudFormation or AWS CDK.) You can view the changelog of SIEM [here.](CHANGELOG.md)
 
 > **_Note_: When you update SIEM, Global tenant settings, dashboards, etc. will be overwritten automatically. The configuration files and dashboards used before the update will be backed up to aes-siem-[AWS_Account]-snapshot/saved_objects/ in the S3 bucket, so restore them manually if you want to restore the original settings.**
+> **_Note_: S3 bucket policy, KMS key policy, IAM policy, etc. are automatically generated by CDK/CloudFormation. Manual modification is not recommended, but if you have modified it, it will be overwritten, so please back up each and update the difference after updating.**
 
 ### Upgrading the OpenSearch Service domain
 
@@ -214,9 +154,23 @@ If you want to make changes to the OpenSearch Service domain itself such as chan
 
 SIEM on OpenSearch Service saves logs in the index and rotates it once a month. If you want to change this interval or load logs from non-AWS services, see [this.](docs/configure_siem.md)
 
+## Near-real-time logs loading from non-SIEM-managed S3 buckets
+
+If you have an S3 bucket in the same account and region as the SIEM, you can load logs into OpenSearch Service. Please refer [Near-real-time loading from other S3 buckets](docs/configure_siem.md#near-real-time-loading-from-other-s3-buckets) for the setting method.
+
 ## Loading stored logs through batch processing
 
-You can execute es-loader, which is a python script, in the local environment to load past logs stored in the S3 bucket into SIEM on OpenSearch Service.
+You can execute es-loader, which is a python script, in the local environment to load past logs stored in the S3 bucket into SIEM on OpenSearch Service. See [Loading past data stored in the S3 bucket](docs/configure_siem.md#loading-past-data-stored-in-the-s3-bucket) for details.
+
+## Throttling of es-loader in an emergency
+
+To avoid unnecessary invocation of es-loader, throttle es-loader under the following conditions
+
+* If total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes and `aes-siem-TotalFreeStorageSpaceRemainsLowAlarm` is triggered.
+  * The OpenSearch cluster is running out of storage space. More free space is needed for recovery. To learn more, see [Lack of available storage space](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/handling-errors.html#handling-errors-watermark).
+
+If you want to resume loading logs, set the reserved concurrency of the Lambda function `aes-siem-es-loader` back to 10 from the AWS Management Console or AWS CLI.
+You can also load messages from the dead-letter queue (aes-siem-dlq) by referring to [Loading data from Dead SQS Dead Letter Queur](docs/configure_siem.md#loading-data-from-dead-sqs-dead-letter-queur).
 
 ## AWS resources created by the CloudFormation template
 
@@ -228,21 +182,27 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 |S3 bucket|aes-siem-[AWS_Account]-log|For collecting logs|
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|For capturing manual snapshots of OpenSearch Service|
 |S3 bucket|aes-siem-[AWS_Account]-geo|For storing downloaded GeoIPs|
+|Step Functions|aes-siem-ioc-state-machine|For downloading IoC and creating database|
+|Lambda function|aes-siem-ioc-plan|For creating map to download IoC|
+|Lambda function|aes-siem-ioc-createdb|For downloading IoC|
+|Lambda function|aes-siem-ioc-download|For creating IoC Database|
+|Lambda function|aes-siem-geoip-downloader|For downloading GeoIPs|
 |Lambda function|aes-siem-es-loader|For normalizing logs and loading them into OpenSearch Service|
 |Lambda function|aes-siem-es-loader-stopper|For throttling es-loader in case of emergency|
 |Lambda function|aes-siem-deploy-aes|For creating the OpenSearch Service domain|
 |Lambda function|aes-siem-configure-aes|For configuring OpenSearch Service|
-|Lambda function|aes-siem-geoip-downloader|For downloading GeoIPs|
 |Lambda function|aes-siem-index-metrics-exporter| For OpenSearch Service index metrics|
 |Lambda function|aes-siem-BucketNotificationsHandler|For configuring invent notification for the S3 bucket that stores logs|
-|AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|For encrypting logs|
+|Lambda function|aes-siem-add-pandas-layer|For adding aws_sdk_pandas as Lambda layer to es-loader|
+|AWS Key Management Service<br>(AWS KMS) KMS key & Alias|aes-siem-key|For encrypting logs|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|A log is split into multiple parts if it has many lines to process. This is the queue to coordinate it|
 |Amazon SQS Queue|aes-siem-dlq|A dead-letter queue used when loading logs into OpenSearch Service fails|
 |CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|Triggered when total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes|
 |CloudWatch dashboards|SIEM|Dashboard of resource information used by SIEM on OpenSearch Service|
-|EventBridge events|aes-siem-CwlRuleLambdaGeoipDownloader| For executing aes-siem-geoip-downloader every 12 hours|
-|EventBridge events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
+|EventBridge events|aes-siem-EventBridgeRuleStepFunctionsIoc|For executing aes-siem-ioc-state-machine regularly|
+|EventBridge events|aes-siem-EventBridgeRuleLambdaGeoipDownloader| For executing aes-siem-geoip-downloader every 12 hours|
 |EventBridge events|aes-siem-EventBridgeRuleLambdaMetricsExporter| For executing aes-siem-geoip-downloader every 1 hour|
+|EventBridge events|aes-siem-EsLoaderStopperRule|For passing alarm events to es-loader-stopper|
 |Amazon SNS Topic|aes-siem-alert|This is selected as the destination for alerting in OpenSearch Service|
 |Amazon SNS Subscription|inputed email|This is the email address where alerts are sent|
 
@@ -260,21 +220,12 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
     * Amazon VPC: aes-siem/VpcAesSiem (if you created a new VPC)
     * SecurityGroup: aes-siem-vpc-sg
 
-> **_Note_** If you want to redeploy SIEM on OpenSearch Service right after deleting it, you need to delete the key alias using the AWS CLI commands below. Otherwise, redeployment will fail as the KMS CMK alias still remains:
+> **_Note_** If you want to redeploy SIEM on OpenSearch Service right after deleting it, you need to delete the key alias using the AWS CLI commands below. Otherwise, redeployment will fail as the KMS key alias still remains:
 
 ```shell
 export AWS_DEFAULT_REGION=<AWS_REGION>
 aws kms delete-alias --alias-name  "alias/aes-siem-key"
 ```
-
-## Throttling of es-loader in an emergency
-
-To avoid unnecessary invocation of es-loader, throttle es-loader under the following conditions:
-- If total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes and `aes-siem-TotalFreeStorageSpaceRemainsLowAlarm` is triggered.
-  - The OpenSearch cluster is running out of storage space. More free space is needed for recovery. To learn more, see [Lack of available storage space](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/handling-errors.html#handling-errors-watermark).
-
-If you want to resume loading logs, set the reserved concurrency of the Lambda function `aes-siem-es-loader` back to 10 from the AWS Management Console or AWS CLI.  
-You can also load messages from the dead-letter queue (aes-siem-dlq) by referring to [Loading from SQS queue](docs/configure_siem.md#loading-from-sqs-queue).
 
 ## Security
 
@@ -282,7 +233,7 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 
 ## License
 
-This library is licensed under the MIT-0 License. See the LICENSE file.
+This library is licensed under the MIT-0 License. See the [LICENSE](LICENSE) file.
 
 This product uses GeoLite2 data created by MaxMind and licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), available from [https://www.maxmind.com](https://www.maxmind.com).
 

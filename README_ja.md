@@ -68,6 +68,8 @@ CloudFormation テンプレートを使って、SIEM on OpenSearch Service の�
 
 IP アドレスに国情報や緯度・経度のロケーション情報を付与することができます。ロケーション情報は [MaxMind 社](https://www.maxmind.com)の GeoLite2 Free をダウンロードして活用します。ロケーション情報を付与したい方は MaxMind にて無料ライセンスを取得してください。
 
+実験的に IP アドレス、ドメイン名を元に脅威情報を付与することができます。脅威情報のソースとして、TXT 形式と STIX 形式で作成されたユーザー独自の IoC (Indicators of compromise)、または [Tor Project](https://www.torproject.org)、[Abuse.ch Feodo Tracker](https://feodotracker.abuse.ch)、[AlienVault OTX](https://otx.alienvault.com/) を選択することができます。IoC 数が多いとは Lambda の処理時間が増えるので、IoC は厳選して下さい。AlienVault OTX の IoC を利用される方は、[AlienVault OTX](https://otx.alienvault.com/#signup) で API キーを取得して下さい。IoC の詳細は [IoC による脅威情報の付与](./docs/configure_siem_ja.md#IoC-による脅威情報の付与) をご参照下さい。
+
 > **_注)_** CloudFormation テンプレートは OpenSearch Service を **t3.medium.search インスタンスでデプロイします。無料利用枠ではありません。また SIEM は、多くのログを集約して負荷が高くなるため、小さい t3 を避けて、メトリクスを確認しつつ最適なインスタンスを選択してください。** インスタンスの変更、ディスクの拡張、UltraWarm の使用等は、AWS マネジメントコンソールから直接行ってください。SIEM on OpenSearch Service の CloudFormation テンプレートは OpenSearch Service に対しては初期デプロイのみで、ノードの変更、削除等の管理はしません。
 
 ### 1. クイックスタート
@@ -85,76 +87,11 @@ SIEM on OpenSearch Service をデプロイするリージョンを選択して�
 
 > (※) 大阪リージョンのみ導入時は r5.large.search インスタンスでデプロイされます
 
-次の手順に従って CloudFormation のテンプレートを作成することもできます。
+またはこちらの[手順](./docs/configure_siem_ja.md#CloudFormation-テンプレートの作成)に従って CloudFormation のテンプレートを作成することもできます。
 
-### 2. CloudFormation テンプレートの作成
+### 2. OpenSearch Dashboards の設定
 
-クイックスタートでデプロイされた方は CloudFormation テンプレートの作成はスキップしてください。
-
-#### 2-1. 準備
-
-AWS CloudShell または Amazon Linux 2 を実行している Amazon Elastic Compute Cloud (Amazon EC2) インスタンスを使って CloudFormation テンプレートを作成します
-
-前提の環境)
-
-* AWS CloudShell または Amazon Linux 2 on Amazon EC2
-  * "Development Tools"
-  * Python 3.8
-  * Python 3.8 libraries and header files
-  * Git
-
-上記がインストールされてない場合は以下を実行
-
-```shell
-sudo yum groups mark install -y "Development Tools"
-sudo yum install -y amazon-linux-extras
-sudo amazon-linux-extras enable python3.8
-sudo yum install -y python38 python38-devel git jq
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
-```
-
-#### 2-2. SIEM on OpenSearch Service の clone
-
-GitHub レポジトリからコードを clone します
-
-```shell
-cd
-git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
-```
-
-#### 2-3. 環境変数の設定
-
-```shell
-export TEMPLATE_OUTPUT_BUCKET=<YOUR_TEMPLATE_OUTPUT_BUCKET> # Name for the S3 bucket where the template will be located
-export AWS_REGION=<AWS_REGION> # region where the distributable is deployed
-```
-
-> **_注)_** $TEMPLATE_OUTPUT_BUCKET は S3 バケット名です。事前に作成してください。デプロイ用のファイルの配布に使用します。ファイルはパブリックからアクセスできる必要があります。テンプレート作成時に使用する build-s3-dist.sh は S3 バケットの作成をしません。
-
-#### 2-4. AWS Lambda 関数のパッケージングとテンプレートの作成
-
-```shell
-cd ~/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
-chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
-chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
-```
-
-#### 2-5. Amazon S3 バケットへのアップロード
-
-```shell
-aws s3 cp ./global-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl bucket-owner-full-control
-aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl bucket-owner-full-control
-```
-
-> **__注)__** コマンドを実行するために S3 バケットへファイルをアップロードする権限を付与し、アップロードしたファイルに適切なアクセスポリシーを設定してください。
-
-#### 2-6. SIEM on OpenSearch Service のデプロイ
-
-コピーしたテンプレートは、`https://s3.amazonaws.com/$TEMPLATE_OUTPUT_BUCKET/siem-on-amazon-opensearch-service.template` にあります。このテンプレートを AWS CloudFormation に指定してデプロイしてください。
-
-### 3. OpenSearch Dashboards の設定
-
-約30分で CloudFormation によるデプロイが完了します。次に、OpenSearch Dashboards (Kibana の後継) の設定をします。
+約30分で CloudFormation によるデプロイが完了します。次に、OpenSearch Dashboards の設定をします。
 
 1. AWS CloudFormation コンソールで、作成したスタックを選択。画面右上のタブメニューから「出力」を選択。OpenSearch Dashboards のユーザー名、パスワード、URL を確認できます。この認証情報を使って OpenSearch Dashboards にログインしてください
 1. 最初のログイン時に [Select your tenant] と表示されるので、[**Global**] を選択してください。作成済みのダッシュボード等を利用できます。
@@ -163,21 +100,22 @@ aws s3 cp ./regional-s3-assets s3://$TEMPLATE_OUTPUT_BUCKET/ --recursive --acl b
     1. OpenSearch Dashboards のコンソールに移動してください。画面左側に並んでいるアイコンから「Stack Management」 を選択してください、「Saved Objects」、「Import」、「Import」の順に選択をして、先ほど解凍したZIPファイルの中ある「dashboard.ndjson」をインポートしてください
     1. インポートした設定ファイルを反映させるために一度ログアウトしてから、再ログインをしてください
 
-### 4. ログの取り込み
+### 3. ログの取り込み
 
-S3 バケットの aes-siem-*[AWS アカウント ID]*-log にログを出力してください。ログは自動的に SIEM on OpenSearch Service に取り込まれて分析ができるようになります。
+S3 バケットの aes-siem-_[AWS アカウント ID]_-log にログを出力してください。ログは自動的に SIEM on OpenSearch Service に取り込まれて分析ができるようになります。
 
 AWS の各サービスのログを S3 バケットへの出力する方法は、[こちら](docs/configure_aws_service_ja.md) をご参照ください。
 
 ## ワークショップ
 
-[SIEM on Amazon OpenSearch Service のワークショップ](https://security-log-analysis-platform.workshop.aws/ja/) を用意しています。SIEM の構築、AWS リソースのログの取り込み、OpenSearch Dashboards / Kibana の使い方、セキュリティインシデントの調査、ダッシュボードの作成、アラートの作成、Apache HTTPD サーバーのログの取り込みを体験できます。
+[SIEM on Amazon OpenSearch Service のワークショップ](https://security-log-analysis-platform.workshop.aws/ja-JP/) を用意しています。SIEM の構築、AWS リソースのログの取り込み、OpenSearch Dashboards の使い方、セキュリティインシデントの調査、ダッシュボードの作成、アラートの作成、Apache HTTPD サーバーのログの取り込みを体験できます。
 
 ## SIEM のアップデート
 
 SIEM on OpenSearch Service または SIEM on Amazon ES を新しいバージョンにアップデートする時は、OpenSearch / Elasticsearch のドメインをアップグレードしてから、初期インストールと同じ方法 (CloudFormation or AWS CDK) でアップデートしてください。SIEM の変更履歴は [こちら](CHANGELOG.md) から確認できます。
 
-> **__注)__ Global tenant の 設定やダッシュボード等は自動で上書きされるのでご注意ください。アップデート前に使用していた設定ファイルやダッシュボード等は S3 バケットの aes-siem-[AWS_Account]-snapshot/saved_objects/ にバックアップされるので、元の設定にする場合は手動でリストアしてください。**
+> **注) Global tenant の 設定やダッシュボード等は自動で上書きされるのでご注意ください。アップデート前に使用していた設定ファイルやダッシュボード等は S3 バケットの aes-siem-[AWS_Account]-snapshot/saved_objects/ にバックアップされるので、元の設定にする場合は手動でリストアしてください。**
+> **注) S3 バケットポリシー、KMS の キーポリシーは、IAM ポリシー等は、CDK/CloudFormation で自動生成されています。手動で変更は非推奨ですが、変更している場合は上書きされるので、それぞれをバックアップをしてからアップデート後に差分を更新して下さい。**
 
 ### OpenSearch Service のドメインのアップグレード
 
@@ -222,9 +160,23 @@ OpenSearch Service のアクセスポリシーの変更、インスタンスの�
 
 SIEM on OpenSearch Service はログをインデックスに保存しており、デフォルトでは毎月1回ローテーションをしています。この期間を変更や、AWS 以外のログを取り込みたい方は、[こちら](docs/configure_siem_ja.md) をご参照ください。
 
+## SIEM 管理以外の S3 バケットに保存されたログのニアリアルタイムの取り込み
+
+SIEM と同一アカウント、同一リージョンに S3 バケットがある場合、OpenSearch にログを取り込むことができます。設定方法は [他の S3 バケットからニアリアルタイムの取り込み](docs/configure_siem_ja.md#他の-s3-バケットからニアリアルタイムの取り込み) を参照して下さい。
+
 ## バッチ処理による過去ログの取り込み
 
-Python スクリプトの es-loader をローカル環境で実行することで、すでに S3 バケット に保存されている過去のログを SIEM on OpenSearch Service に取り込むことができます。
+Python スクリプトの es-loader をローカル環境で実行することで、すでに S3 バケット に保存されている過去のログを SIEM on OpenSearch Service に取り込むことができます。詳細は、[S3 バケットに保存された過去データの取り込み](docs/configure_siem_ja.md#S3-バケットに保存された過去データの取り込み) を参照して下さい。
+
+## 非常時の es-loader のスロットリングについて
+
+es-loader の不必要な呼び出しを避けるため、以下の条件で es-loader をスロットリングします。
+
+* OpenSearch Service クラスターの合計空き容量が 200MB 以下の状態が 30 分間継続し、`aes-siem-TotalFreeStorageSpaceRemainsLowAlarm` が発報した場合。
+  * OpenSearch クラスターのストレージの空き容量が不足している状態です。復旧するには空き容量を増やす必要があります。詳しくは[使用可能なストレージ領域の不足](https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/handling-errors.html#handling-errors-watermark)を参照してください。
+
+ログの取り込みを再開する場合は、AWS マネジメントコンソールや AWS CLI から Lambda 関数 `aes-siem-es-loader` の予約済同時実行数を0から10に戻してください。
+また、[SQS の Dead Letter Queue からの取り込み](docs/configure_siem_ja.md#SQS-の-dead-letter-queue-からの取り込み) を参考にデッドレターキュー (aes-siem-dlq) からメッセージを取り込んでください。
 
 ## 作成される AWS リソース
 
@@ -236,21 +188,27 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 |S3 bucket|aes-siem-[AWS_Account]-log|ログを集約するため|
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|OpenSearch Service の手動スナップショット取得|
 |S3 bucket|aes-siem-[AWS_Account]-geo|ダウンロードした GeoIP を保存|
+|Step Functions|aes-siem-ioc-state-machine|IoC のダウンロードと Database の作成|
+|Lambda function|aes-siem-ioc-plan|IoC をダウンロードするための map を作成|
+|Lambda function|aes-siem-ioc-createdb|IoC をダウンロード|
+|Lambda function|aes-siem-ioc-download|IoC の Database を作成|
+|Lambda function|aes-siem-geoip-downloader|GeoIP のダウンロード|
 |Lambda function|aes-siem-es-loader|ログを正規化し OpenSearch Service へロード|
 |Lambda function|aes-siem-es-loader-stopper|非常時に es-loader をスロットリングするため|
 |Lambda function|aes-siem-deploy-aes|OpenSearch Service のドメイン作成|
 |Lambda function|aes-siem-configure-aes|OpenSearch Service の設定|
-|Lambda function|aes-siem-geoip-downloader|GeoIP のダウンロード|
 |Lambda function|aes-siem-index-metrics-exporter|OpenSearch Service の index に関する メトリクスを収集|
 |Lambda function|aes-siem-BucketNotificationsHandler|ログ用 S3 バケットのイベント通知を設定|
-|AWS Key Management Service<br>(AWS KMS) CMK & Alias|aes-siem-key|ログの暗号化に使用|
+|Lambda function|aes-siem-add-pandas-layer|es-loader にaws_sdk_pandas を Lambda レイヤーとして追加|
+|AWS Key Management Service<br>(AWS KMS) KMSキー & Alias|aes-siem-key|ログの暗号化に使用|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|処理するログ行数が多い時は分割。それを管理するキュー|
 |Amazon SQS Queue|aes-siem-dlq|OpenSearch Service のログ取り込み失敗用 Dead Letter Queue|
 |CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|OpenSearch Service クラスターの合計空き容量が 200MB 以下の状態が 30 分間継続した場合に発報|
 |CloudWatch dashboards|SIEM|SIEM on OpenSearch Service で利用するリソース情報のダッシュボード|
-|EventBridge events|aes-siem-CwlRuleLambdaGeoipDownloader|aes-siem-geoip-downloader を12時間毎に実行|
-|EventBridge events|aes-siem-EsLoaderStopperRule|アラートイベントを es-loader-stopper に渡す|
+|EventBridge events|aes-siem-EventBridgeRuleStepFunctionsIoc|aes-siem-ioc-state-machine を定期的に実行|
+|EventBridge events|aes-siem-EventBridgeRuleLambdaGeoipDownloader|aes-siem-geoip-downloader を12時間毎に実行|
 |EventBridge events|aes-siem-EventBridgeRuleLambdaMetricsExporter|aes-siem-index-metrics-exporter を1 時間毎に実行|
+|EventBridge events|aes-siem-EsLoaderStopperRule|アラートイベントを es-loader-stopper に渡す|
 |Amazon SNS Topic|aes-siem-alert|OpenSearch Service の Alerting の Destinations で選択|
 |Amazon SNS Subscription|inputed email|Alert の送信先メールアドレス|
 
@@ -268,21 +226,12 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
     * Amazon VPC: aes-siem/VpcAesSiem (VPC を新規に作成した場合)
     * SecurityGroup: aes-siem-vpc-sg
 
-> **__注)__** SIEM on OpenSearch Service をすぐに再デプロイする場合は、KMS CMK のエイリアスが残っているため失敗します。次の AWS CLI コマンドで キーエイリアスを削除してください
+> **_注)_** SIEM on OpenSearch Service をすぐに再デプロイする場合は、KMS キーのエイリアスが残っているため失敗します。次の AWS CLI コマンドで キーエイリアスを削除してください
 
 ```shell
 export AWS_DEFAULT_REGION=<AWS_REGION>
 aws kms delete-alias --alias-name  "alias/aes-siem-key"
 ```
-
-## 非常時の es-loader のスロットリングについて
-
-es-loader の不必要な呼び出しを避けるため、以下の条件で es-loader をスロットリングします。
-- OpenSearch Service クラスターの合計空き容量が 200MB 以下の状態が 30 分間継続し、`aes-siem-TotalFreeStorageSpaceRemainsLowAlarm` が発報した場合。
-  - OpenSearch クラスターのストレージの空き容量が不足している状態です。復旧するには空き容量を増やす必要があります。詳しくは[使用可能なストレージ領域の不足](https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/handling-errors.html#handling-errors-watermark)を参照してください。
-
-ログの取り込みを再開する場合は、AWS マネジメントコンソールや AWS CLI から Lambda 関数 `aes-siem-es-loader` の予約済同時実行数を0から10に戻してください。  
-また、[SQS のキューからの取り込み](docs/configure_siem_ja.md#sqs-のキューからの取り込み)を参考にデッドレターキュー (aes-siem-dlq) からメッセージを取り込んでください。
 
 ## Security
 
@@ -290,7 +239,7 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 
 ## License
 
-This library is licensed under the MIT-0 License. See the LICENSE file.
+This library is licensed under the MIT-0 License. See the [LICENSE](LICENSE) file.
 
 This product uses GeoLite2 data created by MaxMind and licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), available from [https://www.maxmind.com](https://www.maxmind.com).
 

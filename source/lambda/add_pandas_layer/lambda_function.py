@@ -2,7 +2,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 __copyright__ = 'Amazon.com, Inc. or its affiliates'
-__version__ = '2.8.0-beta.2'
+__version__ = '2.8.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -92,7 +92,7 @@ def update_layer():
     logger.info('M100: Check pandas layers')
     pandas_layer_arn = pandas_layers.get(region)
     if pandas_layer_arn:
-        logger.info('X101: Found tha managed layer')
+        logger.info('X101: Found the managed layer')
     else:
         layers = lambda_client.list_layers(
             CompatibleRuntime=runtime, CompatibleArchitecture=arch[0])
@@ -114,7 +114,7 @@ def update_layer():
         response = lambda_client.publish_layer_version(
             LayerName='AWSDataWrangler-Python38',
             Description=f'From s3://{s3bucket}/aws_sdk_pandas/{s3key}',
-            Content={'S3Bucket': s3bucket, 'S3Key': s3key},
+            Content={'S3Bucket': s3bucket, 'S3Key': f'aws_sdk_pandas/{s3key}'},
             CompatibleRuntimes=[runtime],
             CompatibleArchitectures=arch,)
         pandas_layer_arn = response['LayerVersionArn']

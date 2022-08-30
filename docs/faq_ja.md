@@ -32,7 +32,7 @@ ignore_container_stderr = False
 
 stderrは様々なログフォーマットがあり、ログの中に時刻フィールドが含まれていないこともあるので、ログを取り込んだ時間を @timestamp としています
 
-## マスターユーザー (aesadmin) のパスワードを忘れて Kibana にログインができなくなった
+## マスターユーザー (aesadmin) のパスワードを忘れて OpenSearch Dashboards にログインができなくなった
 
 AWS マネジメントコンソールから新しいパスワードを設定できます。
 
