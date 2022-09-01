@@ -245,7 +245,7 @@ def output_message(key, res):
 
 def get_dist_version(es_endpoint):
     awsauth = auth_aes(es_endpoint)
-    res = query_aes(es_endpoint, awsauth, method='get', path='/')
+    res = query_aes(es_endpoint, awsauth, method='get', path='')
     logger.info(res.text)
     version = json.loads(res.text)['version']
     domain_version = version['number']
