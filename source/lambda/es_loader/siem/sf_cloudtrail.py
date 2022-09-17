@@ -21,7 +21,7 @@ def extract_instance_id(logdata):
     instance_id = None
     if event_source == 'ssm.amazonaws.com':
         if event_name in ('StartSession', 'GetConnectionStatus'):
-            instance_id = logdata.get('requestParameters', {}).get('target')
+            instance_id = logdata.get('requestParameters', {}).get('target', {})
     elif event_source in ('sts.amazonaws.com'):
         if logdata.get('userAgent') == 'ec2.amazonaws.com':
             instance_id = logdata.get(
