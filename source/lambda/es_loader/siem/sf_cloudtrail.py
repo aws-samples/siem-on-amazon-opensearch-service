@@ -101,6 +101,13 @@ def transform(logdata):
     except (KeyError, TypeError):
         pass
 
+    # https://github.com/aws-samples/siem-on-amazon-opensearch-service/issues/299
+    try:
+        logdata['requestParameters']['disableApiStop'] = (
+            logdata['requestParameters']['disableApiStop']['value'])
+    except (KeyError, TypeError):
+        pass
+
     # https://github.com/aws-samples/siem-on-amazon-elasticsearch/issues/242
     try:
         status = logdata['responseElements']['status']
