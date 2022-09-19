@@ -9,6 +9,8 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import configparser
 import datetime
+import gzip
+import io
 import ipaddress
 import os
 import re
@@ -22,24 +24,32 @@ logger = Logger(child=True)
 
 
 class DB():
+    DB_FILE = 'ioc.db'
     S3KEY_PREFIX = 'IOC/'
-    IOC_DB = 'ioc.sqlite'
+    TMP_DIR = '/tmp'
+    DB_FILE_S3KEY = f'{S3KEY_PREFIX}{DB_FILE}.gz'
+    DB_FILE_LOCAL = f'{TMP_DIR}/{DB_FILE}'
     DB_FILE_FRESH_DURATION = 259200   # 3 days
     NOT_FILE_FRESH_DURATION = 43200   # 12 hours
     RE_IPADDR = re.compile(r'[0-9a-fA-F:.]*$')
 
     def __init__(self):
-        GEOIP_BUCKET = self._get_geoip_buckent_name()
-        has_ioc_db = self._download_database(GEOIP_BUCKET, self.IOC_DB)
+        self.GEOIP_BUCKET = self._get_geoip_buckent_name()
+        has_ioc_db = self._download_database()
         self.cur = None
         if has_ioc_db:
-            conn_file = sqlite3.connect(f'/tmp/{self.IOC_DB}')
+            conn_file = sqlite3.connect(self.DB_FILE_LOCAL)
             self.conn = sqlite3.connect(':memory:')
             try:
                 conn_file.backup(self.conn)
                 conn_file.close()
                 self.cur = self.conn.cursor()
                 self.cur.execute('PRAGMA quick_check')
+                # self.cur.execute('PRAGMA temp_store=2')
+                # self.cur.execute('PRAGMA journal_mode=OFF')
+                # self.cur.execute('PRAGMA synchronous=OFF')
+                # self.cur.execute('PRAGMA locking_mode=EXCLUSIVE')
+                # self.cur.execute('PRAGMA query_only=ON')
                 self.cur.execute('SELECT count(*) FROM ipaddress')
                 count = self.cur.fetchone()[0]
                 if count >= 2:
@@ -73,9 +83,8 @@ class DB():
         return enrichments
 
     def _get_geoip_buckent_name(self):
-        if 'GEOIP_BUCKET' in os.environ:
-            geoipbucket = os.environ.get('GEOIP_BUCKET', '')
-        else:
+        geoipbucket = os.environ.get('GEOIP_BUCKET')
+        if not geoipbucket:
             config = configparser.ConfigParser(
                 interpolation=configparser.ExtendedInterpolation())
             config.read('aes.ini')
@@ -98,31 +107,36 @@ class DB():
             logger.warning('kept ' + filename)
             return False
 
-    def _download_database(
-            self, s3bucket: str, db_name: str) -> bool:
-        localfile = '/tmp/' + db_name
-        localfile_not_found = '/tmp/not_found_' + db_name
+    def _download_database(self) -> bool:
+        localfile_not_found = f'{self.TMP_DIR}/not_found_{self.DB_FILE}'
         if os.path.isfile(localfile_not_found):
             del_success = self._delete_file_older_than_seconds(
                 localfile_not_found, self.NOT_FILE_FRESH_DURATION)
             if not del_success:
                 return False
-        elif os.path.isfile(localfile):
+        elif os.path.isfile(self.DB_FILE_LOCAL):
             del_success = self._delete_file_older_than_seconds(
-                localfile, self.DB_FILE_FRESH_DURATION)
+                self.DB_FILE_LOCAL, self.DB_FILE_FRESH_DURATION)
             if not del_success:
                 return True
 
-        if not os.path.isfile(localfile):
-            s3geo = boto3.resource('s3')
-            bucket = s3geo.Bucket(s3bucket)
-            s3obj = self.S3KEY_PREFIX + db_name
+        if not os.path.isfile(self.DB_FILE_LOCAL):
+            _s3 = boto3.client('s3')
             try:
-                bucket.download_file(s3obj, localfile)
-                logger.info(f'downloading {db_name} was success')
+                s3obj = _s3.get_object(
+                    Bucket=self.GEOIP_BUCKET, Key=self.DB_FILE_S3KEY)
+                iofile = gzip.open(io.BytesIO(s3obj['Body'].read()), 'rb')
+                with open(self.DB_FILE_LOCAL, 'wb') as f:
+                    f.write(iofile.read())
+                logger.info(f'downloading {self.DB_FILE} is success')
                 return True
+            except _s3.exceptions.NoSuchKey:
+                logger.warning(f'{self.DB_FILE} is not found in s3')
+                with open(localfile_not_found, 'w') as f:
+                    f.write('')
+                return False
             except Exception:
-                logger.warning(f'{db_name} is not found in s3')
+                logger.exception(f'Something bad happened.')
                 with open(localfile_not_found, 'w') as f:
                     f.write('')
                 return False
@@ -143,13 +157,20 @@ class DB():
             ip_int = int(ip)
         except Exception:
             return None
+        if ip.is_private:
+            return None
         if ip.version == 4:
             self.cur.execute(
                 """SELECT provider, type, name, reference, first_seen,
                     last_seen, modified, description
-                FROM ipaddress
+                FROM (
+                    SELECT provider, type, name, reference, first_seen,
+                        last_seen, modified, description, network_end
+                    FROM ipaddress
+                    WHERE network_start <= ?
+                        ORDER BY network_start DESC
+                        LIMIT 300)
                 WHERE type = 'ipv4-addr'
-                    AND network_start <= ?
                     AND network_end >= ?""",
                 (ip_int, ip_int))
         else:
@@ -159,16 +180,25 @@ class DB():
             self.cur.execute(
                 """SELECT provider, type, name, reference, first_seen,
                     last_seen, modified, description
-                FROM ipaddress
+                FROM (
+                    SELECT provider, type, name, reference, first_seen,
+                        last_seen, modified, description, network_end,
+                        v6_network2_start, v6_network2_end,
+                        v6_network1_start, v6_network1_end
+                    FROM ipaddress
+                    WHERE network_start <= ?
+                        ORDER BY network_start DESC
+                        LIMIT 300)
                 WHERE type = 'ipv6-addr'
-                    AND v6_network1_start <= ?
-                    AND v6_network1_end >= ?
+                    AND network_end >= ?
                     AND v6_network2_start <= ?
                     AND v6_network2_end >= ?
-                    AND network_start <= ?
-                    AND network_end >= ?""",
-                (ip_int_upper, ip_int_upper, ip_int_middle, ip_int_middle,
-                 ip_int_lower, ip_int_lower))
+                    AND v6_network1_start <= ?
+                    AND v6_network1_end >= ?
+                    """,
+                (ip_int_lower, ip_int_lower,
+                 ip_int_middle, ip_int_middle,
+                 ip_int_upper, ip_int_upper))
         enrichments = []
         for res in self.cur.fetchall():
             (provider, ioc_type, ioc_name, reference, first_seen,

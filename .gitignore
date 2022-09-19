@@ -1,11 +1,16 @@
 # python libs
 bin/
+aioboto3*
+aiobotocore*
 aiohttp*
+aioitertool*
 aiosignal*
 async_timeout*
 attr*
 aws_lambda_powertools*
 aws_xray_sdk*
+boto3*
+botocore*
 certifi*
 chardet*
 charset_normalizer*
@@ -15,6 +20,7 @@ fastjsonschema*
 frozenlist*
 geoip2*
 idna*
+ijson*
 jmespath*
 jsonpickle*
 libfuturize*

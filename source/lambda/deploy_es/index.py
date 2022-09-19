@@ -55,6 +55,9 @@ LOGGROUP_RETENTIONS = [
     ('/aws/lambda/aes-siem-deploy-aes', 90),
     ('/aws/lambda/aes-siem-es-loader', 90),
     ('/aws/lambda/aes-siem-geoip-downloader', 90),
+    ('/aws/lambda/aes-siem-ioc-createdb', 90),
+    ('/aws/lambda/aes-siem-ioc-download', 90),
+    ('/aws/lambda/aes-siem-ioc-plan', 90),
 ]
 
 es_loader_ec2_role = (

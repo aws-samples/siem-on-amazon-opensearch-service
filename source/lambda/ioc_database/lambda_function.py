@@ -7,30 +7,42 @@ __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
+import asyncio
 import base64
+import copy
 import datetime
 import email.utils
+import gzip
 import hashlib
-import http.client
 import ipaddress
 import json
 import logging
 import os
+import shutil
+import socket
 import sqlite3
 import urllib.request
+import warnings
 from functools import lru_cache
 
+import aioboto3
+import aiohttp
 import boto3
+# import ijson
 from botocore.config import Config
 from botocore.exceptions import ParamValidationError
 
 OBJ_LIMIT = 5000
-DB_MAX_SIZE_MB = 128
+DB_MAX_SIZE_MB = 384
+DB_FILE = 'ioc.db'
+S3KEY_PREFIX = 'IOC/'
 TMP_DIR = '/tmp'
-DB_FILEPATH = f'{TMP_DIR}/ioc.sqlite'
+DB_FILE_S3KEY = f'{S3KEY_PREFIX}{DB_FILE}.gz'
+DB_FILE_LOCAL = f'{TMP_DIR}/{DB_FILE}'
+
 LOCAL_TMP_FILE = f'{TMP_DIR}/ioc.tmp'
 S3_BUCKET_NAME = os.environ['GEOIP_BUCKET']
-S3_DB_KEY = 'IOC/ioc.sqlite'
+S3_DB_KEY = f'{S3KEY_PREFIX}ioc.db'
 LOG_LEVEL = os.getenv('LOG_LEVEL')
 IS_TOR = os.getenv('TOR')
 IS_ABUSE_CH = os.getenv('ABUSE_CH')
@@ -38,6 +50,8 @@ OTX_API_KEY = os.getenv('OTX_API_KEY')
 
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger('boto3').setLevel(logging.ERROR)
+logging.getLogger('botocore').setLevel(logging.ERROR)
 logger = logging.getLogger()
 try:
     logger.setLevel(LOG_LEVEL)
@@ -48,26 +62,27 @@ config = Config(connect_timeout=5, retries={'max_attempts': 0})
 s3 = boto3.client('s3', config=config)
 
 
-def _download_file_from_interet(url, file_name=None, http_conn=None,
-                                headers={}):
-    if http_conn:
-        http_conn.request('GET', url, body=None, headers=headers)
-    else:
-        req = urllib.request.Request(url)
-        if len(headers) > 0:
-            for header, value in headers.items():
-                req.add_header(header, value)
+def _download_file_from_interet(url, file_name=None, headers={}):
+    req = urllib.request.Request(url)
+    if len(headers) > 0:
+        for header, value in headers.items():
+            req.add_header(header, value)
     try:
-        if http_conn:
-            response = http_conn.getresponse()
-            status_code = response.status
-
-        else:
-            response = urllib.request.urlopen(req, timeout=61)
-            status_code = response.code
+        response = urllib.request.urlopen(req, timeout=61)
+        status_code = response.code
+    except urllib.error.HTTPError as e:
+        logger.exception(f'failed to download from {url}')
+        status_code = e.code
+    except (urllib.error.URLError, socket.gaierror):
+        # urllib.error.URLError: reason = e.reason
+        # socket.gaierror: reason = e
+        logger.exception(f'failed to download from {url}')
+        return None
     except Exception:
         logger.exception(f'failed to download from {url}')
         return None
+    if status_code != 200:
+        return {'status_code': status_code}
 
     if not file_name:
         file_name = url.split('/')[-1]
@@ -78,6 +93,7 @@ def _download_file_from_interet(url, file_name=None, http_conn=None,
             if not chunk:
                 break
             f.write(chunk)
+        logger.debug(f'Done: {local_file}')
 
     try:
         modified = email.utils.parsedate_to_datetime(
@@ -91,9 +107,25 @@ def _download_file_from_interet(url, file_name=None, http_conn=None,
     return res
 
 
-def _put_file_to_s3(local_file, s3_key):
+async def _aio_download_file_from_internet(
+        session, url, headers=None, local_file=None):
+    chunk_size = 256 * 1024
+    async with session.get(url) as resp:
+        with open(local_file, 'wb') as fd:
+            async for chunk in resp.content.iter_chunked(chunk_size):
+                fd.write(chunk)
+        if resp.status != 200:
+            if os.path.exists(local_file):
+                os.remove(local_file)
+        return resp.status
+
+
+def _put_file_to_s3(local_file, s3_key, count=None):
     h = hashlib.new('md5')
     file_read_size = h.block_size * (1024 ** 2)
+    prefix = ''
+    if count:
+        prefix = f'[{count}] '
     with open(local_file, 'rb') as f:
         read_bytes = f.read(file_read_size)
         while read_bytes:
@@ -107,7 +139,39 @@ def _put_file_to_s3(local_file, s3_key):
         except ParamValidationError:
             s3.put_object(Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
                           ContentMD5=file_md5)
-        logger.warning(f'File was uploaded to /{s3_key}. MD5: {file_md5}')
+        logger.info(
+            f'{prefix}File was uploaded to /{s3_key}. MD5: {file_md5}')
+    if os.path.exists(local_file):
+        os.remove(local_file)
+
+
+async def _aio_put_file_to_s3(s3_session, local_file, s3_key, count=None):
+    h = hashlib.new('md5')
+    file_read_size = h.block_size * (1024 ** 2)
+    prefix = ''
+    if count:
+        prefix = f'[{count}] '
+    async with s3_session.client('s3') as aioclient:
+        with open(local_file, 'rb') as f:
+            read_bytes = f.read(file_read_size)
+            while read_bytes:
+                h.update(read_bytes)
+                read_bytes = f.read(file_read_size)
+            file_md5 = base64.b64encode(h.digest()).decode('utf-8')
+            f.seek(0)
+            try:
+                aioclient.put_object(
+                    Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
+                    ContentMD5=file_md5, ChecksumAlgorithm='sha1')
+            except ParamValidationError:
+                aioclient.put_object(
+                    Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
+                    ContentMD5=file_md5)
+            except Exception:
+                logger.exception()
+            logger.debug(
+                f'{prefix}File was uploaded to /{s3_key}. MD5: {file_md5}')
+    if os.path.exists(local_file):
         os.remove(local_file)
 
 
@@ -120,7 +184,9 @@ def _get_file_from_s3(s3_key, local_file=LOCAL_TMP_FILE):
 
 
 def _initialize_db():
-    conn = sqlite3.connect(DB_FILEPATH)
+    logger.info('Starting initializing DB')
+    conn = sqlite3.connect(DB_FILE_LOCAL)
+    conn.execute('PRAGMA journal_mode=MEMORY')
     cur = conn.cursor()
 
     cur.execute("DROP TABLE IF EXISTS ipaddress")
@@ -140,9 +206,9 @@ def _initialize_db():
             last_seen TEXT,
             modified TEXT,
             description TEXT,
-            PRIMARY KEY(provider, v6_network1_start, v6_network1_end,
-                        v6_network2_start, v6_network2_end,
-                        network_start, network_end)
+            UNIQUE(provider, v6_network1_start, v6_network1_end,
+                   v6_network2_start, v6_network2_end,
+                   network_start, network_end)
         )""")
     imds_addr = int(ipaddress.ip_address('169.254.169.254'))
     cur.execute(f"""
@@ -152,6 +218,14 @@ def _initialize_db():
                               network_start, network_end, name)
         VALUES('built-in', 'ipv4-addr', 0, 0, 0, 0,
                {imds_addr}, {imds_addr}, 'IMDS')
+    """)
+    cur.execute(f"""
+        INSERT INTO ipaddress(provider, type,
+                              v6_network1_start, v6_network1_end,
+                              v6_network2_start, v6_network2_end,
+                              network_start, network_end, name)
+        VALUES('built-in', 'ipv4-addr', 0, 0, 0, 0,
+               2892559020, 2892559023, 'TEST')
     """)
     conn.commit()
     cur.execute("DROP TABLE IF EXISTS domain")
@@ -169,6 +243,7 @@ def _initialize_db():
             PRIMARY KEY(provider, domain)
         )""")
     conn.commit()
+    logger.info('Finished initializing DB')
     return conn, cur
 
 
@@ -261,6 +336,9 @@ def _insert_domain(
 
 
 def _put_db_to_s3(conn, cur):
+    cur.execute("CREATE INDEX idx_domain ON domain(domain)")
+    cur.execute("CREATE INDEX idx_nw_start ON ipaddress(network_start)")
+
     # check db integrity
     cur.execute("PRAGMA integrity_check")
     res = cur.fetchone()
@@ -286,20 +364,47 @@ def _put_db_to_s3(conn, cur):
     conn.close()
 
     # check db file size
-    db_size = os.path.getsize(DB_FILEPATH)
+    db_size = os.path.getsize(DB_FILE_LOCAL)
     if db_size >= (DB_MAX_SIZE_MB * 1024 * 1024):
         raise Exception(
             f'The IoC database is too large at {db_size/1024/1024} MB.'
             f'The file must be {DB_MAX_SIZE_MB} MB or less.')
-    _put_file_to_s3(DB_FILEPATH, S3_DB_KEY)
+    with open(DB_FILE_LOCAL, 'rb') as f_in:
+        with gzip.open(f'{DB_FILE_LOCAL}.gz', 'wb', compresslevel=9) as f_out:
+            shutil.copyfileobj(f_in, f_out)
+    _put_file_to_s3(f'{DB_FILE_LOCAL}.gz', f'{S3_DB_KEY}.gz')
     return ioc_type_dict, db_size
 
 
-def _list_keys_or_create_dir(prefix, obj_limit=OBJ_LIMIT):
+def _plan_custom_ioc():
+    logger.info('Starting planning custom IOC')
+    mapped = []
+    prefixs = [f'{S3KEY_PREFIX}STIX2/', f'{S3KEY_PREFIX}TXT/']
+    for prefix in prefixs:
+        res = _check_keys_or_create_dir(prefix)
+        if res:
+            mapped.append({'ioc': 'custom'})
+    logger.info('Finished planning custom IOC')
+    return mapped
+
+
+def _check_keys_or_create_dir(prefix):
     response = s3.list_objects_v2(
         Bucket=S3_BUCKET_NAME, Prefix=prefix)
     if 'Contents' not in response:
         s3.put_object(Bucket=S3_BUCKET_NAME, Key=prefix)
+        return None
+    elif (len(response['Contents']) == 1
+            and response['Contents'][0].get('Key', '/').endswith('/')):
+        return None
+    else:
+        return True
+
+
+def _list_s3keys(prefix, obj_limit=OBJ_LIMIT):
+    response = s3.list_objects_v2(
+        Bucket=S3_BUCKET_NAME, Prefix=prefix)
+    if 'Contents' not in response:
         return None
     elif (len(response['Contents']) == 1
             and response['Contents'][0].get('Key', '/').endswith('/')):
@@ -313,13 +418,13 @@ def _list_keys_or_create_dir(prefix, obj_limit=OBJ_LIMIT):
             contents.extend(response['Contents'])
 
         contents = [c for c in contents if not c['Key'].endswith('/')]
-        logger.warning(
+        logger.info(
             f'There are {len(contents)} files in /{prefix} directory')
         contents = sorted(
             contents, key=lambda x: x['LastModified'], reverse=True)
         contents = contents[:obj_limit]
-        logger.warning(f'Fetching the latest {len(contents)} files from '
-                       f'/{prefix} directory')
+        logger.info(f'Fetching the latest {len(contents)} files from '
+                    f'/{prefix} directory')
         return contents
 
 
@@ -365,23 +470,30 @@ def _stix2_parser(f):
 
 class TOR:
     TOR_URL = 'https://check.torproject.org/exit-addresses'
-    S3_KEY = f'IOC/tmp/TOR/exit-addresses'
+    S3_KEY = f'{S3KEY_PREFIX}tmp/TOR/exit-addresses'
 
     @classmethod
-    def plan(self, mapped):
+    def plan(self):
+        logger.info('Starting planning Tor')
+        mapped = []
         if IS_TOR and IS_TOR.lower() == 'true':
-            mapped.append({'ioc': 'tor'})
+            mapped = [{'ioc': 'tor'}]
+        logger.info('Finished planning Tor')
         return mapped
 
     @classmethod
     def download(self):
+        logger.info('Starting downloading Tor')
         res = _download_file_from_interet(self.TOR_URL)
         if not res or res['status_code'] != 200:
             # use existing downloaded file
+            logger.warning(
+                'Failed to download Tor. Reuse existing downloaded IoC')
             return {'ioc': 'tor'}
         file_name = res['file_name']
         local_file = f'{TMP_DIR}/{file_name}'
         _put_file_to_s3(local_file, self.S3_KEY)
+        logger.info('Finished downloading Tor')
         return {'ioc': 'tor'}
 
     @classmethod
@@ -396,6 +508,7 @@ class TOR:
         if not os.path.exists(LOCAL_TMP_FILE):
             logger.error('There is no downloaed TOR file')
             return cur, inserted_count
+        conn.execute('BEGIN')
         with open(LOCAL_TMP_FILE) as f:
             # ExitNode 5C3F3217F99D6CFA711D9415AFED1003971201AF
             # Published 2022-06-18 20:05:14
@@ -433,31 +546,38 @@ class TOR:
                 if res:
                     inserted_count += 1
         os.remove(LOCAL_TMP_FILE)
-        logger.warning(f'{provider}: Original IOC is {org_ioc}')
-        logger.warning(f'{provider}: Inserted IOC is {inserted_count}')
+        logger.info(f'{provider}: Original IOC is {org_ioc}')
+        logger.info(f'{provider}: Inserted IOC is {inserted_count}')
         conn.commit()
         return cur, inserted_count
 
 
 class AbuseCh:
     ABUSE_CH_URL = 'https://feodotracker.abuse.ch/downloads/ipblocklist.json'
-    S3_KEY = f'IOC/tmp/ABUSE_CH/ipblocklist.json'
+    S3_KEY = f'{S3KEY_PREFIX}tmp/ABUSE_CH/ipblocklist.json'
 
     @classmethod
-    def plan(self, mapped):
+    def plan(self):
+        logger.info('Starting planning abuse.ch')
+        mapped = []
         if IS_ABUSE_CH and IS_ABUSE_CH.lower() == 'true':
-            mapped.append({'ioc': 'abuse_ch'})
+            mapped = [{'ioc': 'abuse_ch'}]
+        logger.info('Finished planning abuse_ch')
         return mapped
 
     @classmethod
     def download(self):
+        logger.info('Starting downloading abuse.ch')
         res = _download_file_from_interet(self.ABUSE_CH_URL)
         if not res or res['status_code'] != 200:
             # use existing downloaded file
+            logger.warning(
+                'Failed to download abuse.ch. Reuse existing downloaded IoC')
             return {'ioc': 'abuse_ch'}
         file_name = res['file_name']
         local_file = f'{TMP_DIR}/{file_name}'
         _put_file_to_s3(local_file, self.S3_KEY)
+        logger.info('Finished downloading abuse.ch')
         return {'ioc': 'abuse_ch', 'modified': res['modified']}
 
     @classmethod
@@ -473,6 +593,7 @@ class AbuseCh:
             return cur, inserted_count
         with open(LOCAL_TMP_FILE) as f:
             objs = json.load(f)
+        conn.execute('BEGIN')
         for obj in objs:
             org_ioc += 1
             ip_str = obj['ip_address']
@@ -496,19 +617,22 @@ class AbuseCh:
                 inserted_count += 1
 
         os.remove(LOCAL_TMP_FILE)
-        logger.warning(f'{provider}: Original IOC is {org_ioc}')
-        logger.warning(f'{provider}: Inserted IOC is {inserted_count}')
+        logger.info(f'{provider}: Original IOC is {org_ioc}')
+        logger.info(f'{provider}: Inserted IOC is {inserted_count}')
         conn.commit()
         return cur, inserted_count
 
 
 class OTX:
-    PREFIX_S3_KEY = 'IOC/tmp/OTX/'
-    SLICE = 300
+    PREFIX_S3_KEY = f'{S3KEY_PREFIX}tmp/OTX/'
+    SLICE = 200
     URL = 'https://otx.alienvault.com/'
+    PROVIDER = 'AlienVault_OTX'
 
     @classmethod
-    def plan(self, mapped):
+    def plan(self):
+        logger.info('Starting planning OTX')
+        mapped = []
         if (OTX_API_KEY
                 and len(OTX_API_KEY) == 64
                 and 'xxxxxxxxxx' not in OTX_API_KEY):
@@ -519,13 +643,18 @@ class OTX:
             headers = {'X-OTX-API-KEY': OTX_API_KEY}
             res = _download_file_from_interet(
                 url, file_name=file_name, headers=headers)
-            if not res:
+            if not res or (res and res.get('status_code')) == 403:
+                logger.error('Invalid OTX API key')
                 return mapped
+            if res.get('status_code') != 200:
+                logger.warning("OTX: Pass because HTTP response code is "
+                               f"{res.get('status_code')}")
+                return [{'ioc': 'otx', 'ids': []}]
             with open(local_file, 'rt') as f:
                 subscribed_pulse = json.load(f)
-            logger.warning(
+            logger.info(
                 f'Number of subscribed pulse is {subscribed_pulse["count"]}')
-            logger.info(f'next is {subscribed_pulse["next"]}')
+            logger.debug(f'next is {subscribed_pulse["next"]}')
             all_ids = subscribed_pulse['results']
 
             while subscribed_pulse["next"]:
@@ -537,119 +666,245 @@ class OTX:
                 all_ids.extend(subscribed_pulse['results'])
 
             all_ids = sorted(all_ids, reverse=True)[:OBJ_LIMIT]
-            logger.warning(f'Number of downloading files is {len(all_ids)}')
+            logger.info(f'Number of downloading OTX files is {len(all_ids)}')
 
             n = self.SLICE
             for i in range(0, len(all_ids), n):
                 mapped.append({'ioc': 'otx', 'ids': all_ids[i: i + n]})
             if os.path.exists(local_file):
                 os.remove(local_file)
+        else:
+            logger.info('OTX API key not found')
 
+        logger.info('Finished planning OTX')
         return mapped
 
     @classmethod
     def download(self, ids):
-        o = urllib.parse.urlparse(self.URL)
-        if o.scheme == 'https':
-            conn = http.client.HTTPSConnection(o.hostname, o.port, timeout=900)
-        headers = {'X-OTX-API-KEY': OTX_API_KEY}
-        api = 'api/v1/pulses/'
-        for id in ids:
-            url = f'{self.URL}{api}{id}'
-            res = _download_file_from_interet(
-                url, file_name=id, headers=headers, http_conn=conn)
-            if res and res['status_code'] == 200:
-                local_file = f'{TMP_DIR}/{id}'
-                s3_key = f'{self.PREFIX_S3_KEY}{id}.json'
-                _put_file_to_s3(local_file, s3_key)
+        logger.info('Starting downloading OTX')
+        warnings.simplefilter('ignore', RuntimeWarning)
+        self.download_count = 0
+        logger.info(f'OTX: {len(ids)} files will be downloaed')
+        asyncio.run(self._download_main(self, ids))
+        logger.info('Finished downloading OTX')
         return {'ioc': 'otx'}
 
     @classmethod
     def createdb(self, conn, cur):
-        s3_objs = _list_keys_or_create_dir(
-            self.PREFIX_S3_KEY, obj_limit=(OBJ_LIMIT * 2))
-        provider = 'AlienVault_OTX'
-        file_count = 0
-        all_org_ioc = 0
-        all_inserted_count = 0
-        for s3_obj in s3_objs:
-            file_count += 1
-            org_ioc = 0
-            inserted_count = 0
-            s3_key = s3_obj['Key']
-            res = _get_file_from_s3(s3_key, LOCAL_TMP_FILE)
-            if not res:
-                continue
-            with open(LOCAL_TMP_FILE) as f:
-                try:
-                    otx_obj = json.load(f)
-                except Exception:
-                    logger.exception(f'{s3_key}: Invalid OTX format file')
-                    continue
-            name = otx_obj.get('name')
-            _description = otx_obj.get('description')
-            modified = _convert_str_to_isoformat(otx_obj.get('modified'))
-            for item in otx_obj['indicators']:
-                ioc_type = item.get('type')
-                if ioc_type not in ('IPv4', 'IPv6', 'domain', 'hostname'):
-                    continue
-                org_ioc += 1
-                description = _description
-                if item.get('title'):
-                    description = f"{description}. {item.get('title')}"
-                if item.get('description'):
-                    description = (
-                        f"{description}. {item.get('description')}")
+        self.cur = cur
+        self.file_count, self.all_org_ioc, self.all_inserted_count = 0, 0, 0
+        conn.execute('BEGIN')
+        asyncio.run(self._createdb_main(self))
+        conn.commit()
+        logger.info(
+            f'{self.PROVIDER}: Number of files is {self.file_count}')
+        logger.info(
+            f'{self.PROVIDER}: Original IOC is {self.all_org_ioc}')
+        logger.info(
+            f'{self.PROVIDER}: Inserted IOC is {self.all_inserted_count}')
+        return self.cur, self.all_inserted_count
 
-                if ioc_type in ('IPv4', 'IPv6'):
-                    if ioc_type == 'IPv6':
-                        ioc_type = 'ipv6-addr'
-                    else:
-                        ioc_type = 'ipv4-addr'
-                    try:
-                        ip = ipaddress.ip_network(item['indicator'])
-                    except Exception:
+    async def _download_main(self, ids):
+        task_num = 8
+        id_count = len(ids)
+        task_list = []
+        for i in range(task_num):
+            start = int((id_count * i / task_num))
+            end = int((id_count * (i + 1) / task_num))
+            task_list.append(self._download_files_to_s3(self, ids[start:end]))
+        await asyncio.gather(*task_list)
+
+    async def _download_files_to_s3(self, ids):
+        headers = {'X-OTX-API-KEY': OTX_API_KEY}
+        api = 'api/v1/pulses/'
+        async with aiohttp.ClientSession() as http_session:
+            s3_session = aioboto3.Session()
+            for id in ids:
+                self.download_count += 1
+                count = copy.copy(self.download_count)
+                url = f'{self.URL}{api}{id}'
+                local_file = f'{TMP_DIR}/{id}'
+                s3_key = f'{self.PREFIX_S3_KEY}{id}.json'
+                status = await _aio_download_file_from_internet(
+                    http_session, url, headers=headers, local_file=local_file)
+                if status == 200:
+                    await _aio_put_file_to_s3(
+                        s3_session, local_file, s3_key, count=count)
+                else:
+                    logger.warning(f'[{count}] Faild to download file from '
+                                   f'Internet. {status}: {url}')
+
+                if count in (1, 5, 10, 20, 50, 100, 150, 200):
+                    logger.info(f'{count} files were downloaded')
+
+    async def _createdb_main(self):
+        s3_objs = _list_s3keys(
+            self.PREFIX_S3_KEY, obj_limit=(OBJ_LIMIT * 2))
+        task_num = 6
+        s3_obj_count = len(s3_objs)
+        task_list = []
+        for i in range(task_num):
+            start = int((s3_obj_count * i / task_num))
+            end = int((s3_obj_count * (i + 1) / task_num))
+            task_list.append(self._download_insertdb(self, s3_objs[start:end]))
+        await asyncio.gather(*task_list)
+
+    async def _download_insertdb(self, s3_obj_list):
+        aiosession = aioboto3.Session()
+        async with aiosession.client('s3') as aioclient:
+            for s3_obj in s3_obj_list:
+                s3_key = s3_obj['Key']
+                local_file = f"{TMP_DIR}/{s3_key.split('/')[-1]}"
+                await aioclient.download_file(
+                    S3_BUCKET_NAME, s3_key, local_file)
+                await self._insertdb(self, s3_key, local_file)
+                # await self._insertdb_ijson(self, s3_key, local_file)
+
+    async def _insertdb(self, s3_key, local_file):
+        if not os.path.exists(local_file):
+            raise Exception
+        with open(local_file) as f:
+            try:
+                otx_obj = json.load(f)
+            except Exception:
+                logger.exception(f'{s3_key}: Invalid OTX format file')
+                return
+        self.file_count += 1
+        (org_ioc, inserted_count) = (0, 0)
+        name = otx_obj.get('name')
+        _description = otx_obj.get('description')
+        modified = _convert_str_to_isoformat(otx_obj.get('modified'))
+        for item in otx_obj['indicators']:
+            ioc_type = item.get('type')
+            if ioc_type not in ('IPv4', 'IPv6', 'domain', 'hostname'):
+                continue
+            org_ioc += 1
+            description = _description
+            if item.get('title'):
+                description = f"{description}. {item.get('title')}"
+            if item.get('description'):
+                description = (
+                    f"{description}. {item.get('description')}")
+            if ioc_type in ('IPv4', 'IPv6'):
+                res = await self._insert_ip(
+                    self, ioc_type, item, name, modified, description)
+            elif ioc_type in ('domain', 'hostname'):
+                res = await self._insert_domain(
+                    self, ioc_type, item, name, modified, description)
+            if not res:
+                item = {}
+                continue
+            inserted_count += res
+        os.remove(local_file)
+        logger.debug(f'{self.PROVIDER} {s3_key}: Original IOC is {org_ioc}')
+        logger.debug(
+            f'{self.PROVIDER} {s3_key}: Inserted IOC is {inserted_count}')
+        self.all_org_ioc += org_ioc
+        self.all_inserted_count += inserted_count
+
+    """ disabled
+    async def _insertdb_ijson(self, s3_key, local_file):
+        if not os.path.exists(local_file):
+            raise Exception
+        with open(local_file) as f:
+            try:
+                otx_obj = ijson.parse(f)
+            except Exception:
+                logger.exception(f'{s3_key}: Invalid OTX format file')
+                return
+            self.file_count += 1
+            (org_ioc, inserted_count) = (0, 0)
+            (name, _description, modified) = ('', '', '')
+            while True:
+                prefix, event, value = next(otx_obj)
+                if prefix == 'name':
+                    name = value
+                elif prefix == 'description':
+                    _description = value
+                elif prefix == 'modified':
+                    modified = _convert_str_to_isoformat(value)
+                if event == 'map_key' and value == "indicators":
+                    break
+            f.seek(0)
+            item = {}
+            for k, v in ijson.kvitems(f, "indicators.item"):
+                item[k] = v
+                if k == 'is_active':
+                    ioc_type = item.get('type')
+                    if ioc_type not in (
+                            'IPv4', 'IPv6', 'domain', 'hostname'):
+                        item = {}
                         continue
-                    start, end = int(ip[0]), int(ip[-1])
-                    reference = ('https://otx.alienvault.com/indicator/ip/'
-                                 f'{item["indicator"]}')
-                    res = _insert_ipaddr(
-                        cur, ioc_type=ioc_type, network_start=start,
-                        network_end=end, name=name, provider=provider,
-                        reference=reference, modified=modified,
-                        description=description)
-                    if res:
-                        inserted_count += 1
-                elif ioc_type in ('domain', 'hostname'):
-                    domain = item['indicator']
-                    reference = (f'https://otx.alienvault.com/indicator/'
-                                 f'{ioc_type}/{domain}')
-                    res = _insert_domain(
-                        cur, ioc_type='domain-name', domain=domain, name=name,
-                        provider=provider, reference=reference,
-                        modified=modified, description=description)
-                    if res:
-                        inserted_count += 1
-            if os.path.exists(LOCAL_TMP_FILE):
-                os.remove(LOCAL_TMP_FILE)
-            logger.info(f'{provider} {s3_key}: Original IOC is {org_ioc}')
-            logger.info(
-                f'{provider} {s3_key}: Inserted IOC is {inserted_count}')
-            conn.commit()
-            all_org_ioc += org_ioc
-            all_inserted_count += inserted_count
-        logger.warning(f'{provider}: Number of files is {file_count}')
-        logger.warning(f'{provider}: Original IOC is {all_org_ioc}')
-        logger.warning(f'{provider}: Inserted IOC is {all_inserted_count}')
-        return cur, all_inserted_count
+                    org_ioc += 1
+                    description = _description
+                    if item.get('title'):
+                        description = f"{description}. {item.get('title')}"
+                    if item.get('description'):
+                        description = (
+                            f"{description}. {item.get('description')}")
+
+                    if ioc_type in ('IPv4', 'IPv6'):
+                        res = await self._insert_ip(
+                            self, ioc_type, item, name, modified, description)
+                    elif ioc_type in ('domain', 'hostname'):
+                        res = await self._insert_domain(
+                            self, ioc_type, item, name, modified, description)
+                    if not res:
+                        item = {}
+                        continue
+                    inserted_count += res
+        os.remove(local_file)
+        logger.debug(f'{self.PROVIDER} {s3_key}: Original IOC is {org_ioc}')
+        logger.debug(
+            f'{self.PROVIDER} {s3_key}: Inserted IOC is {inserted_count}')
+        self.all_org_ioc += org_ioc
+        self.all_inserted_count += inserted_count
+    """
+
+    async def _insert_ip(self, ioc_type, item, name, modified, description):
+        if ioc_type == 'IPv6':
+            ioc_type = 'ipv6-addr'
+        else:
+            ioc_type = 'ipv4-addr'
+        try:
+            ip = ipaddress.ip_network(item['indicator'])
+        except Exception:
+            return 0
+        start, end = int(ip[0]), int(ip[-1])
+        reference = ('https://otx.alienvault.com/indicator/ip/'
+                     f'{item["indicator"]}')
+        res = _insert_ipaddr(
+            self.cur, ioc_type=ioc_type, network_start=start,
+            network_end=end, name=name, provider=self.PROVIDER,
+            reference=reference, modified=modified,
+            description=description)
+        if res:
+            return 1
+        else:
+            return 0
+
+    async def _insert_domain(
+            self, ioc_type, item, name, modified, description):
+        domain = item['indicator']
+        reference = ('https://otx.alienvault.com/indicator/'
+                     f'{ioc_type}/{domain}')
+        res = _insert_domain(
+            self.cur, ioc_type='domain-name', domain=domain, name=name,
+            provider=self.PROVIDER, reference=reference,
+            modified=modified, description=description)
+        if res:
+            return 1
+        else:
+            return 0
 
 
 def plan(event, context):
-    logger.warning('Starting to plan map')
+    logger.info('Starting planning map')
     mapped = []
-    mapped = TOR.plan(mapped)
-    mapped = AbuseCh.plan(mapped)
-    mapped = OTX.plan(mapped)
+    mapped.extend(TOR.plan())
+    mapped.extend(AbuseCh.plan())
+    mapped.extend(OTX.plan())
+    mapped.extend(_plan_custom_ioc())
     summary = {}
     for obj in mapped:
         ioc = obj['ioc']
@@ -657,7 +912,8 @@ def plan(event, context):
             summary[ioc] += 1
         else:
             summary[ioc] = 1
-    logger.warning('Mapped sammary: ' + json.dumps(summary))
+    logger.info('Mapped sammary: ' + json.dumps(summary))
+    logger.info('Finished planning map')
     return {'summary': summary, 'mapped': mapped}
 
 
@@ -671,16 +927,22 @@ def download(event, context):
         result = AbuseCh.download()
     elif mapped['ioc'] == 'otx':
         result = OTX.download(mapped['ids'])
+    elif mapped['ioc'] == 'custom':
+        result = {'ioc': 'custom'}
+    logger.info(f'Finished download')
     return result
 
 
 def createdb(event, context):
-    logger.warning('Starting to create database')
-    if os.path.exists(DB_FILEPATH):
-        os.remove(DB_FILEPATH)
-    is_tor, is_abuse_ch, is_otx = None, None, None
+    logger.info('Starting creating database')
+    logger.info(event)
+    if os.path.exists(DB_FILE_LOCAL):
+        os.remove(DB_FILE_LOCAL)
+    is_tor, is_abuse_ch, is_otx, is_custom = None, None, None, None
     provider = {'built-in': 1}
     for item in event:
+        # when catching timeout
+        item = item.get('mapped', item)
         try:
             is_provider = item['ioc']
         except Exception:
@@ -690,18 +952,21 @@ def createdb(event, context):
                 is_tor = True
             elif is_provider == 'abuse_ch':
                 is_abuse_ch = True
-                abuse_ch_modified = item['modified']
+                abuse_ch_modified = item.get('modified')
             elif is_provider == 'otx':
                 is_otx = True
+            elif is_provider == 'custom':
+                is_custom = True
     conn, cur = _initialize_db()
-    cur, provider['custom TXT'] = createdb_custom_txt(conn, cur)
-    cur, provider['custom STIX2'] = createdb_custom_stix2(conn, cur)
+    if is_custom:
+        cur, provider['custom TXT'] = createdb_custom_txt(conn, cur)
+        cur, provider['custom STIX2'] = createdb_custom_stix2(conn, cur)
     if is_tor:
         cur, count = TOR.createdb(conn, cur)
         provider['TOR'] = count
     if is_abuse_ch:
         cur, count = AbuseCh.createdb(conn, cur, abuse_ch_modified)
-        provider['MalwareBazaar - Abuse.ch'] = count
+        provider['FeodoTracker - Abuse.ch'] = count
     if is_otx:
         cur, count = OTX.createdb(conn, cur)
         provider['AlienVault OTX'] = count
@@ -709,13 +974,15 @@ def createdb(event, context):
     result = {'status': 200, 'ioc_provider': provider,
               'ioc_type': ioc_type_dict,
               'ioc_db_size': f'{ioc_db_size/1024/1024} MB'}
-    logger.warning(result)
+    logger.info(json.dumps(result))
+    logger.info('Finished creating database')
     return result
 
 
 def createdb_custom_stix2(conn, cur):
-    prefix = 'IOC/STIX2/'
-    contents = _list_keys_or_create_dir(prefix)
+    logger.info('Starting creating database for custom STIX 2')
+    prefix = f'{S3KEY_PREFIX}STIX2/'
+    contents = _list_s3keys(prefix)
     all_inserted_count = 0
     if not contents:
         return cur, all_inserted_count
@@ -770,16 +1037,18 @@ def createdb_custom_stix2(conn, cur):
                         description=item['description'])
                     if res:
                         inserted_count += 1
-        logger.warning(f'{s3_key}: Original IOC is {org_ioc}')
-        logger.warning(f'{s3_key}: Inserted IOC is {inserted_count}')
+        logger.info(f'{s3_key}: Original IOC is {org_ioc}')
+        logger.info(f'{s3_key}: Inserted IOC is {inserted_count}')
         conn.commit()
         all_inserted_count += inserted_count
+    logger.info('Finished creating database for custom STIX 2')
     return cur, all_inserted_count
 
 
 def createdb_custom_txt(conn, cur):
-    prefix = 'IOC/TXT/'
-    contents = _list_keys_or_create_dir(prefix)
+    logger.info('Starting creating database for custom TXT')
+    prefix = f'{S3KEY_PREFIX}TXT/'
+    contents = _list_s3keys(prefix)
     all_inserted_count = 0
     if not contents:
         return cur, all_inserted_count
@@ -804,7 +1073,7 @@ def createdb_custom_txt(conn, cur):
                 try:
                     ip = ipaddress.ip_network(ip_str)
                 except Exception:
-                    logger.info(f'invalid ip address format: {repr(line)}')
+                    logger.warning(f'invalid ip address format: {repr(line)}')
                     continue
                 ip_list.append(ip)
         os.remove(LOCAL_TMP_FILE)
@@ -852,10 +1121,11 @@ def createdb_custom_txt(conn, cur):
                 name=name, modified=modified)
             inserted_count += 1
 
-        logger.warning(f'{s3_key}: Original IOC is {len(ip_list)}')
-        logger.warning(f'{s3_key}: Inserted IOC is {inserted_count}')
+        logger.info(f'{s3_key}: Original IOC is {len(ip_list)}')
+        logger.info(f'{s3_key}: Inserted IOC is {inserted_count}')
         conn.commit()
         all_inserted_count += inserted_count
+    logger.info('Finished creating database for custom TXT')
     return cur, all_inserted_count
 
 
@@ -866,4 +1136,6 @@ if __name__ == '__main__':
         event = {'mapped': raw_event}
         result = download(event, None)
         event_downloaded.append(result)
+    # for debug
+    # event_downloaded = [{'ioc': 'otx'}]
     createdb(event_downloaded, None)

@@ -235,8 +235,10 @@ class MyAesSiemStack(core.Stack):
             self, 'IocDownloadInterval', type='Number',
             description=('(experimental) '
                          'Specify interval in minute to download IoC, '
-                         'default is  720 miniutes ( = 12 hours )'),
-            min_value=30, max_value=1440, default=720)
+                         'default is 720 miniutes ( = 12 hours ).'
+                         'min is 30 minutes. '
+                         'max is 10080 minutes ( = 7 days ).'),
+            min_value=30, max_value=10080, default=720)
 
         # Pretfify parameters
         self.template_options.metadata = {
@@ -848,7 +850,7 @@ class MyAesSiemStack(core.Stack):
                 'OTX_API_KEY': otx_api_key.value_as_string,
                 'TOR': enable_tor.value_as_string,
                 'ABUSE_CH': enable_abuse_ch.value_as_string,
-                'LOG_LEVEL': 'WARNING'
+                'LOG_LEVEL': 'INFO'
             },
             current_version_options=aws_lambda.VersionOptions(
                 removal_policy=core.RemovalPolicy.RETAIN,
@@ -870,12 +872,12 @@ class MyAesSiemStack(core.Stack):
             architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.download',
-            memory_size=192,
+            memory_size=256,
             timeout=core.Duration.seconds(900),
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo,
                 'OTX_API_KEY': otx_api_key.value_as_string,
-                'LOG_LEVEL': 'WARNING'
+                'LOG_LEVEL': 'INFO'
             },
             current_version_options=aws_lambda.VersionOptions(
                 removal_policy=core.RemovalPolicy.RETAIN,
@@ -897,11 +899,11 @@ class MyAesSiemStack(core.Stack):
             architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.createdb',
-            memory_size=384,
+            memory_size=1024,
             timeout=core.Duration.seconds(900),
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo,
-                'LOG_LEVEL': 'WARNING'
+                'LOG_LEVEL': 'INFO'
             },
             current_version_options=aws_lambda.VersionOptions(
                 removal_policy=core.RemovalPolicy.RETAIN,
@@ -910,6 +912,7 @@ class MyAesSiemStack(core.Stack):
         )
         if not same_lambda_func_version(function_name):
             lambda_ioc_createdb.current_version
+
         lambda_ioc_createdb.node.default_child.add_property_override(
             "Architectures", [region_mapping.find_in_map(
                 core.Aws.REGION, 'LambdaArch')]
@@ -920,23 +923,33 @@ class MyAesSiemStack(core.Stack):
             lambda_function=lambda_ioc_plan,
             output_path="$.Payload"
         )
+        ioc_not_found = aws_stepfunctions.Condition.is_not_present(
+            "$.mapped[0].ioc")
+        skip_download_state = aws_stepfunctions.Pass(self, "SkipDownload")
         map_download = aws_stepfunctions.Map(
             self, 'MapDownload',
             items_path=aws_stepfunctions.JsonPath.string_at("$.mapped"),
             parameters={"mapped.$": "$$.Map.Item.Value"},
-            max_concurrency=6
+            max_concurrency=4,
         )
         task_ioc_download = aws_stepfunctions_tasks.LambdaInvoke(
             self, "IocDownload",
             lambda_function=lambda_ioc_download,
-            output_path="$.Payload"
+            output_path="$.Payload",
+            timeout=core.Duration.seconds(899),
         )
+        ignore_timeout_state = aws_stepfunctions.Pass(self, "IgnoreTimeout")
+        task_ioc_download.add_catch(
+            ignore_timeout_state, errors=['States.Timeout'],
+            result_path='$.catcher')
         task_ioc_createdb = aws_stepfunctions_tasks.LambdaInvoke(
             self, "IocCreatedb",
             lambda_function=lambda_ioc_createdb,
             output_path=None)
-        definition = task_ioc_plan.next(
-            map_download).next(task_ioc_createdb)
+        definition = task_ioc_plan\
+            .next(aws_stepfunctions.Choice(self, "need to download?")
+                  .when(ioc_not_found, skip_download_state)
+                  .otherwise(map_download.next(task_ioc_createdb)))
         map_download.iterator(task_ioc_download)
         ioc_state_machine_log_group = aws_logs.LogGroup(
             self, "IocStateMachineLogGroup",
@@ -1167,6 +1180,7 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         s3_geo.grant_read_write(lambda_geo)
         s3_geo.grant_read_write(lambda_add_pandas_layer)
+        s3_geo.grant_read_write(lambda_ioc_plan)
         s3_geo.grant_read_write(lambda_ioc_download)
         s3_geo.grant_read_write(lambda_ioc_createdb)
         s3_geo.grant_read(lambda_es_loader)
@@ -1288,7 +1302,6 @@ class MyAesSiemStack(core.Stack):
         s3_geo.add_lifecycle_rule(
             enabled=True,
             expiration=core.Duration.days(7),
-            expired_object_delete_marker=False,
             id="delete-ioc-temp-files",
             prefix='IOC/tmp/'
         )
