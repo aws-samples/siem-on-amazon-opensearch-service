@@ -2,6 +2,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
+repo_root="${PWD}/../.."
 source_template_dir="${PWD}/.."
 source_dir="$source_template_dir/../source"
 
@@ -11,18 +12,20 @@ if ! (python3 -m pip > /dev/null 2>&1); then
     exit
 fi
 
-echo "------------------------------------------------------------------------------"
-echo "[Packing] pip and Source Folder"
-echo "------------------------------------------------------------------------------"
-python3 -m pip install wheel pip==21.1.3 --user > /tmp/siem.log 2>&1
-is_in_pyenv=$(grep -c 'not visible in this virtualenv' /tmp/siem.log)
-
-if [ "${is_in_pyenv}" -gt 0 ]; then
-    python3 -m pip install wheel pip==21.1.3
-else
-    cat /tmp/siem.log
+# create virtual env
+cd "$repo_root" || exit
+if [ ! -d .venv ]; then
+  echo "create .venv"
+  echo "python3 -m venv .venv"
+  python3 -m venv .venv
 fi
-rm /tmp/siem.log
+# shellcheck disable=SC1091
+source .venv/bin/activate
+python3 -m pip install wheel pip==22.2.2
+
+echo "------------------------------------------------------------------------"
+echo "[Packing] pip and zip source folder"
+echo "------------------------------------------------------------------------"
 
 function pip_zip_for_lambda () {
     lib_name=$1

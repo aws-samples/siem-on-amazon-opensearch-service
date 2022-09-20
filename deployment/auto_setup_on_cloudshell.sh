@@ -2,9 +2,9 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-# bash <(curl -s -o- https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/auto_setup_on_cloudshell.sh)
+# bash <(curl -s -o- https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/main/deployment/auto_setup_on_cloudshell.sh)
 # or add git commit id at the end of line
-# bash <(curl -s -o- https://raw.githubusercontent.com/aws-samples/siem-on-amazon-elasticsearch/main/deployment/auto_setup_on_cloudshell.sh) develop
+# bash <(curl -s -o- https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/main/deployment/auto_setup_on_cloudshell.sh) develop
 
 ###############################################################################
 # helper Function
@@ -12,18 +12,25 @@
 LOG_OUT="$HOME/auto_setup_on_cloudshell-$(date "+%Y%m%d_%H%M%S").log"
 exec 2> >(tee -a "${LOG_OUT}") 1>&2
 
-export BASEDIR="$HOME/siem-on-amazon-elasticsearch-service"
-export OLDDIR="$HOME/siem-on-amazon-elasticsearch"
+export BASEDIR="$HOME/siem-on-amazon-opensearch-service"
+export OLDDIR1="$HOME/siem-on-amazon-elasticsearch-service"
+export OLDDIR2="$HOME/siem-on-amazon-elasticsearch"
 
 function func_check_freespace() {
   if [ -d "$BASEDIR" ];then
     find "$BASEDIR" -name "*.zip" -print0 | xargs --null rm -f
+    rm -fr "${BASEDIR}/source/cdk/.env"
     rm -fr "${BASEDIR}/source/cdk/cdk.out"
   fi
-  if [ -d "$OLDDIR" ];then
-    find "$OLDDIR" -name "*.zip" -print0 | xargs --null rm -f
-    rm -fr "${OLDDIR}/source/cdk/.env"
-    rm -fr "${OLDDIR}/source/cdk/cdk.out"
+  if [ -d "$OLDDIR1" ];then
+    find "$OLDDIR1" -name "*.zip" -print0 | xargs --null rm -f
+    rm -fr "${OLDDIR1}/source/cdk/.env"
+    rm -fr "${OLDDIR1}/source/cdk/cdk.out"
+  fi
+  if [ -d "$OLDDIR2" ];then
+    find "$OLDDIR1" -name "*.zip" -print0 | xargs --null rm -f
+    rm -fr "${OLDDIR2}/source/cdk/.env"
+    rm -fr "${OLDDIR2}/source/cdk/cdk.out"
   fi
   free_space=$(df -m "$HOME" | awk '/[0-9]%/{print $(NF-2)}')
   echo "Free space is ${free_space} MB"
@@ -48,14 +55,14 @@ function func_check_freespace() {
 }
 
 function func_migrate_old_repo_to_new_repo () {
-  if [ -s "${OLDDIR}/source/cdk/cdk.json" ]; then
+  if [ -s "${OLDDIR1}/source/cdk/cdk.json" ]; then
     if [ ! -e "${BASEDIR}/source/cdk/cdk.json" ]; then
-      cp "${OLDDIR}/source/cdk/cdk.json" "${BASEDIR}/source/cdk/cdk.json"
+      cp "${OLDDIR1}/source/cdk/cdk.json" "${BASEDIR}/source/cdk/cdk.json"
     fi
   fi
-  if [ -s "${OLDDIR}/source/cdk/cdk.context.json" ]; then
+  if [ -s "${OLDDIR1}/source/cdk/cdk.context.json" ]; then
     if [ ! -e "${BASEDIR}/source/cdk/cdk.context.json" ]; then
-      cp "${OLDDIR}/source/cdk/cdk.context.json" "${BASEDIR}/source/cdk/cdk.context.json"
+      cp "${OLDDIR1}/source/cdk/cdk.context.json" "${BASEDIR}/source/cdk/cdk.context.json"
     fi
   fi
 }
@@ -244,9 +251,14 @@ function func_delete_unnecessary_files() {
     find "$BASEDIR" -name "*.zip" -print0 | xargs --null rm -f
     rm -fr "${BASEDIR}/source/cdk/cdk.out"
   fi
-  if [ -d "$OLDDIR" ];then
+  if [ -d "$OLDDIR1" ];then
     if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
-      tar -zcf "${OLDDIR}.tgz" -C "$HOME/" "${OLDDIR##*/}" && rm -fr "$OLDDIR"
+      tar -zcf "${OLDDIR1}.tgz" -C "$HOME/" "${OLDDIR1##*/}" && rm -fr "$OLDDIR1"
+    fi
+  fi
+  if [ -d "$OLDDIR2" ];then
+    if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
+      tar -zcf "${OLDDIR2}.tgz" -C "$HOME/" "${OLDDIR2##*/}" && rm -fr "$OLDDIR2"
     fi
   fi
 }
@@ -268,7 +280,7 @@ echo "func_check_freespace"
 func_check_freespace
 
 echo "### 1. Setting Up the AWS CDK Execution Environment ###"
-echo 'yum groups mark install -y "Development Tools"'
+echo 'sudo yum groups mark install -y "Development Tools"'
 sudo yum groups mark install -y "Development Tools" > /dev/null
 echo -e "Done\n"
 
@@ -280,7 +292,7 @@ echo "sudo amazon-linux-extras enable python3.8"
 sudo amazon-linux-extras enable python3.8 > /dev/null
 echo -e "Done\n"
 
-echo "yum install -y python38 python38-devel git jq"
+echo "sudo yum install -y python38 python38-devel git jq"
 sudo yum install -y python38 python38-devel git jq > /dev/null
 echo -e "Done\n"
 
@@ -300,7 +312,7 @@ if [ -d "$BASEDIR" ]; then
   cd "$HOME" || exit
 else
   echo "git clone siem source code"
-  git clone https://github.com/aws-samples/siem-on-amazon-elasticsearch-service.git > /dev/null
+  git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git > /dev/null
   cd "$BASEDIR" || exit
   git checkout "$commitid"
   cd "$HOME" || exit
@@ -319,7 +331,8 @@ if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
   GUESS_AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
   unset AWS_REGION
 else
-  GUESS_AWS_DEFAULT_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e s/.$//)
+  TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 3600")
+  GUESS_AWS_DEFAULT_REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e s/.$//)
 fi
 read -r -p "Enter AWS_DEFAULT_REGION to deploy OpenSearch Service: default is [$GUESS_AWS_DEFAULT_REGION]: " TEMP_AWS_DEFAULT_REGION
 export AWS_DEFAULT_REGION=${TEMP_AWS_DEFAULT_REGION:-$GUESS_AWS_DEFAULT_REGION}
@@ -357,14 +370,14 @@ echo "./step2-setup-cdk-env.sh"
 date
 chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh> /dev/null
 # shellcheck disable=SC1090
-source ~/.bash_profile
+source ~/.bashrc
 nvm use lts/*
 echo -e "Done\n"
 
 echo "### 5. Setting Installation Options with the AWS CDK ###"
 cd "$BASEDIR"/source/cdk/ || exit
 # shellcheck disable=SC1091
-source .env/bin/activate
+source ../../.venv/bin/activate
 echo "cdk bootstrap"
 cdk bootstrap "aws://$CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION"; status=$?
 if [ $status -ne 0 ]; then
@@ -380,7 +393,7 @@ echo "1. Go to Systems Manager / Parameter Store in selected region"
 echo "   https://console.aws.amazon.com/systems-manager/parameters/aes-siem/cdk/cdk.json/"
 echo "2. Check and Edit cdk.json file in Parameter Store"
 echo "   If you want to update SIEM without changes, please just return "
-echo "   see more details https://github.com/aws-samples/siem-on-amazon-elasticsearch/blob/main/docs/deployment.md"
+echo "   see more details https://github.com/aws-samples/siem-on-amazon-opensearch-service/blob/main/docs/deployment.md"
 echo ""
 echo ""
 echo ""

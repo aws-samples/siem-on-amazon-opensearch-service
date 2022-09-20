@@ -1,7 +1,7 @@
 {
   "app": "python3 app.py",
+  "versionReporting": false,
   "context": {
-    "versionReporting": false,
     "aws-cdk:enableDiffNoFail": "true",
     "aes_domain_name": "aes-siem",
     "s3_bucket_name":{

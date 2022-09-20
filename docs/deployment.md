@@ -89,7 +89,7 @@ The script below will install a variety of software in user mode which is needed
 
 ```bash
 chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh
-source ~/.bash_profile
+source ~/.bashrc
 ```
 
 Software to be installed:
@@ -105,7 +105,7 @@ From the root directory of the repository, navigate to the directory containing 
 
 ```bash
 cd ../../source/cdk/
-source .env/bin/activate
+source .venv/bin/activate
 cdk bootstrap
 ```
 
@@ -220,7 +220,7 @@ Note that [5. Setting Installation Options with the AWS CDK] and the subsequent 
 
 ```sh
 cd source/cdk/
-source .env/bin/activate
+source .venv/bin/activate
 cdk deploy --no-rollback
 ```
 

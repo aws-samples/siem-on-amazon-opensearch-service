@@ -90,7 +90,7 @@ AWS CDK を実行できるように各種のソフトウェアをユーザーモ
 
 ```bash
 chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh
-source ~/.bash_profile
+source ~/.bashrc
 ```
 
 インストールされるソフトウェア
@@ -106,7 +106,7 @@ source ~/.bash_profile
 
 ```bash
 cd ../../source/cdk/
-source .env/bin/activate
+source .venv/bin/activate
 cdk bootstrap
 ```
 
@@ -220,7 +220,7 @@ git pull --rebase
 
 ```sh
 cd ~/siem-on-amazon-opensearch-service/source/cdk/
-source .env/bin/activate
+source .venv/bin/activate
 cdk deploy --no-rollback
 ```
 

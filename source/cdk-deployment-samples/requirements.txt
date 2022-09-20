@@ -1,9 +1,1 @@
-aws-cdk.core==1.166.1
-aws-cdk.aws-cloudformation==1.166.1
-aws-cdk.aws-events==1.166.1
-aws-cdk.aws-events-targets==1.166.1
-aws-cdk.aws-iam==1.166.1
-aws-cdk.aws-kinesisfirehose==1.166.1
-aws-cdk.aws-lambda==1.166.1
-aws-cdk.aws-logs==1.166.1
-aws-cdk.region-info==1.166.1
+aws-cdk-lib==2.42.0

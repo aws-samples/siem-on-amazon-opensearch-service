@@ -9,6 +9,7 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import os
 
+import aws_cdk as cdk
 from aws_cdk import (
     aws_events,
     aws_events_targets,
@@ -16,10 +17,10 @@ from aws_cdk import (
     aws_kinesisfirehose,
     aws_lambda,
     aws_logs,
+    region_info,
 )
-from aws_cdk import core as cdk
-from aws_cdk import region_info
 from aws_cdk.aws_kinesisfirehose import CfnDeliveryStream as CDS
+from constructs import Construct
 
 region = os.environ.get("CDK_DEPLOY_REGION", os.environ["CDK_DEFAULT_REGION"])
 PARTITION = region_info.Fact.find(region, region_info.FactName.PARTITION)
@@ -238,8 +239,17 @@ if region.startswith('cn-'):
             'us-east-1', 'cn-north-1'))
 
 
-class FirehoseExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
+class MyStack(cdk.Stack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(
+            scope, construct_id,
+            synthesizer=cdk.DefaultStackSynthesizer(
+                generate_bootstrap_version_rule=False),
+            **kwargs)
+
+
+class FirehoseExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str,
                  default_firehose_name='siem-XXXXXXXXXXX-to-s3',
                  firehose_compression_format='UNCOMPRESSED',
                  **kwargs) -> None:
@@ -283,9 +293,8 @@ class FirehoseExporterStack(cdk.Stack):
         )
 
 
-class CWLNoCompressExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class CWLNoCompressExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -341,9 +350,8 @@ class CWLNoCompressExporterStack(cdk.Stack):
         )
 
 
-class EventBridgeEventsExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class EventBridgeEventsExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -477,9 +485,8 @@ class EventBridgeEventsExporterStack(cdk.Stack):
         rule_config_rules.add_target(aws_events_targets.KinesisFirehoseStream(kdf_to_s3))
 
 
-class ADLogExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class ADLogExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -531,9 +538,8 @@ class ADLogExporterStack(cdk.Stack):
         )
 
 
-class WorkSpacesLogExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class WorkSpacesLogExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -632,9 +638,8 @@ class WorkSpacesLogExporterStack(cdk.Stack):
             targets=[aws_events_targets.KinesisFirehoseStream(kdf_to_s3)])
 
 
-class TrustedAdvisorLogExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class TrustedAdvisorLogExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -704,9 +709,8 @@ class TrustedAdvisorLogExporterStack(cdk.Stack):
         rule.add_target(aws_events_targets.LambdaFunction(lambda_func))
 
 
-class CloudHsmCWLogsExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class CloudHsmCWLogsExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -772,9 +776,8 @@ class CloudHsmCWLogsExporterStack(cdk.Stack):
         )
 
 
-class ClientVpnLogExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class ClientVpnLogExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -840,9 +843,8 @@ class ClientVpnLogExporterStack(cdk.Stack):
         )
 
 
-class CoreLogExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class CoreLogExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.CfnParameter(
@@ -928,9 +930,8 @@ class CoreLogExporterStack(cdk.Stack):
                       value=role_kdf_to_s3.role_name)
 
 
-class DeploymentSamplesStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class DeploymentSamplesStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # The code that defines your stack goes here

@@ -2,13 +2,14 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
+repo_root="${PWD}/../.."
 source_template_dir="$PWD/../"
 source_dir="$source_template_dir/../source"
-cdk_version=$(grep aws-cdk.core "${source_dir}/cdk/requirements.txt" | awk -F'==' '{print $2}')
+cdk_version=$(grep aws-cdk-lib "${source_dir}/cdk/requirements.txt" | awk -F'==' '{print $2}')
 
-is_ami2=$(grep -oi Karoo /etc/system-release 2> /dev/null)
-if [ -z "$is_ami2" ]; then
-    echo "Not AMI2."
+is_al2=$(grep -oi Karoo /etc/system-release 2> /dev/null)
+if [ -z "$is_al2" ]; then
+    echo "Not Amazon Linux 2."
     read -rp "Do you realy continue? (y/N): " yn
     case "$yn" in [yY]*) ;; *) echo "abort." ; exit ;; esac
 fi
@@ -19,17 +20,7 @@ if ! (type pip3 > /dev/null 2>&1); then
     exit
 fi
 
-echo "python3 -m pip install boto3 --user"
-python3 -m pip install boto3 --user > /tmp/siem.log 2>&1
-is_in_pyenv=$(grep -c 'not visible in this virtualenv' /tmp/siem.log)
-
-if [ "${is_in_pyenv}" -gt 0 ]; then
-    python3 -m pip install boto3
-else
-    cat /tmp/siem.log
-fi
-rm /tmp/siem.log
-
+# CDK
 echo "Install Node.js"
 curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 # shellcheck disable=SC1090
@@ -42,21 +33,28 @@ echo "Install CDK"
 echo "npm install -g aws-cdk@${cdk_version}"
 npm install -g aws-cdk@"${cdk_version}"
 
-cd "${source_dir}/cdk" || exit
-python3 -m venv .env
-# shellcheck disable=SC1091
-source .env/bin/activate
-echo "python3 -m pip install -r requirements.txt"
-python3 -m pip install -r requirements.txt
-
-BACK=$RANDOM
-if [ -e cdk.json ]; then
-    mv cdk.json cdk.json.$BACK
+# create virtual venv
+cd "$repo_root" || exit
+if [ ! -d .venv ]; then
+  echo "create .venv"
+  echo "python3 -m venv .venv"
+  python3 -m venv .venv
 fi
+# shellcheck disable=SC1091
+source .venv/bin/activate
+python3 -m pip install wheel pip==22.2.2
 
-cp cdk.json.public.sample cdk.json
-cdk synth aes-siem -o "${source_template_dir}"/cdk-solution-helper/cdk.out 1>/dev/null
+# shellcheck disable=SC1091
+echo "python3 -m pip install -r ${source_dir}/cdk/requirements.txt"
+python3 -m pip install -r "${source_dir}/cdk/requirements.txt"
 
-if [ -e cdk.json.$BACK ]; then
-    mv -f cdk.json.$BACK cdk.json
+# Delete CDK v1
+cd "${source_dir}/cdk" || exit
+if [ -d .env ]; then
+  echo "CDK v1 exists."
+  echo "rm -fr .env"
+  rm -fr .env
+fi
+if [ -d "${source_template_dir}/cdk-solution-helper/cdk.out" ]; then
+  rm -fr "${source_template_dir}/cdk-solution-helper/cdk.out"
 fi

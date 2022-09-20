@@ -8,7 +8,7 @@ __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
-from aws_cdk import core
+import aws_cdk as cdk
 
 from deployment_samples.deployment_samples_stack import (
     ADLogExporterStack,
@@ -23,7 +23,7 @@ from deployment_samples.deployment_samples_stack import (
     WorkSpacesLogExporterStack,
 )
 
-app = core.App()
+app = cdk.App()
 DeploymentSamplesStack(app, "DeploymentSamplesStack")
 core_logging = CoreLogExporterStack(
     app, "siem-log-exporter-core",
