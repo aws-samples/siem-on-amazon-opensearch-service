@@ -28,7 +28,7 @@ function func_check_freespace() {
     rm -fr "${OLDDIR1}/source/cdk/cdk.out"
   fi
   if [ -d "$OLDDIR2" ];then
-    find "$OLDDIR1" -name "*.zip" -print0 | xargs --null rm -f
+    find "$OLDDIR2" -name "*.zip" -print0 | xargs --null rm -f
     rm -fr "${OLDDIR2}/source/cdk/.env"
     rm -fr "${OLDDIR2}/source/cdk/cdk.out"
   fi
@@ -43,6 +43,9 @@ function func_check_freespace() {
     num_of_nodes=$(find  ~/.nvm/versions/node/ -maxdepth 1 -type d 2>/dev/null | wc -l)
     if [ "$num_of_nodes" -gt 2 ]; then
       rm -fr ~/.nvm/versions/node/*
+      rm -fr "${BASEDIR}/source/lambda"
+      rm -fr "${OLDDIR1}/source/lambda"
+      rm -fr "${OLDDIR2}/source/lambda"
     fi
   fi
   if [ "${free_space}" -le 250 ]; then
@@ -63,6 +66,18 @@ function func_migrate_old_repo_to_new_repo () {
   if [ -s "${OLDDIR1}/source/cdk/cdk.context.json" ]; then
     if [ ! -e "${BASEDIR}/source/cdk/cdk.context.json" ]; then
       cp "${OLDDIR1}/source/cdk/cdk.context.json" "${BASEDIR}/source/cdk/cdk.context.json"
+    fi
+  fi
+  if [ -d "$OLDDIR1" ];then
+    if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
+      rm -fr "${OLDDIR1}/source/lambda"
+      tar -zcf "${OLDDIR1}.tgz" -C "$HOME/" "${OLDDIR1##*/}" && rm -fr "$OLDDIR1"
+    fi
+  fi
+  if [ -d "$OLDDIR2" ];then
+    if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
+      rm -fr "${OLDDIR2}/source/lambda"
+      tar -zcf "${OLDDIR2}.tgz" -C "$HOME/" "${OLDDIR2##*/}" && rm -fr "$OLDDIR2"
     fi
   fi
 }
@@ -251,16 +266,6 @@ function func_delete_unnecessary_files() {
     find "$BASEDIR" -name "*.zip" -print0 | xargs --null rm -f
     rm -fr "${BASEDIR}/source/cdk/cdk.out"
   fi
-  if [ -d "$OLDDIR1" ];then
-    if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
-      tar -zcf "${OLDDIR1}.tgz" -C "$HOME/" "${OLDDIR1##*/}" && rm -fr "$OLDDIR1"
-    fi
-  fi
-  if [ -d "$OLDDIR2" ];then
-    if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
-      tar -zcf "${OLDDIR2}.tgz" -C "$HOME/" "${OLDDIR2##*/}" && rm -fr "$OLDDIR2"
-    fi
-  fi
 }
 
 ###############################################################################
@@ -301,10 +306,10 @@ if [ ! -f /usr/bin/pip3 ]; then
   sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
 fi
 
-#if [ -d "siem-on-amazon-elasticsearch" ]; then
 if [ -d "$BASEDIR" ]; then
   echo "git rebase to get latest commit"
   cd "$BASEDIR" || exit
+  git checkout .
   git fetch > /dev/null
   git checkout main && git pull --rebase > /dev/null
   git checkout develop && git pull --rebase > /dev/null
@@ -373,6 +378,8 @@ chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh> /dev/null
 source ~/.bashrc
 nvm use lts/*
 echo -e "Done\n"
+
+find "$HOME" -name '.cache' -print0 | xargs --null rm -fr
 
 echo "### 5. Setting Installation Options with the AWS CDK ###"
 cd "$BASEDIR"/source/cdk/ || exit

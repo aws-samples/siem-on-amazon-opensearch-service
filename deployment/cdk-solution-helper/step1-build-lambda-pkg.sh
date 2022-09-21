@@ -108,7 +108,7 @@ function pip_zip_for_lambda_ioc () {
     rm -fr botocore/data/[a-z][a-z]*/*
     echo "rm -fr botocore/data//s3[a-z]*/*"
     rm -fr botocore/data//s3[a-z]*/*
-    eecho "botocore/data/s3/ -type f -not -name 'service-2.json' -print0 | xargs -0 rm -f"
+    echo "botocore/data/s3/ -type f -not -name 'service-2.json' -print0 | xargs -0 rm -f"
     find botocore/data/s3/ -type f -not -name 'service-2.json' -print0 | xargs -0 rm -f
 
     mv -f README.md.org README.md

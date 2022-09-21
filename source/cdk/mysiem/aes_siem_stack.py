@@ -317,12 +317,12 @@ class MyAesSiemStack(cdk.Stack):
                 max_azs=3, nat_gateways=0,
                 subnet_configuration=[
                     aws_ec2.SubnetConfiguration(
-                        subnet_type=aws_ec2.SubnetType.ISOLATED,
+                        subnet_type=aws_ec2.SubnetType.PRIVATE_ISOLATED,
                         name='aes-siem-subnet', cidr_mask=subnet_cidr_mask)])
             subnet1 = vpc_aes_siem.isolated_subnets[0]
-            subnets = [{'subnet_type': aws_ec2.SubnetType.ISOLATED}]
+            subnets = [{'subnet_type': aws_ec2.SubnetType.PRIVATE_ISOLATED}]
             vpc_subnets = aws_ec2.SubnetSelection(
-                subnet_type=aws_ec2.SubnetType.ISOLATED)
+                subnet_type=aws_ec2.SubnetType.PRIVATE_ISOLATED)
             vpc_aes_siem_opt = vpc_aes_siem.node.default_child.cfn_options
             vpc_aes_siem_opt.deletion_policy = cdk.CfnDeletionPolicy.RETAIN
             for subnet in vpc_aes_siem.isolated_subnets:
