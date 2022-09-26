@@ -318,10 +318,10 @@ def create_awsauth(es_hostname):
     return awsauth
 
 
-def create_es_conn(awsauth, es_hostname):
+def create_es_conn(awsauth, es_hostname, http_compress=True):
     es_conn = OpenSearch(
         hosts=[{'host': es_hostname, 'port': 443}], http_auth=awsauth,
-        use_ssl=True, http_compress=True, verify_certs=True,
+        use_ssl=True, http_compress=http_compress, verify_certs=True,
         retry_on_timeout=True, connection_class=RequestsHttpConnection,
         timeout=60)
     return es_conn

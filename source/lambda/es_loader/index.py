@@ -19,6 +19,7 @@ from functools import lru_cache, wraps
 import boto3
 from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
+from opensearchpy import AuthenticationException, AuthorizationException
 
 import siem
 from siem import geodb, ioc, utils
@@ -219,6 +220,7 @@ def check_es_results(results, total_count):
 
 
 def bulkloads_into_opensearch(es_entries, collected_metrics):
+    global es_conn
     output_size, total_output_size = 0, 0
     total_count, success_count, error_count, es_response_time = 0, 0, 0, 0
     results = False
@@ -232,7 +234,15 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
         # es の http.max_content_length は t2 で10MB なのでデータがたまったらESにロード
         if isinstance(data, str) and output_size > 6000000:
             total_output_size += output_size
-            results = es_conn.bulk(putdata_list, filter_path=filter_path)
+            try:
+                results = es_conn.bulk(putdata_list, filter_path=filter_path)
+            except (AuthorizationException, AuthenticationException):
+                logger.warning(
+                    'AuthorizationException is raised due to SigV4 issue. '
+                    'http_compress has been disabled')
+                es_conn = utils.create_es_conn(
+                    awsauth, ES_HOSTNAME, http_compress=False)
+                results = es_conn.bulk(putdata_list, filter_path=filter_path)
             es_took, success, error, error_reasons, retry = check_es_results(
                 results, total_count)
             success_count += success
@@ -247,7 +257,15 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
                 retry_needed = True
     if output_size > 0:
         total_output_size += output_size
-        results = es_conn.bulk(putdata_list, filter_path=filter_path)
+        try:
+            results = es_conn.bulk(putdata_list, filter_path=filter_path)
+        except (AuthorizationException, AuthenticationException):
+            logger.warning(
+                'AuthorizationException is raised due to SigV4 issue. '
+                'http_compress has been disabled')
+            es_conn = utils.create_es_conn(
+                awsauth, ES_HOSTNAME, http_compress=False)
+            results = es_conn.bulk(putdata_list, filter_path=filter_path)
         # logger.debug(results)
         es_took, success, error, error_reasons, retry = check_es_results(
             results, total_count)
