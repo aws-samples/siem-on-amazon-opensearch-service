@@ -1,5 +1,5 @@
 {
-  "Description": "SIEM on Amazon OpenSearch Service v2.8.0",
+  "Description": "SIEM on Amazon OpenSearch Service v2.8.0c",
   "Metadata": {
     "AWS::CloudFormation::Interface": {
       "ParameterGroups": [
@@ -1716,7 +1716,7 @@
             ]
           }
         },
-        "Description": "SIEM on Amazon OpenSearch Service v2.8.0 / es-loader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.8.0c / es-loader",
         "Environment": {
           "Variables": {
             "ES_ENDPOINT": {
@@ -1760,13 +1760,13 @@
         "LambdaEsLoaderServiceRoleFFD43869"
       ]
     },
-    "LambdaEsLoaderCurrentVersion9DFE6955ea313a05ea96f44c23f04a49f5a34d21": {
+    "LambdaEsLoaderCurrentVersion9DFE6955ebc3bdc1e6d28bde599d36c09bb0eb10": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoader4B1E2DD9"
         },
-        "Description": "2.8.0"
+        "Description": "2.8.0c"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -1934,7 +1934,7 @@
             ]
           }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.8.0 / add-pandas-layer",
+        "Description": "SIEM on Amazon OpenSearch Service v2.8.0c / add-pandas-layer",
         "Environment": {
           "Variables": {
             "GEOIP_BUCKET": {
@@ -1962,13 +1962,13 @@
         "LambdaAddPandasLayerRoleDCA80237"
       ]
     },
-    "LambdaAddPandasLayerCurrentVersion52D07543302ef1cf62d3518a28e74c9ef5323ef3": {
+    "LambdaAddPandasLayerCurrentVersion52D075437d8e4cbb67c52ea32459228246a7d757": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaAddPandasLayer8F3F6957"
         },
-        "Description": "2.8.0"
+        "Description": "2.8.0c"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -1982,12 +1982,12 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.8.0"
+        "ConfigVersion": "2.8.0c"
       },
       "DependsOn": [
         "LambdaAddPandasLayerRoleDefaultPolicy6A268C17",
         "LambdaAddPandasLayerRoleDCA80237",
-        "LambdaEsLoaderCurrentVersion9DFE6955ea313a05ea96f44c23f04a49f5a34d21",
+        "LambdaEsLoaderCurrentVersion9DFE6955ebc3bdc1e6d28bde599d36c09bb0eb10",
         "LambdaEsLoader4B1E2DD9",
         "LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3",
         "LambdaEsLoaderServiceRoleFFD43869",
@@ -2072,7 +2072,7 @@
             ]
           }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.8.0 / es-loader-stopper",
+        "Description": "SIEM on Amazon OpenSearch Service v2.8.0c / es-loader-stopper",
         "Environment": {
           "Variables": {
             "AES_SIEM_ALERT_TOPIC_ARN": {
@@ -2100,13 +2100,13 @@
         "LambdaEsLoaderStopperServiceRole83AABC1A"
       ]
     },
-    "LambdaEsLoaderStopperCurrentVersion312AA85086480a00231bbb01ca7355deaa5df4e4": {
+    "LambdaEsLoaderStopperCurrentVersion312AA85004422bd7d2ed775e4e5f3ba94094ebf4": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaEsLoaderStopper35C1D57B"
         },
-        "Description": "2.8.0"
+        "Description": "2.8.0c"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2215,7 +2215,7 @@
             ]
           }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.8.0 / geoip-downloader",
+        "Description": "SIEM on Amazon OpenSearch Service v2.8.0c / geoip-downloader",
         "Environment": {
           "Variables": {
             "license_key": {
@@ -2246,13 +2246,13 @@
         "LambdaGeoipDownloaderServiceRoleE37FB908"
       ]
     },
-    "LambdaGeoipDownloaderCurrentVersion7F1CD34F49c89fbbc423635b9458a670c06e20da": {
+    "LambdaGeoipDownloaderCurrentVersion7F1CD34Fd8df5588a325b3ffe091174f22c76965": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaGeoipDownloaderA5EFF97E"
         },
-        "Description": "2.8.0"
+        "Description": "2.8.0c"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2312,7 +2312,7 @@
             ]
           }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.8.0 / ioc-plan",
+        "Description": "SIEM on Amazon OpenSearch Service v2.8.0c / ioc-plan",
         "Environment": {
           "Variables": {
             "ABUSE_CH": {
@@ -2349,13 +2349,13 @@
         "LambdaIocPlanServiceRole6CDE7C5D"
       ]
     },
-    "LambdaIocPlanCurrentVersion1BAA7B4Ce155621fe263eb7759f883eb72f4f40d": {
+    "LambdaIocPlanCurrentVersion1BAA7B4Cff00fe453ce63b38061447817cb2ae8c": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaIocPlan6E369BFB"
         },
-        "Description": "2.8.0"
+        "Description": "2.8.0c"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2464,7 +2464,7 @@
             ]
           }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.8.0 / ioc-download",
+        "Description": "SIEM on Amazon OpenSearch Service v2.8.0c / ioc-download",
         "Environment": {
           "Variables": {
             "GEOIP_BUCKET": {
@@ -2496,13 +2496,13 @@
         "LambdaIocDownloadServiceRoleEB9001C6"
       ]
     },
-    "LambdaIocDownloadCurrentVersion48773E6Ba03cbd53a252bba0af53466fe37cc038": {
+    "LambdaIocDownloadCurrentVersion48773E6Bd6528b2a51b48c21308c1c8a56fd3c2d": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaIocDownload5519716E"
         },
-        "Description": "2.8.0"
+        "Description": "2.8.0c"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -2611,7 +2611,7 @@
             ]
           }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.8.0 / ioc-createdb",
+        "Description": "SIEM on Amazon OpenSearch Service v2.8.0c / ioc-createdb",
         "Environment": {
           "Variables": {
             "GEOIP_BUCKET": {
@@ -2640,13 +2640,13 @@
         "LambdaIocCreatedbServiceRole555565C0"
       ]
     },
-    "LambdaIocCreatedbCurrentVersionD9D04E9C6b57ef04e7f1d730e0e0254accfb5363": {
+    "LambdaIocCreatedbCurrentVersionD9D04E9C7d7e670c19509bbe860f2f55b0309969": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaIocCreatedb04F35777"
         },
-        "Description": "2.8.0"
+        "Description": "2.8.0c"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -3012,7 +3012,7 @@
             ]
           }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.8.0 / index-metrics-exporter",
+        "Description": "SIEM on Amazon OpenSearch Service v2.8.0c / index-metrics-exporter",
         "Environment": {
           "Variables": {
             "ES_ENDPOINT": {
@@ -3047,13 +3047,13 @@
         "LambdaMetricsExporterServiceRoleDDE0BD95"
       ]
     },
-    "LambdaMetricsExporterCurrentVersion79B0413F4e6f40bbbfe621491d9e1571b9cb6b5e": {
+    "LambdaMetricsExporterCurrentVersion79B0413F0e098b32ec0d58a9c364c630e8ad7443": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaMetricsExporter2737F589"
         },
-        "Description": "2.8.0"
+        "Description": "2.8.0c"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -3082,7 +3082,7 @@
             ]
           }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.8.0 / opensearch domain deployment",
+        "Description": "SIEM on Amazon OpenSearch Service v2.8.0c / opensearch domain deployment",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -3113,13 +3113,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaDeployAESCurrentVersion047915F17d777b45c453bd01c456d21e100d2424": {
+    "LambdaDeployAESCurrentVersion047915F13c96264d7f6efa2e0c9ae7ba1c40336f": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaDeployAES636B5079"
         },
-        "Description": "2.8.0"
+        "Description": "2.8.0c"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -3133,7 +3133,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.8.0"
+        "ConfigVersion": "2.8.0c"
       },
       "DependsOn": [
         "AesSiemDeployRoleForLambda654D64F2"
@@ -3163,7 +3163,7 @@
             ]
           }
         ],
-        "Description": "SIEM on Amazon OpenSearch Service v2.8.0 / opensearch configuration",
+        "Description": "SIEM on Amazon OpenSearch Service v2.8.0c / opensearch configuration",
         "Environment": {
           "Variables": {
             "accountid": {
@@ -3211,13 +3211,13 @@
         "AesSiemDeployRoleForLambda654D64F2"
       ]
     },
-    "LambdaConfigureAESCurrentVersion6511476804b0f1c24ad1a82f742d25fc19741cda": {
+    "LambdaConfigureAESCurrentVersion651147686809dc95901c3a86bcc5d3e0e9c22a2c": {
       "Type": "AWS::Lambda::Version",
       "Properties": {
         "FunctionName": {
           "Ref": "LambdaConfigureAESA0471961"
         },
-        "Description": "2.8.0"
+        "Description": "2.8.0c"
       },
       "UpdateReplacePolicy": "Retain",
       "DeletionPolicy": "Retain"
@@ -3231,7 +3231,7 @@
             "Arn"
           ]
         },
-        "ConfigVersion": "2.8.0"
+        "ConfigVersion": "2.8.0c"
       },
       "DependsOn": [
         "AesSiemDomainDeployedR2"
