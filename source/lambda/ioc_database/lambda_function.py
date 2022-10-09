@@ -9,20 +9,21 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import asyncio
 import base64
+# import botocore
 import copy
 import datetime
 import email.utils
-import gzip
+# import gzip
 import hashlib
 import ipaddress
 import json
 import logging
 import os
-import shutil
+# import shutil
 import socket
 import sqlite3
 import urllib.request
-import warnings
+# import warnings
 from functools import lru_cache
 
 import aioboto3
@@ -35,14 +36,13 @@ from botocore.exceptions import ParamValidationError
 OBJ_LIMIT = 5000
 DB_MAX_SIZE_MB = 384
 DB_FILE = 'ioc.db'
-S3KEY_PREFIX = 'IOC/'
+S3KEY_PREFIX = 'IOC'
 TMP_DIR = '/tmp'
-DB_FILE_S3KEY = f'{S3KEY_PREFIX}{DB_FILE}.gz'
+DB_FILE_S3KEY = f'{S3KEY_PREFIX}/{DB_FILE}'
 DB_FILE_LOCAL = f'{TMP_DIR}/{DB_FILE}'
-
 LOCAL_TMP_FILE = f'{TMP_DIR}/ioc.tmp'
+
 S3_BUCKET_NAME = os.environ['GEOIP_BUCKET']
-S3_DB_KEY = f'{S3KEY_PREFIX}ioc.db'
 LOG_LEVEL = os.getenv('LOG_LEVEL')
 IS_TOR = os.getenv('TOR')
 IS_ABUSE_CH = os.getenv('ABUSE_CH')
@@ -52,6 +52,9 @@ OTX_API_KEY = os.getenv('OTX_API_KEY')
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('boto3').setLevel(logging.ERROR)
 logging.getLogger('botocore').setLevel(logging.ERROR)
+logging.getLogger('aioboto3').setLevel(logging.ERROR)
+logging.getLogger('aiobotocore').setLevel(logging.ERROR)
+logging.getLogger('urllib3').setLevel(logging.ERROR)
 logger = logging.getLogger()
 try:
     logger.setLevel(LOG_LEVEL)
@@ -133,14 +136,20 @@ def _put_file_to_s3(local_file, s3_key, count=None):
             read_bytes = f.read(file_read_size)
         f.seek(0)
         file_md5 = base64.b64encode(h.digest()).decode('utf-8')
+        res = None
         try:
-            s3.put_object(Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
-                          ContentMD5=file_md5, ChecksumAlgorithm='sha1')
+            res = s3.put_object(Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
+                                ContentMD5=file_md5, ChecksumAlgorithm='sha1')
         except ParamValidationError:
-            s3.put_object(Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
-                          ContentMD5=file_md5)
-        logger.info(
-            f'{prefix}File was uploaded to /{s3_key}. MD5: {file_md5}')
+            res = s3.put_object(Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
+                                ContentMD5=file_md5)
+        if (isinstance(res, dict)
+                and res['ResponseMetadata']['HTTPStatusCode'] == 200):
+            logger.debug(
+                f'{prefix}File was uploaded to /{s3_key}. MD5: {file_md5}')
+        else:
+            logger.warning(
+                f'{prefix}Failed to upload file to /{s3_key}')
     if os.path.exists(local_file):
         os.remove(local_file)
 
@@ -159,18 +168,26 @@ async def _aio_put_file_to_s3(s3_session, local_file, s3_key, count=None):
                 read_bytes = f.read(file_read_size)
             file_md5 = base64.b64encode(h.digest()).decode('utf-8')
             f.seek(0)
+            res = None
             try:
-                aioclient.put_object(
-                    Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
-                    ContentMD5=file_md5, ChecksumAlgorithm='sha1')
-            except ParamValidationError:
-                aioclient.put_object(
+                res = await aioclient.put_object(
                     Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
                     ContentMD5=file_md5)
             except Exception:
-                logger.exception()
-            logger.debug(
-                f'{prefix}File was uploaded to /{s3_key}. MD5: {file_md5}')
+                logger.exception('{prefix}Failed to upload file to /{s3_key}')
+            #    ContentMD5=file_md5, ChecksumAlgorithm='sha1')
+            # except botocore.exceptions.HTTPClientError:
+            #    res = await aioclient.put_object(
+            #        Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
+            #        ContentMD5=file_md5)
+            if (isinstance(res, dict)
+                    and res['ResponseMetadata']['HTTPStatusCode'] == 200):
+                logger.debug(
+                    f'{prefix}File was uploaded to /{s3_key}. MD5: {file_md5}')
+            elif res:
+                logger.warning(
+                    f'{prefix}Failed to upload file to /{s3_key}')
+
     if os.path.exists(local_file):
         os.remove(local_file)
 
@@ -369,17 +386,18 @@ def _put_db_to_s3(conn, cur):
         raise Exception(
             f'The IoC database is too large at {db_size/1024/1024} MB.'
             f'The file must be {DB_MAX_SIZE_MB} MB or less.')
-    with open(DB_FILE_LOCAL, 'rb') as f_in:
-        with gzip.open(f'{DB_FILE_LOCAL}.gz', 'wb', compresslevel=9) as f_out:
-            shutil.copyfileobj(f_in, f_out)
-    _put_file_to_s3(f'{DB_FILE_LOCAL}.gz', f'{S3_DB_KEY}.gz')
+    # with open(DB_FILE_LOCAL, 'rb') as f_in:
+    #    with gzip.open(f'{DB_FILE_LOCAL}.gz', 'wb', compresslevel=9) as f_out:
+    #        shutil.copyfileobj(f_in, f_out)
+    _put_file_to_s3(DB_FILE_LOCAL, DB_FILE_S3KEY)
+    # _put_file_to_s3(f'{DB_FILE_LOCAL}.gz', f'{DB_FILE_S3KEY}.gz')
     return ioc_type_dict, db_size
 
 
 def _plan_custom_ioc():
     logger.info('Starting planning custom IOC')
     mapped = []
-    prefixs = [f'{S3KEY_PREFIX}STIX2/', f'{S3KEY_PREFIX}TXT/']
+    prefixs = [f'{S3KEY_PREFIX}/STIX2/', f'{S3KEY_PREFIX}/TXT/']
     for prefix in prefixs:
         res = _check_keys_or_create_dir(prefix)
         if res:
@@ -470,7 +488,7 @@ def _stix2_parser(f):
 
 class TOR:
     TOR_URL = 'https://check.torproject.org/exit-addresses'
-    S3_KEY = f'{S3KEY_PREFIX}tmp/TOR/exit-addresses'
+    S3_KEY = f'{S3KEY_PREFIX}/tmp/TOR/exit-addresses'
 
     @classmethod
     def plan(self):
@@ -554,7 +572,7 @@ class TOR:
 
 class AbuseCh:
     ABUSE_CH_URL = 'https://feodotracker.abuse.ch/downloads/ipblocklist.json'
-    S3_KEY = f'{S3KEY_PREFIX}tmp/ABUSE_CH/ipblocklist.json'
+    S3_KEY = f'{S3KEY_PREFIX}/tmp/ABUSE_CH/ipblocklist.json'
 
     @classmethod
     def plan(self):
@@ -624,7 +642,7 @@ class AbuseCh:
 
 
 class OTX:
-    PREFIX_S3_KEY = f'{S3KEY_PREFIX}tmp/OTX/'
+    PREFIX_S3_KEY = f'{S3KEY_PREFIX}/tmp/OTX/'
     SLICE = 200
     URL = 'https://otx.alienvault.com/'
     PROVIDER = 'AlienVault_OTX'
@@ -670,7 +688,8 @@ class OTX:
 
             n = self.SLICE
             for i in range(0, len(all_ids), n):
-                mapped.append({'ioc': 'otx', 'ids': all_ids[i: i + n]})
+                ids = all_ids[i: i + n]
+                mapped.append({'ioc': 'otx', 'count': len(ids), 'ids': ids})
             if os.path.exists(local_file):
                 os.remove(local_file)
         else:
@@ -682,7 +701,7 @@ class OTX:
     @classmethod
     def download(self, ids):
         logger.info('Starting downloading OTX')
-        warnings.simplefilter('ignore', RuntimeWarning)
+        # warnings.simplefilter('ignore', RuntimeWarning)
         self.download_count = 0
         logger.info(f'OTX: {len(ids)} files will be downloaed')
         asyncio.run(self._download_main(self, ids))
@@ -981,7 +1000,7 @@ def createdb(event, context):
 
 def createdb_custom_stix2(conn, cur):
     logger.info('Starting creating database for custom STIX 2')
-    prefix = f'{S3KEY_PREFIX}STIX2/'
+    prefix = f'{S3KEY_PREFIX}/STIX2/'
     contents = _list_s3keys(prefix)
     all_inserted_count = 0
     if not contents:
@@ -1047,7 +1066,7 @@ def createdb_custom_stix2(conn, cur):
 
 def createdb_custom_txt(conn, cur):
     logger.info('Starting creating database for custom TXT')
-    prefix = f'{S3KEY_PREFIX}TXT/'
+    prefix = f'{S3KEY_PREFIX}/TXT/'
     contents = _list_s3keys(prefix)
     all_inserted_count = 0
     if not contents:
@@ -1130,6 +1149,7 @@ def createdb_custom_txt(conn, cur):
 
 
 if __name__ == '__main__':
+    print("start")
     event_downloaded = []
     event_planned = plan(None, None)
     for raw_event in event_planned['mapped']:

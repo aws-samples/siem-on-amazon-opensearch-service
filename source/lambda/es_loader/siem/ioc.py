@@ -9,8 +9,8 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import configparser
 import datetime
-import gzip
-import io
+# import gzip
+# import io
 import ipaddress
 import os
 import re
@@ -25,9 +25,9 @@ logger = Logger(child=True)
 
 class DB():
     DB_FILE = 'ioc.db'
-    S3KEY_PREFIX = 'IOC/'
+    S3KEY_PREFIX = 'IOC'
     TMP_DIR = '/tmp'
-    DB_FILE_S3KEY = f'{S3KEY_PREFIX}{DB_FILE}.gz'
+    DB_FILE_S3KEY = f'{S3KEY_PREFIX}/{DB_FILE}'
     DB_FILE_LOCAL = f'{TMP_DIR}/{DB_FILE}'
     DB_FILE_FRESH_DURATION = 259200   # 3 days
     NOT_FILE_FRESH_DURATION = 43200   # 12 hours
@@ -121,14 +121,25 @@ class DB():
                 return True
 
         if not os.path.isfile(self.DB_FILE_LOCAL):
+            _s3 = boto3.resource('s3')
+            bucket = _s3.Bucket(self.GEOIP_BUCKET)
+            try:
+                bucket.download_file(self.DB_FILE_S3KEY, self.DB_FILE_LOCAL)
+                logger.info(f'downloading {self.DB_FILE} is success')
+                return True
+            except Exception:
+                logger.warning(f'{self.DB_FILE} is not found in s3')
+                with open(localfile_not_found, 'w') as f:
+                    f.write('')
+                return False
+            """
             _s3 = boto3.client('s3')
             try:
                 s3obj = _s3.get_object(
-                    Bucket=self.GEOIP_BUCKET, Key=self.DB_FILE_S3KEY)
+                    Bucket=self.GEOIP_BUCKET, Key=f'{self.DB_FILE_S3KEY}.gz')
                 iofile = gzip.open(io.BytesIO(s3obj['Body'].read()), 'rb')
                 with open(self.DB_FILE_LOCAL, 'wb') as f:
                     f.write(iofile.read())
-                logger.info(f'downloading {self.DB_FILE} is success')
                 return True
             except _s3.exceptions.NoSuchKey:
                 logger.warning(f'{self.DB_FILE} is not found in s3')
@@ -140,6 +151,7 @@ class DB():
                 with open(localfile_not_found, 'w') as f:
                     f.write('')
                 return False
+            """
 
     def _del_none(self, d):
         for key, value in list(d.items()):
