@@ -54,11 +54,11 @@ def validate_cdk_json(context):
         raise Exception('vpc_type is invalid. You can use "new" or "import". '
                         'Exit. Fix and Try again')
 
-    vpcid = context.node.try_get_context("imported_vpc_id")
-    vpc_client = ec2_resource.Vpc(vpcid)
+    vpc_id = context.node.try_get_context("imported_vpc_id")
+    vpc_client = ec2_resource.Vpc(vpc_id)
     print('checking vpc...')
     vpc_client.state
-    print(f'checking vpc id...:\t\t{vpcid}')
+    print(f'checking vpc id...:\t\t{vpc_id}')
     is_dns_support = vpc_client.describe_attribute(
         Attribute='enableDnsSupport')['EnableDnsSupport']['Value']
     print(f'checking dns support...:\t{is_dns_support}')
@@ -115,8 +115,6 @@ def validate_cdk_json(context):
     if not validation_result:
         raise Exception('subnet is invalid. Modify it.')
     print('checking subnet is...\t\t[PASS]\n')
-    print('IGNORE Following Warning. '
-          '"No routeTableId was provided to the subnet..."')
 
 
 def get_subnet_ids(context):
@@ -132,6 +130,39 @@ def get_subnet_ids(context):
     return subnet_ids
 
 
+def get_subnets(context):
+    subnets = []
+    subnet_ids = get_subnet_ids(context)
+    attributes = ec2_client.describe_subnets(SubnetIds=subnet_ids)
+    for attribute in attributes['Subnets']:
+        subnet_id = attribute['SubnetId']
+        # get associated route id
+        response = ec2_client.describe_route_tables(
+            Filters=[{'Name': 'association.subnet-id', 'Values': [subnet_id]}])
+        if len(response['RouteTables']) == 0:
+            # get main route id
+            vpc_id = context.node.try_get_context("imported_vpc_id")
+            response = ec2_client.describe_route_tables(
+                Filters=[
+                    {'Name': 'association.main', 'Values': ['true']},
+                    {'Name': 'vpc-id', 'Values': [vpc_id]},
+                ])
+        route_table_id = (
+            response['RouteTables'][0]['Associations'][0]['RouteTableId'])
+
+        subnet = aws_ec2.Subnet.from_subnet_attributes(
+            context,
+            id=subnet_id,
+            subnet_id=subnet_id,
+            availability_zone=attribute['AvailabilityZone'],
+            ipv4_cidr_block=attribute['CidrBlock'],
+            route_table_id=route_table_id)
+
+        subnets.append(subnet)
+
+    return subnets
+
+
 def check_iam_role(pathprefix):
     role_iterator = iam_client.list_roles(PathPrefix=pathprefix)
     if len(role_iterator['Roles']) == 1:
@@ -144,8 +175,9 @@ def same_lambda_func_version(func_name):
     try:
         response = lambda_client.list_versions_by_function(
             FunctionName=func_name)
-        exist_ver = response['Versions'][1]['Description']
-        if exist_ver == __version__:
+        exist_vers = response['Versions'][0]['Description'].split()
+        new_ver = f'v{__version__}'
+        if new_ver in exist_vers:
             return True
         else:
             return False
@@ -319,8 +351,7 @@ class MyAesSiemStack(cdk.Stack):
                     aws_ec2.SubnetConfiguration(
                         subnet_type=aws_ec2.SubnetType.PRIVATE_ISOLATED,
                         name='aes-siem-subnet', cidr_mask=subnet_cidr_mask)])
-            subnet1 = vpc_aes_siem.isolated_subnets[0]
-            subnets = [{'subnet_type': aws_ec2.SubnetType.PRIVATE_ISOLATED}]
+            subnet_id_1st = vpc_aes_siem.isolated_subnets[0].subnet_id
             vpc_subnets = aws_ec2.SubnetSelection(
                 subnet_type=aws_ec2.SubnetType.PRIVATE_ISOLATED)
             vpc_aes_siem_opt = vpc_aes_siem.node.default_child.cfn_options
@@ -335,13 +366,8 @@ class MyAesSiemStack(cdk.Stack):
             boto3_vpc = ec2_resource.Vpc(vpc_id)
             vpc_cidr_blocks = (
                 [x['CidrBlock'] for x in boto3_vpc.cidr_block_association_set])
-            subnet_ids = get_subnet_ids(self)
-            subnets = []
-            for number, subnet_id in enumerate(subnet_ids, 1):
-                obj_id = 'Subenet' + str(number)
-                subnet = aws_ec2.Subnet.from_subnet_id(self, obj_id, subnet_id)
-                subnets.append(subnet)
-            subnet1 = subnets[0]
+            subnet_id_1st = get_subnet_ids(self)[0]
+            subnets = get_subnets(self)
             vpc_subnets = aws_ec2.SubnetSelection(subnets=subnets)
 
         if vpc_type:
@@ -366,7 +392,7 @@ class MyAesSiemStack(cdk.Stack):
             # VPC Endpoint
             vpc_aes_siem.add_gateway_endpoint(
                 'S3Endpoint', service=aws_ec2.GatewayVpcEndpointAwsService.S3,
-                subnets=subnets)
+                subnets=[vpc_subnets])
             vpc_aes_siem.add_interface_endpoint(
                 'SQSEndpoint', security_groups=[sg_vpc_aes_siem],
                 service=aws_ec2.InterfaceVpcEndpointAwsService.SQS,)
@@ -1029,7 +1055,7 @@ class MyAesSiemStack(cdk.Stack):
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
             lambda_deploy_es.add_environment(
-                'vpc_subnet_id', subnet1.subnet_id)
+                'vpc_subnet_id', subnet_id_1st)
             lambda_deploy_es.add_environment(
                 'security_group_id', sg_vpc_aes_siem.security_group_id)
 
@@ -1052,7 +1078,7 @@ class MyAesSiemStack(cdk.Stack):
             lambda_configure_es_vpc_kwargs = {
                 'security_groups': [sg_vpc_noinbound_aes_siem],
                 'vpc': vpc_aes_siem,
-                'vpc_subnets': aws_ec2.SubnetSelection(subnets=[subnet1, ]), }
+                'vpc_subnets': vpc_subnets}
         lambda_configure_es = aws_lambda.Function(
             self, 'LambdaConfigureAES', **lambda_configure_es_vpc_kwargs,
             function_name=function_name,
@@ -1087,7 +1113,7 @@ class MyAesSiemStack(cdk.Stack):
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
             lambda_configure_es.add_environment(
-                'vpc_subnet_id', subnet1.subnet_id)
+                'vpc_subnet_id', subnet_id_1st)
             lambda_configure_es.add_environment(
                 'security_group_id', sg_vpc_aes_siem.security_group_id)
         else:
