@@ -1088,7 +1088,7 @@ class MyAesSiemStack(cdk.Stack):
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
             memory_size=128,
-            timeout=cdk.Duration.seconds(300),
+            timeout=cdk.Duration.seconds(600),
             environment={
                 'accountid': cdk.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
