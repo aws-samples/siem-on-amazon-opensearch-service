@@ -36,17 +36,36 @@ ES_HOSTNAME = utils.get_es_hostname()
 
 def extract_logfile_from_s3(record):
     if 's3' in record:
-        s3key = urllib.parse.unquote_plus(
-            record['s3']['object']['key'], encoding='utf-8')
-        s3bucket = record['s3']['bucket']['name']
+        s3key = record['s3'].get('object', {}).get('key')
+        s3bucket = record['s3'].get('bucket', {}).get('name')
+    elif 'detail' in record:
+        s3key = record['detail'].get('object', {}).get('key')
+        s3bucket = record['detail'].get('bucket', {}).get('name')
+    else:
+        s3key = ''
+        s3bucket = ''
+    s3key = urllib.parse.unquote_plus(s3key, encoding='utf-8')
+
+    if s3key and s3bucket:
         logger.structure_logs(append=True, s3_key=s3key, s3_bucket=s3bucket)
         logtype = utils.get_logtype_from_s3key(s3key, logtype_s3key_dict)
         logconfig = create_logconfig(logtype)
-        logfile = siem.LogS3(record, logtype, logconfig, s3_client, sqs_queue)
+        client = s3_client
+        if s3bucket in control_tower_log_bucket_list:
+            if control_tower_s3_client:
+                client = control_tower_s3_client
+            else:
+                logger.warning("es-loader doesn't have valid credential to "
+                               "access the S3 bucket")
+                raise Exception(f"Failed to download {s3key} from {s3bucket} "
+                                "because of invalid credential")
+        logfile = siem.LogS3(record, logtype, logconfig, client, sqs_queue)
     else:
         logger.warning(
             'Skipped because there is no S3 object. Invalid input data')
+        logger.info(record)
         return None
+
     return logfile
 
 
@@ -355,6 +374,18 @@ s3_session_config = utils.make_s3_session_config(etl_config)
 s3_client = boto3.client('s3', config=s3_session_config)
 sqs_queue = utils.sqs_queue(SQS_SPLITTED_LOGS_URL)
 
+control_tower_log_buckets = os.environ.get('CONTROL_TOWER_LOG_BUCKETS')
+control_tower_log_bucket_list = (
+    control_tower_log_buckets.replace(',', ' ').split())
+control_tower_assume_role_arn = os.environ.get(
+    'CONTROL_TOWER_ASSUME_ROLE_ARN')
+control_tower_role_session_name = os.environ.get(
+    'CONTROL_TOWER_ROLE_SESSION_NAME')
+control_tower_s3_client = utils.get_s3_client_for_crosss_account(
+    config=s3_session_config,
+    role_arn=control_tower_assume_role_arn,
+    role_session_name=control_tower_role_session_name)
+
 geodb_instance = geodb.GeoDB()
 ioc_instance = ioc.DB()
 utils.show_local_dir()
@@ -363,6 +394,7 @@ utils.show_local_dir()
 @observability_decorator_switcher
 def lambda_handler(event, context):
     main(event, context)
+    return {'EventResponse': None}
 
 
 def main(event, context):

@@ -26,6 +26,45 @@ from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 logger = Logger(child=True)
 
 
+class AutoRefreshableSession:
+    def __init__(self, cross_account_assume_role,
+                 cross_account_role_session_name):
+        self.cross_account_assume_role = cross_account_assume_role
+        self.cross_account_role_session_name = cross_account_role_session_name
+        self.long_running_session = None
+        self.create_auto_refreshable_session()
+
+    def _refresh(self):
+        sts_client = boto3.client('sts')
+        params = {
+            'RoleArn': self.cross_account_assume_role,
+            'RoleSessionName': self.cross_account_role_session_name,
+            'DurationSeconds': 3600,
+        }
+        credentials = sts_client.assume_role(**params).get('Credentials')
+        metadata = {
+            'access_key': credentials.get('AccessKeyId'),
+            'secret_key': credentials.get('SecretAccessKey'),
+            'token': credentials.get('SessionToken'),
+            'expiry_time': credentials.get('Expiration').isoformat()
+        }
+        logger.warning(f'Set new session: {metadata["access_key"]}')
+        return metadata
+
+    def create_auto_refreshable_session(self):
+        session = botocore.session.get_session()
+        session_credentials = (
+            botocore.credentials.RefreshableCredentials.create_from_metadata(
+                metadata=self._refresh(),
+                refresh_using=self._refresh,
+                method='sts-assume-role'))
+        session._credentials = session_credentials
+        self.long_running_session = boto3.Session(botocore_session=session)
+
+    def get_session(self):
+        return self.long_running_session
+
+
 #############################################################################
 # text utils
 #############################################################################
@@ -414,6 +453,22 @@ def sqs_queue(queue_url):
         logger.exception(f'impossible to connect SQS {queue_url}')
         raise Exception(f'impossible to connect SQS {queue_url}') from None
     return sqs_queue
+
+
+def get_s3_client_for_crosss_account(
+        config=None, role_arn=None, role_session_name=None):
+    s3_client = None
+    if role_arn and role_session_name:
+        try:
+            autorefresh_session = AutoRefreshableSession(
+                cross_account_assume_role=role_arn,
+                cross_account_role_session_name=role_session_name
+            ).get_session()
+            s3_client = autorefresh_session.client('s3', config=config)
+        except Exception:
+            logger.exception(f'Unable to assume role, {role_arn}')
+
+    return s3_client
 
 
 #############################################################################

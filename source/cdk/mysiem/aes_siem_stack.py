@@ -273,6 +273,31 @@ class MyAesSiemStack(cdk.Stack):
                          'max is 10080 minutes ( = 7 days ).'),
             min_value=30, max_value=10080, default=720)
 
+        ct_log_account = cdk.CfnParameter(
+            self, 'ControlTowerLogAccount',
+            description=('(experimantal) Specify AWS account of log archive '
+                         'in Control Tower. eg) 123456789012'),
+            allowed_pattern=r'^([0-9]{12}|)$',
+            default='')
+        ct_log_buckets = cdk.CfnParameter(
+            self, 'ControlTowerLogBucketNameList',
+            type='String',
+            allowed_pattern=r'^[-0-9a-z.\s,]*$',
+            description=(
+                '(experimental)) Specify log bucket names of log archive in '
+                'Control Tower. Comma ssepareted list'
+                'eg) aws-controltower-logs-123456789012-ap-northeast-1, '
+                'aws-controltower-s3-access-logs-123456789012-ap-northeast-1'),
+            default='')
+        ct_assume_role_arn = cdk.CfnParameter(
+            self, 'ControlTowerAssumeRoleArn',
+            description=(
+                '(experimantal) Specify ARN for role to be assumed by SIEM '
+                'account. eg) arn:aws:iam::123456789012:role/'
+                'ControlTowerAssumeRoleForSiem'),
+            allowed_pattern=r'^(arn:aws.*:iam::[0-9]{12}:role/.*|)$',
+            default='')
+
         # Pretfify parameters
         self.template_options.metadata = {
             'AWS::CloudFormation::Interface': {
@@ -287,7 +312,12 @@ class MyAesSiemStack(cdk.Stack):
                                     otx_api_key.logical_id,
                                     enable_tor.logical_id,
                                     enable_abuse_ch.logical_id,
-                                    ioc_download_interval.logical_id]}
+                                    ioc_download_interval.logical_id]},
+                    {'Label': {'default': ('(Experimental) Control Tower Log '
+                                           'Ingestion (Optional)')},
+                     'Parameters': [ct_log_account.logical_id,
+                                    ct_log_buckets.logical_id,
+                                    ct_assume_role_arn.logical_id, ]}
                 ]
             }
         }
@@ -708,6 +738,11 @@ class MyAesSiemStack(cdk.Stack):
                 'POWERTOOLS_LOGGER_LOG_EVENT': 'false',
                 'POWERTOOLS_SERVICE_NAME': 'es-loader',
                 'POWERTOOLS_METRICS_NAMESPACE': 'SIEM',
+                'CONTROL_TOWER_ROLE_SESSION_NAME': 'aes-siem-es-loader',
+                'CONTROL_TOWER_ASSUME_ROLE_ARN': (
+                    ct_assume_role_arn.value_as_string),
+                'CONTROL_TOWER_LOG_BUCKETS': (
+                    ct_log_buckets.value_as_string),
             },
             current_version_options=aws_lambda.VersionOptions(
                 removal_policy=cdk.RemovalPolicy.RETAIN,
@@ -1201,6 +1236,47 @@ class MyAesSiemStack(cdk.Stack):
         kms_aes_siem.grant_decrypt(lambda_es_loader)
         kms_aes_siem.grant_decrypt(aes_siem_es_loader_ec2_role)
         kms_aes_siem.grant_encrypt(lambda_metrics_exporter)
+
+        is_control_tower_access = cdk.CfnCondition(
+            self, "IsCrossAccountAcccess",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        ct_log_account.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        ct_log_buckets.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        ct_assume_role_arn.value_as_string, '')),
+            )
+        )
+
+        # grant additional permission to es_loader role for control tower
+        inline_policy_controltower = aws_iam.Policy(
+            self, 'access_to_control_tower_log_buckets',
+            policy_name='access_to_control_tower',
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['sts:AssumeRole'],
+                    resources=[ct_assume_role_arn.value_as_string],
+                ),
+                aws_iam.PolicyStatement(
+                    actions=["sqs:ReceiveMessage",
+                             "sqs:DeleteMessage",
+                             "sqs:GetQueueAttributes",
+                             "logs:CreateLogGroup",
+                             "logs:CreateLogStream",
+                             "logs:PutLogEvents"],
+                    resources=[(f'arn:aws:sqs:*:'
+                                f'{ct_log_account.value_as_string}:*')],
+                )
+            ]
+        )
+        inline_policy_controltower.node.default_child.cfn_options.condition = (
+            is_control_tower_access)
+        lambda_es_loader.role.attach_inline_policy(
+            inline_policy_controltower)
 
         ######################################################################
         # s3 notification and grant permisssion

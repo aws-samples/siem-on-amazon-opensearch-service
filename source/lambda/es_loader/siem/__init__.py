@@ -906,7 +906,7 @@ class LogParser:
                     original = None
                 if isinstance(original, list):
                     original = original[0]
-                if isinstance(original, str):
+                if isinstance(original, str) and original != '-':
                     enrich_dict[ua_field] = user_agent.enrich(original)
 
         # merge all enrichment
