@@ -23,7 +23,8 @@ import requests
 from crhelper import CfnResource
 from opensearchpy import AWSV4SignerAuth
 
-print('version: ' + __version__)
+print(f'version: {__version__}')
+print(f'boto3: {boto3.__version__}')
 
 logger = logging.getLogger(__name__)
 helper_domain = CfnResource(json_logging=False, log_level='DEBUG',
@@ -51,10 +52,12 @@ security_group_id = os.getenv('security_group_id')
 s3_snapshot = os.getenv('s3_snapshot')
 LOGGROUP_RETENTIONS = [
     (f'/aws/OpenSearchService/domains/{aesdomain}/application-logs', 14),
-    ('/aws/lambda/aes-siem-configure-aes', 90),
-    ('/aws/lambda/aes-siem-deploy-aes', 90),
+    ('/aws/lambda/aes-siem-add-pandas-layer', 180),
+    ('/aws/lambda/aes-siem-configure-aes', 180),
+    ('/aws/lambda/aes-siem-deploy-aes', 180),
     ('/aws/lambda/aes-siem-es-loader', 90),
     ('/aws/lambda/aes-siem-geoip-downloader', 90),
+    ('/aws/lambda/aes-siem-index-metrics-exporter', 90),
     ('/aws/lambda/aes-siem-ioc-createdb', 90),
     ('/aws/lambda/aes-siem-ioc-download', 90),
     ('/aws/lambda/aes-siem-ioc-plan', 90),
@@ -216,7 +219,7 @@ def create_kibanaadmin(kibanapass):
     return response
 
 
-def auth_aes(es_endpoint):
+def auth_aes():
     credentials = boto3.Session().get_credentials()
     awsauth = AWSV4SignerAuth(credentials, region)
     return awsauth
@@ -227,6 +230,7 @@ def query_aes(es_endpoint, awsauth, method=None, path=None, payload=None,
     if not headers:
         headers = {'Content-Type': 'application/json'}
     url = f'https://{es_endpoint}/{path}'
+    # logger.debug(f'{method} {url}')
     if method.lower() == 'get':
         res = requests.get(url, auth=awsauth, stream=True)
     elif method.lower() == 'post':
@@ -247,7 +251,8 @@ def output_message(key, res):
 
 
 def get_dist_version(es_endpoint):
-    awsauth = auth_aes(es_endpoint)
+    logger.debug('start get_dist_version')
+    awsauth = auth_aes()
     res = query_aes(es_endpoint, awsauth, method='get', path='')
     logger.info(res.text)
     version = json.loads(res.text)['version']
@@ -261,7 +266,7 @@ def get_dist_version(es_endpoint):
 
 def upsert_role_mapping(es_endpoint, role_name, es_app_data=None,
                         added_user=None, added_role=None, added_host=None):
-    awsauth = auth_aes(es_endpoint)
+    awsauth = auth_aes()
     logger.info('role_name: ' + role_name)
     path = '_opendistro/_security/api/rolesmapping/' + role_name
     res = query_aes(es_endpoint, awsauth, 'GET', path)
@@ -371,7 +376,7 @@ def delete_obj(es_endpoint, awsauth, items, api):
 
 
 def configure_siem(es_endpoint, es_app_data):
-    awsauth = auth_aes(es_endpoint)
+    awsauth = auth_aes()
     # create cluster settings #48
     logger.info('Configure default cluster setting of OpenSerch Service')
     cluster_settings = es_app_data['cluster-settings']
@@ -410,7 +415,7 @@ def configure_siem(es_endpoint, es_app_data):
 
 
 def configure_index_rollover(es_endpoint, es_app_data):
-    awsauth = auth_aes(es_endpoint)
+    awsauth = auth_aes()
     index_patterns = es_app_data['index-rollover']
     logger.info('Create initial index 000001 for rollover')
     for key in index_patterns:
@@ -496,6 +501,7 @@ def setup_aes_system_log():
 
 def set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth):
     logger.debug(f'Set tenant as {tenant} and get cookies')
+    logger.debug(f'dist_name is {dist_name}')
     if dist_name == 'opensearch':
         base_url = f'https://{es_endpoint}/_dashboards'
         headers = DASHBOARDS_HEADERS
@@ -642,7 +648,7 @@ def aes_domain_poll_create(event, context):
                               ['AdvancedSecurityOptions']['Options']
                               ['InternalUserDatabaseEnabled'])
             time.sleep(3)
-        logger.info('Finished doman configuration with new random password')
+        logger.info('Finished domain configuration with new random password')
 
     es_endpoint = None
     while not es_endpoint:
@@ -724,6 +730,7 @@ def aes_config_create_update(event, context):
     es_endpoint = os.environ['es_endpoint']
 
     dist_name, domain_version = get_dist_version(es_endpoint)
+    logger.info(f'dist_name: {dist_name}, domain_version: {domain_version}')
     if domain_version in ('7.4.2', '7.7.0', '7.8.0', '7.9.1'):
         raise Exception(f'Your domain version is Amazon ES {domain_version}. '
                         f'Please upgrade the domain to OpenSearch or '
@@ -734,7 +741,7 @@ def aes_config_create_update(event, context):
 
     # Globalテナントのsaved_objects をバックアップする
     tenant = 'global'
-    awsauth = auth_aes(es_endpoint)
+    awsauth = auth_aes()
     cookies = set_tenant_get_cookies(es_endpoint, dist_name, tenant, awsauth)
     saved_objects = get_saved_objects(
         es_endpoint, dist_name, cookies, auth=awsauth)

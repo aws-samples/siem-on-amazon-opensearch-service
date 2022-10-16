@@ -14,6 +14,7 @@ import re
 import sys
 import time
 import urllib.parse
+import warnings
 from functools import lru_cache, wraps
 
 import boto3
@@ -26,6 +27,8 @@ from siem import geodb, ioc, utils
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
 logger.info(f'version: {__version__}')
+logger.info(f'boto3: {boto3.__version__}')
+warnings.filterwarnings("ignore", "No metrics to publish*")
 metrics = Metrics()
 
 SQS_SPLITTED_LOGS_URL = None
@@ -197,9 +200,10 @@ def get_es_entries(logfile, exclude_log_patterns):
             continue
         indexname = utils.get_writable_indexname(
             logparser.indexname, READ_ONLY_INDICES)
-        yield {'index': {'_index': indexname, '_id': logparser.doc_id}}
+        action_meta = json.dumps({'index': {'_index': indexname,
+                                            '_id': logparser.doc_id}})
         # logger.debug(logparser.json)
-        yield logparser.json
+        yield [action_meta, logparser.json]
     del logparser
 
 
@@ -248,10 +252,10 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     retry_needed = False
     filter_path = ['took', 'errors', 'items.index.status', 'items.index.error']
     for data in es_entries:
-        putdata_list.append(data)
-        output_size += len(str(data))
+        putdata_list.extend(data)
+        output_size += len(data[0]) + len(data[1])
         # es の http.max_content_length は t2 で10MB なのでデータがたまったらESにロード
-        if isinstance(data, str) and output_size > 6000000:
+        if output_size > 6000000:
             total_output_size += output_size
             try:
                 results = es_conn.bulk(putdata_list, filter_path=filter_path)

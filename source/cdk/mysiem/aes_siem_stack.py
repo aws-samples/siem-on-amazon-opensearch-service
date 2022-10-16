@@ -576,6 +576,16 @@ class MyAesSiemStack(cdk.Stack):
             ]
         )
 
+        opensearch_deployment_policy = aws_iam.PolicyDocument(
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['es:CreateDomain', 'es:DescribeDomain',
+                             'es:UpdateDomainConfig'],
+                    resources=['*']
+                ),
+            ]
+        )
+
         policydoc_crhelper = aws_iam.PolicyDocument(
             statements=[
                 aws_iam.PolicyStatement(
@@ -628,11 +638,10 @@ class MyAesSiemStack(cdk.Stack):
             role_name='aes-siem-deploy-role-for-lambda',
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
-                    'AmazonOpenSearchServiceFullAccess'),
-                aws_iam.ManagedPolicy.from_aws_managed_policy_name(
                     'service-role/AWSLambdaBasicExecutionRole'),
             ],
             inline_policies={
+                'opensearch_deployment': opensearch_deployment_policy,
                 'assume_snapshotrole': policydoc_assume_snapshotrole,
                 's3access': policydoc_snapshot,
                 'cwl_loggroup': policydoc_create_loggroup,
@@ -1094,7 +1103,7 @@ class MyAesSiemStack(cdk.Stack):
             lambda_deploy_es.add_environment(
                 'security_group_id', sg_vpc_aes_siem.security_group_id)
 
-        # execute lambda_deploy_es to deploy Amaozon ES Domain
+        # execute lambda_deploy_es to deploy Amaozon OpenSearch Service Domain
         aes_domain = aws_cloudformation.CfnCustomResource(
             self, 'AesSiemDomainDeployedR2',
             service_token=lambda_deploy_es.function_arn,)
@@ -1409,9 +1418,9 @@ class MyAesSiemStack(cdk.Stack):
             prefix='IOC/tmp/'
         )
 
-        # ES Snapshot
+        # OpenSearch Doamin Snapshot
         bucket_policy_snapshot = aws_iam.PolicyStatement(
-            sid='Allow ES to store snapshot',
+            sid='Allow OpenSearch Service to store snapshot',
             principals=[aes_siem_snapshot_role],
             actions=['s3:PutObject', 's3:GetObject', 's3:DeleteObject'],
             resources=[s3_snapshot.bucket_arn + '/*'],)
