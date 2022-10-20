@@ -170,7 +170,7 @@ To avoid unnecessary invocation of es-loader, throttle es-loader under the follo
   * The OpenSearch cluster is running out of storage space. More free space is needed for recovery. To learn more, see [Lack of available storage space](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/handling-errors.html#handling-errors-watermark).
 
 If you want to resume loading logs, set the reserved concurrency of the Lambda function `aes-siem-es-loader` back to 10 from the AWS Management Console or AWS CLI.
-You can also load messages from the dead-letter queue (aes-siem-dlq) by referring to [Loading data from Dead SQS Dead Letter Queur](docs/configure_siem.md#loading-data-from-dead-sqs-dead-letter-queur).
+You can also load messages from the dead-letter queue (aes-siem-dlq) by referring to [Loading data from SQS Dead Letter Queue](docs/configure_siem.md#loading-data-from-sqs-dead-letter-queue).
 
 ## AWS resources created by the CloudFormation template
 

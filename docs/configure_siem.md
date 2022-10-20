@@ -11,7 +11,7 @@
 * [Loading Non-AWS services logs](#loading-non-aws-services-logs)
 * [Near-real-time loading from other S3 buckets](#near-real-time-loading-from-other-s3-buckets)
 * [Loading past data stored in the S3 bucket](#loading-past-data-stored-in-the-s3-bucket)
-* [Loading data from Dead SQS Dead Letter Queur](#loading-data-from-dead-sqs-dead-letter-queur)
+* [Loading data from SQS Dead Letter Queue](#loading-data-from-sqs-dead-letter-queue)
 * [Monitoring](#monitoring)
 * [Creating a CloudFormation template](#creating-a-cloudformation-template)
 
@@ -660,7 +660,7 @@ You can batch load logs stored in the S3 bucket into OpenSearch Service. Normall
 
 1. After the loading succeeds, delete the S3 object list(s) you created as well as the log files generated
 
-## Loading data from Dead SQS Dead Letter Queur
+## Loading data from SQS Dead Letter Queue
 
 Ingest messages from SQS's dead-letter queue for SIEM (aes-siem-dlq). (The substance is the log on the S3 bucket). We have two methods, one by reredriving the DLQ and another by processing on the EC2 instance.
 
