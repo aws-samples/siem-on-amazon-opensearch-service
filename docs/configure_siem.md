@@ -394,6 +394,8 @@ Create a zip file and register it to the Lambda layer and you're done
 
 By changing the resource policy of the S3 bucket and notification method, logs from buckets in the same account and in the same region can be loaded into OpenSearch Service.
 
+Follow the Common configuration. Then select one of the following notification methods from "Amazon S3 Event Notifications" etc.
+
 **Do not change the policy of AWS resources created by CDK/CloudFormation. Overwritten by the default policy on SIEM update.**
 
 ### Common configuration
