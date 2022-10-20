@@ -662,9 +662,9 @@ You can batch load logs stored in the S3 bucket into OpenSearch Service. Normall
 
 ## Loading data from Dead SQS Dead Letter Queur
 
-Ingest messages from SQS's dead-letter queue for SIEM (aes-siem-dlq). (The substance is the log on the S3 bucket). We have two methods, one by reredriving the DQL and another by processing on the EC2 instance.
+Ingest messages from SQS's dead-letter queue for SIEM (aes-siem-dlq). (The substance is the log on the S3 bucket). We have two methods, one by reredriving the DLQ and another by processing on the EC2 instance.
 
-### Loading with DQL redrive
+### Loading with DLQ redrive
 
 1. Navigate to SQS console
 1. Select [**aes-siem-dlq**]
