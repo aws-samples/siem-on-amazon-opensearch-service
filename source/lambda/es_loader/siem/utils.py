@@ -28,9 +28,11 @@ logger = Logger(child=True)
 
 class AutoRefreshableSession:
     def __init__(self, cross_account_assume_role,
-                 cross_account_role_session_name):
+                 cross_account_role_session_name,
+                 assume_role_external_id=None):
         self.cross_account_assume_role = cross_account_assume_role
         self.cross_account_role_session_name = cross_account_role_session_name
+        self.assume_role_external_id = assume_role_external_id
         self.long_running_session = None
         self.create_auto_refreshable_session()
 
@@ -40,6 +42,7 @@ class AutoRefreshableSession:
             'RoleArn': self.cross_account_assume_role,
             'RoleSessionName': self.cross_account_role_session_name,
             'DurationSeconds': 3600,
+            'ExternalId': self.assume_role_external_id
         }
         credentials = sts_client.assume_role(**params).get('Credentials')
         metadata = {
@@ -48,7 +51,7 @@ class AutoRefreshableSession:
             'token': credentials.get('SessionToken'),
             'expiry_time': credentials.get('Expiration').isoformat()
         }
-        logger.warning(f'Set new session: {metadata["access_key"]}')
+        logger.info(f'Set alternative session: {metadata["access_key"]}')
         return metadata
 
     def create_auto_refreshable_session(self):
@@ -456,13 +459,15 @@ def sqs_queue(queue_url):
 
 
 def get_s3_client_for_crosss_account(
-        config=None, role_arn=None, role_session_name=None):
+        config=None, role_arn=None, role_session_name=None,
+        assume_role_external_id=None):
     s3_client = None
     if role_arn and role_session_name:
         try:
             autorefresh_session = AutoRefreshableSession(
                 cross_account_assume_role=role_arn,
-                cross_account_role_session_name=role_session_name
+                cross_account_role_session_name=role_session_name,
+                assume_role_external_id=assume_role_external_id,
             ).get_session()
             s3_client = autorefresh_session.client('s3', config=config)
         except Exception:

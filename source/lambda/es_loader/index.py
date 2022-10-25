@@ -61,9 +61,11 @@ def extract_logfile_from_s3(record):
             else:
                 logger.warning("es-loader doesn't have valid credential to "
                                "access the S3 bucket")
-                raise Exception(f"Failed to download {s3key} from {s3bucket} "
+                raise Exception(f"Failed to download s3://{s3bucket}/{s3key} "
                                 "because of invalid credential")
-        logfile = siem.LogS3(record, logtype, logconfig, client, sqs_queue)
+
+        logfile = siem.LogS3(record, s3bucket, s3key, logtype, logconfig,
+                             client, sqs_queue)
     else:
         logger.warning(
             'Skipped because there is no S3 object. Invalid input data')
@@ -310,15 +312,15 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     return collected_metrics, error_reason_list, retry_needed
 
 
-def output_metrics(metrics, record=None, logfile=None, collected_metrics={}):
+def output_metrics(metrics, logfile=None, collected_metrics={}):
     if not os.environ.get('AWS_EXECUTION_ENV'):
         return
     total_output_size = collected_metrics['total_output_size']
     success_count = collected_metrics['success_count']
     error_count = collected_metrics['error_count']
     es_response_time = collected_metrics['es_response_time']
-    input_file_size = record['s3']['object'].get('size', 0)
-    s3_key = record['s3']['object']['key']
+    input_file_size = logfile.s3obj_size
+    s3_key = logfile.s3key
     duration = int(
         (time.perf_counter() - collected_metrics['start_time']) * 1000) + 10
     total_log_count = logfile.total_log_count
@@ -379,17 +381,20 @@ s3_session_config = utils.make_s3_session_config(etl_config)
 s3_client = boto3.client('s3', config=s3_session_config)
 sqs_queue = utils.sqs_queue(SQS_SPLITTED_LOGS_URL)
 
-control_tower_log_buckets = os.environ.get('CONTROL_TOWER_LOG_BUCKETS')
+control_tower_log_buckets = os.environ.get('CONTROL_TOWER_LOG_BUCKETS', '')
 control_tower_log_bucket_list = (
     control_tower_log_buckets.replace(',', ' ').split())
 control_tower_assume_role_arn = os.environ.get(
     'CONTROL_TOWER_ASSUME_ROLE_ARN')
 control_tower_role_session_name = os.environ.get(
     'CONTROL_TOWER_ROLE_SESSION_NAME')
+assume_role_external_id = os.environ.get(
+    'ASSUME_ROLE_EXTERNAL_ID')
 control_tower_s3_client = utils.get_s3_client_for_crosss_account(
     config=s3_session_config,
     role_arn=control_tower_assume_role_arn,
-    role_session_name=control_tower_role_session_name)
+    role_session_name=control_tower_role_session_name,
+    assume_role_external_id=assume_role_external_id)
 
 geodb_instance = geodb.GeoDB()
 ioc_instance = ioc.DB()
@@ -462,7 +467,7 @@ def process_record(record):
     # 作成したデータをESにPUTしてメトリクスを収集する
     (collected_metrics, error_reason_list, retry_needed) = (
         bulkloads_into_opensearch(es_entries, collected_metrics))
-    output_metrics(metrics, record=record, logfile=logfile,
+    output_metrics(metrics, logfile=logfile,
                    collected_metrics=collected_metrics)
     if logfile.error_logs_count > 0:
         collected_metrics['error_count'] += logfile.error_logs_count

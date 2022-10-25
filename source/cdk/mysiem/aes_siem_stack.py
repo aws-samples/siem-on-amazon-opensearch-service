@@ -273,12 +273,6 @@ class MyAesSiemStack(cdk.Stack):
                          'max is 10080 minutes ( = 7 days ).'),
             min_value=30, max_value=10080, default=720)
 
-        ct_log_account = cdk.CfnParameter(
-            self, 'ControlTowerLogAccount',
-            description=('(experimantal) Specify AWS account of log archive '
-                         'in Control Tower. eg) 123456789012'),
-            allowed_pattern=r'^([0-9]{12}|)$',
-            default='')
         ct_log_buckets = cdk.CfnParameter(
             self, 'ControlTowerLogBucketNameList',
             type='String',
@@ -296,6 +290,13 @@ class MyAesSiemStack(cdk.Stack):
                 'account. eg) arn:aws:iam::123456789012:role/'
                 'ControlTowerAssumeRoleForSiem'),
             allowed_pattern=r'^(arn:aws.*:iam::[0-9]{12}:role/.*|)$',
+            default='')
+        assume_role_external_id = cdk.CfnParameter(
+            self, 'AssumeRoleExternalId',
+            description=(
+                '(experimantal) Specify external ID to assume role for cross '
+                'account. eg) externalid123'),
+            allowed_pattern=r'^([0-9a-zA-Z]*|)$',
             default='')
 
         # Pretfify parameters
@@ -315,9 +316,9 @@ class MyAesSiemStack(cdk.Stack):
                                     ioc_download_interval.logical_id]},
                     {'Label': {'default': ('(Experimental) Control Tower Log '
                                            'Ingestion (Optional)')},
-                     'Parameters': [ct_log_account.logical_id,
-                                    ct_log_buckets.logical_id,
-                                    ct_assume_role_arn.logical_id, ]}
+                     'Parameters': [ct_log_buckets.logical_id,
+                                    ct_assume_role_arn.logical_id,
+                                    assume_role_external_id.logical_id, ]}
                 ]
             }
         }
@@ -327,6 +328,8 @@ class MyAesSiemStack(cdk.Stack):
         s3bucket_name_geo = f'{bucket}-geo'
         s3bucket_name_log = f'{bucket}-log'
         s3bucket_name_snapshot = f'{bucket}-snapshot'
+        cfn_aws_account = cdk.Fn.select(
+            4, cdk.Fn.split(':', ct_assume_role_arn.value_as_string))
 
         # organizations / multiaccount
         org_id = self.node.try_get_context('organizations').get('org_id')
@@ -1110,6 +1113,8 @@ class MyAesSiemStack(cdk.Stack):
         aes_domain.add_override('Properties.ConfigVersion', __version__)
         aes_domain.node.add_dependency(aes_siem_deploy_role_for_lambda)
 
+        lambda_es_loader.add_environment(
+            'ASSUME_ROLE_EXTERNAL_ID', assume_role_external_id.value_as_string)
         es_endpoint = aes_domain.get_att('es_endpoint').to_string()
         lambda_es_loader.add_environment('ES_ENDPOINT', es_endpoint)
         lambda_es_loader.add_environment(
@@ -1247,11 +1252,11 @@ class MyAesSiemStack(cdk.Stack):
         kms_aes_siem.grant_encrypt(lambda_metrics_exporter)
 
         is_control_tower_access = cdk.CfnCondition(
-            self, "IsCrossAccountAcccess",
+            self, "IsControlTowerAcccess",
             expression=cdk.Fn.condition_and(
                 cdk.Fn.condition_not(
                     cdk.Fn.condition_equals(
-                        ct_log_account.value_as_string, '')),
+                        assume_role_external_id.value_as_string, '')),
                 cdk.Fn.condition_not(
                     cdk.Fn.condition_equals(
                         ct_log_buckets.value_as_string, '')),
@@ -1278,7 +1283,7 @@ class MyAesSiemStack(cdk.Stack):
                              "logs:CreateLogStream",
                              "logs:PutLogEvents"],
                     resources=[(f'arn:aws:sqs:*:'
-                                f'{ct_log_account.value_as_string}:*')],
+                                f'{cfn_aws_account}:*')],
                 )
             ]
         )

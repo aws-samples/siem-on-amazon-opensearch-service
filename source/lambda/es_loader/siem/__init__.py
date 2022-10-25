@@ -14,7 +14,6 @@ import hashlib
 import io
 import json
 import re
-import urllib.parse
 import zipfile
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
@@ -42,19 +41,20 @@ class LogS3:
     圧縮の有無の判断、ログ種類を判断、フォーマットの判断をして
     最後に、生ファイルを個々のログに分割してリスト型として返す
     """
-    def __init__(self, record, logtype, logconfig, s3_client, sqs_queue):
+    def __init__(self, record, s3bucket, s3key, logtype, logconfig, s3_client,
+                 sqs_queue):
         self.error_logs_count = 0
         self.record = record
         self.logtype = logtype
         self.logconfig = logconfig
         self.s3_client = s3_client
         self.sqs_queue = sqs_queue
+        self.s3bucket = s3bucket
+        self.s3key = s3key
+        self.s3obj_size = self.s3obj_size
 
         self.loggroup = None
         self.logstream = None
-        self.s3bucket = self.record['s3']['bucket']['name']
-        self.s3key = urllib.parse.unquote_plus(
-            self.record['s3']['object']['key'], encoding='utf-8')
 
         logger.info(self.startmsg())
         if self.is_ignored:
@@ -170,6 +170,14 @@ class LogS3:
             return int(self.record['siem']['end_number'])
         except KeyError:
             return 0
+
+    @cached_property
+    def s3obj_size(self):
+        if 's3' in self.record:
+            _s3obj_size = self.record['s3']['object'].get('size', 0)
+        elif 'detail' in self.record:
+            _s3obj_size = self.record['detail']['object'].get('size', 0)
+        return _s3obj_size
 
     ###########################################################################
     # Method/Function
@@ -376,10 +384,10 @@ class LogS3:
         try:
             obj = self.s3_client.get_object(
                 Bucket=self.s3bucket, Key=self.s3key)
-        except Exception:
-            msg = f'Failed to download S3 object from {self.s3key}'
+        except Exception as err:
+            msg = f'Failed to download s3://{self.s3bucket}/{self.s3key}'
             logger.exception(msg)
-            raise Exception(msg) from None
+            raise Exception(f'{msg}. {err}') from None
         try:
             s3size = int(
                 obj['ResponseMetadata']['HTTPHeaders']['content-length'])
