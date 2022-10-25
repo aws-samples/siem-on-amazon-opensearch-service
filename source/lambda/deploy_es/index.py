@@ -519,11 +519,11 @@ def set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth):
         logger.error('There is no valid authentication')
         return False
     if response.status_code in (200, ):
-        logger.info('Authentication success to access kibana')
+        logger.info('Authentication success to access OpenSearch Dashboards')
         return response.cookies
     else:
         print(response.cookies)
-        logger.error("Authentication failed to access kibana")
+        logger.error("Authentication failed to access OpenSearch Dashboards")
         logger.error(response.reason)
         return False
 

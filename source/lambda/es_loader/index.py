@@ -54,6 +54,7 @@ def extract_logfile_from_s3(record):
         logtype = utils.get_logtype_from_s3key(s3key, logtype_s3key_dict)
         logconfig = create_logconfig(logtype)
         client = s3_client
+
         if s3bucket in control_tower_log_bucket_list:
             if control_tower_s3_client:
                 client = control_tower_s3_client
@@ -259,10 +260,10 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
             total_output_size += output_size
             try:
                 results = es_conn.bulk(putdata_list, filter_path=filter_path)
-            except (AuthorizationException, AuthenticationException):
+            except (AuthorizationException, AuthenticationException) as err:
                 logger.warning(
-                    'AuthorizationException is raised due to SigV4 issue. '
-                    'http_compress has been disabled')
+                    'AuthN or AuthZ Exception raised due to SigV4 issue. '
+                    f'http_compress has been disabled. {err}')
                 es_conn = utils.create_es_conn(
                     awsauth, ES_HOSTNAME, http_compress=False)
                 results = es_conn.bulk(putdata_list, filter_path=filter_path)
@@ -282,10 +283,10 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
         total_output_size += output_size
         try:
             results = es_conn.bulk(putdata_list, filter_path=filter_path)
-        except (AuthorizationException, AuthenticationException):
+        except (AuthorizationException, AuthenticationException) as err:
             logger.warning(
-                'AuthorizationException is raised due to SigV4 issue. '
-                'http_compress has been disabled')
+                'AuthN or AuthZ Exception raised due to SigV4 issue. '
+                f'http_compress has been disabled. {err}')
             es_conn = utils.create_es_conn(
                 awsauth, ES_HOSTNAME, http_compress=False)
             results = es_conn.bulk(putdata_list, filter_path=filter_path)

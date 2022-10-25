@@ -580,7 +580,7 @@ class MyAesSiemStack(cdk.Stack):
             statements=[
                 aws_iam.PolicyStatement(
                     actions=['es:CreateDomain', 'es:DescribeDomain',
-                             'es:UpdateDomainConfig'],
+                             'es:ESHttp*', 'es:UpdateDomainConfig'],
                     resources=['*']
                 ),
             ]
