@@ -11,7 +11,7 @@
 * [Loading Non-AWS services logs](#loading-non-aws-services-logs)
 * [Near-real-time loading from other S3 buckets](#near-real-time-loading-from-other-s3-buckets)
 * [Loading past data stored in the S3 bucket](#loading-past-data-stored-in-the-s3-bucket)
-* [Loading data from Dead SQS Dead Letter Queur](#loading-data-from-dead-sqs-dead-letter-queur)
+* [Loading data from SQS Dead Letter Queue](#loading-data-from-sqs-dead-letter-queue)
 * [Monitoring](#monitoring)
 * [Creating a CloudFormation template](#creating-a-cloudformation-template)
 
@@ -394,6 +394,8 @@ Create a zip file and register it to the Lambda layer and you're done
 
 By changing the resource policy of the S3 bucket and notification method, logs from buckets in the same account and in the same region can be loaded into OpenSearch Service.
 
+Follow the Common configuration. Then select one of the following notification methods from "Amazon S3 Event Notifications" etc.
+
 **Do not change the policy of AWS resources created by CDK/CloudFormation. Overwritten by the default policy on SIEM update.**
 
 ### Common configuration
@@ -660,11 +662,11 @@ You can batch load logs stored in the S3 bucket into OpenSearch Service. Normall
 
 1. After the loading succeeds, delete the S3 object list(s) you created as well as the log files generated
 
-## Loading data from Dead SQS Dead Letter Queur
+## Loading data from SQS Dead Letter Queue
 
-Ingest messages from SQS's dead-letter queue for SIEM (aes-siem-dlq). (The substance is the log on the S3 bucket). We have two methods, one by reredriving the DQL and another by processing on the EC2 instance.
+Ingest messages from SQS's dead-letter queue for SIEM (aes-siem-dlq). (The substance is the log on the S3 bucket). We have two methods, one by reredriving the DLQ and another by processing on the EC2 instance.
 
-### Loading with DQL redrive
+### Loading with DLQ redrive
 
 1. Navigate to SQS console
 1. Select [**aes-siem-dlq**]
