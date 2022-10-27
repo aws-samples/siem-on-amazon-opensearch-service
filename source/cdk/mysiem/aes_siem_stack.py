@@ -826,6 +826,7 @@ class MyAesSiemStack(cdk.Stack):
             handler='lambda_function.lambda_handler',
             memory_size=128,
             timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo
             },
@@ -863,6 +864,7 @@ class MyAesSiemStack(cdk.Stack):
             handler='index.lambda_handler',
             memory_size=128,
             timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={
                 'ES_LOADER_FUNCTION_ARN': lambda_es_loader.function_arn,
                 'ES_LOADER_RESERVED_CONCURRENCY': (
@@ -891,6 +893,7 @@ class MyAesSiemStack(cdk.Stack):
             handler='index.lambda_handler',
             memory_size=320,
             timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={
                 's3bucket_name': s3bucket_name_geo,
                 'license_key': geoip_license_key.value_as_string,
@@ -919,6 +922,7 @@ class MyAesSiemStack(cdk.Stack):
             handler='lambda_function.plan',
             memory_size=128,
             timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo,
                 'OTX_API_KEY': otx_api_key.value_as_string,
@@ -948,6 +952,7 @@ class MyAesSiemStack(cdk.Stack):
             handler='lambda_function.download',
             memory_size=256,
             timeout=cdk.Duration.seconds(900),
+            reserved_concurrent_executions=1,
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo,
                 'OTX_API_KEY': otx_api_key.value_as_string,
@@ -1051,6 +1056,7 @@ class MyAesSiemStack(cdk.Stack):
             handler='index.lambda_handler',
             memory_size=256,
             timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={'LOG_BUCKET': s3bucket_name_log,
                          'PERIOD_HOUR': str(INDEX_METRICS_PERIOD_HOUR)},
             current_version_options=aws_lambda.VersionOptions(
@@ -1080,6 +1086,7 @@ class MyAesSiemStack(cdk.Stack):
             handler='index.aes_domain_handler',
             memory_size=128,
             timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={
                 'accountid': cdk.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
@@ -1138,6 +1145,7 @@ class MyAesSiemStack(cdk.Stack):
             handler='index.aes_config_handler',
             memory_size=128,
             timeout=cdk.Duration.seconds(600),
+            reserved_concurrent_executions=1,
             environment={
                 'accountid': cdk.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
