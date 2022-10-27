@@ -25,10 +25,10 @@ echo "Install Node.js"
 curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 # shellcheck disable=SC1090
 source ~/.nvm/nvm.sh
-nvm install --lts node
-nvm alias default lts/*
+nvm install 16
+nvm alias default 16
 node -e "console.log('Running Node.js ' + process.version)"
-nvm use lts/*
+nvm use 16
 echo "Install CDK"
 echo "npm install -g aws-cdk@${cdk_version}"
 npm install -g aws-cdk@"${cdk_version}"
