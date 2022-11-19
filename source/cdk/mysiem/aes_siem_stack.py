@@ -534,6 +534,7 @@ class MyAesSiemStack(cdk.Stack):
             self, 'S3BucketForLog', block_public_access=block_pub,
             bucket_name=s3bucket_name_log, versioned=True,
             encryption=aws_s3.BucketEncryption.S3_MANAGED,
+            enforce_ssl=True,
             # removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
@@ -1352,81 +1353,77 @@ class MyAesSiemStack(cdk.Stack):
         ######################################################################
         # bucket policy
         ######################################################################
-        s3_awspath = s3_log.bucket_arn + '/AWSLogs/' + cdk.Aws.ACCOUNT_ID
-        bucket_policy_common1 = aws_iam.PolicyStatement(
-            sid='ELB Policy',
-            principals=[aws_iam.AccountPrincipal(
-                account_id=region_mapping.find_in_map(
-                    cdk.Aws.REGION, 'ElbV2AccountId'))],
-            actions=['s3:PutObject'], resources=[s3_awspath + '/*'],)
-        # NLB / ALB / R53resolver / VPC Flow Logs
-        bucket_policy_elb1 = aws_iam.PolicyStatement(
-            sid='AWSLogDeliveryAclCheck For ALB NLB R53Resolver Flowlogs',
-            principals=[aws_iam.ServicePrincipal(
-                'delivery.logs.amazonaws.com')],
-            actions=['s3:GetBucketAcl', 's3:ListBucket'],
-            resources=[s3_log.bucket_arn],)
-        bucket_policy_elb2 = aws_iam.PolicyStatement(
-            sid='AWSLogDeliveryWrite For ALB NLB R53Resolver Flowlogs',
-            principals=[aws_iam.ServicePrincipal(
-                'delivery.logs.amazonaws.com')],
-            actions=['s3:PutObject'], resources=[s3_awspath + '/*'],
-            conditions={
-                'StringEquals': {'s3:x-amz-acl': 'bucket-owner-full-control'}})
-        s3_log.add_to_resource_policy(bucket_policy_common1)
-        s3_log.add_to_resource_policy(bucket_policy_elb1)
-        s3_log.add_to_resource_policy(bucket_policy_elb2)
+        # ALB, CLB
+        s3_awspath = f'{s3_log.bucket_arn}/AWSLogs/{cdk.Aws.ACCOUNT_ID}'
+        s3_awspath_w_prefix = (
+            f'{s3_log.bucket_arn}/*/AWSLogs/{cdk.Aws.ACCOUNT_ID}')
+        bucket_policy_alb1 = aws_iam.PolicyStatement(
+            sid='ALB,CLB Policy',
+            principals=[
+                aws_iam.AccountPrincipal(
+                    account_id=region_mapping.find_in_map(
+                        cdk.Aws.REGION, 'ElbV2AccountId')),
+            ],
+            actions=['s3:PutObject'],
+            resources=[f'{s3_awspath}/*', f'{s3_awspath_w_prefix}/*'],
+        )
+        s3_log.add_to_resource_policy(bucket_policy_alb1)
 
-        # CloudTrail
-        bucket_policy_trail1 = aws_iam.PolicyStatement(
-            sid='AWSLogDeliveryAclCheck For Cloudtrail',
-            principals=[aws_iam.ServicePrincipal('cloudtrail.amazonaws.com')],
-            actions=['s3:GetBucketAcl'], resources=[s3_log.bucket_arn],)
-        bucket_policy_trail2 = aws_iam.PolicyStatement(
-            sid='AWSLogDeliveryWrite For CloudTrail',
-            principals=[aws_iam.ServicePrincipal('cloudtrail.amazonaws.com')],
-            actions=['s3:PutObject'], resources=[s3_awspath + '/*'],
+        # NLB / R53resolver / VPC Flow Logs
+        bucket_policy_logdeliver1 = aws_iam.PolicyStatement(
+            sid='AWSLogDelivery For NLB,R53Resolver,Flowlogs',
+            principals=[aws_iam.ServicePrincipal(
+                'delivery.logs.amazonaws.com')],
+            actions=['s3:GetBucketAcl', 's3:ListBucket', 's3:PutObject'],
+            resources=[s3_log.bucket_arn, f'{s3_log.bucket_arn}/*'],
             conditions={
-                'StringEquals': {'s3:x-amz-acl': 'bucket-owner-full-control'}})
+                "StringEquals": {"aws:SourceAccount": [cdk.Aws.ACCOUNT_ID]}
+            }
+        )
+        s3_log.add_to_resource_policy(bucket_policy_logdeliver1)
+
+        # CloudTrail / Config
+        bucket_policy_trail1 = aws_iam.PolicyStatement(
+            sid='AWSLogDeliveryAclCheck For Cloudtrail, Config',
+            principals=[
+                aws_iam.ServicePrincipal('cloudtrail.amazonaws.com'),
+                aws_iam.ServicePrincipal('config.amazonaws.com'),
+            ],
+            actions=['s3:GetBucketAcl', 's3:ListBucket'],
+            resources=[s3_log.bucket_arn],
+        )
+        bucket_policy_trail2 = aws_iam.PolicyStatement(
+            sid='AWSLogDeliveryWrite For CloudTrail, Config',
+            principals=[
+                aws_iam.ServicePrincipal('cloudtrail.amazonaws.com'),
+                aws_iam.ServicePrincipal('config.amazonaws.com')],
+            actions=['s3:PutObject'],
+            resources=[f'{s3_log.bucket_arn}/*/*'],
+            conditions={
+                'StringEquals': {
+                    "aws:SourceAccount": [cdk.Aws.ACCOUNT_ID],
+                }
+            }
+        )
         s3_log.add_to_resource_policy(bucket_policy_trail1)
         s3_log.add_to_resource_policy(bucket_policy_trail2)
 
         # GuardDuty
         bucket_policy_gd1 = aws_iam.PolicyStatement(
-            sid='Allow GuardDuty to use the getBucketLocation operation',
+            sid='Allow GuardDuty to put objects',
             principals=[aws_iam.ServicePrincipal('guardduty.amazonaws.com')],
-            actions=['s3:GetBucketLocation'], resources=[s3_log.bucket_arn],)
-        bucket_policy_gd2 = aws_iam.PolicyStatement(
-            sid='Allow GuardDuty to upload objects to the bucket',
-            principals=[aws_iam.ServicePrincipal('guardduty.amazonaws.com')],
-            actions=['s3:PutObject'], resources=[s3_log.bucket_arn + '/*'],)
-        bucket_policy_gd5 = aws_iam.PolicyStatement(
-            sid='Deny non-HTTPS access', effect=aws_iam.Effect.DENY,
-            actions=['s3:*'], resources=[s3_log.bucket_arn + '/*'],
-            conditions={'Bool': {'aws:SecureTransport': 'false'}})
-        bucket_policy_gd5.add_any_principal()
-        s3_log.add_to_resource_policy(bucket_policy_gd1)
-        s3_log.add_to_resource_policy(bucket_policy_gd2)
-        s3_log.add_to_resource_policy(bucket_policy_gd5)
-
-        # Config
-        bucket_policy_config1 = aws_iam.PolicyStatement(
-            sid='AWSConfig BucketPermissionsCheck and BucketExistenceCheck',
-            principals=[aws_iam.ServicePrincipal('config.amazonaws.com')],
-            actions=['s3:GetBucketAcl', 's3:ListBucket'],
-            resources=[s3_log.bucket_arn],)
-        bucket_policy_config2 = aws_iam.PolicyStatement(
-            sid='AWSConfigBucketDelivery',
-            principals=[aws_iam.ServicePrincipal('config.amazonaws.com')],
-            actions=['s3:PutObject'], resources=[s3_awspath + '/Config/*'],
+            actions=['s3:GetBucketLocation', 's3:PutObject'],
+            resources=[s3_log.bucket_arn, f'{s3_log.bucket_arn}/*'],
             conditions={
-                'StringEquals': {'s3:x-amz-acl': 'bucket-owner-full-control'}})
-        s3_log.add_to_resource_policy(bucket_policy_config1)
-        s3_log.add_to_resource_policy(bucket_policy_config2)
+                'StringEquals': {"aws:SourceAccount": [cdk.Aws.ACCOUNT_ID]}
+            }
+        )
+        s3_log.add_to_resource_policy(bucket_policy_gd1)
 
+        # for IOC
         s3_geo.add_lifecycle_rule(
             enabled=True,
-            expiration=cdk.Duration.days(7),
+            expiration=cdk.Duration.days(8),
             id="delete-ioc-temp-files",
             prefix='IOC/tmp/'
         )
@@ -1474,31 +1471,66 @@ class MyAesSiemStack(cdk.Stack):
             # Buckdet Policy for multiaccount / organizaitons
             ##################################################################
             s3_log_bucket_arn = f'arn:{PARTITION}:s3:::{s3bucket_name_log}'
+            all_aws_accounts = self.list_without_none(
+                org_mgmt_id, org_member_ids, no_org_ids)
 
-            # for CloudTrail
-            s3_mulpaths = self.make_resource_list(
-                path=f'{s3_log_bucket_arn}/AWSLogs/', tail='/*',
-                keys=self.list_without_none(org_id, org_mgmt_id, no_org_ids))
-            bucket_policy_org_trail = aws_iam.PolicyStatement(
-                sid='AWSCloudTrailWrite for Multiaccounts / Organizations',
+            # for CloudTrail / Config
+            if org_id:
+                bucket_policy_org_trail1 = aws_iam.PolicyStatement(
+                    sid='AWSCloudTrail, Config Write for Organizations',
+                    principals=[
+                        aws_iam.ServicePrincipal('cloudtrail.amazonaws.com'),
+                        aws_iam.ServicePrincipal('config.amazonaws.com'),
+                    ],
+                    actions=['s3:PutObject'],
+                    resources=[
+                        f'{s3_log_bucket_arn}/{org_id}/AWSLogs/*/*',
+                        f'{s3_log_bucket_arn}/*/{org_id}/AWSLogs/*/*',
+                    ],
+                )
+                s3_log.add_to_resource_policy(bucket_policy_org_trail1)
+            if len(no_org_ids) > 0:
+                bucket_policy_org_trail2 = aws_iam.PolicyStatement(
+                    sid='AWSCloudTrailWrite, Config for not org Multiaccounts',
+                    principals=[
+                        aws_iam.ServicePrincipal('cloudtrail.amazonaws.com'),
+                        aws_iam.ServicePrincipal('config.amazonaws.com'),
+                    ],
+                    actions=['s3:PutObject'],
+                    resources=[f'{s3_log_bucket_arn}/*/*'],
+                    conditions={
+                        'StringEquals': {"aws:SourceAccount": no_org_ids}
+                    }
+                )
+                s3_log.add_to_resource_policy(bucket_policy_org_trail2)
+
+            # for ALB
+            resouces_list = self.make_resource_prefix_list(
+                arn=s3_log_bucket_arn, tail='*', keys=all_aws_accounts)
+            bucket_policy_mul_alb1 = aws_iam.PolicyStatement(
+                sid='ALB,CLB multi Policy',
                 principals=[
-                    aws_iam.ServicePrincipal('cloudtrail.amazonaws.com')],
-                actions=['s3:PutObject'], resources=s3_mulpaths,
-                conditions={'StringEquals': {
-                    's3:x-amz-acl': 'bucket-owner-full-control'}})
-            s3_log.add_to_resource_policy(bucket_policy_org_trail)
+                    aws_iam.AccountPrincipal(
+                        account_id=region_mapping.find_in_map(
+                            cdk.Aws.REGION, 'ElbV2AccountId')),
+                ],
+                actions=['s3:PutObject'],
+                resources=resouces_list,
+            )
+            s3_log.add_to_resource_policy(bucket_policy_mul_alb1)
 
-            # config
-            s3_conf_multpaths = self.make_resource_list(
-                path=f'{s3_log_bucket_arn}/AWSLogs/', tail='/Config/*',
-                keys=self.list_without_none(org_id, org_mgmt_id, no_org_ids))
-            bucket_policy_mul_config2 = aws_iam.PolicyStatement(
-                sid='AWSConfigBucketDelivery',
-                principals=[aws_iam.ServicePrincipal('config.amazonaws.com')],
-                actions=['s3:PutObject'], resources=s3_conf_multpaths,
-                conditions={'StringEquals': {
-                    's3:x-amz-acl': 'bucket-owner-full-control'}})
-            s3_log.add_to_resource_policy(bucket_policy_mul_config2)
+            # NLB / R53resolver / VPC Flow Logs
+            bucket_policy_mul_logdeliver1 = aws_iam.PolicyStatement(
+                sid='AWSLogDeliveryAclCheck For mul NLB R53Resolver Flowlogs',
+                principals=[aws_iam.ServicePrincipal(
+                    'delivery.logs.amazonaws.com')],
+                actions=['s3:GetBucketAcl', 's3:ListBucket', 's3:PutObject'],
+                resources=[s3_log.bucket_arn, f'{s3_log.bucket_arn}/*'],
+                conditions={
+                    "StringEquals": {"aws:SourceAccount": all_aws_accounts}
+                }
+            )
+            s3_log.add_to_resource_policy(bucket_policy_mul_logdeliver1)
 
             # for replication
             bucket_policy_rep1 = aws_iam.PolicyStatement(
@@ -1597,10 +1629,15 @@ class MyAesSiemStack(cdk.Stack):
         for arg in args:
             if not arg:
                 pass
-            elif isinstance(arg, str):
+            elif isinstance(arg, str) and arg:
                 list_args.append(arg)
-            elif isinstance(arg, list):
+            elif isinstance(arg, list) and len(arg) > 0:
                 list_args.extend(arg)
+        list_args = list(set(list_args))
+        try:
+            list_args.remove('')
+        except Exception:
+            pass
         return list_args
 
     def make_account_principals(self, *args):
@@ -1616,6 +1653,14 @@ class MyAesSiemStack(cdk.Stack):
         multi_s3path = []
         for aws_id in sorted(set(aws_ids)):
             multi_s3path.append(path + aws_id + tail)
+        return multi_s3path
+
+    def make_resource_prefix_list(self, arn=None, tail=None, keys=[]):
+        aws_ids = self.list_without_none(keys)
+        multi_s3path = []
+        for aws_id in sorted(set(aws_ids)):
+            multi_s3path.append(f'{arn}/AWSLogs/{aws_id}/{tail}')
+            multi_s3path.append(f'{arn}/*/AWSLogs/{aws_id}/{tail}')
         return multi_s3path
 
     def create_cloudwatch_dashboard(
