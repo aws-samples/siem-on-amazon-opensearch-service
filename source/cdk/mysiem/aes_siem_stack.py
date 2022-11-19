@@ -196,11 +196,17 @@ class MyAesSiemStack(cdk.Stack):
         ES_LOADER_TIMEOUT = 600
         PARTITION = region_info.Fact.find(
             self.region, region_info.FactName.PARTITION)
+        if not PARTITION:
+            PARTITION = 'aws'
         ######################################################################
         # REGION mapping / ELB & Lambda Arch
         ######################################################################
         elb_id_temp = region_info.FactName.ELBV2_ACCOUNT
         elb_map_temp = region_info.RegionInfo.region_map(elb_id_temp)
+        no_alb_log_account_list = [
+            'eu-central-2', 'eu-south-2', 'me-central-1']
+        for acct in no_alb_log_account_list:
+            elb_map_temp[acct] = '999999999999'
         region_dict = {}
         # https://aws-data-wrangler.readthedocs.io/en/stable/layers.html
         for region in elb_map_temp:
@@ -218,6 +224,20 @@ class MyAesSiemStack(cdk.Stack):
                 region_dict[region]['LambdaArch'] = x86
         region_mapping = cdk.CfnMapping(
             scope=self, id='RegionMap', mapping=region_dict)
+
+        has_lambda_architectures_prop = cdk.CfnCondition(
+            self, "HasLambdaArchitecturesProp",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_or(
+                    cdk.Fn.condition_equals(
+                        cdk.Aws.REGION, 'eu-central-2'),
+                    cdk.Fn.condition_equals(
+                        cdk.Aws.REGION, 'eu-south-2'),
+                    cdk.Fn.condition_equals(
+                        cdk.Aws.REGION, 'me-central-1'),
+                )
+            )
+        )
 
         ######################################################################
         # get params
@@ -736,7 +756,7 @@ class MyAesSiemStack(cdk.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / es-loader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             # code=aws_lambda.Code.from_asset('../lambda/es_loader.zip'),
             code=aws_lambda.Code.from_asset('../lambda/es_loader'),
             handler='index.lambda_handler',
@@ -765,8 +785,12 @@ class MyAesSiemStack(cdk.Stack):
         if not same_lambda_func_version(function_name):
             lambda_es_loader.current_version
         lambda_es_loader.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                cdk.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
 
         # send only
@@ -822,7 +846,7 @@ class MyAesSiemStack(cdk.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / add-pandas-layer',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/add_pandas_layer'),
             handler='lambda_function.lambda_handler',
             memory_size=128,
@@ -840,8 +864,12 @@ class MyAesSiemStack(cdk.Stack):
         if not same_lambda_func_version(function_name):
             lambda_add_pandas_layer.current_version
         lambda_add_pandas_layer.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                cdk.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         # add pandas layer by execute cfn custom resource
         excec_lambda_add_layer = aws_cloudformation.CfnCustomResource(
@@ -860,7 +888,7 @@ class MyAesSiemStack(cdk.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / es-loader-stopper',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/es_loader_stopper'),
             handler='index.lambda_handler',
             memory_size=128,
@@ -879,17 +907,20 @@ class MyAesSiemStack(cdk.Stack):
         if not same_lambda_func_version(function_name):
             lambda_es_loader_stopper.current_version
         lambda_es_loader_stopper.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                cdk.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
-
         function_name = 'aes-siem-geoip-downloader'
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',
             function_name=function_name,
             description=f'{SOLUTION_NAME} / geoip-downloader',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
             memory_size=320,
@@ -907,10 +938,13 @@ class MyAesSiemStack(cdk.Stack):
         if not same_lambda_func_version(function_name):
             lambda_geo.current_version
         lambda_geo.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                cdk.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
-
         # IOC StepFunctions
         function_name = 'aes-siem-ioc-plan'
         lambda_ioc_plan = aws_lambda.Function(
@@ -918,7 +952,7 @@ class MyAesSiemStack(cdk.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / ioc-plan',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.plan',
             memory_size=128,
@@ -939,8 +973,12 @@ class MyAesSiemStack(cdk.Stack):
         if not same_lambda_func_version(function_name):
             lambda_ioc_plan.current_version
         lambda_ioc_plan.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                cdk.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         function_name = 'aes-siem-ioc-download'
         lambda_ioc_download = aws_lambda.Function(
@@ -948,7 +986,7 @@ class MyAesSiemStack(cdk.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / ioc-download',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.download',
             memory_size=256,
@@ -967,8 +1005,12 @@ class MyAesSiemStack(cdk.Stack):
         if not same_lambda_func_version(function_name):
             lambda_ioc_download.current_version
         lambda_ioc_download.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                cdk.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         function_name = 'aes-siem-ioc-createdb'
         lambda_ioc_createdb = aws_lambda.Function(
@@ -976,7 +1018,7 @@ class MyAesSiemStack(cdk.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / ioc-createdb',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.createdb',
             memory_size=1024,
@@ -994,8 +1036,12 @@ class MyAesSiemStack(cdk.Stack):
             lambda_ioc_createdb.current_version
 
         lambda_ioc_createdb.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                cdk.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         task_ioc_plan = aws_stepfunctions_tasks.LambdaInvoke(
             self, "IocPlan",
@@ -1051,7 +1097,7 @@ class MyAesSiemStack(cdk.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / index-metrics-exporter',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset(
                 '../lambda/index_metrics_exporter'),
             handler='index.lambda_handler',
@@ -1068,8 +1114,12 @@ class MyAesSiemStack(cdk.Stack):
         if not same_lambda_func_version(function_name):
             lambda_metrics_exporter.current_version
         lambda_metrics_exporter.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                cdk.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
 
         ######################################################################
@@ -1081,7 +1131,7 @@ class MyAesSiemStack(cdk.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / opensearch domain deployment',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             # code=aws_lambda.Code.from_asset('../lambda/deploy_es.zip'),
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_domain_handler',
@@ -1103,8 +1153,12 @@ class MyAesSiemStack(cdk.Stack):
         if not same_lambda_func_version(function_name):
             lambda_deploy_es.current_version
         lambda_deploy_es.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                cdk.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         lambda_deploy_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
@@ -1141,7 +1195,7 @@ class MyAesSiemStack(cdk.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / opensearch configuration',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
             memory_size=128,
@@ -1164,8 +1218,12 @@ class MyAesSiemStack(cdk.Stack):
         if not same_lambda_func_version(function_name):
             lambda_configure_es.current_version
         lambda_configure_es.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                cdk.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         lambda_configure_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
@@ -1367,7 +1425,22 @@ class MyAesSiemStack(cdk.Stack):
             actions=['s3:PutObject'],
             resources=[f'{s3_awspath}/*', f'{s3_awspath_w_prefix}/*'],
         )
-        s3_log.add_to_resource_policy(bucket_policy_alb1)
+        bucket_policy_alb2 = aws_iam.PolicyStatement(
+            sid='Policy For no ALB account region',
+            principals=[
+                aws_iam.ServicePrincipal(
+                    'logdelivery.elasticloadbalancing.amazonaws.com')
+            ],
+            actions=['s3:PutObject'],
+            resources=[f'{s3_log.bucket_arn}/*'],
+            conditions={
+                "StringEquals": {"aws:SourceAccount": [cdk.Aws.ACCOUNT_ID]}
+            }
+        )
+        if self.region not in no_alb_log_account_list:
+            s3_log.add_to_resource_policy(bucket_policy_alb1)
+        else:
+            s3_log.add_to_resource_policy(bucket_policy_alb2)
 
         # NLB / R53resolver / VPC Flow Logs
         bucket_policy_logdeliver1 = aws_iam.PolicyStatement(
@@ -1517,7 +1590,23 @@ class MyAesSiemStack(cdk.Stack):
                 actions=['s3:PutObject'],
                 resources=resouces_list,
             )
-            s3_log.add_to_resource_policy(bucket_policy_mul_alb1)
+            # for no ALB account
+            bucket_policy_mul_alb2 = aws_iam.PolicyStatement(
+                sid='Policy for no ALB account for multiaccount',
+                principals=[
+                    aws_iam.ServicePrincipal(
+                        'logdelivery.elasticloadbalancing.amazonaws.com')
+                ],
+                actions=['s3:PutObject'],
+                resources=[f'{s3_log.bucket_arn}/*'],
+                conditions={
+                    "StringEquals": {"aws:SourceAccount": all_aws_accounts}
+                }
+            )
+            if self.region not in no_alb_log_account_list:
+                s3_log.add_to_resource_policy(bucket_policy_mul_alb1)
+            else:
+                s3_log.add_to_resource_policy(bucket_policy_mul_alb2)
 
             # NLB / R53resolver / VPC Flow Logs
             bucket_policy_mul_logdeliver1 = aws_iam.PolicyStatement(
