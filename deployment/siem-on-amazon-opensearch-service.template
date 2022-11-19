@@ -1,4 +1,4 @@
-Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2
+Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -760,7 +760,7 @@ Resources:
           - LambdaArch
       DeadLetterConfig:
         TargetArn: !GetAtt 'AesSiemDlq1CD8439D.Arn'
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2 / es-loader
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / es-loader
       Environment:
         Variables:
           ASSUME_ROLE_EXTERNAL_ID: !Ref 'AssumeRoleExternalId'
@@ -783,11 +783,11 @@ Resources:
     DependsOn:
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
-  LambdaEsLoaderCurrentVersion9DFE69550ed01977ae8eb64e4325f07281230491:
+  LambdaEsLoaderCurrentVersion9DFE695551ec9855b85c71b49c68b3ee4e6c8cf6:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
-      Description: 2.8.1-beta.2
+      Description: 2.8.1-beta.3
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaEsLoaderSqsEventSourceaessiemAesSiemSqsSplitLogs506AFFA6A7D8B2E9:
@@ -867,34 +867,35 @@ Resources:
           - RegionMap
           - !Ref 'AWS::Region'
           - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2 / add-pandas-layer
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / add-pandas-layer
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
       FunctionName: aes-siem-add-pandas-layer
       Handler: lambda_function.lambda_handler
       MemorySize: 128
+      ReservedConcurrentExecutions: 1
       Runtime: python3.9
       Timeout: 300
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-  LambdaAddPandasLayerCurrentVersion52D07543ba80d189261e89ac570cc96ea7f2f7c8:
+  LambdaAddPandasLayerCurrentVersion52D075432459b9ea8441c3dc7de4aba26b878730:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaAddPandasLayer8F3F6957'
-      Description: 2.8.1-beta.2
+      Description: 2.8.1-beta.3
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   ExecLambdaAddPandasLayer:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaAddPandasLayer8F3F6957.Arn'
-      ConfigVersion: 2.8.1-beta.2
+      ConfigVersion: 2.8.1-beta.3
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-      - LambdaEsLoaderCurrentVersion9DFE69550ed01977ae8eb64e4325f07281230491
+      - LambdaEsLoaderCurrentVersion9DFE695551ec9855b85c71b49c68b3ee4e6c8cf6
       - LambdaEsLoader4B1E2DD9
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
@@ -935,7 +936,7 @@ Resources:
           - RegionMap
           - !Ref 'AWS::Region'
           - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2 / es-loader-stopper
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / es-loader-stopper
       Environment:
         Variables:
           AES_SIEM_ALERT_TOPIC_ARN: !Ref 'SnsTopic2C1570A4'
@@ -944,16 +945,17 @@ Resources:
       FunctionName: aes-siem-es-loader-stopper
       Handler: index.lambda_handler
       MemorySize: 128
+      ReservedConcurrentExecutions: 1
       Runtime: python3.8
       Timeout: 300
     DependsOn:
       - LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
       - LambdaEsLoaderStopperServiceRole83AABC1A
-  LambdaEsLoaderStopperCurrentVersion312AA850c4c2172d79947b44e5c1541e37df58d0:
+  LambdaEsLoaderStopperCurrentVersion312AA85004f3106a1760cb9afbc8260fc0cdc4db:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoaderStopper35C1D57B'
-      Description: 2.8.1-beta.2
+      Description: 2.8.1-beta.3
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaGeoipDownloaderServiceRoleE37FB908:
@@ -1004,7 +1006,7 @@ Resources:
           - RegionMap
           - !Ref 'AWS::Region'
           - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2 / geoip-downloader
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / geoip-downloader
       Environment:
         Variables:
           license_key: !Ref 'GeoLite2LicenseKey'
@@ -1012,16 +1014,17 @@ Resources:
       FunctionName: aes-siem-geoip-downloader
       Handler: index.lambda_handler
       MemorySize: 320
+      ReservedConcurrentExecutions: 1
       Runtime: python3.9
       Timeout: 300
     DependsOn:
       - LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65
       - LambdaGeoipDownloaderServiceRoleE37FB908
-  LambdaGeoipDownloaderCurrentVersion7F1CD34Fa317b6c4e793cdf682ce080eb8431925:
+  LambdaGeoipDownloaderCurrentVersion7F1CD34F71420b5fe89c448ffc1303b867019231:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaGeoipDownloaderA5EFF97E'
-      Description: 2.8.1-beta.2
+      Description: 2.8.1-beta.3
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocPlanServiceRole6CDE7C5D:
@@ -1072,7 +1075,7 @@ Resources:
           - RegionMap
           - !Ref 'AWS::Region'
           - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2 / ioc-plan
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / ioc-plan
       Environment:
         Variables:
           ABUSE_CH: !Ref 'EnableAbuseCh'
@@ -1083,16 +1086,17 @@ Resources:
       FunctionName: aes-siem-ioc-plan
       Handler: lambda_function.plan
       MemorySize: 128
+      ReservedConcurrentExecutions: 1
       Runtime: python3.9
       Timeout: 300
     DependsOn:
       - LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE
       - LambdaIocPlanServiceRole6CDE7C5D
-  LambdaIocPlanCurrentVersion1BAA7B4Cea958f6d6ce511857a1b94798cc38e5c:
+  LambdaIocPlanCurrentVersion1BAA7B4Cb572b229d51572ce2d2928b77c29ab4f:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocPlan6E369BFB'
-      Description: 2.8.1-beta.2
+      Description: 2.8.1-beta.3
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocDownloadServiceRoleEB9001C6:
@@ -1143,7 +1147,7 @@ Resources:
           - RegionMap
           - !Ref 'AWS::Region'
           - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2 / ioc-download
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / ioc-download
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1152,16 +1156,17 @@ Resources:
       FunctionName: aes-siem-ioc-download
       Handler: lambda_function.download
       MemorySize: 256
+      ReservedConcurrentExecutions: 1
       Runtime: python3.9
       Timeout: 900
     DependsOn:
       - LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942
       - LambdaIocDownloadServiceRoleEB9001C6
-  LambdaIocDownloadCurrentVersion48773E6B0dfc2c4b52f9591ed93400bea3374768:
+  LambdaIocDownloadCurrentVersion48773E6B2420f19d7d6dae0782c881af5a5842fb:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocDownload5519716E'
-      Description: 2.8.1-beta.2
+      Description: 2.8.1-beta.3
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocCreatedbServiceRole555565C0:
@@ -1212,7 +1217,7 @@ Resources:
           - RegionMap
           - !Ref 'AWS::Region'
           - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2 / ioc-createdb
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / ioc-createdb
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1225,11 +1230,11 @@ Resources:
     DependsOn:
       - LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4
       - LambdaIocCreatedbServiceRole555565C0
-  LambdaIocCreatedbCurrentVersionD9D04E9C70258ed9a85d0431ca33c6606b1f89c1:
+  LambdaIocCreatedbCurrentVersionD9D04E9C82eeba3bd6ba9c7984edd4843dde3a41:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocCreatedb04F35777'
-      Description: 2.8.1-beta.2
+      Description: 2.8.1-beta.3
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   IocStateMachineLogGroupC1AB417E:
@@ -1372,7 +1377,7 @@ Resources:
           - RegionMap
           - !Ref 'AWS::Region'
           - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2 / index-metrics-exporter
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / index-metrics-exporter
       Environment:
         Variables:
           ES_ENDPOINT: !GetAtt 'AesSiemDomainDeployedR2.es_endpoint'
@@ -1381,16 +1386,17 @@ Resources:
       FunctionName: aes-siem-index-metrics-exporter
       Handler: index.lambda_handler
       MemorySize: 256
+      ReservedConcurrentExecutions: 1
       Runtime: python3.9
       Timeout: 300
     DependsOn:
       - LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
       - LambdaMetricsExporterServiceRoleDDE0BD95
-  LambdaMetricsExporterCurrentVersion79B0413F59ee5004b9c6b511307236e5a69f885d:
+  LambdaMetricsExporterCurrentVersion79B0413F5aa8e52eea15dd168fadeba078fbd64f:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaMetricsExporter2737F589'
-      Description: 2.8.1-beta.2
+      Description: 2.8.1-beta.3
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaDeployAES636B5079:
@@ -1405,7 +1411,7 @@ Resources:
           - RegionMap
           - !Ref 'AWS::Region'
           - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2 / opensearch domain deployment
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / opensearch domain deployment
       Environment:
         Variables:
           accountid: !Ref 'AWS::AccountId'
@@ -1416,22 +1422,23 @@ Resources:
       FunctionName: aes-siem-deploy-aes
       Handler: index.aes_domain_handler
       MemorySize: 128
+      ReservedConcurrentExecutions: 1
       Runtime: python3.8
       Timeout: 300
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaDeployAESCurrentVersion047915F165372a01af0ac74cb67bb3fc03ddf6f9:
+  LambdaDeployAESCurrentVersion047915F13e781cf6630ad2de4aad131cec2695e4:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaDeployAES636B5079'
-      Description: 2.8.1-beta.2
+      Description: 2.8.1-beta.3
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   AesSiemDomainDeployedR2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaDeployAES636B5079.Arn'
-      ConfigVersion: 2.8.1-beta.2
+      ConfigVersion: 2.8.1-beta.3
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
   LambdaConfigureAESA0471961:
@@ -1446,7 +1453,7 @@ Resources:
           - RegionMap
           - !Ref 'AWS::Region'
           - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.2 / opensearch configuration
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / opensearch configuration
       Environment:
         Variables:
           accountid: !Ref 'AWS::AccountId'
@@ -1461,22 +1468,23 @@ Resources:
       FunctionName: aes-siem-configure-aes
       Handler: index.aes_config_handler
       MemorySize: 128
+      ReservedConcurrentExecutions: 1
       Runtime: python3.8
       Timeout: 600
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaConfigureAESCurrentVersion6511476869b1f3337ef87ff759e91c1b70db9f57:
+  LambdaConfigureAESCurrentVersion65114768a7b07af0f43f84415ca46d19680322c4:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaConfigureAESA0471961'
-      Description: 2.8.1-beta.2
+      Description: 2.8.1-beta.3
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   AesSiemDomainConfiguredR2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaConfigureAESA0471961.Arn'
-      ConfigVersion: 2.8.1-beta.2
+      ConfigVersion: 2.8.1-beta.3
     DependsOn:
       - AesSiemDomainDeployedR2
     DeletionPolicy: Retain
