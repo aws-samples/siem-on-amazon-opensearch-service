@@ -15,8 +15,9 @@ import aws_cdk as cdk
 from mysiem.aes_siem_stack import MyAesSiemStack
 
 app = cdk.App()
-region = os.environ.get(
-    "CDK_DEPLOY_REGION", os.environ["CDK_DEFAULT_REGION"])
+CDK_DEFAULT_REGION = os.getenv(
+    "CDK_DEFAULT_REGION", os.environ["AWS_DEFAULT_REGION"])
+region = os.environ.get("CDK_DEPLOY_REGION", CDK_DEFAULT_REGION)
 account = os.environ.get(
     "CDK_DEPLOY_ACCOUNT", os.environ["CDK_DEFAULT_ACCOUNT"])
 
