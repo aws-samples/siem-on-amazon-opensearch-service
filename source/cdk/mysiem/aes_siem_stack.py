@@ -734,7 +734,7 @@ class MyAesSiemStack(cdk.Stack):
             encryption=aws_sqs.QueueEncryption.KMS_MANAGED,
             data_key_reuse=cdk.Duration.hours(24),
             dead_letter_queue=aws_sqs.DeadLetterQueue(
-                max_receive_count=2, queue=sqs_aes_siem_dlq),
+                max_receive_count=20, queue=sqs_aes_siem_dlq),
             visibility_timeout=cdk.Duration.seconds(ES_LOADER_TIMEOUT),
             retention_period=cdk.Duration.days(14))
 
