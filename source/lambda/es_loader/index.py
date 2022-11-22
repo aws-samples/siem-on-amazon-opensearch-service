@@ -388,13 +388,13 @@ control_tower_assume_role_arn = os.environ.get(
     'CONTROL_TOWER_ASSUME_ROLE_ARN')
 control_tower_role_session_name = os.environ.get(
     'CONTROL_TOWER_ROLE_SESSION_NAME')
-assume_role_external_id = os.environ.get(
-    'ASSUME_ROLE_EXTERNAL_ID')
+control_tower_assume_role_external_id = os.environ.get(
+    'CONTROL_TOWER_ASSUME_ROLE_EXTERNAL_ID')
 control_tower_s3_client = utils.get_s3_client_for_crosss_account(
     config=s3_session_config,
     role_arn=control_tower_assume_role_arn,
     role_session_name=control_tower_role_session_name,
-    assume_role_external_id=assume_role_external_id)
+    assume_role_external_id=control_tower_assume_role_external_id)
 
 geodb_instance = geodb.GeoDB()
 ioc_instance = ioc.DB()

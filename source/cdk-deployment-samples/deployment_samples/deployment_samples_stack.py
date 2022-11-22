@@ -17,6 +17,7 @@ from aws_cdk import (
     aws_kinesisfirehose,
     aws_lambda,
     aws_logs,
+    aws_sqs,
     region_info,
 )
 from aws_cdk.aws_kinesisfirehose import CfnDeliveryStream as CDS
@@ -935,3 +936,114 @@ class DeploymentSamplesStack(MyStack):
         super().__init__(scope, construct_id, **kwargs)
 
         # The code that defines your stack goes here
+
+
+class ControlTowerIntegrationStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        assume_role_external_id = cdk.CfnParameter(
+            self, 'AssumeRoleExternalId',
+            description=(
+                'Specify external ID to assume role for cross account from '
+                'SIEM account. eg) externalid123'),
+            allowed_pattern=r'^[0-9a-zA-Z]*$',
+        )
+
+        es_loader_iam_role = cdk.CfnParameter(
+            self, 'EsLoaderIamRole',
+            description=(
+                "Specify IAM Role of aes-siem-es-loader in SIEM Account."),
+            allowed_pattern=r'^arn:aws[0-9a-zA-Z:/-]*$',
+            default=("arn:aws:iam::123456789012:role/aes-siem-"
+                     "LambdaEsLoaderServiceRoleXXXXXXXXX-XXXXXXXXXXXX")
+        )
+
+        self.template_options.metadata = {
+            'AWS::CloudFormation::Interface': {
+                'ParameterGroups': [
+                    {'Parameters': [
+                        es_loader_iam_role.logical_id,
+                        assume_role_external_id.logical_id]},
+                ]
+            }
+        }
+
+        cfn_siem_aws_account = cdk.Fn.select(
+            4, cdk.Fn.split(':', es_loader_iam_role.value_as_string))
+
+        sqs_aes_siem_ct_dlq = aws_sqs.Queue(
+            self, 'AesSiemCtDlq', queue_name='aes-siem-ct-dlq',
+            encryption=aws_sqs.QueueEncryption.SQS_MANAGED,
+            retention_period=cdk.Duration.days(14)
+        )
+
+        sqs_aes_siem_ct = aws_sqs.Queue(
+            self, 'AesSiemCt',
+            queue_name='aes-siem-ct',
+            encryption=aws_sqs.QueueEncryption.SQS_MANAGED,
+            dead_letter_queue=aws_sqs.DeadLetterQueue(
+                max_receive_count=20, queue=sqs_aes_siem_ct_dlq),
+            visibility_timeout=cdk.Duration.seconds(600),
+            retention_period=cdk.Duration.days(14)
+        )
+
+        sqs_aes_siem_ct.add_to_resource_policy(
+            statement=aws_iam.PolicyStatement(
+                sid="__owner_statement",
+                principals=[aws_iam.AccountPrincipal(cdk.Aws.ACCOUNT_ID)],
+                actions=["SQS:*"],
+                resources=[sqs_aes_siem_ct.queue_arn],
+            )
+        )
+
+        sqs_aes_siem_ct.add_to_resource_policy(
+            statement=aws_iam.PolicyStatement(
+                sid="allow-s3-bucket-to-send-message",
+                principals=[aws_iam.ServicePrincipal("s3.amazonaws.com")],
+                actions=["SQS:SendMessage"],
+                resources=[sqs_aes_siem_ct.queue_arn],
+                conditions={
+                    "StringEquals": {"aws:SourceAccount": [cdk.Aws.ACCOUNT_ID]}
+                },
+            )
+        )
+
+        sqs_aes_siem_ct.add_to_resource_policy(
+            statement=aws_iam.PolicyStatement(
+                sid="allow-es-loader-to-recieve-message",
+                principals=[aws_iam.ArnPrincipal(
+                    es_loader_iam_role.value_as_string)],
+                actions=[
+                    "sqs:ReceiveMessage",
+                    "sqs:ChangeMessageVisibility",
+                    "sqs:GetQueueUrl",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes"
+                ],
+                resources=[sqs_aes_siem_ct.queue_arn],
+            )
+        )
+
+        policy_access_s3 = aws_iam.PolicyDocument(
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['s3:GetObject'],
+                    resources=['*']
+                ),
+                aws_iam.PolicyStatement(
+                    actions=['kms:Decrypt'],
+                    resources=['*']
+                ),
+            ]
+        )
+
+        aws_iam.Role(
+            self, 'AesSiemAssumedRole',
+            role_name='ct-assumed-role-for-siem-es-loader',
+            inline_policies={
+                'access_s3': policy_access_s3
+            },
+            assumed_by=aws_iam.AccountPrincipal(cfn_siem_aws_account),
+            external_ids=[assume_role_external_id.value_as_string],
+        )

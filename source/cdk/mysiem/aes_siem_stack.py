@@ -299,7 +299,7 @@ class MyAesSiemStack(cdk.Stack):
             allowed_pattern=r'^[-0-9a-z.\s,]*$',
             description=(
                 '(experimental)) Specify log bucket names of log archive in '
-                'Control Tower. Comma ssepareted list'
+                'Control Tower. Comma ssepareted list. '
                 'eg) aws-controltower-logs-123456789012-ap-northeast-1, '
                 'aws-controltower-s3-access-logs-123456789012-ap-northeast-1'),
             default='')
@@ -308,15 +308,24 @@ class MyAesSiemStack(cdk.Stack):
             description=(
                 '(experimantal) Specify ARN for role to be assumed by SIEM '
                 'account. eg) arn:aws:iam::123456789012:role/'
-                'ControlTowerAssumeRoleForSiem'),
+                'ct-assumed-role-for-siem-es-loader'),
             allowed_pattern=r'^(arn:aws.*:iam::[0-9]{12}:role/.*|)$',
             default='')
-        assume_role_external_id = cdk.CfnParameter(
-            self, 'AssumeRoleExternalId',
+        ct_assume_role_external_id = cdk.CfnParameter(
+            self, 'ControlTowerAssumeRoleExternalId',
             description=(
                 '(experimantal) Specify external ID to assume role for cross '
                 'account. eg) externalid123'),
             allowed_pattern=r'^([0-9a-zA-Z]*|)$',
+            default='')
+        ct_log_sqs = cdk.CfnParameter(
+            self, 'ControlTowerSqsForLogBuckets',
+            type='String',
+            allowed_pattern=r'^(arn:aws[0-9a-zA-Z:/_-]*|)$',
+            description=(
+                '(experimental)) Specify SQS Arn for buckets of log archive in'
+                ' Control Tower. '
+                'eg) arn:aws:sqs:ap-northeast-1:12345678902:aes-siem-ct'),
             default='')
 
         # Pretfify parameters
@@ -337,8 +346,9 @@ class MyAesSiemStack(cdk.Stack):
                     {'Label': {'default': ('(Experimental) Control Tower Log '
                                            'Ingestion (Optional)')},
                      'Parameters': [ct_log_buckets.logical_id,
+                                    ct_log_sqs.logical_id,
                                     ct_assume_role_arn.logical_id,
-                                    assume_role_external_id.logical_id, ]}
+                                    ct_assume_role_external_id.logical_id, ]},
                 ]
             }
         }
@@ -348,7 +358,7 @@ class MyAesSiemStack(cdk.Stack):
         s3bucket_name_geo = f'{bucket}-geo'
         s3bucket_name_log = f'{bucket}-log'
         s3bucket_name_snapshot = f'{bucket}-snapshot'
-        cfn_aws_account = cdk.Fn.select(
+        cfn_ct_aws_account = cdk.Fn.select(
             4, cdk.Fn.split(':', ct_assume_role_arn.value_as_string))
 
         # organizations / multiaccount
@@ -1176,7 +1186,8 @@ class MyAesSiemStack(cdk.Stack):
         aes_domain.node.add_dependency(aes_siem_deploy_role_for_lambda)
 
         lambda_es_loader.add_environment(
-            'ASSUME_ROLE_EXTERNAL_ID', assume_role_external_id.value_as_string)
+            'CONTROL_TOWER_ASSUME_ROLE_EXTERNAL_ID',
+            ct_assume_role_external_id.value_as_string)
         es_endpoint = aes_domain.get_att('es_endpoint').to_string()
         lambda_es_loader.add_environment('ES_ENDPOINT', es_endpoint)
         lambda_es_loader.add_environment(
@@ -1317,47 +1328,6 @@ class MyAesSiemStack(cdk.Stack):
         kms_aes_siem.grant_decrypt(lambda_es_loader)
         kms_aes_siem.grant_decrypt(aes_siem_es_loader_ec2_role)
         kms_aes_siem.grant_encrypt(lambda_metrics_exporter)
-
-        is_control_tower_access = cdk.CfnCondition(
-            self, "IsControlTowerAcccess",
-            expression=cdk.Fn.condition_and(
-                cdk.Fn.condition_not(
-                    cdk.Fn.condition_equals(
-                        assume_role_external_id.value_as_string, '')),
-                cdk.Fn.condition_not(
-                    cdk.Fn.condition_equals(
-                        ct_log_buckets.value_as_string, '')),
-                cdk.Fn.condition_not(
-                    cdk.Fn.condition_equals(
-                        ct_assume_role_arn.value_as_string, '')),
-            )
-        )
-
-        # grant additional permission to es_loader role for control tower
-        inline_policy_controltower = aws_iam.Policy(
-            self, 'access_to_control_tower_log_buckets',
-            policy_name='access_to_control_tower',
-            statements=[
-                aws_iam.PolicyStatement(
-                    actions=['sts:AssumeRole'],
-                    resources=[ct_assume_role_arn.value_as_string],
-                ),
-                aws_iam.PolicyStatement(
-                    actions=["sqs:ReceiveMessage",
-                             "sqs:DeleteMessage",
-                             "sqs:GetQueueAttributes",
-                             "logs:CreateLogGroup",
-                             "logs:CreateLogStream",
-                             "logs:PutLogEvents"],
-                    resources=[(f'arn:aws:sqs:*:'
-                                f'{cfn_aws_account}:*')],
-                )
-            ]
-        )
-        inline_policy_controltower.node.default_child.cfn_options.condition = (
-            is_control_tower_access)
-        lambda_es_loader.role.attach_inline_policy(
-            inline_policy_controltower)
 
         ######################################################################
         # s3 notification and grant permisssion
@@ -1687,6 +1657,61 @@ class MyAesSiemStack(cdk.Stack):
         )
         es_loader_stopper_rule.add_target(
             aws_events_targets.LambdaFunction(lambda_es_loader_stopper))
+
+        ######################################################################
+        # Control Tower
+        ######################################################################
+        is_control_tower_access = cdk.CfnCondition(
+            self, "IsControlTowerAcccess",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        ct_assume_role_external_id.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        ct_log_buckets.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        ct_assume_role_arn.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        ct_log_sqs.value_as_string, '')),
+            )
+        )
+
+        # grant additional permission to es_loader role for control tower
+        inline_policy_controltower = aws_iam.Policy(
+            self, 'access_to_control_tower_log_buckets',
+            policy_name='access_to_control_tower',
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['sts:AssumeRole'],
+                    resources=[ct_assume_role_arn.value_as_string],
+                ),
+                aws_iam.PolicyStatement(
+                    actions=[
+                        "sqs:ReceiveMessage",
+                        "sqs:ChangeMessageVisibility",
+                        "sqs:GetQueueUrl",
+                        "sqs:DeleteMessage",
+                        "sqs:GetQueueAttributes"
+                    ],
+                    resources=[(f'arn:aws:sqs:*:{cfn_ct_aws_account}:*')],
+                )
+            ]
+        )
+        inline_policy_controltower.node.default_child.cfn_options.condition = (
+            is_control_tower_access)
+        lambda_es_loader.role.attach_inline_policy(
+            inline_policy_controltower)
+
+        source_mapping_for_ct = aws_lambda.EventSourceMapping(
+            self, "EventSourceMappingForCT",
+            target=lambda_es_loader,
+            event_source_arn=ct_log_sqs.value_as_string,
+        )
+        source_mapping_for_ct.node.default_child.cfn_options.condition = (
+            is_control_tower_access)
 
         ######################################################################
         # CloudWatch Dashboard

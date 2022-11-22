@@ -15,6 +15,7 @@ from deployment_samples.deployment_samples_stack import (
     ClientVpnLogExporterStack,
     CloudHsmCWLogsExporterStack,
     CoreLogExporterStack,
+    ControlTowerIntegrationStack,
     CWLNoCompressExporterStack,
     DeploymentSamplesStack,
     EventBridgeEventsExporterStack,
@@ -64,5 +65,10 @@ eventbridge_events_logging = EventBridgeEventsExporterStack(
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - EventBridge events '
                  '(SecurityHub, ConfigRules, Inspector)'))
+
+control_tower_integration = ControlTowerIntegrationStack(
+    app, "control-tower-integration",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'Control Tower Integration'))
 
 app.synth()
