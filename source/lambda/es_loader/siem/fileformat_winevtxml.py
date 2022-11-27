@@ -116,13 +116,23 @@ class FileFormatWinEvtXml(FileFormatBase):
             logdict['Event']['EventData'].pop('#text', None)
         except (KeyError, NameError, TypeError):
             data_list = None
+
         if data_list:
             data_dict = {}
-            for data in data_list:
-                if isinstance(data, dict) and '#text' in data:
-                    temp = data['#text']
-                    if temp != '-':
-                        data_dict[data['Name']] = data['#text']
+            if isinstance(data_list, str):
+                data_dict[0] = logdict['Event']['EventData']['Data']
+            elif data_list and isinstance(data_list, dict):
+                temp = data_list.get('#text')
+                if temp and temp != '-':
+                    data_dict[data_list['Name']] = temp
+            elif data_list and isinstance(data_list, list):
+                for i, data in enumerate(data_list, 1):
+                    if isinstance(data, dict):
+                        temp = data.get('#text')
+                        if temp and temp != '-':
+                            data_dict[data['Name']] = temp
+                    elif data and isinstance(data, str):
+                        data_dict[i] = str(data)
             logdict['Event']['EventData']['Data'] = data_dict
 
         try:
