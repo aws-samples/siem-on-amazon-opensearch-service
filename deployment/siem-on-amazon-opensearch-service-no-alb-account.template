@@ -369,18 +369,15 @@ Resources:
               - !GetAtt 'S3BucketForLog20898FE4.Arn'
               - !Sub '${S3BucketForLog20898FE4.Arn}/*'
           - Action: s3:PutObject
+            Condition:
+              StringEquals:
+                aws:SourceAccount:
+                  - !Ref 'AWS::AccountId'
             Effect: Allow
             Principal:
-              AWS: !Sub
-                - arn:${AWS::Partition}:iam::${Param1}:root
-                - Param1: !FindInMap
-                    - RegionMap
-                    - !Ref 'AWS::Region'
-                    - ElbV2AccountId
-            Resource:
-              - !Sub '${S3BucketForLog20898FE4.Arn}/AWSLogs/${AWS::AccountId}/*'
-              - !Sub '${S3BucketForLog20898FE4.Arn}/*/AWSLogs/${AWS::AccountId}/*'
-            Sid: ALB,CLB Policy
+              Service: logdelivery.elasticloadbalancing.amazonaws.com
+            Resource: !Sub '${S3BucketForLog20898FE4.Arn}/*'
+            Sid: Policy For no ALB account region
           - Action:
               - s3:GetBucketAcl
               - s3:ListBucket
@@ -804,7 +801,7 @@ Resources:
     DependsOn:
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
-  LambdaEsLoaderCurrentVersion9DFE69550b897a350692f1a824e13f261e7cce19:
+  LambdaEsLoaderCurrentVersion9DFE6955f2dcee865b2a38e0ef63734c498c0009:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
@@ -903,7 +900,7 @@ Resources:
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-  LambdaAddPandasLayerCurrentVersion52D07543bf31ddfa4adf0db9c48a8003ff04422d:
+  LambdaAddPandasLayerCurrentVersion52D07543abd00333617a62ae1c979364acbdfeaa:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaAddPandasLayer8F3F6957'
@@ -918,7 +915,7 @@ Resources:
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-      - LambdaEsLoaderCurrentVersion9DFE69550b897a350692f1a824e13f261e7cce19
+      - LambdaEsLoaderCurrentVersion9DFE6955f2dcee865b2a38e0ef63734c498c0009
       - LambdaEsLoader4B1E2DD9
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
@@ -976,7 +973,7 @@ Resources:
     DependsOn:
       - LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
       - LambdaEsLoaderStopperServiceRole83AABC1A
-  LambdaEsLoaderStopperCurrentVersion312AA85070ad42a0f58aa232b4b1affc705713c1:
+  LambdaEsLoaderStopperCurrentVersion312AA8504e692d343b9ced0891790f8dbea17af9:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoaderStopper35C1D57B'
@@ -1047,7 +1044,7 @@ Resources:
     DependsOn:
       - LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65
       - LambdaGeoipDownloaderServiceRoleE37FB908
-  LambdaGeoipDownloaderCurrentVersion7F1CD34F4467dcea2f5d1d3026f3ce069a059119:
+  LambdaGeoipDownloaderCurrentVersion7F1CD34Ff412a883ac5b11c93161051fa1cb5ded:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaGeoipDownloaderA5EFF97E'
@@ -1121,7 +1118,7 @@ Resources:
     DependsOn:
       - LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE
       - LambdaIocPlanServiceRole6CDE7C5D
-  LambdaIocPlanCurrentVersion1BAA7B4C393038bd0461ee088c578cac706a4199:
+  LambdaIocPlanCurrentVersion1BAA7B4Ca78e53c8d5d7ffa19f4f03864b92c33d:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocPlan6E369BFB'
@@ -1193,7 +1190,7 @@ Resources:
     DependsOn:
       - LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942
       - LambdaIocDownloadServiceRoleEB9001C6
-  LambdaIocDownloadCurrentVersion48773E6Be4c4fbee959d7ed052f699bcf576a0d1:
+  LambdaIocDownloadCurrentVersion48773E6Bb6dfa966c695d27ca66bf5b3679336d8:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocDownload5519716E'
@@ -1263,7 +1260,7 @@ Resources:
     DependsOn:
       - LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4
       - LambdaIocCreatedbServiceRole555565C0
-  LambdaIocCreatedbCurrentVersionD9D04E9Cb0651422271ada30aa1e55b718608ebd:
+  LambdaIocCreatedbCurrentVersionD9D04E9Cd2ae6221a052134610334c171663a8e3:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocCreatedb04F35777'
@@ -1427,7 +1424,7 @@ Resources:
     DependsOn:
       - LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
       - LambdaMetricsExporterServiceRoleDDE0BD95
-  LambdaMetricsExporterCurrentVersion79B0413Fe0476c441099c25adf056f371aeb05d5:
+  LambdaMetricsExporterCurrentVersion79B0413F0e7128a762888998b0b93b5f526083ea:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaMetricsExporter2737F589'
@@ -1464,7 +1461,7 @@ Resources:
       Timeout: 300
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaDeployAESCurrentVersion047915F1a9f42804acc52c5c975b9a4a8846969b:
+  LambdaDeployAESCurrentVersion047915F192ea3fb1795c100695439cafc4a7ebed:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaDeployAES636B5079'
@@ -1512,7 +1509,7 @@ Resources:
       Timeout: 600
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaConfigureAESCurrentVersion651147687cd872714624cda3a6f14dc9d74a4d06:
+  LambdaConfigureAESCurrentVersion651147681bac12c86da2c17fe86a89f3c4830290:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaConfigureAESA0471961'

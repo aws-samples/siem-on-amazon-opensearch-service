@@ -1,4 +1,4 @@
-Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3
+Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -20,11 +20,11 @@ Metadata:
           - EnableAbuseCh
           - IocDownloadInterval
       - Label:
-          default: (Experimental) Control Tower Log Ingestion (Optional)
+          default: (Optional) Control Tower Integration
         Parameters:
           - ControlTowerLogBucketNameList
-          - ControlTowerAssumeRoleArn
-          - AssumeRoleExternalId
+          - ControlTowerSqsForLogBuckets
+          - ControlTowerRoleArnForEsLoader
 Mappings:
   RegionMap:
     af-south-1:
@@ -114,6 +114,49 @@ Mappings:
     us-west-2:
       ElbV2AccountId: '797873946194'
       LambdaArch: arm64
+    ap-south-2:
+      ElbV2AccountId: '999999999999'
+      LambdaArch: x86_64
+    eu-central-2:
+      ElbV2AccountId: '999999999999'
+      LambdaArch: x86_64
+    eu-south-2:
+      ElbV2AccountId: '999999999999'
+      LambdaArch: x86_64
+    me-central-1:
+      ElbV2AccountId: '999999999999'
+      LambdaArch: x86_64
+Conditions:
+  HasLambdaArchitecturesProp: !Not
+    - !Or
+      - !Equals
+        - !Ref 'AWS::Region'
+        - ap-south-2
+      - !Equals
+        - !Ref 'AWS::Region'
+        - eu-central-2
+      - !Equals
+        - !Ref 'AWS::Region'
+        - eu-south-2
+      - !Equals
+        - !Ref 'AWS::Region'
+        - me-central-1
+  IsVpc: !Equals
+    - false
+    - true
+  IsControlTowerAcccess: !And
+    - !Not
+      - !Equals
+        - !Ref 'ControlTowerLogBucketNameList'
+        - ''
+    - !Not
+      - !Equals
+        - !Ref 'ControlTowerRoleArnForEsLoader'
+        - ''
+    - !Not
+      - !Equals
+        - !Ref 'ControlTowerSqsForLogBuckets'
+        - ''
 Parameters:
   AllowedSourceIpAddresses:
     Type: String
@@ -165,34 +208,18 @@ Parameters:
     Type: String
     Default: ''
     AllowedPattern: ^[-0-9a-z.\s,]*$
-    Description: (experimental)) Specify log bucket names of log archive in Control Tower. Comma ssepareted listeg) aws-controltower-logs-123456789012-ap-northeast-1, aws-controltower-s3-access-logs-123456789012-ap-northeast-1
-  ControlTowerAssumeRoleArn:
+    Description: Specify S3 log bucket names in the Log Archive account. Comma separated list. (e.g., aws-controltower-logs-123456789012-ap-northeast-1, aws-controltower-s3-access-logs-123456789012-ap-northeast-1
+      )
+  ControlTowerRoleArnForEsLoader:
     Type: String
     Default: ''
     AllowedPattern: ^(arn:aws.*:iam::[0-9]{12}:role/.*|)$
-    Description: (experimantal) Specify ARN for role to be assumed by SIEM account. eg) arn:aws-us-gov:iam::123456789012:role/ControlTowerAssumeRoleForSiem
-  AssumeRoleExternalId:
+    Description: Specify IAM Role ARN to be assumed by aes-siem-es-loader. (e.g., arn:aws-us-gov:iam::123456789012:role/ct-role-for-siem )
+  ControlTowerSqsForLogBuckets:
     Type: String
     Default: ''
-    AllowedPattern: ^([0-9a-zA-Z]*|)$
-    Description: (experimantal) Specify external ID to assume role for cross account. eg) externalid123
-Conditions:
-  IsVpc: !Equals
-    - false
-    - true
-  IsControlTowerAcccess: !And
-    - !Not
-      - !Equals
-        - !Ref 'AssumeRoleExternalId'
-        - ''
-    - !Not
-      - !Equals
-        - !Ref 'ControlTowerLogBucketNameList'
-        - ''
-    - !Not
-      - !Equals
-        - !Ref 'ControlTowerAssumeRoleArn'
-        - ''
+    AllowedPattern: ^(arn:aws[0-9a-zA-Z:/_-]*|)$
+    Description: Specify SQS ARN for S3 log buckets in Log Archive Account. (e.g., arn:aws-us-gov:sqs:ap-northeast-1:12345678902:aes-siem-ct )
 Resources:
   KmsAesSiemLog44B26597:
     Type: AWS::KMS::Key
@@ -280,7 +307,7 @@ Resources:
       BucketName: !Sub 'aes-siem-${AWS::AccountId}-geo'
       LifecycleConfiguration:
         Rules:
-          - ExpirationInDays: 7
+          - ExpirationInDays: 8
             Id: delete-ioc-temp-files
             Prefix: IOC/tmp/
             Status: Enabled
@@ -325,6 +352,87 @@ Resources:
         Status: Enabled
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
+  S3BucketForLogPolicy546D5712:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref 'S3BucketForLog20898FE4'
+      PolicyDocument:
+        Statement:
+          - Action: s3:*
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+            Effect: Deny
+            Principal:
+              AWS: '*'
+            Resource:
+              - !GetAtt 'S3BucketForLog20898FE4.Arn'
+              - !Sub '${S3BucketForLog20898FE4.Arn}/*'
+          - Action: s3:PutObject
+            Effect: Allow
+            Principal:
+              AWS: !Sub
+                - arn:${AWS::Partition}:iam::${Param1}:root
+                - Param1: !FindInMap
+                    - RegionMap
+                    - !Ref 'AWS::Region'
+                    - ElbV2AccountId
+            Resource:
+              - !Sub '${S3BucketForLog20898FE4.Arn}/AWSLogs/${AWS::AccountId}/*'
+              - !Sub '${S3BucketForLog20898FE4.Arn}/*/AWSLogs/${AWS::AccountId}/*'
+            Sid: ALB,CLB Policy
+          - Action:
+              - s3:GetBucketAcl
+              - s3:ListBucket
+              - s3:PutObject
+            Condition:
+              StringEquals:
+                aws:SourceAccount:
+                  - !Ref 'AWS::AccountId'
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Resource:
+              - !GetAtt 'S3BucketForLog20898FE4.Arn'
+              - !Sub '${S3BucketForLog20898FE4.Arn}/*'
+            Sid: AWSLogDelivery For NLB,R53Resolver,Flowlogs
+          - Action:
+              - s3:GetBucketAcl
+              - s3:ListBucket
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudtrail.amazonaws.com
+                - config.amazonaws.com
+            Resource: !GetAtt 'S3BucketForLog20898FE4.Arn'
+            Sid: AWSLogDeliveryAclCheck For Cloudtrail, Config
+          - Action: s3:PutObject
+            Condition:
+              StringEquals:
+                aws:SourceAccount:
+                  - !Ref 'AWS::AccountId'
+            Effect: Allow
+            Principal:
+              Service:
+                - cloudtrail.amazonaws.com
+                - config.amazonaws.com
+            Resource: !Sub '${S3BucketForLog20898FE4.Arn}/*/*'
+            Sid: AWSLogDeliveryWrite For CloudTrail, Config
+          - Action:
+              - s3:GetBucketLocation
+              - s3:PutObject
+            Condition:
+              StringEquals:
+                aws:SourceAccount:
+                  - !Ref 'AWS::AccountId'
+            Effect: Allow
+            Principal:
+              Service: guardduty.amazonaws.com
+            Resource:
+              - !GetAtt 'S3BucketForLog20898FE4.Arn'
+              - !Sub '${S3BucketForLog20898FE4.Arn}/*'
+            Sid: Allow GuardDuty to put objects
+        Version: '2012-10-17'
   S3BucketForLogNotificationsAEE88E1E:
     Type: Custom::S3BucketNotifications
     Properties:
@@ -346,94 +454,6 @@ Resources:
       Principal: s3.amazonaws.com
       SourceAccount: !Ref 'AWS::AccountId'
       SourceArn: !GetAtt 'S3BucketForLog20898FE4.Arn'
-  S3BucketForLogPolicy546D5712:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref 'S3BucketForLog20898FE4'
-      PolicyDocument:
-        Statement:
-          - Action: s3:PutObject
-            Effect: Allow
-            Principal:
-              AWS: !Sub
-                - arn:${AWS::Partition}:iam::${Param1}:root
-                - Param1: !FindInMap
-                    - RegionMap
-                    - !Ref 'AWS::Region'
-                    - ElbV2AccountId
-            Resource: !Sub '${S3BucketForLog20898FE4.Arn}/AWSLogs/${AWS::AccountId}/*'
-            Sid: ELB Policy
-          - Action:
-              - s3:GetBucketAcl
-              - s3:ListBucket
-            Effect: Allow
-            Principal:
-              Service: delivery.logs.amazonaws.com
-            Resource: !GetAtt 'S3BucketForLog20898FE4.Arn'
-            Sid: AWSLogDeliveryAclCheck For ALB NLB R53Resolver Flowlogs
-          - Action: s3:PutObject
-            Condition:
-              StringEquals:
-                s3:x-amz-acl: bucket-owner-full-control
-            Effect: Allow
-            Principal:
-              Service: delivery.logs.amazonaws.com
-            Resource: !Sub '${S3BucketForLog20898FE4.Arn}/AWSLogs/${AWS::AccountId}/*'
-            Sid: AWSLogDeliveryWrite For ALB NLB R53Resolver Flowlogs
-          - Action: s3:GetBucketAcl
-            Effect: Allow
-            Principal:
-              Service: cloudtrail.amazonaws.com
-            Resource: !GetAtt 'S3BucketForLog20898FE4.Arn'
-            Sid: AWSLogDeliveryAclCheck For Cloudtrail
-          - Action: s3:PutObject
-            Condition:
-              StringEquals:
-                s3:x-amz-acl: bucket-owner-full-control
-            Effect: Allow
-            Principal:
-              Service: cloudtrail.amazonaws.com
-            Resource: !Sub '${S3BucketForLog20898FE4.Arn}/AWSLogs/${AWS::AccountId}/*'
-            Sid: AWSLogDeliveryWrite For CloudTrail
-          - Action: s3:GetBucketLocation
-            Effect: Allow
-            Principal:
-              Service: guardduty.amazonaws.com
-            Resource: !GetAtt 'S3BucketForLog20898FE4.Arn'
-            Sid: Allow GuardDuty to use the getBucketLocation operation
-          - Action: s3:PutObject
-            Effect: Allow
-            Principal:
-              Service: guardduty.amazonaws.com
-            Resource: !Sub '${S3BucketForLog20898FE4.Arn}/*'
-            Sid: Allow GuardDuty to upload objects to the bucket
-          - Action: s3:*
-            Condition:
-              Bool:
-                aws:SecureTransport: 'false'
-            Effect: Deny
-            Principal:
-              AWS: '*'
-            Resource: !Sub '${S3BucketForLog20898FE4.Arn}/*'
-            Sid: Deny non-HTTPS access
-          - Action:
-              - s3:GetBucketAcl
-              - s3:ListBucket
-            Effect: Allow
-            Principal:
-              Service: config.amazonaws.com
-            Resource: !GetAtt 'S3BucketForLog20898FE4.Arn'
-            Sid: AWSConfig BucketPermissionsCheck and BucketExistenceCheck
-          - Action: s3:PutObject
-            Condition:
-              StringEquals:
-                s3:x-amz-acl: bucket-owner-full-control
-            Effect: Allow
-            Principal:
-              Service: config.amazonaws.com
-            Resource: !Sub '${S3BucketForLog20898FE4.Arn}/AWSLogs/${AWS::AccountId}/Config/*'
-            Sid: AWSConfigBucketDelivery
-        Version: '2012-10-17'
   S3BucketForSnapshot40E67D36:
     Type: AWS::S3::Bucket
     Properties:
@@ -677,7 +697,7 @@ Resources:
       QueueName: aes-siem-sqs-splitted-logs
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt 'AesSiemDlq1CD8439D.Arn'
-        maxReceiveCount: 2
+        maxReceiveCount: 20
       VisibilityTimeout: 600
     UpdateReplacePolicy: Delete
     DeletionPolicy: Delete
@@ -753,19 +773,20 @@ Resources:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip'
       Role: !GetAtt 'LambdaEsLoaderServiceRoleFFD43869.Arn'
-      Architectures:
-        - !FindInMap
-          - RegionMap
-          - !Ref 'AWS::Region'
-          - LambdaArch
+      Architectures: !If
+        - HasLambdaArchitecturesProp
+        - - !FindInMap
+            - RegionMap
+            - !Ref 'AWS::Region'
+            - LambdaArch
+        - !Ref 'AWS::NoValue'
       DeadLetterConfig:
         TargetArn: !GetAtt 'AesSiemDlq1CD8439D.Arn'
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / es-loader
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4 / es-loader
       Environment:
         Variables:
-          ASSUME_ROLE_EXTERNAL_ID: !Ref 'AssumeRoleExternalId'
-          CONTROL_TOWER_ASSUME_ROLE_ARN: !Ref 'ControlTowerAssumeRoleArn'
           CONTROL_TOWER_LOG_BUCKETS: !Ref 'ControlTowerLogBucketNameList'
+          CONTROL_TOWER_ROLE_ARN: !Ref 'ControlTowerRoleArnForEsLoader'
           CONTROL_TOWER_ROLE_SESSION_NAME: aes-siem-es-loader
           ES_ENDPOINT: !GetAtt 'AesSiemDomainDeployedR2.es_endpoint'
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -783,11 +804,11 @@ Resources:
     DependsOn:
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
-  LambdaEsLoaderCurrentVersion9DFE695551ec9855b85c71b49c68b3ee4e6c8cf6:
+  LambdaEsLoaderCurrentVersion9DFE69550b897a350692f1a824e13f261e7cce19:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
-      Description: 2.8.1-beta.3
+      Description: 2.8.1-beta.4
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaEsLoaderSqsEventSourceaessiemAesSiemSqsSplitLogs506AFFA6A7D8B2E9:
@@ -862,12 +883,14 @@ Resources:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/add_pandas_layer.zip'
       Role: !GetAtt 'LambdaAddPandasLayerRoleDCA80237.Arn'
-      Architectures:
-        - !FindInMap
-          - RegionMap
-          - !Ref 'AWS::Region'
-          - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / add-pandas-layer
+      Architectures: !If
+        - HasLambdaArchitecturesProp
+        - - !FindInMap
+            - RegionMap
+            - !Ref 'AWS::Region'
+            - LambdaArch
+        - !Ref 'AWS::NoValue'
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4 / add-pandas-layer
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -880,22 +903,22 @@ Resources:
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-  LambdaAddPandasLayerCurrentVersion52D075432459b9ea8441c3dc7de4aba26b878730:
+  LambdaAddPandasLayerCurrentVersion52D07543bf31ddfa4adf0db9c48a8003ff04422d:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaAddPandasLayer8F3F6957'
-      Description: 2.8.1-beta.3
+      Description: 2.8.1-beta.4
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   ExecLambdaAddPandasLayer:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaAddPandasLayer8F3F6957.Arn'
-      ConfigVersion: 2.8.1-beta.3
+      ConfigVersion: 2.8.1-beta.4
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-      - LambdaEsLoaderCurrentVersion9DFE695551ec9855b85c71b49c68b3ee4e6c8cf6
+      - LambdaEsLoaderCurrentVersion9DFE69550b897a350692f1a824e13f261e7cce19
       - LambdaEsLoader4B1E2DD9
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
@@ -931,12 +954,14 @@ Resources:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader_stopper.zip'
       Role: !GetAtt 'LambdaEsLoaderStopperServiceRole83AABC1A.Arn'
-      Architectures:
-        - !FindInMap
-          - RegionMap
-          - !Ref 'AWS::Region'
-          - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / es-loader-stopper
+      Architectures: !If
+        - HasLambdaArchitecturesProp
+        - - !FindInMap
+            - RegionMap
+            - !Ref 'AWS::Region'
+            - LambdaArch
+        - !Ref 'AWS::NoValue'
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4 / es-loader-stopper
       Environment:
         Variables:
           AES_SIEM_ALERT_TOPIC_ARN: !Ref 'SnsTopic2C1570A4'
@@ -951,11 +976,11 @@ Resources:
     DependsOn:
       - LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
       - LambdaEsLoaderStopperServiceRole83AABC1A
-  LambdaEsLoaderStopperCurrentVersion312AA85004f3106a1760cb9afbc8260fc0cdc4db:
+  LambdaEsLoaderStopperCurrentVersion312AA85070ad42a0f58aa232b4b1affc705713c1:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoaderStopper35C1D57B'
-      Description: 2.8.1-beta.3
+      Description: 2.8.1-beta.4
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaGeoipDownloaderServiceRoleE37FB908:
@@ -1001,12 +1026,14 @@ Resources:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/geoip_downloader.zip'
       Role: !GetAtt 'LambdaGeoipDownloaderServiceRoleE37FB908.Arn'
-      Architectures:
-        - !FindInMap
-          - RegionMap
-          - !Ref 'AWS::Region'
-          - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / geoip-downloader
+      Architectures: !If
+        - HasLambdaArchitecturesProp
+        - - !FindInMap
+            - RegionMap
+            - !Ref 'AWS::Region'
+            - LambdaArch
+        - !Ref 'AWS::NoValue'
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4 / geoip-downloader
       Environment:
         Variables:
           license_key: !Ref 'GeoLite2LicenseKey'
@@ -1020,11 +1047,11 @@ Resources:
     DependsOn:
       - LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65
       - LambdaGeoipDownloaderServiceRoleE37FB908
-  LambdaGeoipDownloaderCurrentVersion7F1CD34F71420b5fe89c448ffc1303b867019231:
+  LambdaGeoipDownloaderCurrentVersion7F1CD34F4467dcea2f5d1d3026f3ce069a059119:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaGeoipDownloaderA5EFF97E'
-      Description: 2.8.1-beta.3
+      Description: 2.8.1-beta.4
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocPlanServiceRole6CDE7C5D:
@@ -1070,12 +1097,14 @@ Resources:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
       Role: !GetAtt 'LambdaIocPlanServiceRole6CDE7C5D.Arn'
-      Architectures:
-        - !FindInMap
-          - RegionMap
-          - !Ref 'AWS::Region'
-          - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / ioc-plan
+      Architectures: !If
+        - HasLambdaArchitecturesProp
+        - - !FindInMap
+            - RegionMap
+            - !Ref 'AWS::Region'
+            - LambdaArch
+        - !Ref 'AWS::NoValue'
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4 / ioc-plan
       Environment:
         Variables:
           ABUSE_CH: !Ref 'EnableAbuseCh'
@@ -1092,11 +1121,11 @@ Resources:
     DependsOn:
       - LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE
       - LambdaIocPlanServiceRole6CDE7C5D
-  LambdaIocPlanCurrentVersion1BAA7B4Cb572b229d51572ce2d2928b77c29ab4f:
+  LambdaIocPlanCurrentVersion1BAA7B4C393038bd0461ee088c578cac706a4199:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocPlan6E369BFB'
-      Description: 2.8.1-beta.3
+      Description: 2.8.1-beta.4
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocDownloadServiceRoleEB9001C6:
@@ -1142,12 +1171,14 @@ Resources:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
       Role: !GetAtt 'LambdaIocDownloadServiceRoleEB9001C6.Arn'
-      Architectures:
-        - !FindInMap
-          - RegionMap
-          - !Ref 'AWS::Region'
-          - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / ioc-download
+      Architectures: !If
+        - HasLambdaArchitecturesProp
+        - - !FindInMap
+            - RegionMap
+            - !Ref 'AWS::Region'
+            - LambdaArch
+        - !Ref 'AWS::NoValue'
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4 / ioc-download
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1162,11 +1193,11 @@ Resources:
     DependsOn:
       - LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942
       - LambdaIocDownloadServiceRoleEB9001C6
-  LambdaIocDownloadCurrentVersion48773E6B2420f19d7d6dae0782c881af5a5842fb:
+  LambdaIocDownloadCurrentVersion48773E6Be4c4fbee959d7ed052f699bcf576a0d1:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocDownload5519716E'
-      Description: 2.8.1-beta.3
+      Description: 2.8.1-beta.4
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocCreatedbServiceRole555565C0:
@@ -1212,12 +1243,14 @@ Resources:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
       Role: !GetAtt 'LambdaIocCreatedbServiceRole555565C0.Arn'
-      Architectures:
-        - !FindInMap
-          - RegionMap
-          - !Ref 'AWS::Region'
-          - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / ioc-createdb
+      Architectures: !If
+        - HasLambdaArchitecturesProp
+        - - !FindInMap
+            - RegionMap
+            - !Ref 'AWS::Region'
+            - LambdaArch
+        - !Ref 'AWS::NoValue'
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4 / ioc-createdb
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1230,11 +1263,11 @@ Resources:
     DependsOn:
       - LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4
       - LambdaIocCreatedbServiceRole555565C0
-  LambdaIocCreatedbCurrentVersionD9D04E9C82eeba3bd6ba9c7984edd4843dde3a41:
+  LambdaIocCreatedbCurrentVersionD9D04E9Cb0651422271ada30aa1e55b718608ebd:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocCreatedb04F35777'
-      Description: 2.8.1-beta.3
+      Description: 2.8.1-beta.4
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   IocStateMachineLogGroupC1AB417E:
@@ -1372,12 +1405,14 @@ Resources:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/index_metrics_exporter.zip'
       Role: !GetAtt 'LambdaMetricsExporterServiceRoleDDE0BD95.Arn'
-      Architectures:
-        - !FindInMap
-          - RegionMap
-          - !Ref 'AWS::Region'
-          - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / index-metrics-exporter
+      Architectures: !If
+        - HasLambdaArchitecturesProp
+        - - !FindInMap
+            - RegionMap
+            - !Ref 'AWS::Region'
+            - LambdaArch
+        - !Ref 'AWS::NoValue'
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4 / index-metrics-exporter
       Environment:
         Variables:
           ES_ENDPOINT: !GetAtt 'AesSiemDomainDeployedR2.es_endpoint'
@@ -1392,11 +1427,11 @@ Resources:
     DependsOn:
       - LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
       - LambdaMetricsExporterServiceRoleDDE0BD95
-  LambdaMetricsExporterCurrentVersion79B0413F5aa8e52eea15dd168fadeba078fbd64f:
+  LambdaMetricsExporterCurrentVersion79B0413Fe0476c441099c25adf056f371aeb05d5:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaMetricsExporter2737F589'
-      Description: 2.8.1-beta.3
+      Description: 2.8.1-beta.4
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaDeployAES636B5079:
@@ -1406,12 +1441,14 @@ Resources:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
       Role: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
-      Architectures:
-        - !FindInMap
-          - RegionMap
-          - !Ref 'AWS::Region'
-          - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / opensearch domain deployment
+      Architectures: !If
+        - HasLambdaArchitecturesProp
+        - - !FindInMap
+            - RegionMap
+            - !Ref 'AWS::Region'
+            - LambdaArch
+        - !Ref 'AWS::NoValue'
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4 / opensearch domain deployment
       Environment:
         Variables:
           accountid: !Ref 'AWS::AccountId'
@@ -1427,18 +1464,18 @@ Resources:
       Timeout: 300
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaDeployAESCurrentVersion047915F13e781cf6630ad2de4aad131cec2695e4:
+  LambdaDeployAESCurrentVersion047915F1a9f42804acc52c5c975b9a4a8846969b:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaDeployAES636B5079'
-      Description: 2.8.1-beta.3
+      Description: 2.8.1-beta.4
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   AesSiemDomainDeployedR2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaDeployAES636B5079.Arn'
-      ConfigVersion: 2.8.1-beta.3
+      ConfigVersion: 2.8.1-beta.4
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
   LambdaConfigureAESA0471961:
@@ -1448,12 +1485,14 @@ Resources:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
       Role: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
-      Architectures:
-        - !FindInMap
-          - RegionMap
-          - !Ref 'AWS::Region'
-          - LambdaArch
-      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.3 / opensearch configuration
+      Architectures: !If
+        - HasLambdaArchitecturesProp
+        - - !FindInMap
+            - RegionMap
+            - !Ref 'AWS::Region'
+            - LambdaArch
+        - !Ref 'AWS::NoValue'
+      Description: SIEM on Amazon OpenSearch Service v2.8.1-beta.4 / opensearch configuration
       Environment:
         Variables:
           accountid: !Ref 'AWS::AccountId'
@@ -1473,18 +1512,18 @@ Resources:
       Timeout: 600
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaConfigureAESCurrentVersion65114768a7b07af0f43f84415ca46d19680322c4:
+  LambdaConfigureAESCurrentVersion651147687cd872714624cda3a6f14dc9d74a4d06:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaConfigureAESA0471961'
-      Description: 2.8.1-beta.3
+      Description: 2.8.1-beta.4
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   AesSiemDomainConfiguredR2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaConfigureAESA0471961.Arn'
-      ConfigVersion: 2.8.1-beta.3
+      ConfigVersion: 2.8.1-beta.4
     DependsOn:
       - AesSiemDomainDeployedR2
     DeletionPolicy: Retain
@@ -1514,34 +1553,6 @@ Resources:
       PolicyName: aes-siem-policy-to-stop-es-loader
       Roles:
         - !Ref 'LambdaEsLoaderStopperServiceRole83AABC1A'
-  accesstocontroltowerlogbucketsDFC3958F:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyDocument:
-        Statement:
-          - Action: sts:AssumeRole
-            Effect: Allow
-            Resource: !Ref 'ControlTowerAssumeRoleArn'
-          - Action:
-              - sqs:ReceiveMessage
-              - sqs:DeleteMessage
-              - sqs:GetQueueAttributes
-              - logs:CreateLogGroup
-              - logs:CreateLogStream
-              - logs:PutLogEvents
-            Effect: Allow
-            Resource: !Sub
-              - arn:aws-us-gov:sqs:*:${Param1}:*
-              - Param1: !Select
-                  - 4
-                  - !Split
-                    - ':'
-                    - !Ref 'ControlTowerAssumeRoleArn'
-        Version: '2012-10-17'
-      PolicyName: access_to_control_tower
-      Roles:
-        - !Ref 'LambdaEsLoaderServiceRoleFFD43869'
-    Condition: IsControlTowerAcccess
   BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC:
     Type: AWS::IAM::Role
     Properties:
@@ -1772,6 +1783,39 @@ Resources:
       FunctionName: !GetAtt 'LambdaEsLoaderStopper35C1D57B.Arn'
       Principal: events.amazonaws.com
       SourceArn: !GetAtt 'EsLoaderStopperRule2C1D9F30.Arn'
+  accesstocontroltowerlogbucketsDFC3958F:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Resource: !Ref 'ControlTowerRoleArnForEsLoader'
+          - Action:
+              - sqs:ReceiveMessage
+              - sqs:ChangeMessageVisibility
+              - sqs:GetQueueUrl
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Effect: Allow
+            Resource: !Sub
+              - arn:aws-us-gov:sqs:*:${Param1}:*
+              - Param1: !Select
+                  - 4
+                  - !Split
+                    - ':'
+                    - !Ref 'ControlTowerRoleArnForEsLoader'
+        Version: '2012-10-17'
+      PolicyName: access_to_control_tower
+      Roles:
+        - !Ref 'LambdaEsLoaderServiceRoleFFD43869'
+    Condition: IsControlTowerAcccess
+  EventSourceMappingForCT63FDE1BA:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
+      EventSourceArn: !Ref 'ControlTowerSqsForLogBuckets'
+    Condition: IsControlTowerAcccess
   SIEMDashboard35199390:
     Type: AWS::CloudWatch::Dashboard
     Properties:
