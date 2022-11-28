@@ -21,6 +21,7 @@
     * [Amazon CloudFront](#Amazon-CloudFront)
     * [Route 53 Resolver VPC DNS 查询日志](#Route-53-Resolver-VPC-DNS-Query-Logging)
     * [Amazon Virtual Private Cloud (Amazon VPC) Flow Logs](#Amazon-VPC-Flow-Logs)
+    * [AWS Transit Gateway](#AWS-Transit-Gateway)
     * [Elastic Load Balancing (ELB)](#Elastic-Load-Balancing-ELB)
 1. [存储](#5-Storage)
     * [Amazon FSx for Windows File Server audit log](#Amazon-FSx-for-Windows-File-Server-audit-log)
@@ -263,6 +264,30 @@ s3_key的初始值：`vpcflowlogs`（默认输出路径的一部分）
       * 使用您的AWS account ID替换 123456789012。
    * Log record format: 勾选 [**Amazon Web Services default format**] 或 勾选 "Custom format" 并选择 "Log format".
    * Tags: 任意值
+1. Choose [**Create flow log**]
+
+### AWS Transit Gateway
+
+![Transigt Gateway to S3](images/log-source-tgw-to-s3.svg)
+
+The initial value of s3_key: `vpcflowlogs` (part of the default output path)
+
+Follow the steps below to output VPC flow logs to the S3 bucket:
+
+1. Log in to the AWS Management Console
+1. Navigate to the [Amazon VPC console](https://console.aws.amazon.com/vpc/home?)
+1. Choose [**Transit gateway**] or [**Transit gateway attachments**] from the left pane => Check the box of the resource to load
+1. Choose the [**Flow logs**] tab at the bottom of the screen => Choose [ **Create flow log**]
+1. Enter the following parameters on the Create flow log screen
+    * Name: any name
+    * Destination: Check [**Send to an S3 bucket**]
+    * S3 bucket ARN: [**arn:aws:s3:::aes-siem-123456789012-log**]
+        * Replace 123456789012 with your AWS account ID
+    * Log record format: Check [**AWS default format**] or check "Custom format" and select "Log format".
+    * Log file format: any
+    * Hive-compatible S3 prefix: any
+    * Partition logs by time: any
+    * Tags: any
 1. Choose [**Create flow log**]
 
 ### Elastic Load Balancing (ELB)

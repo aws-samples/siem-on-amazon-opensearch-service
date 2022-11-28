@@ -30,7 +30,8 @@ SIEM on OpenSearch Service 能够加载并关联以下日志类型。
 |Management & Governance|AWS Trusted Advisor|Trusted Advisor Check Result|
 |Networking & Content Delivery|Amazon CloudFront|标准访问日志<br>实时日志|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS 查询日志|
-|Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
+|Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)<br>Text / Parquet Format|
+|Networking & Content Delivery|AWS Transit Gateway|VPC Flow Logs (Version6)<br>Text / Parquet Format|
 |Networking & Content Delivery|Elastic Load Balancing|Application Load Balancer 访问日志<br>Network Load Balancer 访问日志<br>Classic Load Balancer 访问日志|
 |Networking & Content Delivery|AWS Client VPN|connection log 连接日志|
 |Storage|Amazon FSx for Windows File Server|audit log|

@@ -33,7 +33,8 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 |管理とガバナンス|AWS Trusted Advisor|Trusted Advisor チェック結果|
 |ネットワーキングとコンテンツ配信|Amazon CloudFront|Standard access log<br>Real-time log|
 |ネットワーキングとコンテンツ配信|Amazon Route 53 Resolver|VPC DNS query log|
-|ネットワーキングとコンテンツ配信|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
+|ネットワーキングとコンテンツ配信|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)<br>テキスト / Parquet 形式|
+|ネットワーキングとコンテンツ配信|AWS Transit Gateway|VPC Flow Logs (Version6)<br>テキスト / Parquet 形式|
 |ネットワーキングとコンテンツ配信|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
 |ネットワーキングとコンテンツ配信|AWS Client VPN|connection log|
 |ストレージ|Amazon FSx for Windows File Server|audit log|

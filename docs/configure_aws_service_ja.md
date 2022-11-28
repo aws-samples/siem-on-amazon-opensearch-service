@@ -23,6 +23,7 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
     * [Amazon CloudFront](#Amazon-CloudFront)
     * [Route 53 Resolver VPC DNS Query Log](#Route-53-Resolver-VPC-DNS-Query-Log)
     * [Amazon Virtual Private Cloud (Amazon VPC) Flow Logs](#Amazon-VPC-Flow-Logs)
+    * [AWS Transit Gateway](#AWS-Transit-Gateway)
     * [Elastic Load Balancing (ELB)](#Elastic-Load-Balancing-ELB)
     * [AWS Client VPN](#aws-client-vpn)
 1. [ストレージ](#5-ストレージ)
@@ -476,6 +477,29 @@ VPC Flow Logs を下記の方法で S3 バケットに出力してください�
     * S3 バケット ARN: [**arn:aws:s3:::aes-siem-123456789012-log**]
         * 123456789012 は ご利用の AWS アカウント ID に置換してください
     * ログレコード形式: [**AWS のデフォルトの形式**] またはカスタム形式を選択してフィールドにチェックを入れます
+    * タグ: 任意
+1. [**フローログを作成**] を選択して設定完了です
+
+### AWS Transit Gateway
+
+![Transigt Gateway to S3](images/log-source-tgw-to-s3.svg)
+
+s3_key の初期値: `vpcflowlogs` (デフォルト設定の出力パスの一部)
+
+VPC Flow Logs を下記の方法で S3 バケットに出力してください。
+
+1. [VPC コンソール](https://console.aws.amazon.com/vpc/home?) に移動します
+1. 画面左メニューの [**Transit Gateway**] または [**Transit Gateway アタッチメント**] を選択 => ログ取得対象リソースのチェックボックスを選択します
+1. 画面下部の詳細情報の、[**フローログ**] タブを選択 => [**フローログの作成**] を選択します
+1. [フローログを作成]画面にて下記のパラメーターを入力します
+    * 名前: 任意
+    * 送信先: [**S3 バケットへの送信**] にチェックを入れます
+    * S3 バケット ARN: [**arn:aws:s3:::aes-siem-123456789012-log**]
+        * 123456789012 は ご利用の AWS アカウント ID に置換してください
+    * ログレコード形式: [**AWS のデフォルトの形式**] またはカスタム形式を選択してフィールドにチェックを入れます
+    * ログファイル形式: テキスト または Parquet
+    * Hive 互換 S3 プレフィックス: 任意
+    * 時間別にログをパーティション化: 任意
     * タグ: 任意
 1. [**フローログを作成**] を選択して設定完了です
 
