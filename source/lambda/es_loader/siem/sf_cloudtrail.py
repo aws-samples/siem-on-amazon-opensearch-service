@@ -176,7 +176,7 @@ def transform(logdata):
             command = None
         if command and isinstance(command, str):
             logdata['requestParameters']['command'] = {'command': command}
-    elif event_source in ('ssm.amazonaws.com'):
+    elif event_source in ('ssm.amazonaws.com', 'sqlworkbench.amazonaws.com'):
         try:
             params = logdata['requestParameters']['parameters']
         except (KeyError, TypeError):
