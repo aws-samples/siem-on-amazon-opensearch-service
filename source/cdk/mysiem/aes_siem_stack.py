@@ -300,34 +300,27 @@ class MyAesSiemStack(cdk.Stack):
             type='String',
             allowed_pattern=r'^[-0-9a-z.\s,]*$',
             description=(
-                '(experimental)) Specify log bucket names of log archive in '
-                'Control Tower. Comma ssepareted list. '
-                'eg) aws-controltower-logs-123456789012-ap-northeast-1, '
-                'aws-controltower-s3-access-logs-123456789012-ap-northeast-1'),
+                'Specify S3 log bucket names in the Log Archive account. '
+                'Comma separated list. '
+                '(e.g., aws-controltower-logs-123456789012-ap-northeast-1, '
+                'aws-controltower-s3-access-logs-123456789012-ap-northeast-1 )'
+            ),
             default='')
-        ct_assume_role_arn = cdk.CfnParameter(
-            self, 'ControlTowerAssumeRoleArn',
+        ct_role_arn = cdk.CfnParameter(
+            self, 'ControlTowerRoleArnForEsLoader',
             description=(
-                '(experimantal) Specify ARN for role to be assumed by SIEM '
-                'account. eg) arn:aws:iam::123456789012:role/'
-                'ct-assumed-role-for-siem-es-loader'),
+                'Specify IAM Role ARN to be assumed by aes-siem-es-loader. '
+                '(e.g., arn:aws:iam::123456789012:role/ct-role-for-siem )'),
             allowed_pattern=r'^(arn:aws.*:iam::[0-9]{12}:role/.*|)$',
-            default='')
-        ct_assume_role_external_id = cdk.CfnParameter(
-            self, 'ControlTowerAssumeRoleExternalId',
-            description=(
-                '(experimantal) Specify external ID to assume role for cross '
-                'account. eg) externalid123'),
-            allowed_pattern=r'^([0-9a-zA-Z]*|)$',
             default='')
         ct_log_sqs = cdk.CfnParameter(
             self, 'ControlTowerSqsForLogBuckets',
             type='String',
             allowed_pattern=r'^(arn:aws[0-9a-zA-Z:/_-]*|)$',
             description=(
-                '(experimental)) Specify SQS Arn for buckets of log archive in'
-                ' Control Tower. '
-                'eg) arn:aws:sqs:ap-northeast-1:12345678902:aes-siem-ct'),
+                'Specify SQS ARN for S3 log buckets in Log Archive Account. '
+                '(e.g., arn:aws:sqs:ap-northeast-1:12345678902:aes-siem-ct )'
+            ),
             default='')
 
         # Pretfify parameters
@@ -345,12 +338,11 @@ class MyAesSiemStack(cdk.Stack):
                                     enable_tor.logical_id,
                                     enable_abuse_ch.logical_id,
                                     ioc_download_interval.logical_id]},
-                    {'Label': {'default': ('(Experimental) Control Tower Log '
-                                           'Ingestion (Optional)')},
+                    {'Label': {'default': ('(Optional) '
+                                           'Control Tower Integration')},
                      'Parameters': [ct_log_buckets.logical_id,
                                     ct_log_sqs.logical_id,
-                                    ct_assume_role_arn.logical_id,
-                                    ct_assume_role_external_id.logical_id, ]},
+                                    ct_role_arn.logical_id, ]},
                 ]
             }
         }
@@ -361,7 +353,7 @@ class MyAesSiemStack(cdk.Stack):
         s3bucket_name_log = f'{bucket}-log'
         s3bucket_name_snapshot = f'{bucket}-snapshot'
         cfn_ct_aws_account = cdk.Fn.select(
-            4, cdk.Fn.split(':', ct_assume_role_arn.value_as_string))
+            4, cdk.Fn.split(':', ct_role_arn.value_as_string))
 
         # organizations / multiaccount
         org_id = self.node.try_get_context('organizations').get('org_id')
@@ -784,10 +776,8 @@ class MyAesSiemStack(cdk.Stack):
                 'POWERTOOLS_SERVICE_NAME': 'es-loader',
                 'POWERTOOLS_METRICS_NAMESPACE': 'SIEM',
                 'CONTROL_TOWER_ROLE_SESSION_NAME': 'aes-siem-es-loader',
-                'CONTROL_TOWER_ASSUME_ROLE_ARN': (
-                    ct_assume_role_arn.value_as_string),
-                'CONTROL_TOWER_LOG_BUCKETS': (
-                    ct_log_buckets.value_as_string),
+                'CONTROL_TOWER_ROLE_ARN': ct_role_arn.value_as_string,
+                'CONTROL_TOWER_LOG_BUCKETS': ct_log_buckets.value_as_string,
             },
             current_version_options=aws_lambda.VersionOptions(
                 removal_policy=cdk.RemovalPolicy.RETAIN,
@@ -1187,9 +1177,6 @@ class MyAesSiemStack(cdk.Stack):
         aes_domain.add_override('Properties.ConfigVersion', __version__)
         aes_domain.node.add_dependency(aes_siem_deploy_role_for_lambda)
 
-        lambda_es_loader.add_environment(
-            'CONTROL_TOWER_ASSUME_ROLE_EXTERNAL_ID',
-            ct_assume_role_external_id.value_as_string)
         es_endpoint = aes_domain.get_att('es_endpoint').to_string()
         lambda_es_loader.add_environment('ES_ENDPOINT', es_endpoint)
         lambda_es_loader.add_environment(
@@ -1668,13 +1655,10 @@ class MyAesSiemStack(cdk.Stack):
             expression=cdk.Fn.condition_and(
                 cdk.Fn.condition_not(
                     cdk.Fn.condition_equals(
-                        ct_assume_role_external_id.value_as_string, '')),
-                cdk.Fn.condition_not(
-                    cdk.Fn.condition_equals(
                         ct_log_buckets.value_as_string, '')),
                 cdk.Fn.condition_not(
                     cdk.Fn.condition_equals(
-                        ct_assume_role_arn.value_as_string, '')),
+                        ct_role_arn.value_as_string, '')),
                 cdk.Fn.condition_not(
                     cdk.Fn.condition_equals(
                         ct_log_sqs.value_as_string, '')),
@@ -1688,7 +1672,7 @@ class MyAesSiemStack(cdk.Stack):
             statements=[
                 aws_iam.PolicyStatement(
                     actions=['sts:AssumeRole'],
-                    resources=[ct_assume_role_arn.value_as_string],
+                    resources=[ct_role_arn.value_as_string],
                 ),
                 aws_iam.PolicyStatement(
                     actions=[

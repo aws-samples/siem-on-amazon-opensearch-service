@@ -942,35 +942,19 @@ class ControlTowerIntegrationStack(MyStack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        assume_role_external_id = cdk.CfnParameter(
-            self, 'AssumeRoleExternalId',
-            description=(
-                'Specify external ID to assume role for cross account from '
-                'SIEM account. eg) externalid123'),
-            allowed_pattern=r'^[0-9a-zA-Z]*$',
-        )
-
+        es_ladder_iam_role_default = (
+            "arn:aws:iam::123456789012:role/aes-siem-LambdaEsLoaderServiceRole"
+            "XXXXXXXXX-XXXXXXXXXXXX")
         es_loader_iam_role = cdk.CfnParameter(
-            self, 'EsLoaderIamRole',
-            description=(
-                "Specify IAM Role of aes-siem-es-loader in SIEM Account."),
+            self, 'EsLoaderServiceRole',
             allowed_pattern=r'^arn:aws[0-9a-zA-Z:/-]*$',
-            default=("arn:aws:iam::123456789012:role/aes-siem-"
-                     "LambdaEsLoaderServiceRoleXXXXXXXXX-XXXXXXXXXXXX")
+            default=es_ladder_iam_role_default,
+            description=(
+                f"Specify Service Role ARN of lambda function "
+                f"aes-siem-es-loader in SIEM Account. "
+                f"(e.g., {es_ladder_iam_role_default} )"
+            ),
         )
-
-        self.template_options.metadata = {
-            'AWS::CloudFormation::Interface': {
-                'ParameterGroups': [
-                    {'Parameters': [
-                        es_loader_iam_role.logical_id,
-                        assume_role_external_id.logical_id]},
-                ]
-            }
-        }
-
-        cfn_siem_aws_account = cdk.Fn.select(
-            4, cdk.Fn.split(':', es_loader_iam_role.value_as_string))
 
         sqs_aes_siem_ct_dlq = aws_sqs.Queue(
             self, 'AesSiemCtDlq', queue_name='aes-siem-ct-dlq',
@@ -1039,11 +1023,10 @@ class ControlTowerIntegrationStack(MyStack):
         )
 
         aws_iam.Role(
-            self, 'AesSiemAssumedRole',
-            role_name='ct-assumed-role-for-siem-es-loader',
-            inline_policies={
-                'access_s3': policy_access_s3
-            },
-            assumed_by=aws_iam.AccountPrincipal(cfn_siem_aws_account),
-            external_ids=[assume_role_external_id.value_as_string],
+            self, 'RoleForSiem',
+            role_name='ct-role-for-siem',
+            inline_policies={'access_s3': policy_access_s3},
+            assumed_by=aws_iam.ArnPrincipal(
+                es_loader_iam_role.value_as_string
+            ),
         )
