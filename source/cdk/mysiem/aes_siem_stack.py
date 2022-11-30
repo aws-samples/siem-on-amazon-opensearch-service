@@ -817,7 +817,10 @@ class MyAesSiemStack(cdk.Stack):
 
         # add pandas layer lambda
         function_name = 'aes-siem-add-pandas-layer'
-        arn_pan = f'arn:{PARTITION}:lambda:*:*:layer:AWSDataWrangler-Python38*'
+        arn_pan = [
+            f'arn:{PARTITION}:lambda:*:*:layer:AWSDataWrangler-*',
+            f'arn:{PARTITION}:lambda:*:*:layer:AWSSDKPandas-*',
+        ]
         lambda_add_pandas_layer_role = aws_iam.Role(
             self, "LambdaAddPandasLayerRole",
             managed_policies=[
@@ -832,7 +835,7 @@ class MyAesSiemStack(cdk.Stack):
                             resources=[lambda_es_loader.function_arn]),
                         aws_iam.PolicyStatement(
                             actions=['lambda:PublishLayerVersion'],
-                            resources=[arn_pan],),
+                            resources=arn_pan,),
                         aws_iam.PolicyStatement(
                             actions=['lambda:ListLayers',
                                      'lambda:GetLayerVersion'],
