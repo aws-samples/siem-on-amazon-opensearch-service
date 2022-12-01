@@ -328,6 +328,30 @@ class MyAesSiemStack(cdk.Stack):
             ),
             default='')
 
+        sl_role_arn = cdk.CfnParameter(
+            self, 'SecurityLakeRoleArn',
+            description=(
+                'Specify IAM Role ARN to be assumed by aes-siem-es-loader. '
+                '(e.g., arn:aws:iam::123456789012:role/sl-role-for-siem )'),
+            allowed_pattern=r'^(arn:aws.*:iam::[0-9]{12}:role/.*|)$',
+            default='')
+        sl_external_id = cdk.CfnParameter(
+            self, 'SecurityLakeExternalId',
+            description=(
+                'Specify Security Lake external ID for cross account. '
+                '(e.g., externalid123 )'),
+            allowed_pattern=r'^([0-9a-zA-Z]*|)$',
+            default='')
+        sl_log_sqs = cdk.CfnParameter(
+            self, 'SecurityLakeSubscriberSqs',
+            type='String',
+            allowed_pattern=r'^(arn:aws[0-9a-zA-Z:/_-]*-Main-Queue|)$',
+            description=(
+                'Specify SQS ARN of Security Lake Subscriber. '
+                '(e.g., arn:aws:sqs:us-east-1:12345678902:AmazonSecurityLake'
+                '-00001111-2222-3333-5555-666677778888-Main-Queue )'),
+            default='')
+
         # Pretfify parameters
         self.template_options.metadata = {
             'AWS::CloudFormation::Interface': {
@@ -348,6 +372,12 @@ class MyAesSiemStack(cdk.Stack):
                      'Parameters': [ct_log_buckets.logical_id,
                                     ct_log_sqs.logical_id,
                                     ct_role_arn.logical_id, ]},
+                    {'Label': {'default': ('(Experimental) '
+                                           'Security Lake Integration - '
+                                           'optional')},
+                     'Parameters': [sl_log_sqs.logical_id,
+                                    sl_role_arn.logical_id,
+                                    sl_external_id.logical_id, ]},
                 ]
             }
         }
@@ -359,6 +389,8 @@ class MyAesSiemStack(cdk.Stack):
         s3bucket_name_snapshot = f'{bucket}-snapshot'
         cfn_ct_aws_account = cdk.Fn.select(
             4, cdk.Fn.split(':', ct_role_arn.value_as_string))
+        cfn_sl_aws_account = cdk.Fn.select(
+            4, cdk.Fn.split(':', sl_role_arn.value_as_string))
 
         # organizations / multiaccount
         org_id = self.node.try_get_context('organizations').get('org_id')
@@ -783,6 +815,10 @@ class MyAesSiemStack(cdk.Stack):
                 'CONTROL_TOWER_ROLE_SESSION_NAME': 'aes-siem-es-loader',
                 'CONTROL_TOWER_ROLE_ARN': ct_role_arn.value_as_string,
                 'CONTROL_TOWER_LOG_BUCKETS': ct_log_buckets.value_as_string,
+                'SECURITY_LAKE_ROLE_SESSION_NAME': 'aes-siem-es-loader',
+                'SECURITY_LAKE_ROLE_ARN': sl_role_arn.value_as_string,
+                'SECURITY_LAKE_EXTERNAL_ID': (
+                    sl_external_id.value_as_string),
             },
             current_version_options=aws_lambda.VersionOptions(
                 removal_policy=cdk.RemovalPolicy.RETAIN,
@@ -1706,6 +1742,58 @@ class MyAesSiemStack(cdk.Stack):
         )
         source_mapping_for_ct.node.default_child.cfn_options.condition = (
             is_control_tower_access)
+
+        ######################################################################
+        # AWS Security Lake
+        ######################################################################
+        is_security_lake_access = cdk.CfnCondition(
+            self, "IsSecurityLakeAcccess",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        sl_external_id.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        sl_role_arn.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        sl_log_sqs.value_as_string, '')),
+            )
+        )
+
+        # grant additional permission to es_loader role for control tower
+        inline_policy_securitylake = aws_iam.Policy(
+            self, 'access_to_security_lake_log_buckets',
+            policy_name='access_to_security_lake',
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['sts:AssumeRole'],
+                    resources=[sl_role_arn.value_as_string],
+                ),
+                aws_iam.PolicyStatement(
+                    actions=[
+                        "sqs:ReceiveMessage",
+                        "sqs:ChangeMessageVisibility",
+                        "sqs:GetQueueUrl",
+                        "sqs:DeleteMessage",
+                        "sqs:GetQueueAttributes"
+                    ],
+                    resources=[(f'arn:aws:sqs:*:{cfn_sl_aws_account}:*')],
+                )
+            ]
+        )
+        inline_policy_securitylake.node.default_child.cfn_options.condition = (
+            is_security_lake_access)
+        lambda_es_loader.role.attach_inline_policy(
+            inline_policy_securitylake)
+
+        source_mapping_for_ct2 = aws_lambda.EventSourceMapping(
+            self, "EventSourceMappingForCT2",
+            target=lambda_es_loader,
+            event_source_arn=sl_log_sqs.value_as_string,
+        )
+        source_mapping_for_ct2.node.default_child.cfn_options.condition = (
+            is_security_lake_access)
 
         ######################################################################
         # CloudWatch Dashboard

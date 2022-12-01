@@ -60,7 +60,15 @@ def extract_logfile_from_s3(record):
                 client = control_tower_s3_client
             else:
                 logger.warning("es-loader doesn't have valid credential to "
-                               "access the S3 bucket")
+                               "access the S3 bucket in Log Archive")
+                raise Exception(f"Failed to download s3://{s3bucket}/{s3key} "
+                                "because of invalid credential")
+        elif s3bucket.startswith('aws-security-data-lake-'):
+            if security_lake_s3_client:
+                client = security_lake_s3_client
+            else:
+                logger.warning("es-loader doesn't have valid credential to "
+                               "access the S3 bucket in Security Lake")
                 raise Exception(f"Failed to download s3://{s3bucket}/{s3key} "
                                 "because of invalid credential")
 
@@ -390,6 +398,16 @@ control_tower_role_session_name = os.environ.get(
 control_tower_s3_client = utils.get_s3_client_for_crosss_account(
     config=s3_session_config, role_arn=control_tower_role_arn,
     role_session_name=control_tower_role_session_name)
+
+security_lake_log_buckets = os.environ.get('SECURITY_LAKE_LOG_BUCKETS', '')
+security_lake_role_arn = os.environ.get('SECURITY_LAKE_ROLE_ARN')
+security_lake_role_session_name = os.environ.get(
+    'SECURITY_LAKE_ROLE_SESSION_NAME')
+security_lake_external_id = os.environ.get('SECURITY_LAKE_EXTERNAL_ID')
+security_lake_s3_client = utils.get_s3_client_for_crosss_account(
+    config=s3_session_config, role_arn=security_lake_role_arn,
+    role_session_name=security_lake_role_session_name,
+    external_id=security_lake_external_id)
 
 geodb_instance = geodb.GeoDB()
 ioc_instance = ioc.DB()
