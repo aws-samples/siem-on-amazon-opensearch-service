@@ -332,8 +332,10 @@ class MyAesSiemStack(cdk.Stack):
             self, 'SecurityLakeRoleArn',
             description=(
                 'Specify IAM Role ARN to be assumed by aes-siem-es-loader. '
-                '(e.g., arn:aws:iam::123456789012:role/sl-role-for-siem )'),
-            allowed_pattern=r'^(arn:aws.*:iam::[0-9]{12}:role/.*|)$',
+                '(e.g., arn:aws:iam::123456789012:role/AmazonSecurityLake'
+                '-00001111-2222-3333-5555-666677778888 )'),
+            allowed_pattern=(r'^(arn:aws.*:iam::[0-9]{12}:role/AmazonSecurity'
+                             r'Lake-[0-9a-f-]*|)$'),
             default='')
         sl_external_id = cdk.CfnParameter(
             self, 'SecurityLakeExternalId',
@@ -345,7 +347,8 @@ class MyAesSiemStack(cdk.Stack):
         sl_log_sqs = cdk.CfnParameter(
             self, 'SecurityLakeSubscriberSqs',
             type='String',
-            allowed_pattern=r'^(arn:aws[0-9a-zA-Z:/_-]*-Main-Queue|)$',
+            allowed_pattern=(r'^(arn:aws.*:sqs:.*:[0-9]{12}:AmazonSecurity'
+                             r'Lake-[0-9a-f-]*-Main-Queue|)$'),
             description=(
                 'Specify SQS ARN of Security Lake Subscriber. '
                 '(e.g., arn:aws:sqs:us-east-1:12345678902:AmazonSecurityLake'

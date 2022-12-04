@@ -618,6 +618,10 @@ class LogParser:
             return indexname
         if 'event_ingested' in self.logconfig['index_time']:
             index_dt = self.event_ingested
+        elif '__index_dt' in self.__logdata_dict:
+            # this field is added by sf_ script
+            index_dt = self.__logdata_dict['__index_dt']
+            del self.__logdata_dict['__index_dt']
         else:
             index_dt = self.timestamp
         if self.logconfig['index_tz']:
@@ -635,11 +639,11 @@ class LogParser:
     def json(self):
         # 内部で管理用のフィールドを削除
         self.__logdata_dict = self.del_none(self.__logdata_dict)
-        loaded_data = json.dumps(self.__logdata_dict)
+        loaded_data = json.dumps(self.__logdata_dict, cls=utils.MyEncoder)
         # サイズが Lucene の最大値である 32766 Byte を超えてるかチェック
         if len(loaded_data) >= 65536:
             self.__logdata_dict = self.truncate_big_field(self.__logdata_dict)
-            loaded_data = json.dumps(self.__logdata_dict)
+            loaded_data = json.dumps(self.__logdata_dict, cls=utils.MyEncoder)
         return loaded_data
 
     ###########################################################################
@@ -970,17 +974,17 @@ class LogParser:
                     return self.file_timestamp
                 timestr = utils.get_timestr_from_logdata_dict(
                     self.__logdata_dict, timestamp_key, self.has_nanotime)
-                if timestr:
+                if timestr is not None and timestr != '':
                     break
 
-            if not timestr:
+            if timestr is None or timestr == '':
                 msg = f'there is no valid timestamp_key for {self.logtype}'
                 logger.error(msg)
                 raise ValueError(msg)
             dt = utils.convert_timestr_to_datetime_wrapper(
                 timestr, timestamp_key, timestamp_format_list,
                 self.timestamp_tz)
-            if not dt:
+            if dt is None or dt == '':
                 msg = f'there is no timestamp format for {self.logtype}'
                 logger.error(msg)
                 raise ValueError(msg)

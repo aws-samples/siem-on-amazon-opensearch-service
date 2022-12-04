@@ -11,6 +11,7 @@ import configparser
 import csv
 import importlib
 import ipaddress
+import json
 import os
 import re
 import sys
@@ -23,7 +24,20 @@ import requests
 from aws_lambda_powertools import Logger
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
 logger = Logger(child=True)
+
+
+class MyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if np:
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return json.JSONEncoder.default(self, obj)
 
 
 class AutoRefreshableSession:
@@ -230,7 +244,7 @@ def convert_timestr_to_datetime(timestr, timestamp_key, timestamp_format, TZ):
 
 
 @lru_cache(maxsize=1024)
-def convert_epoch_to_datetime(timestr, TZ):
+def convert_epoch_to_datetime(timestr, TZ=timezone.utc):
     try:
         epoch = float(timestr)
     except ValueError:
@@ -557,6 +571,8 @@ def make_exclude_own_log_patterns(etl_config):
             re_user_agent = re.compile('.*' + re.escape(user_agent) + '.*')
             log_patterns['cloudtrail'] = {'userAgent': re_user_agent}
             log_patterns['s3accesslog'] = {'UserAgent': re_user_agent}
+            log_patterns['securitylake'] = {
+                'http_request': {'user_agent': re_user_agent}}
     return log_patterns
 
 
@@ -684,7 +700,7 @@ def value_from_nesteddict_by_dottedkey(nested_dict, dotted_key):
         except (TypeError, KeyError, IndexError):
             value = ''
             break
-    if value:
+    if value is not None and value != '':
         return value
 
 
@@ -709,7 +725,7 @@ def value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list):
         pass
     for dotted_key in dotted_key_list:
         value = value_from_nesteddict_by_dottedkey(nested_dict, dotted_key)
-        if value:
+        if value is not None and value != '':
             return value
 
 
