@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.1-beta.4'
+__version__ = '2.9.0-rc.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -364,14 +364,14 @@ class MyAesSiemStack(cdk.Stack):
                     {'Label': {'default': 'Basic Configuration'},
                      'Parameters': [sns_email.logical_id,
                                     reserved_concurrency.logical_id]},
-                    {'Label': {'default': 'Log Enrichment'},
+                    {'Label': {'default': 'Log Enrichment - optional'},
                      'Parameters': [geoip_license_key.logical_id,
                                     otx_api_key.logical_id,
                                     enable_tor.logical_id,
                                     enable_abuse_ch.logical_id,
                                     ioc_download_interval.logical_id]},
-                    {'Label': {'default': ('(Optional) '
-                                           'Control Tower Integration')},
+                    {'Label': {'default': ('Control Tower Integration '
+                                           '- optional')},
                      'Parameters': [ct_log_buckets.logical_id,
                                     ct_log_sqs.logical_id,
                                     ct_role_arn.logical_id, ]},

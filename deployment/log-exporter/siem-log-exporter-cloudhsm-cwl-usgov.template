@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.8.1-beta.4: log exporter - CloudHSM"
+Description: "SIEM on Amazon OpenSearch Service v2.9.0-rc.1: log exporter - CloudHSM"
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
