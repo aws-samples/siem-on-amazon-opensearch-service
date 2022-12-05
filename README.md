@@ -31,7 +31,8 @@ SIEM on OpenSearch Service can load and correlate the following log types.
 |Management & Governance|AWS Trusted Advisor|Trusted Advisor Check Result|
 |Networking & Content Delivery|Amazon CloudFront|Standard access log<br>Real-time log|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS query log|
-|Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
+|Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)<br>Text / Parquet Format|
+|Networking & Content Delivery|AWS Transit Gateway|VPC Flow Logs (Version6)<br>Text / Parquet Format|
 |Networking & Content Delivery|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
 |Networking & Content Delivery|AWS Client VPN|connection log|
 |Storage|Amazon FSx for Windows File Server|audit log|
@@ -112,12 +113,12 @@ If you want to update "SIEM on OpenSearch Service/SIEM on Amazon ES" to the late
 
 ### Upgrading the OpenSearch Service domain
 
-Upgrade the domain to OpenSearch 1.3, 1.2, 1.1, 1.0 or Elasticsearch version 7.10. Some Dashboards assume OpenSearch Service 1.1 or higher, so the recommended version is OpenSearch Service 1.3 with "Enable compatibility mode":
+Upgrade the domain to OpenSearch 2.3, 1.3, 1.2, 1.1, 1.0 or Elasticsearch version 7.10. Some Dashboards assume OpenSearch Service 1.1 or higher, so the recommended version is OpenSearch Service 2.3 with "Enable compatibility mode":
 
 1. Navigate to the [OpenSearch Service console](https://console.aws.amazon.com/es/home?)
 1. Choose domain: [**aes-siem**]
 1. Choose [**Actions**] icon, and choose [**Upgrade domain**] from the drop-down menu
-1. For "Version to upgrade to", choose [**OpenSearch 1.3**] (Recommended), [**OpenSearch 1.2**], [**OpenSearch 1.1**], [**OpenSearch 1.0**] or [**Elasticsearch 7.10**]
+1. For "Version to upgrade to", choose [**OpenSearch 2.3**] (Recommended), [**OpenSearch 1.3**], [**OpenSearch 1.2**], [**OpenSearch 1.1**], [**OpenSearch 1.0**] or [**Elasticsearch 7.10**]
 1. Choose "Enable compatibility mode" (Recommended)
 1. Then choose [**Submit**]
 

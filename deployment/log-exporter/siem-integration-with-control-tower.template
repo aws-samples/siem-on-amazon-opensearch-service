@@ -1,0 +1,107 @@
+Description: "SIEM on Amazon OpenSearch Service v2.9.0: Control Tower Integration"
+Parameters:
+  EsLoaderServiceRole:
+    Type: String
+    Default: arn:aws:iam::123456789012:role/aes-siem-LambdaEsLoaderServiceRoleXXXXXXXXX-XXXXXXXXXXXX
+    AllowedPattern: ^arn:aws[0-9a-zA-Z:/-]*$
+    Description: Specify Service Role ARN of lambda function aes-siem-es-loader in SIEM Account. (e.g., arn:aws:iam::123456789012:role/aes-siem-LambdaEsLoaderServiceRoleXXXXXXXXX-XXXXXXXXXXXX )
+Resources:
+  AesSiemCtDlqF1D4C848:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      QueueName: aes-siem-ct-dlq
+      SqsManagedSseEnabled: true
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  AesSiemCt84F7E817:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      QueueName: aes-siem-ct
+      RedrivePolicy:
+        deadLetterTargetArn:
+          Fn::GetAtt:
+            - AesSiemCtDlqF1D4C848
+            - Arn
+        maxReceiveCount: 20
+      SqsManagedSseEnabled: true
+      VisibilityTimeout: 600
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  AesSiemCtPolicy898D7FA5:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: SQS:*
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - ":iam::"
+                    - Ref: AWS::AccountId
+                    - :root
+            Resource:
+              Fn::GetAtt:
+                - AesSiemCt84F7E817
+                - Arn
+            Sid: __owner_statement
+          - Action: SQS:SendMessage
+            Condition:
+              StringEquals:
+                aws:SourceAccount:
+                  - Ref: AWS::AccountId
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Resource:
+              Fn::GetAtt:
+                - AesSiemCt84F7E817
+                - Arn
+            Sid: allow-s3-bucket-to-send-message
+          - Action:
+              - sqs:ReceiveMessage
+              - sqs:ChangeMessageVisibility
+              - sqs:GetQueueUrl
+              - sqs:DeleteMessage
+              - sqs:GetQueueAttributes
+            Effect: Allow
+            Principal:
+              AWS:
+                Ref: EsLoaderServiceRole
+            Resource:
+              Fn::GetAtt:
+                - AesSiemCt84F7E817
+                - Arn
+            Sid: allow-es-loader-to-recieve-message
+        Version: "2012-10-17"
+      Queues:
+        - Ref: AesSiemCt84F7E817
+  RoleForSiem59DE4201:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              AWS:
+                Ref: EsLoaderServiceRole
+        Version: "2012-10-17"
+      Policies:
+        - PolicyDocument:
+            Statement:
+              - Action: s3:GetObject
+                Effect: Allow
+                Resource: "*"
+              - Action: kms:Decrypt
+                Effect: Allow
+                Resource: "*"
+            Version: "2012-10-17"
+          PolicyName: access_s3
+      RoleName: ct-role-for-siem
+

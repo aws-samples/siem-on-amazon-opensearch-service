@@ -2,20 +2,24 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 
 def transform(logdata):
-    action = logdata['event']['action']
-    if 'ACCEPT' in action:
-        logdata['event']['outcome'] = 'success'
-    elif 'REJECT' in action:
-        logdata['event']['outcome'] = 'failure'
+    is_transitgateway = logdata.get('resource_type')
+    if is_transitgateway:
+        logdata['@log_type'] = 'transit-gateway'
     else:
-        logdata['event']['outcome'] = 'unknown'
+        action = logdata['event'].get('action', '')
+        if 'ACCEPT' in action:
+            logdata['event']['outcome'] = 'success'
+        elif 'REJECT' in action:
+            logdata['event']['outcome'] = 'failure'
+        else:
+            logdata['event']['outcome'] = 'unknown'
 
     protocol = logdata.get('protocol')
     if protocol == "6":

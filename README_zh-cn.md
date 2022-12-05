@@ -30,7 +30,8 @@ SIEM on OpenSearch Service 能够加载并关联以下日志类型。
 |Management & Governance|AWS Trusted Advisor|Trusted Advisor Check Result|
 |Networking & Content Delivery|Amazon CloudFront|标准访问日志<br>实时日志|
 |Networking & Content Delivery|Amazon Route 53 Resolver|VPC DNS 查询日志|
-|Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
+|Networking & Content Delivery|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)<br>Text / Parquet Format|
+|Networking & Content Delivery|AWS Transit Gateway|VPC Flow Logs (Version6)<br>Text / Parquet Format|
 |Networking & Content Delivery|Elastic Load Balancing|Application Load Balancer 访问日志<br>Network Load Balancer 访问日志<br>Classic Load Balancer 访问日志|
 |Networking & Content Delivery|AWS Client VPN|connection log 连接日志|
 |Storage|Amazon FSx for Windows File Server|audit log|
@@ -163,7 +164,7 @@ SIEM on OpenSearch Service大概需要30分钟来完成部署。随后即可着�
 1. 导航至 [OpenSearch Service控制台](https://console.amazonaws.cn/esv3/home?)
 1. 选定域: [**aes-siem**]
 1. 选择 [**Actions**] 图标，而后在下拉清单中选择 [**Upgrade domain**]
-1. 在 "Version to upgrade to"部分，选择 [**OpenSearch 1.3**] 后选择[**Submit**]
+1. 在 "Version to upgrade to"部分，选择 [**OpenSearch 2.3**] 后选择[**Submit**]
 
 如果您选择使用CloudFormation进行初始设置，请继续执行下一步。如果您使用AWS CDK进行初设置，请参阅[高级部署](docs/deployment.md)中的 “使用AWS CDK更新SIEM” 部分。
 

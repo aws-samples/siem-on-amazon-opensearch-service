@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -14,6 +14,7 @@ import re
 import sys
 import time
 import urllib.parse
+import warnings
 from functools import lru_cache, wraps
 
 import boto3
@@ -26,6 +27,8 @@ from siem import geodb, ioc, utils
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
 logger.info(f'version: {__version__}')
+logger.info(f'boto3: {boto3.__version__}')
+warnings.filterwarnings("ignore", "No metrics to publish*")
 metrics = Metrics()
 
 SQS_SPLITTED_LOGS_URL = None
@@ -36,17 +39,47 @@ ES_HOSTNAME = utils.get_es_hostname()
 
 def extract_logfile_from_s3(record):
     if 's3' in record:
-        s3key = urllib.parse.unquote_plus(
-            record['s3']['object']['key'], encoding='utf-8')
-        s3bucket = record['s3']['bucket']['name']
+        s3key = record['s3'].get('object', {}).get('key')
+        s3bucket = record['s3'].get('bucket', {}).get('name')
+    elif 'detail' in record:
+        s3key = record['detail'].get('object', {}).get('key')
+        s3bucket = record['detail'].get('bucket', {}).get('name')
+    else:
+        s3key = ''
+        s3bucket = ''
+    s3key = urllib.parse.unquote_plus(s3key, encoding='utf-8')
+
+    if s3key and s3bucket:
         logger.structure_logs(append=True, s3_key=s3key, s3_bucket=s3bucket)
         logtype = utils.get_logtype_from_s3key(s3key, logtype_s3key_dict)
         logconfig = create_logconfig(logtype)
-        logfile = siem.LogS3(record, logtype, logconfig, s3_client, sqs_queue)
+        client = s3_client
+
+        if s3bucket in control_tower_log_bucket_list:
+            if control_tower_s3_client:
+                client = control_tower_s3_client
+            else:
+                logger.warning("es-loader doesn't have valid credential to "
+                               "access the S3 bucket in Log Archive")
+                raise Exception(f"Failed to download s3://{s3bucket}/{s3key} "
+                                "because of invalid credential")
+        elif s3bucket.startswith('aws-security-data-lake-'):
+            if security_lake_s3_client:
+                client = security_lake_s3_client
+            else:
+                logger.warning("es-loader doesn't have valid credential to "
+                               "access the S3 bucket in Security Lake")
+                raise Exception(f"Failed to download s3://{s3bucket}/{s3key} "
+                                "because of invalid credential")
+
+        logfile = siem.LogS3(record, s3bucket, s3key, logtype, logconfig,
+                             client, sqs_queue)
     else:
         logger.warning(
             'Skipped because there is no S3 object. Invalid input data')
+        logger.info(record)
         return None
+
     return logfile
 
 
@@ -178,9 +211,10 @@ def get_es_entries(logfile, exclude_log_patterns):
             continue
         indexname = utils.get_writable_indexname(
             logparser.indexname, READ_ONLY_INDICES)
-        yield {'index': {'_index': indexname, '_id': logparser.doc_id}}
+        action_meta = json.dumps({'index': {'_index': indexname,
+                                            '_id': logparser.doc_id}})
         # logger.debug(logparser.json)
-        yield logparser.json
+        yield [action_meta, logparser.json]
     del logparser
 
 
@@ -229,17 +263,17 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     retry_needed = False
     filter_path = ['took', 'errors', 'items.index.status', 'items.index.error']
     for data in es_entries:
-        putdata_list.append(data)
-        output_size += len(str(data))
+        putdata_list.extend(data)
+        output_size += len(data[0]) + len(data[1])
         # es の http.max_content_length は t2 で10MB なのでデータがたまったらESにロード
-        if isinstance(data, str) and output_size > 6000000:
+        if output_size > 6000000:
             total_output_size += output_size
             try:
                 results = es_conn.bulk(putdata_list, filter_path=filter_path)
-            except (AuthorizationException, AuthenticationException):
+            except (AuthorizationException, AuthenticationException) as err:
                 logger.warning(
-                    'AuthorizationException is raised due to SigV4 issue. '
-                    'http_compress has been disabled')
+                    'AuthN or AuthZ Exception raised due to SigV4 issue. '
+                    f'http_compress has been disabled. {err}')
                 es_conn = utils.create_es_conn(
                     awsauth, ES_HOSTNAME, http_compress=False)
                 results = es_conn.bulk(putdata_list, filter_path=filter_path)
@@ -259,10 +293,10 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
         total_output_size += output_size
         try:
             results = es_conn.bulk(putdata_list, filter_path=filter_path)
-        except (AuthorizationException, AuthenticationException):
+        except (AuthorizationException, AuthenticationException) as err:
             logger.warning(
-                'AuthorizationException is raised due to SigV4 issue. '
-                'http_compress has been disabled')
+                'AuthN or AuthZ Exception raised due to SigV4 issue. '
+                f'http_compress has been disabled. {err}')
             es_conn = utils.create_es_conn(
                 awsauth, ES_HOSTNAME, http_compress=False)
             results = es_conn.bulk(putdata_list, filter_path=filter_path)
@@ -286,15 +320,15 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     return collected_metrics, error_reason_list, retry_needed
 
 
-def output_metrics(metrics, record=None, logfile=None, collected_metrics={}):
+def output_metrics(metrics, logfile=None, collected_metrics={}):
     if not os.environ.get('AWS_EXECUTION_ENV'):
         return
     total_output_size = collected_metrics['total_output_size']
     success_count = collected_metrics['success_count']
     error_count = collected_metrics['error_count']
     es_response_time = collected_metrics['es_response_time']
-    input_file_size = record['s3']['object'].get('size', 0)
-    s3_key = record['s3']['object']['key']
+    input_file_size = logfile.s3obj_size
+    s3_key = logfile.s3key
     duration = int(
         (time.perf_counter() - collected_metrics['start_time']) * 1000) + 10
     total_log_count = logfile.total_log_count
@@ -355,6 +389,26 @@ s3_session_config = utils.make_s3_session_config(etl_config)
 s3_client = boto3.client('s3', config=s3_session_config)
 sqs_queue = utils.sqs_queue(SQS_SPLITTED_LOGS_URL)
 
+control_tower_log_buckets = os.environ.get('CONTROL_TOWER_LOG_BUCKETS', '')
+control_tower_log_bucket_list = (
+    control_tower_log_buckets.replace(',', ' ').split())
+control_tower_role_arn = os.environ.get('CONTROL_TOWER_ROLE_ARN')
+control_tower_role_session_name = os.environ.get(
+    'CONTROL_TOWER_ROLE_SESSION_NAME')
+control_tower_s3_client = utils.get_s3_client_for_crosss_account(
+    config=s3_session_config, role_arn=control_tower_role_arn,
+    role_session_name=control_tower_role_session_name)
+
+security_lake_log_buckets = os.environ.get('SECURITY_LAKE_LOG_BUCKETS', '')
+security_lake_role_arn = os.environ.get('SECURITY_LAKE_ROLE_ARN')
+security_lake_role_session_name = os.environ.get(
+    'SECURITY_LAKE_ROLE_SESSION_NAME')
+security_lake_external_id = os.environ.get('SECURITY_LAKE_EXTERNAL_ID')
+security_lake_s3_client = utils.get_s3_client_for_crosss_account(
+    config=s3_session_config, role_arn=security_lake_role_arn,
+    role_session_name=security_lake_role_session_name,
+    external_id=security_lake_external_id)
+
 geodb_instance = geodb.GeoDB()
 ioc_instance = ioc.DB()
 utils.show_local_dir()
@@ -363,6 +417,7 @@ utils.show_local_dir()
 @observability_decorator_switcher
 def lambda_handler(event, context):
     main(event, context)
+    return {'EventResponse': None}
 
 
 def main(event, context):
@@ -425,7 +480,7 @@ def process_record(record):
     # 作成したデータをESにPUTしてメトリクスを収集する
     (collected_metrics, error_reason_list, retry_needed) = (
         bulkloads_into_opensearch(es_entries, collected_metrics))
-    output_metrics(metrics, record=record, logfile=logfile,
+    output_metrics(metrics, logfile=logfile,
                    collected_metrics=collected_metrics)
     if logfile.error_logs_count > 0:
         collected_metrics['error_count'] += logfile.error_logs_count

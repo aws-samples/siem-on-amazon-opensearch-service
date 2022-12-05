@@ -91,7 +91,7 @@ chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh china
 
 ```bash
 chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh
-source ~/.bash_profile
+source ~/.bashrc
 ```
 
 如下软件将被安装:
@@ -107,7 +107,7 @@ source ~/.bash_profile
 
 ```bash
 cd ../../source/cdk/
-source .env/bin/activate
+source .venv/bin/activate
 cdk bootstrap
 ```
 
@@ -216,7 +216,7 @@ git pull --rebase
 
 ```sh
 cd source/cdk/
-source .env/bin/activate
+source .venv/bin/activate
 cdk deploy --no-rollback
 ```
 

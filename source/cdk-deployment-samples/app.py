@@ -3,17 +3,18 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
-from aws_cdk import core
+import aws_cdk as cdk
 
 from deployment_samples.deployment_samples_stack import (
     ADLogExporterStack,
     ClientVpnLogExporterStack,
     CloudHsmCWLogsExporterStack,
+    ControlTowerIntegrationStack,
     CoreLogExporterStack,
     CWLNoCompressExporterStack,
     DeploymentSamplesStack,
@@ -23,7 +24,7 @@ from deployment_samples.deployment_samples_stack import (
     WorkSpacesLogExporterStack,
 )
 
-app = core.App()
+app = cdk.App()
 DeploymentSamplesStack(app, "DeploymentSamplesStack")
 core_logging = CoreLogExporterStack(
     app, "siem-log-exporter-core",
@@ -64,5 +65,10 @@ eventbridge_events_logging = EventBridgeEventsExporterStack(
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - EventBridge events '
                  '(SecurityHub, ConfigRules, Inspector)'))
+
+control_tower_integration = ControlTowerIntegrationStack(
+    app, "control-tower-integration",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'Control Tower Integration'))
 
 app.synth()

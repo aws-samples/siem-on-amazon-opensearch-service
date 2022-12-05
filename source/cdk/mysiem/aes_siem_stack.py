@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
+import aws_cdk as cdk
 import boto3
 from aws_cdk import (
     aws_cloudformation,
@@ -26,9 +27,9 @@ from aws_cdk import (
     aws_sqs,
     aws_stepfunctions,
     aws_stepfunctions_tasks,
-    core,
     region_info,
 )
+from constructs import Construct
 
 print(__version__)
 
@@ -53,11 +54,11 @@ def validate_cdk_json(context):
         raise Exception('vpc_type is invalid. You can use "new" or "import". '
                         'Exit. Fix and Try again')
 
-    vpcid = context.node.try_get_context("imported_vpc_id")
-    vpc_client = ec2_resource.Vpc(vpcid)
+    vpc_id = context.node.try_get_context("imported_vpc_id")
+    vpc_client = ec2_resource.Vpc(vpc_id)
     print('checking vpc...')
     vpc_client.state
-    print(f'checking vpc id...:\t\t{vpcid}')
+    print(f'checking vpc id...:\t\t{vpc_id}')
     is_dns_support = vpc_client.describe_attribute(
         Attribute='enableDnsSupport')['EnableDnsSupport']['Value']
     print(f'checking dns support...:\t{is_dns_support}')
@@ -114,8 +115,6 @@ def validate_cdk_json(context):
     if not validation_result:
         raise Exception('subnet is invalid. Modify it.')
     print('checking subnet is...\t\t[PASS]\n')
-    print('IGNORE Following Warning. '
-          '"No routeTableId was provided to the subnet..."')
 
 
 def get_subnet_ids(context):
@@ -131,6 +130,39 @@ def get_subnet_ids(context):
     return subnet_ids
 
 
+def get_subnets(context):
+    subnets = []
+    subnet_ids = get_subnet_ids(context)
+    attributes = ec2_client.describe_subnets(SubnetIds=subnet_ids)
+    for attribute in attributes['Subnets']:
+        subnet_id = attribute['SubnetId']
+        # get associated route id
+        response = ec2_client.describe_route_tables(
+            Filters=[{'Name': 'association.subnet-id', 'Values': [subnet_id]}])
+        if len(response['RouteTables']) == 0:
+            # get main route id
+            vpc_id = context.node.try_get_context("imported_vpc_id")
+            response = ec2_client.describe_route_tables(
+                Filters=[
+                    {'Name': 'association.main', 'Values': ['true']},
+                    {'Name': 'vpc-id', 'Values': [vpc_id]},
+                ])
+        route_table_id = (
+            response['RouteTables'][0]['Associations'][0]['RouteTableId'])
+
+        subnet = aws_ec2.Subnet.from_subnet_attributes(
+            context,
+            id=subnet_id,
+            subnet_id=subnet_id,
+            availability_zone=attribute['AvailabilityZone'],
+            ipv4_cidr_block=attribute['CidrBlock'],
+            route_table_id=route_table_id)
+
+        subnets.append(subnet)
+
+    return subnets
+
+
 def check_iam_role(pathprefix):
     role_iterator = iam_client.list_roles(PathPrefix=pathprefix)
     if len(role_iterator['Roles']) == 1:
@@ -143,8 +175,9 @@ def same_lambda_func_version(func_name):
     try:
         response = lambda_client.list_versions_by_function(
             FunctionName=func_name)
-        exist_ver = response['Versions'][1]['Description']
-        if exist_ver == __version__:
+        exist_vers = response['Versions'][0]['Description'].split()
+        new_ver = f'v{__version__}'
+        if new_ver in exist_vers:
             return True
         else:
             return False
@@ -152,9 +185,9 @@ def same_lambda_func_version(func_name):
         return False
 
 
-class MyAesSiemStack(core.Stack):
+class MyAesSiemStack(cdk.Stack):
 
-    def __init__(self, scope: core.Construct, id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
 
         if self.node.try_get_context('vpc_type'):
@@ -163,11 +196,17 @@ class MyAesSiemStack(core.Stack):
         ES_LOADER_TIMEOUT = 600
         PARTITION = region_info.Fact.find(
             self.region, region_info.FactName.PARTITION)
+        if not PARTITION:
+            PARTITION = 'aws'
         ######################################################################
         # REGION mapping / ELB & Lambda Arch
         ######################################################################
         elb_id_temp = region_info.FactName.ELBV2_ACCOUNT
         elb_map_temp = region_info.RegionInfo.region_map(elb_id_temp)
+        no_alb_log_account_list = [
+            'ap-south-2', 'eu-central-2', 'eu-south-2', 'me-central-1']
+        for acct in no_alb_log_account_list:
+            elb_map_temp[acct] = '999999999999'
         region_dict = {}
         # https://aws-data-wrangler.readthedocs.io/en/stable/layers.html
         for region in elb_map_temp:
@@ -176,67 +215,145 @@ class MyAesSiemStack(core.Stack):
             arm = aws_lambda.Architecture.ARM_64.name
             x86 = aws_lambda.Architecture.X86_64.name
             # Lambda Arch
-            if region in ('ap-northeast-1',
-                          'ap-south-1', 'ap-southeast-1', 'ap-southeast-2',
-                          'eu-central-1', 'eu-west-1', 'eu-west-2',
-                          'us-east-1', 'us-east-2', 'us-west-2'):
+            if region in ('af-south-1', 'ap-east-1',
+                          'ap-northeast-1', 'ap-northeast-2', 'ap-northeast-3',
+                          'ap-south-1',
+                          'ap-southeast-1', 'ap-southeast-2', 'ap-southeast-3',
+                          'ca-central-1',
+                          'eu-central-1', 'eu-north-1', 'eu-south-1',
+                          'eu-west-1', 'eu-west-2', 'eu-west-3',
+                          'me-south-1', 'sa-east-1',
+                          'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2'):
                 region_dict[region]['LambdaArch'] = arm
             else:
                 region_dict[region]['LambdaArch'] = x86
-        region_mapping = core.CfnMapping(
+        region_mapping = cdk.CfnMapping(
             scope=self, id='RegionMap', mapping=region_dict)
+
+        has_lambda_architectures_prop = cdk.CfnCondition(
+            self, "HasLambdaArchitecturesProp",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_or(
+                    cdk.Fn.condition_equals(
+                        cdk.Aws.REGION, 'ap-south-2'),
+                    cdk.Fn.condition_equals(
+                        cdk.Aws.REGION, 'eu-central-2'),
+                    cdk.Fn.condition_equals(
+                        cdk.Aws.REGION, 'eu-south-2'),
+                    cdk.Fn.condition_equals(
+                        cdk.Aws.REGION, 'me-central-1'),
+                )
+            )
+        )
 
         ######################################################################
         # get params
         ######################################################################
-        allow_source_address = core.CfnParameter(
+        allow_source_address = cdk.CfnParameter(
             self, 'AllowedSourceIpAddresses', allowed_pattern=r'^[0-9./\s]*',
             description=('Space-delimited list of CIDR blocks. This parameter '
                          'applies only during the initial deployment'),
             default='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16')
-        sns_email = core.CfnParameter(
+        sns_email = cdk.CfnParameter(
             self, 'SnsEmail', allowed_pattern=r'^[0-9a-zA-Z@_\-\+\.]*',
             description=('Input your email as SNS topic, where Amazon '
                          'OpenSearch Service will send alerts to'),
             default='user+sns@example.com')
-        geoip_license_key = core.CfnParameter(
+        geoip_license_key = cdk.CfnParameter(
             self, 'GeoLite2LicenseKey',
             allowed_pattern=r'^([0-9a-zA-Z]{16}|)$', default='x' * 16,
             max_length=16,
             description=("If you wolud like to enrich geoip locaiton such as "
                          "IP address's country, get a license key form MaxMind"
                          " and input the key"))
-        reserved_concurrency = core.CfnParameter(
+        reserved_concurrency = cdk.CfnParameter(
             self, 'ReservedConcurrency', default=10, type='Number',
             description=('Input lambda reserved concurrency for es-loader. '
                          'Increase this value if there are steady logs delay '
                          'despite withou errors'))
-        otx_api_key = core.CfnParameter(
+        otx_api_key = cdk.CfnParameter(
             self, 'OtxApiKey', allowed_pattern=r'^([0-9a-f,x]{64}|)$',
             default='x' * 64, max_length=64,
             description=('(experimental) '
                          'If you wolud like to download IoC from AlienVault '
                          'OTX, please enter OTX API Key. '
                          'See details: https://otx.alienvault.com'))
-        enable_tor = core.CfnParameter(
+        enable_tor = cdk.CfnParameter(
             self, 'EnableTor', allowed_values=['true', 'false'],
             description=('(experimental) '
                          'Would you like to download TOR IoC? '
                          'See details: https://check.torproject.org/api/bulk'),
             default='false')
-        enable_abuse_ch = core.CfnParameter(
+        enable_abuse_ch = cdk.CfnParameter(
             self, 'EnableAbuseCh', allowed_values=['true', 'false'],
             description=(
                 '(experimental) '
                 'Would you like to download IoC from abuse.ch? '
                 'See details: https://feodotracker.abuse.ch/blocklist/'),
             default='false')
-        ioc_download_interval = core.CfnParameter(
+        ioc_download_interval = cdk.CfnParameter(
             self, 'IocDownloadInterval', type='Number',
             description=('(experimental) '
                          'Specify interval in minute to download IoC, '
-                         'default is  720 miniutes ( = 12 hours )'),
-            min_value=30, max_value=1440, default=720)
+                         'default is 720 miniutes ( = 12 hours ).'
+                         'min is 30 minutes. '
+                         'max is 10080 minutes ( = 7 days ).'),
+            min_value=30, max_value=10080, default=720)
+
+        ct_log_buckets = cdk.CfnParameter(
+            self, 'ControlTowerLogBucketNameList',
+            type='String',
+            allowed_pattern=r'^[-0-9a-z.\s,]*$',
+            description=(
+                'Specify S3 log bucket names in the Log Archive account. '
+                'Comma separated list. '
+                '(e.g., aws-controltower-logs-123456789012-ap-northeast-1, '
+                'aws-controltower-s3-access-logs-123456789012-ap-northeast-1 )'
+            ),
+            default='')
+        ct_role_arn = cdk.CfnParameter(
+            self, 'ControlTowerRoleArnForEsLoader',
+            description=(
+                'Specify IAM Role ARN to be assumed by aes-siem-es-loader. '
+                '(e.g., arn:aws:iam::123456789012:role/ct-role-for-siem )'),
+            allowed_pattern=r'^(arn:aws.*:iam::[0-9]{12}:role/.*|)$',
+            default='')
+        ct_log_sqs = cdk.CfnParameter(
+            self, 'ControlTowerSqsForLogBuckets',
+            type='String',
+            allowed_pattern=r'^(arn:aws[0-9a-zA-Z:/_-]*|)$',
+            description=(
+                'Specify SQS ARN for S3 log buckets in Log Archive Account. '
+                '(e.g., arn:aws:sqs:ap-northeast-1:12345678902:aes-siem-ct )'
+            ),
+            default='')
+
+        sl_role_arn = cdk.CfnParameter(
+            self, 'SecurityLakeRoleArn',
+            description=(
+                'Specify IAM Role ARN to be assumed by aes-siem-es-loader. '
+                '(e.g., arn:aws:iam::123456789012:role/AmazonSecurityLake'
+                '-00001111-2222-3333-5555-666677778888 )'),
+            allowed_pattern=(r'^(arn:aws.*:iam::[0-9]{12}:role/AmazonSecurity'
+                             r'Lake-[0-9a-f-]*|)$'),
+            default='')
+        sl_external_id = cdk.CfnParameter(
+            self, 'SecurityLakeExternalId',
+            description=(
+                'Specify Security Lake external ID for cross account. '
+                '(e.g., externalid123 )'),
+            allowed_pattern=r'^([0-9a-zA-Z]*|)$',
+            default='')
+        sl_log_sqs = cdk.CfnParameter(
+            self, 'SecurityLakeSubscriberSqs',
+            type='String',
+            allowed_pattern=(r'^(arn:aws.*:sqs:.*:[0-9]{12}:AmazonSecurity'
+                             r'Lake-[0-9a-f-]*-Main-Queue|)$'),
+            description=(
+                'Specify SQS ARN of Security Lake Subscriber. '
+                '(e.g., arn:aws:sqs:us-east-1:12345678902:AmazonSecurityLake'
+                '-00001111-2222-3333-5555-666677778888-Main-Queue )'),
+            default='')
 
         # Pretfify parameters
         self.template_options.metadata = {
@@ -247,21 +364,36 @@ class MyAesSiemStack(core.Stack):
                     {'Label': {'default': 'Basic Configuration'},
                      'Parameters': [sns_email.logical_id,
                                     reserved_concurrency.logical_id]},
-                    {'Label': {'default': 'Log Enrichment'},
+                    {'Label': {'default': 'Log Enrichment - optional'},
                      'Parameters': [geoip_license_key.logical_id,
                                     otx_api_key.logical_id,
                                     enable_tor.logical_id,
                                     enable_abuse_ch.logical_id,
-                                    ioc_download_interval.logical_id]}
+                                    ioc_download_interval.logical_id]},
+                    {'Label': {'default': ('Control Tower Integration '
+                                           '- optional')},
+                     'Parameters': [ct_log_buckets.logical_id,
+                                    ct_log_sqs.logical_id,
+                                    ct_role_arn.logical_id, ]},
+                    {'Label': {'default': ('(Experimental) '
+                                           'Security Lake Integration - '
+                                           'optional')},
+                     'Parameters': [sl_log_sqs.logical_id,
+                                    sl_role_arn.logical_id,
+                                    sl_external_id.logical_id, ]},
                 ]
             }
         }
 
         aes_domain_name = self.node.try_get_context('aes_domain_name')
-        bucket = f'{aes_domain_name}-{core.Aws.ACCOUNT_ID}'
+        bucket = f'{aes_domain_name}-{cdk.Aws.ACCOUNT_ID}'
         s3bucket_name_geo = f'{bucket}-geo'
         s3bucket_name_log = f'{bucket}-log'
         s3bucket_name_snapshot = f'{bucket}-snapshot'
+        cfn_ct_aws_account = cdk.Fn.select(
+            4, cdk.Fn.split(':', ct_role_arn.value_as_string))
+        cfn_sl_aws_account = cdk.Fn.select(
+            4, cdk.Fn.split(':', sl_role_arn.value_as_string))
 
         # organizations / multiaccount
         org_id = self.node.try_get_context('organizations').get('org_id')
@@ -271,6 +403,7 @@ class MyAesSiemStack(core.Stack):
             'organizations').get('member_ids')
         no_org_ids = self.node.try_get_context(
             'no_organizations').get('aws_accounts')
+        no_org_ids.sort()
 
         # Overwrite default S3 bucket name as customer name
         temp_geo = self.node.try_get_context('s3_bucket_name').get('geo')
@@ -314,17 +447,16 @@ class MyAesSiemStack(core.Stack):
                 max_azs=3, nat_gateways=0,
                 subnet_configuration=[
                     aws_ec2.SubnetConfiguration(
-                        subnet_type=aws_ec2.SubnetType.ISOLATED,
+                        subnet_type=aws_ec2.SubnetType.PRIVATE_ISOLATED,
                         name='aes-siem-subnet', cidr_mask=subnet_cidr_mask)])
-            subnet1 = vpc_aes_siem.isolated_subnets[0]
-            subnets = [{'subnet_type': aws_ec2.SubnetType.ISOLATED}]
+            subnet_id_1st = vpc_aes_siem.isolated_subnets[0].subnet_id
             vpc_subnets = aws_ec2.SubnetSelection(
-                subnet_type=aws_ec2.SubnetType.ISOLATED)
+                subnet_type=aws_ec2.SubnetType.PRIVATE_ISOLATED)
             vpc_aes_siem_opt = vpc_aes_siem.node.default_child.cfn_options
-            vpc_aes_siem_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
+            vpc_aes_siem_opt.deletion_policy = cdk.CfnDeletionPolicy.RETAIN
             for subnet in vpc_aes_siem.isolated_subnets:
                 subnet_opt = subnet.node.default_child.cfn_options
-                subnet_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
+                subnet_opt.deletion_policy = cdk.CfnDeletionPolicy.RETAIN
         elif vpc_type == 'import':
             vpc_id = self.node.try_get_context('imported_vpc_id')
             vpc_aes_siem = aws_ec2.Vpc.from_lookup(
@@ -332,13 +464,8 @@ class MyAesSiemStack(core.Stack):
             boto3_vpc = ec2_resource.Vpc(vpc_id)
             vpc_cidr_blocks = (
                 [x['CidrBlock'] for x in boto3_vpc.cidr_block_association_set])
-            subnet_ids = get_subnet_ids(self)
-            subnets = []
-            for number, subnet_id in enumerate(subnet_ids, 1):
-                obj_id = 'Subenet' + str(number)
-                subnet = aws_ec2.Subnet.from_subnet_id(self, obj_id, subnet_id)
-                subnets.append(subnet)
-            subnet1 = subnets[0]
+            subnet_id_1st = get_subnet_ids(self)[0]
+            subnets = get_subnets(self)
             vpc_subnets = aws_ec2.SubnetSelection(subnets=subnets)
 
         if vpc_type:
@@ -358,25 +485,25 @@ class MyAesSiemStack(core.Stack):
                     peer=aws_ec2.Peer.ipv4(vpc_cidr_block),
                     connection=aws_ec2.Port.tcp(443),)
             sg_vpc_opt = sg_vpc_aes_siem.node.default_child.cfn_options
-            sg_vpc_opt.deletion_policy = core.CfnDeletionPolicy.RETAIN
+            sg_vpc_opt.deletion_policy = cdk.CfnDeletionPolicy.RETAIN
 
             # VPC Endpoint
             vpc_aes_siem.add_gateway_endpoint(
                 'S3Endpoint', service=aws_ec2.GatewayVpcEndpointAwsService.S3,
-                subnets=subnets)
+                subnets=[vpc_subnets])
             vpc_aes_siem.add_interface_endpoint(
                 'SQSEndpoint', security_groups=[sg_vpc_aes_siem],
                 service=aws_ec2.InterfaceVpcEndpointAwsService.SQS,)
         else:
             is_vpc = False
 
-        is_vpc = core.CfnCondition(
-            self, 'IsVpc', expression=core.Fn.condition_equals(is_vpc, True))
+        is_vpc = cdk.CfnCondition(
+            self, 'IsVpc', expression=cdk.Fn.condition_equals(is_vpc, True))
         """
         CloudFormation実行時の条件式の書き方
-        ClassのBasesが aws_cdk.core.Resource の時は、
+        ClassのBasesが aws_cdk.cdk.Resource の時は、
         node.default_child.cfn_options.condition = is_vpc
-        ClassのBasesが aws_cdk.core.CfnResource の時は、
+        ClassのBasesが aws_cdk.cdk.CfnResource の時は、
         cfn_options.condition = is_vpc
         """
 
@@ -385,12 +512,12 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         kms_aes_siem = aws_kms.Key(
             self, 'KmsAesSiemLog', description='CMK for SIEM solution',
-            removal_policy=core.RemovalPolicy.RETAIN)
+            removal_policy=cdk.RemovalPolicy.RETAIN)
 
         aws_kms.Alias(
             self, 'KmsAesSiemLogAlias', alias_name=kms_cmk_alias,
             target_key=kms_aes_siem,
-            removal_policy=core.RemovalPolicy.RETAIN)
+            removal_policy=cdk.RemovalPolicy.RETAIN)
 
         kms_aes_siem.add_to_resource_policy(
             aws_iam.PolicyStatement(
@@ -413,7 +540,7 @@ class MyAesSiemStack(core.Stack):
             sid='Allow principals in the account to decrypt log files',
             actions=['kms:DescribeKey', 'kms:ReEncryptFrom'],
             principals=[aws_iam.AccountPrincipal(
-                account_id=core.Aws.ACCOUNT_ID)],
+                account_id=cdk.Aws.ACCOUNT_ID)],
             resources=['*'],)
         kms_aes_siem.add_to_resource_policy(key_policy_basic1)
 
@@ -423,7 +550,7 @@ class MyAesSiemStack(core.Stack):
             actions=['kms:Decrypt', 'kms:DescribeKey', 'kms:Encrypt',
                      'kms:GenerateDataKey*', 'kms:ReEncrypt*'],
             principals=[aws_iam.AccountPrincipal(
-                account_id=core.Aws.ACCOUNT_ID)],
+                account_id=cdk.Aws.ACCOUNT_ID)],
             resources=['*'],
             conditions={'ForAnyValue:StringEquals': {
                 'aws:CalledVia': 'athena.amazonaws.com'}})
@@ -445,7 +572,7 @@ class MyAesSiemStack(core.Stack):
             resources=['*'],
             conditions={'StringLike': {
                 'kms:EncryptionContext:aws:cloudtrail:arn': [
-                    (f'arn:{PARTITION}:cloudtrail:*:{core.Aws.ACCOUNT_ID}:'
+                    (f'arn:{PARTITION}:cloudtrail:*:{cdk.Aws.ACCOUNT_ID}:'
                      'trail/*')
                 ]}})
         kms_aes_siem.add_to_resource_policy(key_policy_trail2)
@@ -464,7 +591,7 @@ class MyAesSiemStack(core.Stack):
             bucket_name=s3bucket_name_geo,
             encryption=aws_s3.BucketEncryption.S3_MANAGED,
             enforce_ssl=True,
-            # removal_policy=core.RemovalPolicy.DESTROY,
+            # removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
         # create s3 bucket for log collector
@@ -472,7 +599,8 @@ class MyAesSiemStack(core.Stack):
             self, 'S3BucketForLog', block_public_access=block_pub,
             bucket_name=s3bucket_name_log, versioned=True,
             encryption=aws_s3.BucketEncryption.S3_MANAGED,
-            # removal_policy=core.RemovalPolicy.DESTROY,
+            enforce_ssl=True,
+            # removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
         # create s3 bucket for aes snapshot
@@ -481,7 +609,7 @@ class MyAesSiemStack(core.Stack):
             bucket_name=s3bucket_name_snapshot,
             encryption=aws_s3.BucketEncryption.S3_MANAGED,
             enforce_ssl=True,
-            # removal_policy=core.RemovalPolicy.DESTROY,
+            # removal_policy=cdk.RemovalPolicy.DESTROY,
         )
 
         ######################################################################
@@ -489,7 +617,7 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         # delopyment policy for lambda deploy-aes
         arn_prefix = (
-            f'arn:{PARTITION}:logs:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}')
+            f'arn:{PARTITION}:logs:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}')
         loggroup_aes = f'log-group:/aws/aes/domains/{aes_domain_name}/*'
         loggroup_opensearch = (
             f'log-group:/aws/OpenSearchService/domains/{aes_domain_name}/*')
@@ -514,6 +642,16 @@ class MyAesSiemStack(core.Stack):
                         f'{arn_prefix}:{loggroup_lambda}',
                     ],
                 )
+            ]
+        )
+
+        opensearch_deployment_policy = aws_iam.PolicyDocument(
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['es:CreateDomain', 'es:DescribeDomain',
+                             'es:ESHttp*', 'es:UpdateDomainConfig'],
+                    resources=['*']
+                ),
             ]
         )
 
@@ -569,11 +707,10 @@ class MyAesSiemStack(core.Stack):
             role_name='aes-siem-deploy-role-for-lambda',
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name(
-                    'AmazonOpenSearchServiceFullAccess'),
-                aws_iam.ManagedPolicy.from_aws_managed_policy_name(
                     'service-role/AWSLambdaBasicExecutionRole'),
             ],
             inline_policies={
+                'opensearch_deployment': opensearch_deployment_policy,
                 'assume_snapshotrole': policydoc_assume_snapshotrole,
                 's3access': policydoc_snapshot,
                 'cwl_loggroup': policydoc_create_loggroup,
@@ -625,7 +762,7 @@ class MyAesSiemStack(core.Stack):
                 aws_service_name='opensearchservice.amazonaws.com',
                 description='Created by cloudformation of siem stack'
             )
-            slr_aes.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
+            slr_aes.cfn_options.deletion_policy = cdk.CfnDeletionPolicy.RETAIN
 
         ######################################################################
         # SQS for es-laoder's DLQ
@@ -633,18 +770,18 @@ class MyAesSiemStack(core.Stack):
         sqs_aes_siem_dlq = aws_sqs.Queue(
             self, 'AesSiemDlq', queue_name='aes-siem-dlq',
             encryption=aws_sqs.QueueEncryption.KMS_MANAGED,
-            data_key_reuse=core.Duration.hours(24),
-            retention_period=core.Duration.days(14))
+            data_key_reuse=cdk.Duration.hours(24),
+            retention_period=cdk.Duration.days(14))
 
         sqs_aes_siem_splitted_logs = aws_sqs.Queue(
             self, 'AesSiemSqsSplitLogs',
             queue_name='aes-siem-sqs-splitted-logs',
             encryption=aws_sqs.QueueEncryption.KMS_MANAGED,
-            data_key_reuse=core.Duration.hours(24),
+            data_key_reuse=cdk.Duration.hours(24),
             dead_letter_queue=aws_sqs.DeadLetterQueue(
-                max_receive_count=2, queue=sqs_aes_siem_dlq),
-            visibility_timeout=core.Duration.seconds(ES_LOADER_TIMEOUT),
-            retention_period=core.Duration.days(14))
+                max_receive_count=20, queue=sqs_aes_siem_dlq),
+            visibility_timeout=cdk.Duration.seconds(ES_LOADER_TIMEOUT),
+            retention_period=cdk.Duration.days(14))
 
         ######################################################################
         # Setup Lambda
@@ -664,12 +801,12 @@ class MyAesSiemStack(core.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / es-loader',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             # code=aws_lambda.Code.from_asset('../lambda/es_loader.zip'),
             code=aws_lambda.Code.from_asset('../lambda/es_loader'),
             handler='index.lambda_handler',
             memory_size=2048,
-            timeout=core.Duration.seconds(ES_LOADER_TIMEOUT),
+            timeout=cdk.Duration.seconds(ES_LOADER_TIMEOUT),
             reserved_concurrent_executions=(
                 reserved_concurrency.value_as_number),
             dead_letter_queue_enabled=True,
@@ -679,17 +816,28 @@ class MyAesSiemStack(core.Stack):
                 'POWERTOOLS_LOGGER_LOG_EVENT': 'false',
                 'POWERTOOLS_SERVICE_NAME': 'es-loader',
                 'POWERTOOLS_METRICS_NAMESPACE': 'SIEM',
+                'CONTROL_TOWER_ROLE_SESSION_NAME': 'aes-siem-es-loader',
+                'CONTROL_TOWER_ROLE_ARN': ct_role_arn.value_as_string,
+                'CONTROL_TOWER_LOG_BUCKETS': ct_log_buckets.value_as_string,
+                'SECURITY_LAKE_ROLE_SESSION_NAME': 'aes-siem-es-loader',
+                'SECURITY_LAKE_ROLE_ARN': sl_role_arn.value_as_string,
+                'SECURITY_LAKE_EXTERNAL_ID': (
+                    sl_external_id.value_as_string),
             },
             current_version_options=aws_lambda.VersionOptions(
-                removal_policy=core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
             ),
         )
         if not same_lambda_func_version(function_name):
             lambda_es_loader.current_version
         lambda_es_loader.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                core.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
 
         # send only
@@ -714,7 +862,10 @@ class MyAesSiemStack(core.Stack):
 
         # add pandas layer lambda
         function_name = 'aes-siem-add-pandas-layer'
-        arn_pan = f'arn:{PARTITION}:lambda:*:*:layer:AWSDataWrangler-Python38*'
+        arn_pan = [
+            f'arn:{PARTITION}:lambda:*:*:layer:AWSDataWrangler-*',
+            f'arn:{PARTITION}:lambda:*:*:layer:AWSSDKPandas-*',
+        ]
         lambda_add_pandas_layer_role = aws_iam.Role(
             self, "LambdaAddPandasLayerRole",
             managed_policies=[
@@ -729,7 +880,7 @@ class MyAesSiemStack(core.Stack):
                             resources=[lambda_es_loader.function_arn]),
                         aws_iam.PolicyStatement(
                             actions=['lambda:PublishLayerVersion'],
-                            resources=[arn_pan],),
+                            resources=arn_pan,),
                         aws_iam.PolicyStatement(
                             actions=['lambda:ListLayers',
                                      'lambda:GetLayerVersion'],
@@ -745,16 +896,17 @@ class MyAesSiemStack(core.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / add-pandas-layer',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/add_pandas_layer'),
             handler='lambda_function.lambda_handler',
             memory_size=128,
-            timeout=core.Duration.seconds(300),
+            timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo
             },
             current_version_options=aws_lambda.VersionOptions(
-                removal_policy=core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
             ),
             role=lambda_add_pandas_layer_role,
@@ -762,8 +914,12 @@ class MyAesSiemStack(core.Stack):
         if not same_lambda_func_version(function_name):
             lambda_add_pandas_layer.current_version
         lambda_add_pandas_layer.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                core.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         # add pandas layer by execute cfn custom resource
         excec_lambda_add_layer = aws_cloudformation.CfnCustomResource(
@@ -782,55 +938,63 @@ class MyAesSiemStack(core.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / es-loader-stopper',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/es_loader_stopper'),
             handler='index.lambda_handler',
             memory_size=128,
-            timeout=core.Duration.seconds(300),
+            timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={
                 'ES_LOADER_FUNCTION_ARN': lambda_es_loader.function_arn,
                 'ES_LOADER_RESERVED_CONCURRENCY': (
                     reserved_concurrency.value_as_string)
             },
             current_version_options=aws_lambda.VersionOptions(
-                removal_policy=core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
             ),
         )
         if not same_lambda_func_version(function_name):
             lambda_es_loader_stopper.current_version
         lambda_es_loader_stopper.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                core.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
-
         function_name = 'aes-siem-geoip-downloader'
         lambda_geo = aws_lambda.Function(
             self, 'LambdaGeoipDownloader',
             function_name=function_name,
             description=f'{SOLUTION_NAME} / geoip-downloader',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
             memory_size=320,
-            timeout=core.Duration.seconds(300),
+            timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={
                 's3bucket_name': s3bucket_name_geo,
                 'license_key': geoip_license_key.value_as_string,
             },
             current_version_options=aws_lambda.VersionOptions(
-                removal_policy=core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
             ),
         )
         if not same_lambda_func_version(function_name):
             lambda_geo.current_version
         lambda_geo.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                core.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
-
         # IOC StepFunctions
         function_name = 'aes-siem-ioc-plan'
         lambda_ioc_plan = aws_lambda.Function(
@@ -838,28 +1002,33 @@ class MyAesSiemStack(core.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / ioc-plan',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.plan',
             memory_size=128,
-            timeout=core.Duration.seconds(300),
+            timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo,
                 'OTX_API_KEY': otx_api_key.value_as_string,
                 'TOR': enable_tor.value_as_string,
                 'ABUSE_CH': enable_abuse_ch.value_as_string,
-                'LOG_LEVEL': 'WARNING'
+                'LOG_LEVEL': 'INFO'
             },
             current_version_options=aws_lambda.VersionOptions(
-                removal_policy=core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
             ),
         )
         if not same_lambda_func_version(function_name):
             lambda_ioc_plan.current_version
         lambda_ioc_plan.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                core.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         function_name = 'aes-siem-ioc-download'
         lambda_ioc_download = aws_lambda.Function(
@@ -867,26 +1036,30 @@ class MyAesSiemStack(core.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / ioc-download',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.download',
-            memory_size=192,
-            timeout=core.Duration.seconds(900),
+            memory_size=256,
+            timeout=cdk.Duration.seconds(900),
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo,
                 'OTX_API_KEY': otx_api_key.value_as_string,
-                'LOG_LEVEL': 'WARNING'
+                'LOG_LEVEL': 'INFO'
             },
             current_version_options=aws_lambda.VersionOptions(
-                removal_policy=core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
             ),
         )
         if not same_lambda_func_version(function_name):
             lambda_ioc_download.current_version
         lambda_ioc_download.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                core.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         function_name = 'aes-siem-ioc-createdb'
         lambda_ioc_createdb = aws_lambda.Function(
@@ -894,25 +1067,30 @@ class MyAesSiemStack(core.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / ioc-createdb',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.createdb',
-            memory_size=384,
-            timeout=core.Duration.seconds(900),
+            memory_size=1024,
+            timeout=cdk.Duration.seconds(900),
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo,
-                'LOG_LEVEL': 'WARNING'
+                'LOG_LEVEL': 'INFO'
             },
             current_version_options=aws_lambda.VersionOptions(
-                removal_policy=core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
             ),
         )
         if not same_lambda_func_version(function_name):
             lambda_ioc_createdb.current_version
+
         lambda_ioc_createdb.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                core.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         task_ioc_plan = aws_stepfunctions_tasks.LambdaInvoke(
             self, "IocPlan",
@@ -920,33 +1098,43 @@ class MyAesSiemStack(core.Stack):
             lambda_function=lambda_ioc_plan,
             output_path="$.Payload"
         )
+        ioc_not_found = aws_stepfunctions.Condition.is_not_present(
+            "$.mapped[0].ioc")
+        skip_download_state = aws_stepfunctions.Pass(self, "SkipDownload")
         map_download = aws_stepfunctions.Map(
             self, 'MapDownload',
             items_path=aws_stepfunctions.JsonPath.string_at("$.mapped"),
             parameters={"mapped.$": "$$.Map.Item.Value"},
-            max_concurrency=6
+            max_concurrency=4,
         )
         task_ioc_download = aws_stepfunctions_tasks.LambdaInvoke(
             self, "IocDownload",
             lambda_function=lambda_ioc_download,
-            output_path="$.Payload"
+            output_path="$.Payload",
+            timeout=cdk.Duration.seconds(899),
         )
+        ignore_timeout_state = aws_stepfunctions.Pass(self, "IgnoreTimeout")
+        task_ioc_download.add_catch(
+            ignore_timeout_state, errors=['States.Timeout'],
+            result_path='$.catcher')
         task_ioc_createdb = aws_stepfunctions_tasks.LambdaInvoke(
             self, "IocCreatedb",
             lambda_function=lambda_ioc_createdb,
             output_path=None)
-        definition = task_ioc_plan.next(
-            map_download).next(task_ioc_createdb)
+        definition = task_ioc_plan\
+            .next(aws_stepfunctions.Choice(self, "need to download?")
+                  .when(ioc_not_found, skip_download_state)
+                  .otherwise(map_download.next(task_ioc_createdb)))
         map_download.iterator(task_ioc_download)
         ioc_state_machine_log_group = aws_logs.LogGroup(
             self, "IocStateMachineLogGroup",
             log_group_name='/aws/vendedlogs/states/aes-siem-ioc-logs',
             retention=aws_logs.RetentionDays.ONE_MONTH,
-            removal_policy=core.RemovalPolicy.DESTROY)
+            removal_policy=cdk.RemovalPolicy.DESTROY)
         ioc_state_machine = aws_stepfunctions.StateMachine(
             self, "IocStateMachine",
             state_machine_name='aes-siem-ioc-state-machine',
-            definition=definition, timeout=core.Duration.minutes(60),
+            definition=definition, timeout=cdk.Duration.minutes(60),
             logs=aws_stepfunctions.LogOptions(
                 destination=ioc_state_machine_log_group,
                 level=aws_stepfunctions.LogLevel.ALL))
@@ -958,24 +1146,29 @@ class MyAesSiemStack(core.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / index-metrics-exporter',
             runtime=aws_lambda.Runtime.PYTHON_3_9,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset(
                 '../lambda/index_metrics_exporter'),
             handler='index.lambda_handler',
             memory_size=256,
-            timeout=core.Duration.seconds(300),
+            timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={'LOG_BUCKET': s3bucket_name_log,
                          'PERIOD_HOUR': str(INDEX_METRICS_PERIOD_HOUR)},
             current_version_options=aws_lambda.VersionOptions(
-                removal_policy=core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
             ),
         )
         if not same_lambda_func_version(function_name):
             lambda_metrics_exporter.current_version
         lambda_metrics_exporter.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                core.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
 
         ######################################################################
@@ -987,39 +1180,44 @@ class MyAesSiemStack(core.Stack):
             function_name=function_name,
             description=f'{SOLUTION_NAME} / opensearch domain deployment',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             # code=aws_lambda.Code.from_asset('../lambda/deploy_es.zip'),
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_domain_handler',
             memory_size=128,
-            timeout=core.Duration.seconds(300),
+            timeout=cdk.Duration.seconds(300),
+            reserved_concurrent_executions=1,
             environment={
-                'accountid': core.Aws.ACCOUNT_ID,
+                'accountid': cdk.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
                 'aes_admin_role': aes_siem_deploy_role_for_lambda.role_arn,
                 'allow_source_address': allow_source_address.value_as_string,
             },
             role=aes_siem_deploy_role_for_lambda,
             current_version_options=aws_lambda.VersionOptions(
-                removal_policy=core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
             ),
         )
         if not same_lambda_func_version(function_name):
             lambda_deploy_es.current_version
         lambda_deploy_es.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                core.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         lambda_deploy_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
             lambda_deploy_es.add_environment(
-                'vpc_subnet_id', subnet1.subnet_id)
+                'vpc_subnet_id', subnet_id_1st)
             lambda_deploy_es.add_environment(
                 'security_group_id', sg_vpc_aes_siem.security_group_id)
 
-        # execute lambda_deploy_es to deploy Amaozon ES Domain
+        # execute lambda_deploy_es to deploy Amaozon OpenSearch Service Domain
         aes_domain = aws_cloudformation.CfnCustomResource(
             self, 'AesSiemDomainDeployedR2',
             service_token=lambda_deploy_es.function_arn,)
@@ -1038,19 +1236,20 @@ class MyAesSiemStack(core.Stack):
             lambda_configure_es_vpc_kwargs = {
                 'security_groups': [sg_vpc_noinbound_aes_siem],
                 'vpc': vpc_aes_siem,
-                'vpc_subnets': aws_ec2.SubnetSelection(subnets=[subnet1, ]), }
+                'vpc_subnets': vpc_subnets}
         lambda_configure_es = aws_lambda.Function(
             self, 'LambdaConfigureAES', **lambda_configure_es_vpc_kwargs,
             function_name=function_name,
             description=f'{SOLUTION_NAME} / opensearch configuration',
             runtime=aws_lambda.Runtime.PYTHON_3_8,
-            architecture=aws_lambda.Architecture.X86_64,
+            # architecture=aws_lambda.Architecture.X86_64,
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.aes_config_handler',
             memory_size=128,
-            timeout=core.Duration.seconds(300),
+            timeout=cdk.Duration.seconds(600),
+            reserved_concurrent_executions=1,
             environment={
-                'accountid': core.Aws.ACCOUNT_ID,
+                'accountid': cdk.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
                 'aes_admin_role': aes_siem_deploy_role_for_lambda.role_arn,
                 'es_loader_role': lambda_es_loader.role.role_arn,
@@ -1059,21 +1258,25 @@ class MyAesSiemStack(core.Stack):
             },
             role=aes_siem_deploy_role_for_lambda,
             current_version_options=aws_lambda.VersionOptions(
-                removal_policy=core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
             ),
         )
         if not same_lambda_func_version(function_name):
             lambda_configure_es.current_version
         lambda_configure_es.node.default_child.add_property_override(
-            "Architectures", [region_mapping.find_in_map(
-                core.Aws.REGION, 'LambdaArch')]
+            "Architectures",
+            cdk.Fn.condition_if(
+                has_lambda_architectures_prop.logical_id,
+                [region_mapping.find_in_map(cdk.Aws.REGION, 'LambdaArch')],
+                cdk.Aws.NO_VALUE
+            )
         )
         lambda_configure_es.add_environment(
             's3_snapshot', s3_snapshot.bucket_name)
         if vpc_type:
             lambda_configure_es.add_environment(
-                'vpc_subnet_id', subnet1.subnet_id)
+                'vpc_subnet_id', subnet_id_1st)
             lambda_configure_es.add_environment(
                 'security_group_id', sg_vpc_aes_siem.security_group_id)
         else:
@@ -1085,9 +1288,9 @@ class MyAesSiemStack(core.Stack):
             service_token=lambda_configure_es.function_arn,)
         aes_config.add_override('Properties.ConfigVersion', __version__)
         aes_config.add_depends_on(aes_domain)
-        aes_config.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
+        aes_config.cfn_options.deletion_policy = cdk.CfnDeletionPolicy.RETAIN
 
-        es_arn = (f'arn:{PARTITION}:es:{core.Aws.REGION}:{core.Aws.ACCOUNT_ID}'
+        es_arn = (f'arn:{PARTITION}:es:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}'
                   f':domain/{aes_domain_name}')
         # grant permission to es_loader role
         inline_policy_to_load_entries_into_es = aws_iam.Policy(
@@ -1167,6 +1370,7 @@ class MyAesSiemStack(core.Stack):
         ######################################################################
         s3_geo.grant_read_write(lambda_geo)
         s3_geo.grant_read_write(lambda_add_pandas_layer)
+        s3_geo.grant_read_write(lambda_ioc_plan)
         s3_geo.grant_read_write(lambda_ioc_download)
         s3_geo.grant_read_write(lambda_ioc_createdb)
         s3_geo.grant_read(lambda_es_loader)
@@ -1187,115 +1391,125 @@ class MyAesSiemStack(core.Stack):
         get_geodb = aws_cloudformation.CfnCustomResource(
             self, 'ExecLambdaGeoipDownloader',
             service_token=lambda_geo.function_arn,)
-        get_geodb.cfn_options.deletion_policy = core.CfnDeletionPolicy.RETAIN
+        get_geodb.cfn_options.deletion_policy = cdk.CfnDeletionPolicy.RETAIN
 
         # Download geoip every 12 hours
         rule = aws_events.Rule(
             self, 'EventBridgeRuleLambdaGeoipDownloader',
-            schedule=aws_events.Schedule.rate(core.Duration.hours(12)))
+            schedule=aws_events.Schedule.rate(cdk.Duration.hours(12)))
         rule.add_target(aws_events_targets.LambdaFunction(lambda_geo))
 
         # Download IOC Database every xxx minutes
         rule = aws_events.Rule(
             self, 'EventBridgeRuleStepFunctionsIoc',
             schedule=aws_events.Schedule.rate(
-                core.Duration.minutes(ioc_download_interval.value_as_number)))
+                cdk.Duration.minutes(ioc_download_interval.value_as_number)))
         rule.add_target(aws_events_targets.SfnStateMachine(ioc_state_machine))
 
         # collect index metrics every 1 hour
         rule_metrics_exporter = aws_events.Rule(
             self, 'EventBridgeRuleLambdaMetricsExporter',
             schedule=aws_events.Schedule.rate(
-                core.Duration.hours(INDEX_METRICS_PERIOD_HOUR)))
+                cdk.Duration.hours(INDEX_METRICS_PERIOD_HOUR)))
         rule_metrics_exporter.add_target(
             aws_events_targets.LambdaFunction(lambda_metrics_exporter))
 
         ######################################################################
         # bucket policy
         ######################################################################
-        s3_awspath = s3_log.bucket_arn + '/AWSLogs/' + core.Aws.ACCOUNT_ID
-        bucket_policy_common1 = aws_iam.PolicyStatement(
-            sid='ELB Policy',
-            principals=[aws_iam.AccountPrincipal(
-                account_id=region_mapping.find_in_map(
-                    core.Aws.REGION, 'ElbV2AccountId'))],
-            actions=['s3:PutObject'], resources=[s3_awspath + '/*'],)
-        # NLB / ALB / R53resolver / VPC Flow Logs
-        bucket_policy_elb1 = aws_iam.PolicyStatement(
-            sid='AWSLogDeliveryAclCheck For ALB NLB R53Resolver Flowlogs',
-            principals=[aws_iam.ServicePrincipal(
-                'delivery.logs.amazonaws.com')],
-            actions=['s3:GetBucketAcl', 's3:ListBucket'],
-            resources=[s3_log.bucket_arn],)
-        bucket_policy_elb2 = aws_iam.PolicyStatement(
-            sid='AWSLogDeliveryWrite For ALB NLB R53Resolver Flowlogs',
-            principals=[aws_iam.ServicePrincipal(
-                'delivery.logs.amazonaws.com')],
-            actions=['s3:PutObject'], resources=[s3_awspath + '/*'],
+        # ALB, CLB
+        s3_awspath = f'{s3_log.bucket_arn}/AWSLogs/{cdk.Aws.ACCOUNT_ID}'
+        s3_awspath_w_prefix = (
+            f'{s3_log.bucket_arn}/*/AWSLogs/{cdk.Aws.ACCOUNT_ID}')
+        bucket_policy_alb1 = aws_iam.PolicyStatement(
+            sid='ALB,CLB Policy',
+            principals=[
+                aws_iam.AccountPrincipal(
+                    account_id=region_mapping.find_in_map(
+                        cdk.Aws.REGION, 'ElbV2AccountId')),
+            ],
+            actions=['s3:PutObject'],
+            resources=[f'{s3_awspath}/*', f'{s3_awspath_w_prefix}/*'],
+        )
+        bucket_policy_alb2 = aws_iam.PolicyStatement(
+            sid='Policy For no ALB account region',
+            principals=[
+                aws_iam.ServicePrincipal(
+                    'logdelivery.elasticloadbalancing.amazonaws.com')
+            ],
+            actions=['s3:PutObject'],
+            resources=[f'{s3_log.bucket_arn}/*'],
             conditions={
-                'StringEquals': {'s3:x-amz-acl': 'bucket-owner-full-control'}})
-        s3_log.add_to_resource_policy(bucket_policy_common1)
-        s3_log.add_to_resource_policy(bucket_policy_elb1)
-        s3_log.add_to_resource_policy(bucket_policy_elb2)
+                "StringEquals": {"aws:SourceAccount": [cdk.Aws.ACCOUNT_ID]}
+            }
+        )
+        if self.region not in no_alb_log_account_list:
+            s3_log.add_to_resource_policy(bucket_policy_alb1)
+        else:
+            s3_log.add_to_resource_policy(bucket_policy_alb2)
 
-        # CloudTrail
-        bucket_policy_trail1 = aws_iam.PolicyStatement(
-            sid='AWSLogDeliveryAclCheck For Cloudtrail',
-            principals=[aws_iam.ServicePrincipal('cloudtrail.amazonaws.com')],
-            actions=['s3:GetBucketAcl'], resources=[s3_log.bucket_arn],)
-        bucket_policy_trail2 = aws_iam.PolicyStatement(
-            sid='AWSLogDeliveryWrite For CloudTrail',
-            principals=[aws_iam.ServicePrincipal('cloudtrail.amazonaws.com')],
-            actions=['s3:PutObject'], resources=[s3_awspath + '/*'],
+        # NLB / R53resolver / VPC Flow Logs
+        bucket_policy_logdeliver1 = aws_iam.PolicyStatement(
+            sid='AWSLogDelivery For NLB,R53Resolver,Flowlogs',
+            principals=[aws_iam.ServicePrincipal(
+                'delivery.logs.amazonaws.com')],
+            actions=['s3:GetBucketAcl', 's3:ListBucket', 's3:PutObject'],
+            resources=[s3_log.bucket_arn, f'{s3_log.bucket_arn}/*'],
             conditions={
-                'StringEquals': {'s3:x-amz-acl': 'bucket-owner-full-control'}})
+                "StringEquals": {"aws:SourceAccount": [cdk.Aws.ACCOUNT_ID]}
+            }
+        )
+        s3_log.add_to_resource_policy(bucket_policy_logdeliver1)
+
+        # CloudTrail / Config
+        bucket_policy_trail1 = aws_iam.PolicyStatement(
+            sid='AWSLogDeliveryAclCheck For Cloudtrail, Config',
+            principals=[
+                aws_iam.ServicePrincipal('cloudtrail.amazonaws.com'),
+                aws_iam.ServicePrincipal('config.amazonaws.com'),
+            ],
+            actions=['s3:GetBucketAcl', 's3:ListBucket'],
+            resources=[s3_log.bucket_arn],
+        )
+        bucket_policy_trail2 = aws_iam.PolicyStatement(
+            sid='AWSLogDeliveryWrite For CloudTrail, Config',
+            principals=[
+                aws_iam.ServicePrincipal('cloudtrail.amazonaws.com'),
+                aws_iam.ServicePrincipal('config.amazonaws.com')],
+            actions=['s3:PutObject'],
+            resources=[f'{s3_log.bucket_arn}/*/*'],
+            conditions={
+                'StringEquals': {
+                    "aws:SourceAccount": [cdk.Aws.ACCOUNT_ID],
+                }
+            }
+        )
         s3_log.add_to_resource_policy(bucket_policy_trail1)
         s3_log.add_to_resource_policy(bucket_policy_trail2)
 
         # GuardDuty
         bucket_policy_gd1 = aws_iam.PolicyStatement(
-            sid='Allow GuardDuty to use the getBucketLocation operation',
+            sid='Allow GuardDuty to put objects',
             principals=[aws_iam.ServicePrincipal('guardduty.amazonaws.com')],
-            actions=['s3:GetBucketLocation'], resources=[s3_log.bucket_arn],)
-        bucket_policy_gd2 = aws_iam.PolicyStatement(
-            sid='Allow GuardDuty to upload objects to the bucket',
-            principals=[aws_iam.ServicePrincipal('guardduty.amazonaws.com')],
-            actions=['s3:PutObject'], resources=[s3_log.bucket_arn + '/*'],)
-        bucket_policy_gd5 = aws_iam.PolicyStatement(
-            sid='Deny non-HTTPS access', effect=aws_iam.Effect.DENY,
-            actions=['s3:*'], resources=[s3_log.bucket_arn + '/*'],
-            conditions={'Bool': {'aws:SecureTransport': 'false'}})
-        bucket_policy_gd5.add_any_principal()
-        s3_log.add_to_resource_policy(bucket_policy_gd1)
-        s3_log.add_to_resource_policy(bucket_policy_gd2)
-        s3_log.add_to_resource_policy(bucket_policy_gd5)
-
-        # Config
-        bucket_policy_config1 = aws_iam.PolicyStatement(
-            sid='AWSConfig BucketPermissionsCheck and BucketExistenceCheck',
-            principals=[aws_iam.ServicePrincipal('config.amazonaws.com')],
-            actions=['s3:GetBucketAcl', 's3:ListBucket'],
-            resources=[s3_log.bucket_arn],)
-        bucket_policy_config2 = aws_iam.PolicyStatement(
-            sid='AWSConfigBucketDelivery',
-            principals=[aws_iam.ServicePrincipal('config.amazonaws.com')],
-            actions=['s3:PutObject'], resources=[s3_awspath + '/Config/*'],
+            actions=['s3:GetBucketLocation', 's3:PutObject'],
+            resources=[s3_log.bucket_arn, f'{s3_log.bucket_arn}/*'],
             conditions={
-                'StringEquals': {'s3:x-amz-acl': 'bucket-owner-full-control'}})
-        s3_log.add_to_resource_policy(bucket_policy_config1)
-        s3_log.add_to_resource_policy(bucket_policy_config2)
+                'StringEquals': {"aws:SourceAccount": [cdk.Aws.ACCOUNT_ID]}
+            }
+        )
+        s3_log.add_to_resource_policy(bucket_policy_gd1)
 
+        # for IOC
         s3_geo.add_lifecycle_rule(
             enabled=True,
-            expiration=core.Duration.days(7),
-            expired_object_delete_marker=False,
+            expiration=cdk.Duration.days(8),
             id="delete-ioc-temp-files",
             prefix='IOC/tmp/'
         )
 
-        # ES Snapshot
+        # OpenSearch Doamin Snapshot
         bucket_policy_snapshot = aws_iam.PolicyStatement(
-            sid='Allow ES to store snapshot',
+            sid='Allow OpenSearch Service to store snapshot',
             principals=[aes_siem_snapshot_role],
             actions=['s3:PutObject', 's3:GetObject', 's3:DeleteObject'],
             resources=[s3_snapshot.bucket_arn + '/*'],)
@@ -1336,31 +1550,82 @@ class MyAesSiemStack(core.Stack):
             # Buckdet Policy for multiaccount / organizaitons
             ##################################################################
             s3_log_bucket_arn = f'arn:{PARTITION}:s3:::{s3bucket_name_log}'
+            all_aws_accounts = self.list_without_none(
+                org_mgmt_id, org_member_ids, no_org_ids)
 
-            # for CloudTrail
-            s3_mulpaths = self.make_resource_list(
-                path=f'{s3_log_bucket_arn}/AWSLogs/', tail='/*',
-                keys=self.list_without_none(org_id, org_mgmt_id, no_org_ids))
-            bucket_policy_org_trail = aws_iam.PolicyStatement(
-                sid='AWSCloudTrailWrite for Multiaccounts / Organizations',
+            # for CloudTrail / Config
+            if org_id:
+                bucket_policy_org_trail1 = aws_iam.PolicyStatement(
+                    sid='AWSCloudTrail, Config Write for Organizations',
+                    principals=[
+                        aws_iam.ServicePrincipal('cloudtrail.amazonaws.com'),
+                        aws_iam.ServicePrincipal('config.amazonaws.com'),
+                    ],
+                    actions=['s3:PutObject'],
+                    resources=[
+                        f'{s3_log_bucket_arn}/{org_id}/AWSLogs/*/*',
+                        f'{s3_log_bucket_arn}/*/{org_id}/AWSLogs/*/*',
+                    ],
+                )
+                s3_log.add_to_resource_policy(bucket_policy_org_trail1)
+            if len(no_org_ids) > 0:
+                bucket_policy_org_trail2 = aws_iam.PolicyStatement(
+                    sid='AWSCloudTrailWrite, Config for not org Multiaccounts',
+                    principals=[
+                        aws_iam.ServicePrincipal('cloudtrail.amazonaws.com'),
+                        aws_iam.ServicePrincipal('config.amazonaws.com'),
+                    ],
+                    actions=['s3:PutObject'],
+                    resources=[f'{s3_log_bucket_arn}/*/*'],
+                    conditions={
+                        'StringEquals': {"aws:SourceAccount": no_org_ids}
+                    }
+                )
+                s3_log.add_to_resource_policy(bucket_policy_org_trail2)
+
+            # for ALB
+            resouces_list = self.make_resource_prefix_list(
+                arn=s3_log_bucket_arn, tail='*', keys=all_aws_accounts)
+            bucket_policy_mul_alb1 = aws_iam.PolicyStatement(
+                sid='ALB,CLB multi Policy',
                 principals=[
-                    aws_iam.ServicePrincipal('cloudtrail.amazonaws.com')],
-                actions=['s3:PutObject'], resources=s3_mulpaths,
-                conditions={'StringEquals': {
-                    's3:x-amz-acl': 'bucket-owner-full-control'}})
-            s3_log.add_to_resource_policy(bucket_policy_org_trail)
+                    aws_iam.AccountPrincipal(
+                        account_id=region_mapping.find_in_map(
+                            cdk.Aws.REGION, 'ElbV2AccountId')),
+                ],
+                actions=['s3:PutObject'],
+                resources=resouces_list,
+            )
+            # for no ALB account
+            bucket_policy_mul_alb2 = aws_iam.PolicyStatement(
+                sid='Policy for no ALB account for multiaccount',
+                principals=[
+                    aws_iam.ServicePrincipal(
+                        'logdelivery.elasticloadbalancing.amazonaws.com')
+                ],
+                actions=['s3:PutObject'],
+                resources=[f'{s3_log.bucket_arn}/*'],
+                conditions={
+                    "StringEquals": {"aws:SourceAccount": all_aws_accounts}
+                }
+            )
+            if self.region not in no_alb_log_account_list:
+                s3_log.add_to_resource_policy(bucket_policy_mul_alb1)
+            else:
+                s3_log.add_to_resource_policy(bucket_policy_mul_alb2)
 
-            # config
-            s3_conf_multpaths = self.make_resource_list(
-                path=f'{s3_log_bucket_arn}/AWSLogs/', tail='/Config/*',
-                keys=self.list_without_none(org_id, org_mgmt_id, no_org_ids))
-            bucket_policy_mul_config2 = aws_iam.PolicyStatement(
-                sid='AWSConfigBucketDelivery',
-                principals=[aws_iam.ServicePrincipal('config.amazonaws.com')],
-                actions=['s3:PutObject'], resources=s3_conf_multpaths,
-                conditions={'StringEquals': {
-                    's3:x-amz-acl': 'bucket-owner-full-control'}})
-            s3_log.add_to_resource_policy(bucket_policy_mul_config2)
+            # NLB / R53resolver / VPC Flow Logs
+            bucket_policy_mul_logdeliver1 = aws_iam.PolicyStatement(
+                sid='AWSLogDeliveryAclCheck For mul NLB R53Resolver Flowlogs',
+                principals=[aws_iam.ServicePrincipal(
+                    'delivery.logs.amazonaws.com')],
+                actions=['s3:GetBucketAcl', 's3:ListBucket', 's3:PutObject'],
+                resources=[s3_log.bucket_arn, f'{s3_log.bucket_arn}/*'],
+                conditions={
+                    "StringEquals": {"aws:SourceAccount": all_aws_accounts}
+                }
+            )
+            s3_log.add_to_resource_policy(bucket_policy_mul_logdeliver1)
 
             # for replication
             bucket_policy_rep1 = aws_iam.PolicyStatement(
@@ -1404,9 +1669,9 @@ class MyAesSiemStack(core.Stack):
         # CloudWatch Alarm
         total_free_storage_space_metric = aws_cloudwatch.Metric(
             metric_name='FreeStorageSpace', namespace='AWS/ES',
-            statistic='Sum', period=core.Duration.minutes(1),
+            statistic='Sum', period=cdk.Duration.minutes(1),
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID})
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
         total_free_storage_space_remains_low_alarm = aws_cloudwatch.Alarm(
             self, 'TotalFreeStorageSpaceRemainsLowAlarm',
             alarm_description=('Triggered when total free space for the '
@@ -1430,6 +1695,110 @@ class MyAesSiemStack(core.Stack):
             aws_events_targets.LambdaFunction(lambda_es_loader_stopper))
 
         ######################################################################
+        # Control Tower
+        ######################################################################
+        is_control_tower_access = cdk.CfnCondition(
+            self, "IsControlTowerAcccess",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        ct_log_buckets.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        ct_role_arn.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        ct_log_sqs.value_as_string, '')),
+            )
+        )
+
+        # grant additional permission to es_loader role for control tower
+        inline_policy_controltower = aws_iam.Policy(
+            self, 'access_to_control_tower_log_buckets',
+            policy_name='access_to_control_tower',
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['sts:AssumeRole'],
+                    resources=[ct_role_arn.value_as_string],
+                ),
+                aws_iam.PolicyStatement(
+                    actions=[
+                        "sqs:ReceiveMessage",
+                        "sqs:ChangeMessageVisibility",
+                        "sqs:GetQueueUrl",
+                        "sqs:DeleteMessage",
+                        "sqs:GetQueueAttributes"
+                    ],
+                    resources=[(f'arn:aws:sqs:*:{cfn_ct_aws_account}:*')],
+                )
+            ]
+        )
+        inline_policy_controltower.node.default_child.cfn_options.condition = (
+            is_control_tower_access)
+        lambda_es_loader.role.attach_inline_policy(
+            inline_policy_controltower)
+
+        source_mapping_for_ct = aws_lambda.EventSourceMapping(
+            self, "EventSourceMappingForCT",
+            target=lambda_es_loader,
+            event_source_arn=ct_log_sqs.value_as_string,
+        )
+        source_mapping_for_ct.node.default_child.cfn_options.condition = (
+            is_control_tower_access)
+
+        ######################################################################
+        # AWS Security Lake
+        ######################################################################
+        is_security_lake_access = cdk.CfnCondition(
+            self, "IsSecurityLakeAcccess",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        sl_external_id.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        sl_role_arn.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        sl_log_sqs.value_as_string, '')),
+            )
+        )
+
+        # grant additional permission to es_loader role for control tower
+        inline_policy_securitylake = aws_iam.Policy(
+            self, 'access_to_security_lake_log_buckets',
+            policy_name='access_to_security_lake',
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['sts:AssumeRole'],
+                    resources=[sl_role_arn.value_as_string],
+                ),
+                aws_iam.PolicyStatement(
+                    actions=[
+                        "sqs:ReceiveMessage",
+                        "sqs:ChangeMessageVisibility",
+                        "sqs:GetQueueUrl",
+                        "sqs:DeleteMessage",
+                        "sqs:GetQueueAttributes"
+                    ],
+                    resources=[(f'arn:aws:sqs:*:{cfn_sl_aws_account}:*')],
+                )
+            ]
+        )
+        inline_policy_securitylake.node.default_child.cfn_options.condition = (
+            is_security_lake_access)
+        lambda_es_loader.role.attach_inline_policy(
+            inline_policy_securitylake)
+
+        source_mapping_for_ct2 = aws_lambda.EventSourceMapping(
+            self, "EventSourceMappingForCT2",
+            target=lambda_es_loader,
+            event_source_arn=sl_log_sqs.value_as_string,
+        )
+        source_mapping_for_ct2.node.default_child.cfn_options.condition = (
+            is_security_lake_access)
+
+        ######################################################################
         # CloudWatch Dashboard
         ######################################################################
         self.create_cloudwatch_dashboard(
@@ -1443,26 +1812,31 @@ class MyAesSiemStack(core.Stack):
         kibanaadmin = aes_domain.get_att('kibanaadmin').to_string()
         kibanapass = aes_domain.get_att('kibanapass').to_string()
 
-        core.CfnOutput(self, 'RoleDeploy', export_name='role-deploy',
-                       value=aes_siem_deploy_role_for_lambda.role_arn)
-        core.CfnOutput(self, 'DashboardsUrl', export_name='dashboards-url',
-                       value=kibanaurl)
-        core.CfnOutput(self, 'DashboardsPassword',
-                       export_name='dashboards-pass', value=kibanapass,
-                       description=('Please change the password in OpenSearch '
-                                    'Dashboards ASAP'))
-        core.CfnOutput(self, 'DashboardsAdminID',
-                       export_name='dashboards-admin', value=kibanaadmin)
+        cdk.CfnOutput(self, 'RoleDeploy', export_name='role-deploy',
+                      value=aes_siem_deploy_role_for_lambda.role_arn)
+        cdk.CfnOutput(self, 'DashboardsUrl', export_name='dashboards-url',
+                      value=kibanaurl)
+        cdk.CfnOutput(self, 'DashboardsPassword',
+                      export_name='dashboards-pass', value=kibanapass,
+                      description=('Please change the password in OpenSearch '
+                                   'Dashboards ASAP'))
+        cdk.CfnOutput(self, 'DashboardsAdminID',
+                      export_name='dashboards-admin', value=kibanaadmin)
 
     def list_without_none(self, *args):
         list_args = []
         for arg in args:
             if not arg:
                 pass
-            elif isinstance(arg, str):
+            elif isinstance(arg, str) and arg:
                 list_args.append(arg)
-            elif isinstance(arg, list):
+            elif isinstance(arg, list) and len(arg) > 0:
                 list_args.extend(arg)
+        list_args = sorted(list(set(list_args)))
+        try:
+            list_args.remove('')
+        except Exception:
+            pass
         return list_args
 
     def make_account_principals(self, *args):
@@ -1478,6 +1852,14 @@ class MyAesSiemStack(core.Stack):
         multi_s3path = []
         for aws_id in sorted(set(aws_ids)):
             multi_s3path.append(path + aws_id + tail)
+        return multi_s3path
+
+    def make_resource_prefix_list(self, arn=None, tail=None, keys=[]):
+        aws_ids = self.list_without_none(keys)
+        multi_s3path = []
+        for aws_id in sorted(set(aws_ids)):
+            multi_s3path.append(f'{arn}/AWSLogs/{aws_id}/{tail}')
+            multi_s3path.append(f'{arn}/*/AWSLogs/{aws_id}/{tail}')
         return multi_s3path
 
     def create_cloudwatch_dashboard(
@@ -1507,7 +1889,7 @@ class MyAesSiemStack(core.Stack):
         # invocations
         esloader_invocations_widget = aws_cloudwatch.GraphWidget(
             title='Invocations (Count)',
-            height=4, width=12, period=core.Duration.seconds(60),
+            height=4, width=12, period=cdk.Duration.seconds(60),
             left=[lambda_es_loader.metric_invocations()],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
             legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
@@ -1520,7 +1902,7 @@ class MyAesSiemStack(core.Stack):
             label='Success rate (%)', color='#2ca02c')
         esloader_success_rate_widget = aws_cloudwatch.GraphWidget(
             title="Error count and success rate (%)",
-            height=4, width=12, period=core.Duration.seconds(60),
+            height=4, width=12, period=cdk.Duration.seconds(60),
             left=[lambda_es_loader.metric_errors(
                 statistic='sum', color='#d13212', label='Errors (Count)')],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
@@ -1529,14 +1911,14 @@ class MyAesSiemStack(core.Stack):
         # throttles
         esloader_throttles_widget = aws_cloudwatch.GraphWidget(
             title='Throttles (Count)',
-            height=4, width=12, period=core.Duration.seconds(60),
+            height=4, width=12, period=cdk.Duration.seconds(60),
             left=[lambda_es_loader.metric_throttles()],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
             legend_position=aws_cloudwatch.LegendPosition.HIDDEN)
         # duration
         esloader_duration_widget = aws_cloudwatch.GraphWidget(
             title='Duration (Milliseconds)',
-            height=4, width=12, period=core.Duration.seconds(60),
+            height=4, width=12, period=cdk.Duration.seconds(60),
             left=[lambda_es_loader.metric_duration(statistic='min'),
                   lambda_es_loader.metric_duration(statistic='avg'),
                   lambda_es_loader.metric_duration(statistic='max')],
@@ -1544,7 +1926,7 @@ class MyAesSiemStack(core.Stack):
         # concurrent exec
         esloader_concurrent_widget = aws_cloudwatch.GraphWidget(
             title='ConcurrentExecutions (Count)',
-            height=4, width=12, period=core.Duration.seconds(60),
+            height=4, width=12, period=cdk.Duration.seconds(60),
             left=[lambda_es_loader.metric_all_concurrent_executions(
                 dimensions_map={
                     'FunctionName': lambda_es_loader.function_name})],
@@ -1574,7 +1956,7 @@ class MyAesSiemStack(core.Stack):
         aos_cpu_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='CPUUtilization', statistic="max")
         aos_cpu_widget = aws_cloudwatch.GraphWidget(
             title='Data Node CPUUtilization (Cluster Max Percentage)',
@@ -1586,7 +1968,7 @@ class MyAesSiemStack(core.Stack):
         aos_jvmmem_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='JVMMemoryPressure')
         aos_jvmmem_widget = aws_cloudwatch.GraphWidget(
             title='Data Node JVMMemoryPressure (Cluster Max Percentage)',
@@ -1598,50 +1980,50 @@ class MyAesSiemStack(core.Stack):
         aos_read_throughput_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='ReadThroughput', statistic="max",
             label='ReadThroughput (Bytes/Second)')
         aos_write_throughput_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='WriteThroughput', statistic="max",
             label='WriteThroughput (Bytes/Second)')
         aos_read_iops_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='ReadIOPS', statistic="max",
             label='ReadIOPS (Count/Second)')
         aos_write_iops_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='WriteIOPS', statistic="max",
             label='WriteIOPS (Count/Second)')
         aos_read_latency_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='Readatency', statistic="max",
             label='ReadLatency (Seconds)')
         aos_read_latency_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='ReadLatency', statistic="max",
             label='ReadLatency (Seconds)')
         aos_write_latency_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='WriteLatency', statistic="max",
             label='WriteLatency (Seconds)')
 
         aos_disk_queue_depth_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='DiskQueueDepth', statistic="max",
             label='DiskQueueDepth (Count)')
 
@@ -1677,7 +2059,7 @@ class MyAesSiemStack(core.Stack):
         aos_cluster_disk_queue_throttle_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='ThroughputThrottle', statistic="max",
             label='Cluster Disk ThroughputThrottle')
         aos_cluster_disk_queue_throttle_widget = aws_cloudwatch.GraphWidget(
@@ -1691,26 +2073,26 @@ class MyAesSiemStack(core.Stack):
         aos_search_rate_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='SearchRate', statistic="avg",
             label='SearchRate (Count)')
         aos_indexing_rate_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='IndexingRate', statistic="avg",
             label='IndexingRate (Count)')
         # Search / Indexing Latency
         aos_search_latency_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='SearchLatency', statistic="avg",
             label='SearchLatency (Milliseconds)')
         aos_indexing_latency_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='IndexingLatency', statistic="avg",
             label='IndexingLatency (Milliseconds)')
         aos_search_widget = aws_cloudwatch.GraphWidget(
@@ -1731,7 +2113,7 @@ class MyAesSiemStack(core.Stack):
         aos_searchqueue_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='ThreadpoolSearchQueue', statistic="avg")
         aos_searchqueue_widget = aws_cloudwatch.GraphWidget(
             title='ThreadpoolReadQueue (Node Average Count)',
@@ -1745,7 +2127,7 @@ class MyAesSiemStack(core.Stack):
         aos_writequeue_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='ThreadpoolWriteQueue', statistic="avg")
         aos_writequeue_widget = aws_cloudwatch.GraphWidget(
             title='ThreadpoolWriteQueue (Node Average Count)',
@@ -1759,12 +2141,12 @@ class MyAesSiemStack(core.Stack):
         aos_shards_active_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='Shards.active', statistic="avg")
         aos_shards_activeprimary_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='Shards.activePrimary', statistic="avg")
         aos_active_shards_widget = aws_cloudwatch.GraphWidget(
             title='Active Shards Count',
@@ -1779,7 +2161,7 @@ class MyAesSiemStack(core.Stack):
         aos_cluster_index_writes_blocked_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='ClusterIndexWritesBlocked', statistic="avg")
         aos_cluster_index_writes_blocked_widget = aws_cloudwatch.GraphWidget(
             title='ClusterIndexWritesBlocked (Cluster Max Count)',
@@ -1791,35 +2173,35 @@ class MyAesSiemStack(core.Stack):
         aos_threadpool_search_rejected_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='ThreadpoolSearchRejected',
             statistic="sum"
         )
         aos_threadpool_write_rejected_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='ThreadpoolWriteRejected',
             statistic="sum"
         )
         aos_coordinating_write_rejected_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='CoordinatingWriteRejected',
             statistic="sum"
         )
         aos_primary_write_rejected_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='PrimaryWriteRejected',
             statistic="sum"
         )
         aos_replica_write_rejected_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID},
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
             metric_name='ReplicaWriteRejected',
             statistic="sum"
         )
@@ -1840,11 +2222,11 @@ class MyAesSiemStack(core.Stack):
         aos_4xx_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES', metric_name='4xx',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID})
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
         aos_5xx_metric = aws_cloudwatch.Metric(
             namespace='AWS/ES', metric_name='5xx',
             dimensions_map={'DomainName': aes_domain_name,
-                            'ClientId': core.Aws.ACCOUNT_ID})
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
         aos_4xx_5xx_widget = aws_cloudwatch.GraphWidget(
             title='HTTP requests by error response code (Cluster Total Count)',
             height=4, width=12,

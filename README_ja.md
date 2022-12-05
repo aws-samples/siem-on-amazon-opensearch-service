@@ -33,7 +33,8 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 |管理とガバナンス|AWS Trusted Advisor|Trusted Advisor チェック結果|
 |ネットワーキングとコンテンツ配信|Amazon CloudFront|Standard access log<br>Real-time log|
 |ネットワーキングとコンテンツ配信|Amazon Route 53 Resolver|VPC DNS query log|
-|ネットワーキングとコンテンツ配信|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)|
+|ネットワーキングとコンテンツ配信|Amazon Virtual Private Cloud (Amazon VPC)|VPC Flow Logs (Version5)<br>テキスト / Parquet 形式|
+|ネットワーキングとコンテンツ配信|AWS Transit Gateway|VPC Flow Logs (Version6)<br>テキスト / Parquet 形式|
 |ネットワーキングとコンテンツ配信|Elastic Load Balancing|Application Load Balancer access logs<br>Network Load Balancer access logs<br>Classic Load Balancer access logs|
 |ネットワーキングとコンテンツ配信|AWS Client VPN|connection log|
 |ストレージ|Amazon FSx for Windows File Server|audit log|
@@ -119,12 +120,12 @@ SIEM on OpenSearch Service または SIEM on Amazon ES を新しいバージョ�
 
 ### OpenSearch Service のドメインのアップグレード
 
-OpenSearch Service を OpenSearch の 1.3、1.2、1.1、1.0 または Elasticsearch の 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.1 以上を前提にしているため、推奨バージョンは OpenSearch 1.3 の「互換性モードを有効化」です。
+OpenSearch Service を OpenSearch の 2.3, 1.3、1.2、1.1、1.0 または Elasticsearch の 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.1 以上を前提にしているため、推奨バージョンは OpenSearch 2.3 の「互換性モードを有効化」です。
 
 1. [OpenSearch Service コンソール](https://console.aws.amazon.com/es/home?) に移動
 1. [**aes-siem**] ドメインを選択
 1. [**アクション**] アイコンを選択して、プルダウンリストから [**ドメインのアップグレード**] を選択
-1. アップグレード先のバージョンで [**OpenSearch 1.3**] (推奨)、[**OpenSearch 1.2**]、[**OpenSearch 1.1**]、[**OpenSearch 1.0**] または [**Elasticsearch 7.10**] を選択
+1. アップグレード先のバージョンで [**OpenSearch 2.3**] (推奨)、[**OpenSearch 1.3**]、[**OpenSearch 1.2**]、[**OpenSearch 1.1**]、[**OpenSearch 1.0**] または [**Elasticsearch 7.10**] を選択
 1. OpenSearch の場合は、「互換性モードを有効化」にチェックを入れる (推奨)
 1. [**送信**] を選択
 

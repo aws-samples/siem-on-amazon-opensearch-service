@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -11,6 +11,7 @@ import configparser
 import csv
 import importlib
 import ipaddress
+import json
 import os
 import re
 import sys
@@ -23,7 +24,61 @@ import requests
 from aws_lambda_powertools import Logger
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
 logger = Logger(child=True)
+
+
+class MyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if np:
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return json.JSONEncoder.default(self, obj)
+
+
+class AutoRefreshableSession:
+    def __init__(self, role_arn, role_session_name, external_id=None):
+        self.role_arn = role_arn
+        self.role_session_name = role_session_name
+        self.external_id = external_id
+        self.long_running_session = None
+        self.create_auto_refreshable_session()
+
+    def _refresh(self):
+        sts_client = boto3.client('sts')
+        params = {
+            'RoleArn': self.role_arn,
+            'RoleSessionName': self.role_session_name,
+            'DurationSeconds': 3600,
+        }
+        if self.external_id:
+            params['ExternalId'] = self.external_id
+        credentials = sts_client.assume_role(**params).get('Credentials')
+        metadata = {
+            'access_key': credentials.get('AccessKeyId'),
+            'secret_key': credentials.get('SecretAccessKey'),
+            'token': credentials.get('SessionToken'),
+            'expiry_time': credentials.get('Expiration').isoformat()
+        }
+        logger.info(f'Set alternative session: {metadata["access_key"]}')
+        return metadata
+
+    def create_auto_refreshable_session(self):
+        session = botocore.session.get_session()
+        session_credentials = (
+            botocore.credentials.RefreshableCredentials.create_from_metadata(
+                metadata=self._refresh(),
+                refresh_using=self._refresh,
+                method='sts-assume-role'))
+        session._credentials = session_credentials
+        self.long_running_session = boto3.Session(botocore_session=session)
+
+    def get_session(self):
+        return self.long_running_session
 
 
 #############################################################################
@@ -189,7 +244,7 @@ def convert_timestr_to_datetime(timestr, timestamp_key, timestamp_format, TZ):
 
 
 @lru_cache(maxsize=1024)
-def convert_epoch_to_datetime(timestr, TZ):
+def convert_epoch_to_datetime(timestr, TZ=timezone.utc):
     try:
         epoch = float(timestr)
     except ValueError:
@@ -416,6 +471,22 @@ def sqs_queue(queue_url):
     return sqs_queue
 
 
+def get_s3_client_for_crosss_account(
+        config=None, role_arn=None, role_session_name=None, external_id=None):
+    s3_client = None
+    if role_arn and role_session_name:
+        try:
+            autorefresh_session = AutoRefreshableSession(
+                role_arn=role_arn, role_session_name=role_session_name,
+                external_id=external_id,
+            ).get_session()
+            s3_client = autorefresh_session.client('s3', config=config)
+        except Exception:
+            logger.exception(f'Unable to assume role, {role_arn}')
+
+    return s3_client
+
+
 #############################################################################
 # Lambda initialization
 #############################################################################
@@ -500,6 +571,8 @@ def make_exclude_own_log_patterns(etl_config):
             re_user_agent = re.compile('.*' + re.escape(user_agent) + '.*')
             log_patterns['cloudtrail'] = {'userAgent': re_user_agent}
             log_patterns['s3accesslog'] = {'UserAgent': re_user_agent}
+            log_patterns['securitylake'] = {
+                'http_request': {'user_agent': re_user_agent}}
     return log_patterns
 
 
@@ -627,7 +700,7 @@ def value_from_nesteddict_by_dottedkey(nested_dict, dotted_key):
         except (TypeError, KeyError, IndexError):
             value = ''
             break
-    if value:
+    if value is not None and value != '':
         return value
 
 
@@ -652,7 +725,7 @@ def value_from_nesteddict_by_dottedkeylist(nested_dict, dotted_key_list):
         pass
     for dotted_key in dotted_key_list:
         value = value_from_nesteddict_by_dottedkey(nested_dict, dotted_key)
-        if value:
+        if value is not None and value != '':
             return value
 
 

@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
+
+from siem import utils
 
 
 def transform(logdata):
@@ -23,10 +25,20 @@ def transform(logdata):
         index_suffix = ''
     logdata['__index_name'] = f'log-ocsf{index_suffix}'
 
+    category_uid = int(logdata.get('category_uid', ''))
+    if category_uid == 2:
+        mtime = int(logdata.get('finding', {}).get('modified_time'))
+        ctime = int(logdata.get('finding', {}).get('created_time'))
+        if mtime:
+            logdata['@timestamp'] = mtime
+            logdata['__index_dt'] = utils.convert_epoch_to_datetime(mtime)
+        elif ctime:
+            logdata['@timestamp'] = ctime
+            logdata['__index_dt'] = utils.convert_epoch_to_datetime(ctime)
+
     try:
-        dummpy = logdata['origin']['cloud']['provider']
-        del dummpy
-    except Exception:
-        del logdata['cloud']['provider']
+        logdata['unmapped_original'] = str(logdata.pop('unmapped'))
+    except KeyError:
+        pass
 
     return logdata

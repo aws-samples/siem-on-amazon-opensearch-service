@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -21,7 +21,9 @@ def extract_instance_id(logdata):
     instance_id = None
     if event_source == 'ssm.amazonaws.com':
         if event_name in ('StartSession', 'GetConnectionStatus'):
-            instance_id = logdata.get('requestParameters', {}).get('target')
+            if logdata.get('requestParameters'):
+                instance_id = logdata.get(
+                    'requestParameters', {}).get('target')
     elif event_source in ('sts.amazonaws.com'):
         if logdata.get('userAgent') == 'ec2.amazonaws.com':
             instance_id = logdata.get(
@@ -101,6 +103,13 @@ def transform(logdata):
     except (KeyError, TypeError):
         pass
 
+    # https://github.com/aws-samples/siem-on-amazon-opensearch-service/issues/299
+    try:
+        logdata['requestParameters']['disableApiStop'] = (
+            logdata['requestParameters']['disableApiStop']['value'])
+    except (KeyError, TypeError):
+        pass
+
     # https://github.com/aws-samples/siem-on-amazon-elasticsearch/issues/242
     try:
         status = logdata['responseElements']['status']
@@ -167,7 +176,7 @@ def transform(logdata):
             command = None
         if command and isinstance(command, str):
             logdata['requestParameters']['command'] = {'command': command}
-    elif event_source in ('ssm.amazonaws.com'):
+    elif event_source in ('ssm.amazonaws.com', 'sqlworkbench.amazonaws.com'):
         try:
             params = logdata['requestParameters']['parameters']
         except (KeyError, TypeError):

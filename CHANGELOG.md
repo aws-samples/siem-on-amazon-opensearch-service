@@ -6,6 +6,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2022-12-05
+### Added
+- AWS Security Lake integration #334
+- Enhance ETL of Windows Event Log #332
+- Support eu-central-2, eu-south-2, me-central-1 and ap-south-2 #330
+- Support OpenSearch 2.3 #328
+- AWS Control Tower Integration #315
+- Support TGW (transit gateway) flowlogs #295
+### Changed
+- Change CPU architecture of Lambda function to Graviton in 12 region #336
+- Updated AWS Pandas SDK from 2.16.1 to 2.18.0
+- Rewrite S3 Bucket Policy to load log with key prefix #3299
+- Reduced privileges of IAM Role of aes-siem-deploy-role-for-lambda #317
+- Increase maximum receives of SQS split from 2 to 20 #317
+- Enhanced error handling of deployment script #310,#317
+- Migration AWS CDK version from v1 to v2 #308
+- Performance tuning for IoC enrichment #307
+- Delete old v1 index templates #296
+### Fixed
+- Fixed node version as 16 because node 18 doesn't work on Amazon Linux 2 #322
+- Fixed with permission issue with R20220323-P6 software #297,#311
+- Fixed parse issue: (CloudTrail) requestParameters.disableApiStop,requestParameters.parameters,requestParameters.resource,requestParameters.target #299,#300,#303,#304,#305,#306
+- Fixed typos #320
+
 ## [2.8.0] - 2022-08-30
 ### Added
 - Support for OCSF #293

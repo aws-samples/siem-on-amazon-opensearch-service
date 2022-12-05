@@ -2,13 +2,14 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import os
 
+import aws_cdk as cdk
 from aws_cdk import (
     aws_events,
     aws_events_targets,
@@ -16,10 +17,11 @@ from aws_cdk import (
     aws_kinesisfirehose,
     aws_lambda,
     aws_logs,
+    aws_sqs,
+    region_info,
 )
-from aws_cdk import core as cdk
-from aws_cdk import region_info
 from aws_cdk.aws_kinesisfirehose import CfnDeliveryStream as CDS
+from constructs import Construct
 
 region = os.environ.get("CDK_DEPLOY_REGION", os.environ["CDK_DEFAULT_REGION"])
 PARTITION = region_info.Fact.find(region, region_info.FactName.PARTITION)
@@ -28,7 +30,7 @@ LAMBDA_GET_WORKSPACES_INVENTORY = '''# Copyright Amazon.com, Inc. or its affilia
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -120,7 +122,7 @@ def lambda_handler(event, context):
 LAMBDA_GET_TRUSTEDADVISOR_CHECK_RESULT = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 __copyright__ = 'Amazon.com, Inc. or its affiliates'
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Katsuya Matsuoka'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -238,8 +240,17 @@ if region.startswith('cn-'):
             'us-east-1', 'cn-north-1'))
 
 
-class FirehoseExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
+class MyStack(cdk.Stack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(
+            scope, construct_id,
+            synthesizer=cdk.DefaultStackSynthesizer(
+                generate_bootstrap_version_rule=False),
+            **kwargs)
+
+
+class FirehoseExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str,
                  default_firehose_name='siem-XXXXXXXXXXX-to-s3',
                  firehose_compression_format='UNCOMPRESSED',
                  **kwargs) -> None:
@@ -283,9 +294,8 @@ class FirehoseExporterStack(cdk.Stack):
         )
 
 
-class CWLNoCompressExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class CWLNoCompressExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -341,9 +351,8 @@ class CWLNoCompressExporterStack(cdk.Stack):
         )
 
 
-class EventBridgeEventsExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class EventBridgeEventsExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -477,9 +486,8 @@ class EventBridgeEventsExporterStack(cdk.Stack):
         rule_config_rules.add_target(aws_events_targets.KinesisFirehoseStream(kdf_to_s3))
 
 
-class ADLogExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class ADLogExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -531,9 +539,8 @@ class ADLogExporterStack(cdk.Stack):
         )
 
 
-class WorkSpacesLogExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class WorkSpacesLogExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -632,9 +639,8 @@ class WorkSpacesLogExporterStack(cdk.Stack):
             targets=[aws_events_targets.KinesisFirehoseStream(kdf_to_s3)])
 
 
-class TrustedAdvisorLogExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class TrustedAdvisorLogExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -704,9 +710,8 @@ class TrustedAdvisorLogExporterStack(cdk.Stack):
         rule.add_target(aws_events_targets.LambdaFunction(lambda_func))
 
 
-class CloudHsmCWLogsExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class CloudHsmCWLogsExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -772,9 +777,8 @@ class CloudHsmCWLogsExporterStack(cdk.Stack):
         )
 
 
-class ClientVpnLogExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class ClientVpnLogExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
@@ -840,9 +844,8 @@ class ClientVpnLogExporterStack(cdk.Stack):
         )
 
 
-class CoreLogExporterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class CoreLogExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         log_bucket_name = cdk.CfnParameter(
@@ -928,9 +931,102 @@ class CoreLogExporterStack(cdk.Stack):
                       value=role_kdf_to_s3.role_name)
 
 
-class DeploymentSamplesStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str,
-                 **kwargs) -> None:
+class DeploymentSamplesStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # The code that defines your stack goes here
+
+
+class ControlTowerIntegrationStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        es_ladder_iam_role_default = (
+            "arn:aws:iam::123456789012:role/aes-siem-LambdaEsLoaderServiceRole"
+            "XXXXXXXXX-XXXXXXXXXXXX")
+        es_loader_iam_role = cdk.CfnParameter(
+            self, 'EsLoaderServiceRole',
+            allowed_pattern=r'^arn:aws[0-9a-zA-Z:/-]*$',
+            default=es_ladder_iam_role_default,
+            description=(
+                f"Specify Service Role ARN of lambda function "
+                f"aes-siem-es-loader in SIEM Account. "
+                f"(e.g., {es_ladder_iam_role_default} )"
+            ),
+        )
+
+        sqs_aes_siem_ct_dlq = aws_sqs.Queue(
+            self, 'AesSiemCtDlq', queue_name='aes-siem-ct-dlq',
+            encryption=aws_sqs.QueueEncryption.SQS_MANAGED,
+            retention_period=cdk.Duration.days(14)
+        )
+
+        sqs_aes_siem_ct = aws_sqs.Queue(
+            self, 'AesSiemCt',
+            queue_name='aes-siem-ct',
+            encryption=aws_sqs.QueueEncryption.SQS_MANAGED,
+            dead_letter_queue=aws_sqs.DeadLetterQueue(
+                max_receive_count=20, queue=sqs_aes_siem_ct_dlq),
+            visibility_timeout=cdk.Duration.seconds(600),
+            retention_period=cdk.Duration.days(14)
+        )
+
+        sqs_aes_siem_ct.add_to_resource_policy(
+            statement=aws_iam.PolicyStatement(
+                sid="__owner_statement",
+                principals=[aws_iam.AccountPrincipal(cdk.Aws.ACCOUNT_ID)],
+                actions=["SQS:*"],
+                resources=[sqs_aes_siem_ct.queue_arn],
+            )
+        )
+
+        sqs_aes_siem_ct.add_to_resource_policy(
+            statement=aws_iam.PolicyStatement(
+                sid="allow-s3-bucket-to-send-message",
+                principals=[aws_iam.ServicePrincipal("s3.amazonaws.com")],
+                actions=["SQS:SendMessage"],
+                resources=[sqs_aes_siem_ct.queue_arn],
+                conditions={
+                    "StringEquals": {"aws:SourceAccount": [cdk.Aws.ACCOUNT_ID]}
+                },
+            )
+        )
+
+        sqs_aes_siem_ct.add_to_resource_policy(
+            statement=aws_iam.PolicyStatement(
+                sid="allow-es-loader-to-recieve-message",
+                principals=[aws_iam.ArnPrincipal(
+                    es_loader_iam_role.value_as_string)],
+                actions=[
+                    "sqs:ReceiveMessage",
+                    "sqs:ChangeMessageVisibility",
+                    "sqs:GetQueueUrl",
+                    "sqs:DeleteMessage",
+                    "sqs:GetQueueAttributes"
+                ],
+                resources=[sqs_aes_siem_ct.queue_arn],
+            )
+        )
+
+        policy_access_s3 = aws_iam.PolicyDocument(
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['s3:GetObject'],
+                    resources=['*']
+                ),
+                aws_iam.PolicyStatement(
+                    actions=['kms:Decrypt'],
+                    resources=['*']
+                ),
+            ]
+        )
+
+        aws_iam.Role(
+            self, 'RoleForSiem',
+            role_name='ct-role-for-siem',
+            inline_policies={'access_s3': policy_access_s3},
+            assumed_by=aws_iam.ArnPrincipal(
+                es_loader_iam_role.value_as_string
+            ),
+        )

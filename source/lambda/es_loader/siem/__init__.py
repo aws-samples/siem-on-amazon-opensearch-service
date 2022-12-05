@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.8.0c'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -14,7 +14,6 @@ import hashlib
 import io
 import json
 import re
-import urllib.parse
 import zipfile
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
@@ -42,19 +41,20 @@ class LogS3:
     圧縮の有無の判断、ログ種類を判断、フォーマットの判断をして
     最後に、生ファイルを個々のログに分割してリスト型として返す
     """
-    def __init__(self, record, logtype, logconfig, s3_client, sqs_queue):
+    def __init__(self, record, s3bucket, s3key, logtype, logconfig, s3_client,
+                 sqs_queue):
         self.error_logs_count = 0
         self.record = record
         self.logtype = logtype
         self.logconfig = logconfig
         self.s3_client = s3_client
         self.sqs_queue = sqs_queue
+        self.s3bucket = s3bucket
+        self.s3key = s3key
+        self.s3obj_size = self.s3obj_size
 
         self.loggroup = None
         self.logstream = None
-        self.s3bucket = self.record['s3']['bucket']['name']
-        self.s3key = urllib.parse.unquote_plus(
-            self.record['s3']['object']['key'], encoding='utf-8')
 
         logger.info(self.startmsg())
         if self.is_ignored:
@@ -170,6 +170,14 @@ class LogS3:
             return int(self.record['siem']['end_number'])
         except KeyError:
             return 0
+
+    @cached_property
+    def s3obj_size(self):
+        if 's3' in self.record:
+            _s3obj_size = self.record['s3']['object'].get('size', 0)
+        elif 'detail' in self.record:
+            _s3obj_size = self.record['detail']['object'].get('size', 0)
+        return _s3obj_size
 
     ###########################################################################
     # Method/Function
@@ -376,10 +384,10 @@ class LogS3:
         try:
             obj = self.s3_client.get_object(
                 Bucket=self.s3bucket, Key=self.s3key)
-        except Exception:
-            msg = f'Failed to download S3 object from {self.s3key}'
+        except Exception as err:
+            msg = f'Failed to download s3://{self.s3bucket}/{self.s3key}'
             logger.exception(msg)
-            raise Exception(msg) from None
+            raise Exception(f'{msg}. {err}') from None
         try:
             s3size = int(
                 obj['ResponseMetadata']['HTTPHeaders']['content-length'])
@@ -610,6 +618,10 @@ class LogParser:
             return indexname
         if 'event_ingested' in self.logconfig['index_time']:
             index_dt = self.event_ingested
+        elif '__index_dt' in self.__logdata_dict:
+            # this field is added by sf_ script
+            index_dt = self.__logdata_dict['__index_dt']
+            del self.__logdata_dict['__index_dt']
         else:
             index_dt = self.timestamp
         if self.logconfig['index_tz']:
@@ -627,11 +639,11 @@ class LogParser:
     def json(self):
         # 内部で管理用のフィールドを削除
         self.__logdata_dict = self.del_none(self.__logdata_dict)
-        loaded_data = json.dumps(self.__logdata_dict)
+        loaded_data = json.dumps(self.__logdata_dict, cls=utils.MyEncoder)
         # サイズが Lucene の最大値である 32766 Byte を超えてるかチェック
         if len(loaded_data) >= 65536:
             self.__logdata_dict = self.truncate_big_field(self.__logdata_dict)
-            loaded_data = json.dumps(self.__logdata_dict)
+            loaded_data = json.dumps(self.__logdata_dict, cls=utils.MyEncoder)
         return loaded_data
 
     ###########################################################################
@@ -906,7 +918,7 @@ class LogParser:
                     original = None
                 if isinstance(original, list):
                     original = original[0]
-                if isinstance(original, str):
+                if isinstance(original, str) and original != '-':
                     enrich_dict[ua_field] = user_agent.enrich(original)
 
         # merge all enrichment
@@ -962,17 +974,17 @@ class LogParser:
                     return self.file_timestamp
                 timestr = utils.get_timestr_from_logdata_dict(
                     self.__logdata_dict, timestamp_key, self.has_nanotime)
-                if timestr:
+                if timestr is not None and timestr != '':
                     break
 
-            if not timestr:
+            if timestr is None or timestr == '':
                 msg = f'there is no valid timestamp_key for {self.logtype}'
                 logger.error(msg)
                 raise ValueError(msg)
             dt = utils.convert_timestr_to_datetime_wrapper(
                 timestr, timestamp_key, timestamp_format_list,
                 self.timestamp_tz)
-            if not dt:
+            if dt is None or dt == '':
                 msg = f'there is no timestamp format for {self.logtype}'
                 logger.error(msg)
                 raise ValueError(msg)
