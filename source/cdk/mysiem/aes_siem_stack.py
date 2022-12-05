@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0-rc.1'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -403,6 +403,7 @@ class MyAesSiemStack(cdk.Stack):
             'organizations').get('member_ids')
         no_org_ids = self.node.try_get_context(
             'no_organizations').get('aws_accounts')
+        no_org_ids.sort()
 
         # Overwrite default S3 bucket name as customer name
         temp_geo = self.node.try_get_context('s3_bucket_name').get('geo')
@@ -1040,7 +1041,6 @@ class MyAesSiemStack(cdk.Stack):
             handler='lambda_function.download',
             memory_size=256,
             timeout=cdk.Duration.seconds(900),
-            reserved_concurrent_executions=1,
             environment={
                 'GEOIP_BUCKET': s3bucket_name_geo,
                 'OTX_API_KEY': otx_api_key.value_as_string,
@@ -1832,7 +1832,7 @@ class MyAesSiemStack(cdk.Stack):
                 list_args.append(arg)
             elif isinstance(arg, list) and len(arg) > 0:
                 list_args.extend(arg)
-        list_args = list(set(list_args))
+        list_args = sorted(list(set(list_args)))
         try:
             list_args.remove('')
         except Exception:

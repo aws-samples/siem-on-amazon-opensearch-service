@@ -2,7 +2,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 __copyright__ = 'Amazon.com, Inc. or its affiliates'
-__version__ = '2.9.0-rc.1'
+__version__ = '2.9.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -162,13 +162,28 @@ def setup_lambda_layer(lambda_client, lambda_info):
             {'Bucket': 'aws-data-wrangler-public-artifacts', 'Key': s3key},
             s3bucket, f'aws_sdk_pandas/{s3key}')
 
-        response = lambda_client.publish_layer_version(
-            LayerName=f'AWSSDKPandas-{py_ver2}{_arch2}',
-            Description=f'From s3://{s3bucket}/aws_sdk_pandas/{s3key}',
-            Content={'S3Bucket': s3bucket, 'S3Key': f'aws_sdk_pandas/{s3key}'},
-            CompatibleRuntimes=[lambda_info['runtime']],
-            CompatibleArchitectures=[lambda_info['arch']],)
-        new_pandas_layer_arn = response['LayerVersionArn']
+        _layer_name = f'AWSSDKPandas-{py_ver2}{_arch2}'
+        _description = f'From s3://{s3bucket}/aws_sdk_pandas/{s3key}'
+        _s3Key = f'aws_sdk_pandas/{s3key}'
+        _compatible_runtimes = [lambda_info['runtime']]
+        _compatible_architectures = [lambda_info['arch']]
+
+        try:
+            response = lambda_client.publish_layer_version(
+                LayerName=_layer_name, Description=_description,
+                Content={'S3Bucket': s3bucket, 'S3Key': _s3Key},
+                CompatibleRuntimes=_compatible_runtimes,
+                CompatibleArchitectures=_compatible_architectures,
+            )
+            new_pandas_layer_arn = response['LayerVersionArn']
+        except Exception:
+            response = lambda_client.publish_layer_version(
+                LayerName=_layer_name, Description=_description,
+                Content={'S3Bucket': s3bucket, 'S3Key': _s3Key},
+                CompatibleRuntimes=_compatible_runtimes,
+            )
+            new_pandas_layer_arn = response['LayerVersionArn']
+
     logger.info(f'X299: {new_pandas_layer_arn} will be added')
     return new_pandas_layer_arn
 
