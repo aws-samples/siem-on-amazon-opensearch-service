@@ -410,7 +410,7 @@ class LogS3:
             body = gzip.open(rawbody, mode='rb')
         elif mime_type == 'zip':
             z = zipfile.ZipFile(rawbody)
-            body = open(z.namelist()[0])
+            body = z.open(z.namelist()[0])
         elif mime_type == 'bzip2':
             body = bz2.open(rawbody, mode='rb')
         else:
@@ -429,8 +429,9 @@ class LogS3:
                                      errors='ignore')
                 elif mime_type == 'zip':
                     z = zipfile.ZipFile(rawbody)
-                    body = open(z.namelist()[0], encoding='utf8',
-                                errors='ignore')
+                    body = z.open(z.namelist()[0])
+                    body = io.TextIOWrapper(body, encoding='utf8',
+                                            errors='ignore')
                 elif mime_type == 'bzip2':
                     body = bz2.open(rawbody, mode='rt', encoding='utf8',
                                     errors='ignore')
@@ -438,7 +439,6 @@ class LogS3:
                 msg = f'double archived file. {mime_type2} in {mime_type}'
                 logger.error(msg)
                 raise Exception(msg)
-
         return body
 
     def split_logs(self, log_count, max_log_count):

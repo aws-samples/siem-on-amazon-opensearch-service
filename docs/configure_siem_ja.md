@@ -319,7 +319,10 @@ POST _template/log-aws-cloudtrail_mine
 
 ## AWS サービス以外のログの取り込み
 
-AWS 以外のログをログ用 S3 バケットにエクスポートすることで SIEM on OpenSearch Service に取り込むことができます。ファイルフォーマットはテキスト形式、JSON 形式、CSV 形式に対応しています。テキスト形式は1行ログを取り込むことができますが、複数行ログには対応していません。S3 へのエクスポートは Logstash や Fluentd のプラグインを使う方法があります。
+AWS 以外のログをログ用 S3 バケットにエクスポートすることで SIEM on OpenSearch Service に取り込むことができます。S3 へのエクスポートは Logstash や Fluentd のプラグインを使う方法があります。
+
+対応ファイル形式: JSON、CSV、テキスト、複数行テキスト、CEF、Parquet
+対応圧縮形式: gzip、bzip2、zip、無圧縮
 
 設定の基本的な流れを、Apache HTTP Server のログを例にして説明します
 

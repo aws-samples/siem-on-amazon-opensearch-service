@@ -305,7 +305,10 @@ POST _template/log-aws-cloudtrail_mine
 
 ## Loading non-AWS services logs
 
-You can load non-AWS services logs into SIEM on OpenSearch Service by exporting logs to the S3 bucket that stores logs. The supported file formats are text, JSON, and CSV formats. In case of text format, only single-line logs can be loaded, and multi-line logs are not supported. You can export logs to S3 using Logstash or Fluentd plug-ins.
+You can load non-AWS services logs into SIEM on OpenSearch Service by exporting logs to the S3 bucket that stores logs. You can export logs to S3 using Logstash or Fluentd plug-ins.
+
+Supported file formats: JSON, CSV, Text, Multiline Text, CEF, Parquet
+Supported compression formats: gzip, bzip2, zip, no compression
 
 Here is the basic configuration flow for Apache HTTP server logs:
 
