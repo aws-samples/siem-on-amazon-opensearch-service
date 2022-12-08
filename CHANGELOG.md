@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.9.0] - 2022-12-05
 ### Added
-- AWS Security Lake integration #334
+- Amazon Security Lake integration #334
 - Enhance ETL of Windows Event Log #332
 - Support eu-central-2, eu-south-2, me-central-1 and ap-south-2 #330
 - Support OpenSearch 2.3 #328

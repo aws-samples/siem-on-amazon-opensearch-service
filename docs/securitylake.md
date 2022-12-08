@@ -1,10 +1,10 @@
-# AWS Security Lake Integration
+# Amazon Security Lake Integration
 
 [View this page in Japanese (日本語)](securitylake_ja.md) | [Back to README](../README.md)
 
 ![Security Lake Architecture](images/securitylake-arch.svg)
 
-Data from AWS Security Lake can be loaded directly into SIEM on OpenSearch.
+Data from Amazon Security Lake can be loaded directly into SIEM on OpenSearch.
 
 ## Ingest data
 
@@ -12,7 +12,7 @@ Data from AWS Security Lake can be loaded directly into SIEM on OpenSearch.
 
 Deploy SIEM on OpenSearch with reference to [README](../README_en.md)
 
-The account can be the same as or different from the AWS Security Lake account, but the recommended account is different from the Security Lake account.
+The account can be the same as or different from the Amazon Security Lake account, but the recommended account is different from the Security Lake account.
 
 The region must be the same as the region where Security Lake is enabled.
 

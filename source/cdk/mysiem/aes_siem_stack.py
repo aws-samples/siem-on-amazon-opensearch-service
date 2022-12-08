@@ -1747,7 +1747,7 @@ class MyAesSiemStack(cdk.Stack):
             is_control_tower_access)
 
         ######################################################################
-        # AWS Security Lake
+        # Amazon Security Lake
         ######################################################################
         is_security_lake_access = cdk.CfnCondition(
             self, "IsSecurityLakeAcccess",
