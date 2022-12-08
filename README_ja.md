@@ -7,7 +7,7 @@ SIEM on Amazon OpenSearch Service は、セキュリティインシデントを�
 
 > Amazon OpenSearch Service のサービス名変更に伴い、SIEM on Amazon Elasticsearch Service から SIEM on Amazon OpenSearch Service に名前を変更しました。
 
-Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_service_ja.md) | [SIEM の設定](docs/configure_siem_ja.md) | [高度なデプロイ](docs/deployment_ja.md) | [ダッシュボード](docs/dashboard_ja.md) | [サポートログタイプ](docs/suppoted_log_type.md) | [AWS Control Tower との統合](docs/controltower_ja.md) |  [AWS Security Lake との統合](docs/securitylake_ja.md) | [よくある質問](docs/faq_ja.md) | [変更履歴](CHANGELOG.md) |
+Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_service_ja.md) | [SIEM の設定](docs/configure_siem_ja.md) | [高度なデプロイ](docs/deployment_ja.md) | [ダッシュボード](docs/dashboard_ja.md) | [サポートログタイプ](docs/suppoted_log_type.md) | [AWS Control Tower との統合](docs/controltower_ja.md) |  [Amazon Security Lake との統合](docs/securitylake_ja.md) | [よくある質問](docs/faq_ja.md) | [変更履歴](CHANGELOG.md) |
 
 ![Sample dashboard](./docs/images/dashboard-sample.jpg)
 
@@ -19,7 +19,7 @@ Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_servic
 
 ![Control Tower Architecture](./docs/images/controltower-arch-log.svg)
 
-[AWS Security Lake との統合](docs/securitylake_ja.md)
+[Amazon Security Lake との統合](docs/securitylake_ja.md)
 
 ![Security Lake Architecture](./docs/images/securitylake-arch.svg)
 

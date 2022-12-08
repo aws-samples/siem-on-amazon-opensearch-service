@@ -1,10 +1,10 @@
-# AWS Security Lake との統合
+# Amazon Security Lake との統合
 
 [In English](securitylake.md) | [READMEに戻る](../README_ja.md)
 
 ![Security Lake Architecture](images/securitylake-arch.svg)
 
-AWS Security Lake のデータをそのまま SIEM on OpenSearch に取り込むことができます。
+Amazon Security Lake のデータをそのまま SIEM on OpenSearch に取り込むことができます。
 
 ## ログの取り込み
 
@@ -12,7 +12,7 @@ AWS Security Lake のデータをそのまま SIEM on OpenSearch に取り込む
 
 [README](../README_ja.md) を参照して SIEM on OpenSearch をデプロイしてください。
 
-アカウントは、AWS Security Lake と同じアカウントででも異なるアカウントでも可能ですが、推奨は Security Lake と異なるアカウントです。
+アカウントは、Amazon Security Lake と同じアカウントででも異なるアカウントでも可能ですが、推奨は Security Lake と異なるアカウントです。
 
 リージョンは、Security Lake を有効化したリージョンと同じである必要があります。
 
