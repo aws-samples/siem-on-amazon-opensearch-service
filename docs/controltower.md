@@ -53,8 +53,8 @@ Note down the information needed for the next step, which will be used for the S
 Example)
 
 * Name of S3 bucket to ingest logs: `aws-controltower-logs-999999999999-ap-northeast-1, aws-controltower-s3-access-logs-999999999999-ap-northeast-1`.
-* ARN for SQS: `arn:aws:sqs:ap-northeast-1:999999999999:aes-siem-ct`
-* IAM Role for SIEM Assume: `arn:aws:iam::999999999999:role/ct-assumed-role-for-siem-es-loader`.
+* SQS ARN: `arn:aws:sqs:ap-northeast-1:999999999999:aes-siem-ct`
+* IAM Role: `arn:aws:iam::999999999999:role/ct-assumed-role-for-siem-es-loader`.
 
 ### Preparation with admin account (optional)
 

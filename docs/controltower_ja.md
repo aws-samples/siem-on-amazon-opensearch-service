@@ -52,9 +52,9 @@ Log Archive アカウントで Amazon SQS と IAM Role を作成します。下�
 
 例)
 
-* ログを取り込みたい S3 バケット名: `aws-controltower-logs-282094966508-ap-northeast-1, aws-controltower-s3-access-logs-282094966508-ap-northeast-1`
-* SQS の ARN: `arn:aws:sqs:ap-northeast-1:999999999999:aes-siem-ct`
-* SIEM の Assume 用 IAM Role: `arn:aws:iam::999999999999:role/ct-assumed-role-for-siem-es-loader`
+* ログを取り込みたい S3 バケット名: `aws-controltower-logs-999999999999-ap-northeast-1, aws-controltower-s3-access-logs-999999999999-ap-northeast-1`
+* SQS ARN: `arn:aws:sqs:ap-northeast-1:999999999999:aes-siem-ct`
+* IAM Role: `arn:aws:iam::999999999999:role/ct-role-for-siem`
 
 ### 管理者アカウントでの準備 (オプション)
 
