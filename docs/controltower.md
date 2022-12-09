@@ -10,7 +10,7 @@ Data from log buckets in the Log Archive account in AWS Control Tower can be loa
 
 ### Deploying SIEM on OpenSearch Service
 
-Deploy SIEM on OpenSearch with reference to [README](../README_en.md)
+Deploy SIEM on OpenSearch with reference to [README](../README.md)
 
 The account should either create a Security Tooling account in the member account (recommended) or use an Audit account, etc.
 
