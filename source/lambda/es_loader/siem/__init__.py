@@ -225,12 +225,16 @@ class LogS3:
         self.total_log_count = end - start + 1
 
         if self.via_cwl:
+            delimiter = self.logconfig['json_delimiter']
             for lograw, logmeta in self.extract_cwl_log(start, end, logmeta):
                 logdict = self.rawfile_instacne.convert_lograw_to_dict(lograw)
-                if isinstance(logdict, dict):
+                if delimiter and (delimiter in logdict):
+                    #logger.error('we are delimiting on ' + str(delimiter))
+                    for record in logdict[delimiter]:
+                        #logger.error('we are delimiting with ' + str(record))
+                        yield (json.dumps(record), record, logmeta)
+                else:
                     yield (lograw, logdict, logmeta)
-                elif logdict == 'regex_error':
-                    self.error_logs_count += 1
         elif self.via_firelens:
             for lograw, logdict, logmeta in self.extract_firelens_log(
                     start, end, logmeta):
@@ -952,7 +956,7 @@ class LogParser:
 
     def get_timestamp(self):
         if ((self.logconfig['timestamp_key']
-                or self.logconfig['timestamp_key_list'])
+             or self.logconfig['timestamp_key_list'])
                 and not self.__skip_normalization):
 
             timestamp_key_list = self.logconfig['timestamp_key_list']
@@ -1042,7 +1046,7 @@ class LogParser:
             if isinstance(value, dict):
                 self.truncate_big_field(value)
             elif (isinstance(value, str) and (len(value) >= 16383)
-                    and len(value.encode('utf-8', 'surrogatepass')) >= 32766):
+                  and len(value.encode('utf-8', 'surrogatepass')) >= 32766):
                 if key not in ("@message", ):
                     d[key] = self.truncate_txt(d[key], 32753) + '<<TRUNCATED>>'
                     logger.warning(
