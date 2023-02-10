@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.9.0: log exporter - EventBridge events (SecurityHub, ConfigRules, Inspector)"
+Description: "SIEM on Amazon OpenSearch Service v2.9.1-beta.1: log exporter - EventBridge events (SecurityHub, ConfigRules, Inspector)"
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -131,7 +131,7 @@ Resources:
   RuleInspector4666D3F5:
     Type: AWS::Events::Rule
     Properties:
-      Description: "SIEM on OpenSearch Service v2.9.0:"
+      Description: "SIEM on OpenSearch Service v2.9.1-beta.1:"
       EventPattern:
         detail-type:
           - Inspector2 Coverage
@@ -154,7 +154,7 @@ Resources:
   RuleSecurityHubFDEAF80E:
     Type: AWS::Events::Rule
     Properties:
-      Description: "SIEM on OpenSearch Service v2.9.0:"
+      Description: "SIEM on OpenSearch Service v2.9.1-beta.1:"
       EventPattern:
         detail-type:
           - Security Hub Findings - Imported
@@ -176,7 +176,7 @@ Resources:
   RuleConfigRules81A566BA:
     Type: AWS::Events::Rule
     Properties:
-      Description: "SIEM on OpenSearch Service v2.9.0:"
+      Description: "SIEM on OpenSearch Service v2.9.1-beta.1:"
       EventPattern:
         detail-type:
           - Config Rules Compliance Change
