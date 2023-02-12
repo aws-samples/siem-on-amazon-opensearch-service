@@ -59,7 +59,8 @@
 1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq、tar をインストールし、ソースコードを GitHub から取得します
 
     ```shell
-    cd
+    export GIT_ROOT=$HOME
+    cd ${GIT_ROOT}
     sudo yum groups mark install -y "Development Tools"
     sudo yum install -y amazon-linux-extras
     sudo amazon-linux-extras enable python3.8
@@ -80,7 +81,7 @@ export AWS_DEFAULT_REGION=<AWS_REGION> # region where the distributable is deplo
 SIEM on OpenSearch Service で使用する AWS Lambda 関数は 3rd Party のライブラリを利用します。ローカルにこれらのライブラリをダウンロードをしてデプロイパッケージを作成します。Python 3 がインストールされていることを確認してください。
 
 ```shell
-cd siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
 chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh
 ```
 
@@ -105,9 +106,8 @@ source ~/.bashrc
 レポジトリのルートディレクトリから、AWS CDK のコードのあるディレクトリに移動して、オプション設定とインストールの準備をします
 
 ```bash
-cd ../../source/cdk/
-source .venv/bin/activate
-cdk bootstrap
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
+cd source/cdk && cdk bootstrap
 ```
 
 エラーで実行が失敗した場合、Amazon EC2 インスタンスに Admin 権限のロールが割り当てられているかを確認してください。
@@ -204,11 +204,16 @@ cdk deploy --no-rollback \
 
 SIEM のレポジトリを更新して、AWS CDK でアップデートします。初期インストール時に使用した cdk.json が CDK のディレクトリにあることを確認してください。
 
+> **注) Global tenant の 設定やダッシュボード等は自動で上書きされるのでご注意ください。アップデート前に使用していた設定ファイルやダッシュボード等は S3 バケットの aes-siem-[AWS_Account]-snapshot/saved_objects/ にバックアップされるので、元の設定にする場合は手動でリストアしてください。**
+
+> **注) S3 バケットポリシー、KMS の キーポリシーは、IAM ポリシー等は、CDK/CloudFormation で自動生成されています。手動で変更は非推奨ですが、変更している場合は上書きされるので、それぞれをバックアップをしてからアップデート後に差分を更新して下さい。**
+
 > SIEM on Amazon ES からお使いの方は、ディレクトリを変更して下さい。
 > cd && mv siem-on-amazon-elasitcsearch siem-on-amazon-opensearch-service
 
 ```sh
-cd ~/siem-on-amazon-opensearch-service/
+export GIT_ROOT=$HOME
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && git stash && git checkout main
 git pull --rebase
 ```
 
@@ -216,11 +221,15 @@ git pull --rebase
 
 [5. AWS CDK によるインストールのオプション設定] 以降は **実行せず**、下記を実行
 
-インストール時に保存した `cdk.json` と `cdk.context.json` を `~/siem-on-amazon-opensearch-service/source/cdk/` にリストア。`cdk.context.json` はない場合があります。
+インストール時に保存した `cdk.json` と `cdk.context.json` を `${GIT_ROOT}/siem-on-amazon-opensearch-service/source/cdk/` にリストア。`cdk.context.json` はない場合があります。
+
+> **注) v2.8.0d 以下からアップデートする場合、CDK v1 から CDK v2 へ移行する必要があります。再度、cdk bootstrap を実行します**
 
 ```sh
-cd ~/siem-on-amazon-opensearch-service/source/cdk/
-source .venv/bin/activate
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
+cd source/cdk
+# v2.8.0d 以下からアップデートする場合、cdk bootstrap も実行
+# cdk bootstrap
 cdk deploy --no-rollback
 ```
 

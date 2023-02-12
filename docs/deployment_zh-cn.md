@@ -58,6 +58,8 @@
 1. 登录shell； 安装开发工具、Python 3.8 和开发相关文件、git、jq 和 tar； 并从 GitHub 获取源代码。
 
    ```shell
+   export GIT_ROOT=$HOME
+   cd ${GIT_ROOT}
    sudo yum groups mark install -y "Development Tools"
    sudo yum install -y amazon-linux-extras
    sudo amazon-linux-extras enable python3.8
@@ -78,7 +80,7 @@ export AWS_DEFAULT_REGION=<AWS_REGION> # region where the distributable is deplo
 您在 OpenSearch Service 上的 SIEM 中使用的 AWS Lambda 函数使用第三方库。 下面的脚本将下载这些库并在本地创建部署包。 确保您已安装 Python 3。
 
 ```shell
-cd siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
 # for china region
 chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh china
 # for global region
@@ -106,9 +108,8 @@ source ~/.bashrc
 从当前存储库的根目录，进入到包含 AWS CDK 代码的目录。运行虚拟环境配置选项后，进行CDK以进行安装部署。
 
 ```bash
-cd ../../source/cdk/
-source .venv/bin/activate
-cdk bootstrap
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
+cd source/cdk && cdk bootstrap
 ```
 
 如果执行失败并出现错误，请验证您的 Amazon EC2 实例是否已分配适当的权限角色。
@@ -206,8 +207,11 @@ cdk deploy --no-rollback \
 您可以使用 AWS CDK 更新 SIEM 存储库。 请确保您在初始安装时使用的 cdk.json 已经被存储在 CDK 目录中。
 
 ```sh
-# cd SIEM repository
-git pull --rebase
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
+cd source/cdk
+# Also run `cdk bootstrap` if updating from v2.8.0d or prior version
+# cdk bootstrap
+cdk deploy --no-rollback
 ```
 
 返回 [**Deploying with the AWS CDK**] 部分并重新运行 [**2. 设置环境变量**], [**3. 创建 AWS Lambda 部署包**] 和 [**4. 为 AWS Cloud Development Kit (AWS CDK)** 设置环境。]
@@ -215,8 +219,9 @@ git pull --rebase
 请注意 [5. 使用 AWS CDK 设置安装选项] 和后续步骤**不需要遵循**。 相反，请执行以下命令：
 
 ```sh
-cd source/cdk/
+cd ~/siem-on-amazon-opensearch-service/
 source .venv/bin/activate
+cd source/cdk
 cdk deploy --no-rollback
 ```
 
