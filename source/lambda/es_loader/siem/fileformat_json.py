@@ -65,13 +65,15 @@ class FileFormatJson(FileFormatBase):
                     for record in raw_event[delimiter]:
                         count += 1
                         if start <= count <= end:
-                            yield (json.dumps(record), record, logmeta)
+                            yield (json.dumps(record, ensure_ascii=False),
+                                   record, logmeta)
                         elif count > end:
                             break
                 elif not delimiter:
                     count += 1
                     if start <= count <= end:
-                        yield (json.dumps(raw_event), raw_event, logmeta)
+                        yield (json.dumps(raw_event, ensure_ascii=False),
+                               raw_event, logmeta)
                     elif count > end:
                         break
                 search = json.decoder.WHITESPACE.search(line, offset)
