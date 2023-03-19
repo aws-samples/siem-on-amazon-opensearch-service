@@ -21,7 +21,7 @@ if [ ! -d .venv ]; then
 fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
-python3 -m pip install wheel pip==22.2.2
+python3 -m pip install wheel pip==22.3.1
 
 echo "------------------------------------------------------------------------"
 echo "[Packing] pip and zip source folder"
@@ -29,6 +29,8 @@ echo "------------------------------------------------------------------------"
 
 function pip_zip_for_lambda () {
     lib_name=$1
+    echo 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+    echo "${lib_name}"
     if [ -e "${lib_name}.zip" ]; then
       echo "rm ${lib_name}.zip"
       rm "${lib_name}.zip"

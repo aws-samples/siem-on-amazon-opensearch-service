@@ -366,10 +366,12 @@ def get_es_hostname():
 
 def create_awsauth(es_hostname):
     es_region = es_hostname.split('.')[1]
+    service = es_hostname.split('.')[2]
     # For Debug
     # boto3.set_stream_logger('botocore', level='DEBUG')
     credentials = boto3.Session().get_credentials()
-    awsauth = AWSV4SignerAuth(credentials, es_region)
+    awsauth = AWSV4SignerAuth(credentials, es_region, service)
+
     return awsauth
 
 
