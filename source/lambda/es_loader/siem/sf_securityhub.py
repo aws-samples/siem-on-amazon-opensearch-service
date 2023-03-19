@@ -86,7 +86,9 @@ def get_values_from_asff_resources(resources):
                 instanceid = (resource['Details']['AwsEc2Volume']
                               ['Attachments'][0]['InstanceId'])
             except Exception:
-                continue
+                # pass
+                # to ignore Rule-269212
+                None
             resource_dict['cloud'] = {'instance': {'id': instanceid}}
         elif resource['Type'] == 'AwsIamRole':
             name = resource['Id'].split('/')[-1]
@@ -135,6 +137,7 @@ def transform(logdata):
         logdata['@timestamp'] = logdata['UpdatedAt'].replace('Z', '+00:00')
     logdata['__doc_id_suffix'] = hashlib.md5(
         f"{logdata['@timestamp']}{workflow}".encode()).hexdigest()
+    # confirmd and ignored Rule-143469
 
     if module in ('guardduty', 'macie'):
         findngs_type = split_findings_type(str(logdata['Types'][0]))

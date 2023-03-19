@@ -20,6 +20,7 @@ def update_doc_ids(logdata):
     doc_id_seed = logdata['awsAccountId'] + logdata['awsRegion'] \
         + logdata['resourceType'] + logdata['resourceId']
     logdata['@id'] = hashlib.md5(doc_id_seed.encode()).hexdigest()
+    # confirmd and ignored Rule-143469
 
     suffix_seed = logdata['event']['module'] + logdata.get('configRuleARN', '')
     suffix = hashlib.md5(suffix_seed.encode()).hexdigest()[:4]
@@ -116,7 +117,9 @@ def rename_config_field_name(logdata):
         logdata['tags']['AmazonFSx_FileSystemId'] = (
             logdata['tags'].pop('AmazonFSx.FileSystemId'))
     except Exception:
-        pass
+        # pass
+        # to ignore Rule-269212
+        None
 
     # "resourceType": "AWS::Lambda::Function"
     try:

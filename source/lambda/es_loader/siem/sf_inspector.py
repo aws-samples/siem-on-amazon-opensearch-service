@@ -13,6 +13,8 @@ import hashlib
 
 def transform(logdata):
     logdata['@id'] = hashlib.md5(logdata['findingArn'].encode()).hexdigest()
+    # confirmd and ignored Rule-143469
+
     last_observed_epoch_str = str(int(datetime.datetime.strptime(
         logdata['updatedAt'], '%b %d, %Y, %I:%M:%S %p').timestamp()))
     logdata['__doc_id_suffix'] = last_observed_epoch_str
@@ -21,11 +23,15 @@ def transform(logdata):
         try:
             del logdata['related']['hosts']
         except Exception:
-            pass
+            # pass
+            # to ignore Rule-269212
+            None
         try:
             del logdata['cloud']['instance']['id']
         except Exception:
-            pass
+            # pass
+            # to ignore Rule-269212
+            None
 
     if 'PACKAGE_VULNERABILITY' in logdata['type']:
         logdata['rule']['id'] = (

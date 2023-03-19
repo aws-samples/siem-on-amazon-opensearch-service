@@ -18,6 +18,7 @@ logger = Logger(child=True)
 
 csv.field_size_limit(1000000)
 
+
 class FileFormatCsv(FileFormatBase):
     def __init__(self, rawdata=None, logconfig=None, logtype=None):
         super().__init__(rawdata, logconfig, logtype)

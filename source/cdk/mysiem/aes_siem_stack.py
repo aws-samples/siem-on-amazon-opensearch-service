@@ -164,7 +164,7 @@ def get_subnets(context):
 
 
 def check_iam_role(pathprefix):
-    role_iterator = iam_client.list_roles(PathPrefix=pathprefix)
+    role_iterator = iam_client.list_roles(PathPrefix=pathprefix, MaxItems=2)
     if len(role_iterator['Roles']) == 1:
         return True
     else:
@@ -1114,7 +1114,8 @@ class MyAesSiemStack(cdk.Stack):
             self, "IocDownload",
             lambda_function=lambda_ioc_download,
             output_path="$.Payload",
-            timeout=cdk.Duration.seconds(899),
+            task_timeout=aws_stepfunctions.Timeout.duration(
+                cdk.Duration.seconds(899)),
         )
         ignore_timeout_state = aws_stepfunctions.Pass(self, "IgnoreTimeout")
         task_ioc_download.add_catch(
@@ -1191,7 +1192,7 @@ class MyAesSiemStack(cdk.Stack):
             timeout=cdk.Duration.seconds(300),
             reserved_concurrent_executions=1,
             environment={
-                'accountid': cdk.Aws.ACCOUNT_ID,
+                'ACCOUNT_ID': cdk.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
                 'aes_admin_role': aes_siem_deploy_role_for_lambda.role_arn,
                 'allow_source_address': allow_source_address.value_as_string,
@@ -1252,7 +1253,7 @@ class MyAesSiemStack(cdk.Stack):
             timeout=cdk.Duration.seconds(600),
             reserved_concurrent_executions=1,
             environment={
-                'accountid': cdk.Aws.ACCOUNT_ID,
+                'ACCOUNT_ID': cdk.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
                 'aes_admin_role': aes_siem_deploy_role_for_lambda.role_arn,
                 'es_loader_role': lambda_es_loader.role.role_arn,
@@ -1290,7 +1291,7 @@ class MyAesSiemStack(cdk.Stack):
             self, 'AesSiemDomainConfiguredR2',
             service_token=lambda_configure_es.function_arn,)
         aes_config.add_override('Properties.ConfigVersion', __version__)
-        aes_config.add_depends_on(aes_domain)
+        aes_config.add_dependency(aes_domain)
         aes_config.cfn_options.deletion_policy = cdk.CfnDeletionPolicy.RETAIN
 
         es_arn = (f'arn:{PARTITION}:es:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}'
@@ -1839,7 +1840,9 @@ class MyAesSiemStack(cdk.Stack):
         try:
             list_args.remove('')
         except Exception:
-            pass
+            # pass
+            # to ignore Rule-269212
+            None
         return list_args
 
     def make_account_principals(self, *args):

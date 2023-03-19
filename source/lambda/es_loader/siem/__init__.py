@@ -399,12 +399,14 @@ class LogS3:
                                    f'{self.s3key} is only {s3size} byte')
             return None
         rawbody = io.BytesIO(obj['Body'].read())
+        # confirmd and ignored Rule-884405
         mime_type = utils.get_mime_type(rawbody.read(16))
         rawbody.seek(0)
         if mime_type == 'text':
             body = io.TextIOWrapper(rawbody, encoding='utf8', errors='ignore')
         elif mime_type == 'parquet':
             body = rawbody
+            # confirmd and ignored Rule-884405
             self.file_format = 'parquet'
         elif mime_type == 'gzip':
             body = gzip.open(rawbody, mode='rb')
@@ -665,6 +667,7 @@ class LogParser:
                 f'{basic_dict["@message"]}{self.s3key}{self.additional_id}')
             basic_dict['@id'] = hashlib.md5(
                 unique_text.encode('utf-8')).hexdigest()
+            # confirmd and ignored Rule-143469
             del unique_text
             if '__error_message' in self.__logdata_dict:
                 self.__logdata_dict['error'] = {

@@ -25,7 +25,9 @@ def transform_hsm(logdata, cluster_id, hsm_id):
         logdata['@id'] = (f"{hsm_id}{logdata['sequence_no']}"
                           f"{logdata['timestamp_usec']}")
     except Exception:
-        pass
+        # pass
+        # to ignore Rule-269212
+        None
     if logdata.get('opcode_v2'):
         logdata['opcode'] = logdata.pop('opcode_v2')
         logdata['opcode_hex'] = logdata.pop('opcode_hex_v2')

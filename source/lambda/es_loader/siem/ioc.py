@@ -38,29 +38,27 @@ class DB():
         has_ioc_db = self._download_database()
         self.cur = None
         if has_ioc_db:
-            conn_file = sqlite3.connect(self.DB_FILE_LOCAL)
-            self.conn = sqlite3.connect(':memory:')
-            try:
-                conn_file.backup(self.conn)
-                conn_file.close()
-                self.cur = self.conn.cursor()
-                self.cur.execute('PRAGMA quick_check')
-                # self.cur.execute('PRAGMA temp_store=2')
-                # self.cur.execute('PRAGMA journal_mode=OFF')
-                # self.cur.execute('PRAGMA synchronous=OFF')
-                # self.cur.execute('PRAGMA locking_mode=EXCLUSIVE')
-                # self.cur.execute('PRAGMA query_only=ON')
-                self.cur.execute('SELECT count(*) FROM ipaddress')
-                count = self.cur.fetchone()[0]
-                if count >= 2:
-                    self.is_enabled = True
-                else:
+            with sqlite3.connect(self.DB_FILE_LOCAL) as conn_file:
+                self.conn = sqlite3.connect(':memory:')
+                try:
+                    conn_file.backup(self.conn)
+                    self.cur = self.conn.cursor()
+                    self.cur.execute('PRAGMA quick_check')
+                    # self.cur.execute('PRAGMA temp_store=2')
+                    # self.cur.execute('PRAGMA journal_mode=OFF')
+                    # self.cur.execute('PRAGMA synchronous=OFF')
+                    # self.cur.execute('PRAGMA locking_mode=EXCLUSIVE')
+                    # self.cur.execute('PRAGMA query_only=ON')
+                    self.cur.execute('SELECT count(*) FROM ipaddress')
+                    count = self.cur.fetchone()[0]
+                    if count >= 2:
+                        self.is_enabled = True
+                    else:
+                        self.is_enabled = False
+                except Exception:
+                    self.conn.close()
+                    logger.exception('Invalid IOC Database')
                     self.is_enabled = False
-            except Exception:
-                self.conn.close()
-                conn_file.close()
-                logger.exception('Invalid IOC Database')
-                self.is_enabled = False
         else:
             self.is_enabled = False
 
