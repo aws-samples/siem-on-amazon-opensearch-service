@@ -111,7 +111,7 @@ def lambda_handler(event, context):
     status = 'None'
     if event:
         print(json.dumps(event))
-    if len(license_key) != 40 or 'x' * 29 in license_key:
+    if len(license_key) not in (16, 40) or license_key == 'x' * 16:
         print('Skip. There is no valid maxmind license')
         status = 401
     else:
