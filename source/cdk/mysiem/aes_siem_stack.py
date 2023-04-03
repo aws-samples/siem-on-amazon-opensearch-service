@@ -264,10 +264,11 @@ class MyAesSiemStack(cdk.Stack):
             default='user+sns@example.com')
         geoip_license_key = cdk.CfnParameter(
             self, 'GeoLite2LicenseKey',
-            allowed_pattern=r'^([0-9a-zA-Z]{16}|)$', default='x' * 16,
-            max_length=16,
+            allowed_pattern=r'^([0-9a-zA-Z]{6}_[0-9a-zA-Z]{29}_mmk|)$',
+            default='xxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx_mmk',
+            max_length=40,
             description=("If you wolud like to enrich geoip locaiton such as "
-                         "IP address's country, get a license key form MaxMind"
+                         "IP address's country, get a license key from MaxMind"
                          " and input the key"))
         reserved_concurrency = cdk.CfnParameter(
             self, 'ReservedConcurrency', default=10, type='Number',
