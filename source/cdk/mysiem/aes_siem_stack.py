@@ -264,12 +264,14 @@ class MyAesSiemStack(cdk.Stack):
             default='user+sns@example.com')
         geoip_license_key = cdk.CfnParameter(
             self, 'GeoLite2LicenseKey',
-            allowed_pattern=r'^([0-9a-zA-Z]{6}_[0-9a-zA-Z]{29}_mmk|)$',
-            default='xxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx_mmk',
+            allowed_pattern=(
+                r'^([0-9a-zA-Z]{6}_[0-9a-zA-Z]{29}_mmk|[0-9a-zA-Z]{16}|)$'),
+            default='',
             max_length=40,
             description=("If you wolud like to enrich geoip locaiton such as "
                          "IP address's country, get a license key from MaxMind"
-                         " and input the key"))
+                         " and input the key. "
+                         "The license is a string of 16 or 40 digits"))
         reserved_concurrency = cdk.CfnParameter(
             self, 'ReservedConcurrency', default=10, type='Number',
             description=('Input lambda reserved concurrency for es-loader. '
@@ -1399,10 +1401,24 @@ class MyAesSiemStack(cdk.Stack):
         get_geodb.cfn_options.deletion_policy = cdk.CfnDeletionPolicy.RETAIN
 
         # Download geoip every 12 hours
-        rule = aws_events.Rule(
+        has_geoip_license = cdk.CfnCondition(
+            self, "HasGeoipLicense",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_equals(
+                    geoip_license_key.value_as_string, '')
+            )
+        )
+        geoip_rule = aws_events.Rule(
             self, 'EventBridgeRuleLambdaGeoipDownloader',
-            schedule=aws_events.Schedule.rate(cdk.Duration.hours(12)))
-        rule.add_target(aws_events_targets.LambdaFunction(lambda_geo))
+            enabled=True,
+            schedule=aws_events.Schedule.rate(cdk.Duration.hours(12)),
+            targets=[aws_events_targets.LambdaFunction(lambda_geo)],
+        )
+        geoip_rule.node.default_child.add_property_override(
+            "State",
+            cdk.Fn.condition_if(
+                has_geoip_license.logical_id, 'ENABLED', 'DISABLED')
+        )
 
         # Download IOC Database every xxx minutes
         rule = aws_events.Rule(
