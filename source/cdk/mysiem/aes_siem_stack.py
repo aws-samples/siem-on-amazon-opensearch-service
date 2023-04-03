@@ -279,7 +279,7 @@ class MyAesSiemStack(cdk.Stack):
                          'despite withou errors'))
         otx_api_key = cdk.CfnParameter(
             self, 'OtxApiKey', allowed_pattern=r'^([0-9a-f,x]{64}|)$',
-            default='x' * 64, max_length=64,
+            default='', max_length=64,
             description=('(experimental) '
                          'If you wolud like to download IoC from AlienVault '
                          'OTX, please enter OTX API Key. '
@@ -1421,11 +1421,29 @@ class MyAesSiemStack(cdk.Stack):
         )
 
         # Download IOC Database every xxx minutes
-        rule = aws_events.Rule(
+        enable_ioc = cdk.CfnCondition(
+            self, "EnableIOC",
+            expression=cdk.Fn.condition_or(
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        otx_api_key.value_as_string, '')),
+                cdk.Fn.condition_equals(
+                    enable_tor.value_as_string, 'true'),
+                cdk.Fn.condition_equals(
+                    enable_abuse_ch.value_as_string, 'true'),
+            )
+        )
+        ioc_rule = aws_events.Rule(
             self, 'EventBridgeRuleStepFunctionsIoc',
             schedule=aws_events.Schedule.rate(
-                cdk.Duration.minutes(ioc_download_interval.value_as_number)))
-        rule.add_target(aws_events_targets.SfnStateMachine(ioc_state_machine))
+                cdk.Duration.minutes(ioc_download_interval.value_as_number)),
+            targets=[aws_events_targets.SfnStateMachine(ioc_state_machine)],
+        )
+        ioc_rule.node.default_child.add_property_override(
+            "State",
+            cdk.Fn.condition_if(
+                enable_ioc.logical_id, 'ENABLED', 'DISABLED')
+        )
 
         # collect index metrics every 1 hour
         rule_metrics_exporter = aws_events.Rule(
