@@ -122,12 +122,12 @@ If you want to update "SIEM on OpenSearch Service/SIEM on Amazon ES" to the late
 
 ### Upgrading the OpenSearch Service domain
 
-Upgrade the domain to OpenSearch 2.3, 1.3, 1.2, 1.1, 1.0 or Elasticsearch version 7.10. Some Dashboards assume OpenSearch Service 1.1 or higher, so the recommended version is OpenSearch Service 2.3 with "Enable compatibility mode":
+Upgrade the domain to OpenSearch 2.5/2.3/1.3/1.2/1.1/1.0 or Elasticsearch version 7.10. Some Dashboards assume OpenSearch Service 1.1 or higher, so the recommended version is OpenSearch Service 2.5 with "Enable compatibility mode":
 
 1. Navigate to the [OpenSearch Service console](https://console.aws.amazon.com/es/home?)
 1. Choose domain: [**aes-siem**]
 1. Choose [**Actions**] icon, and choose [**Upgrade domain**] from the drop-down menu
-1. For "Version to upgrade to", choose [**OpenSearch 2.3**] (Recommended), [**OpenSearch 1.3**], [**OpenSearch 1.2**], [**OpenSearch 1.1**], [**OpenSearch 1.0**] or [**Elasticsearch 7.10**]
+1. For "Version to upgrade to", choose [**OpenSearch 2.5**] (Recommended), [**OpenSearch 2.3/1.3/1.2/1.1/1.0**], or [**Elasticsearch 7.10**]
 1. Choose "Enable compatibility mode" (Recommended)
 1. Then choose [**Submit**]
 
