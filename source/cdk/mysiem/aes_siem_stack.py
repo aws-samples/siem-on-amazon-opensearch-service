@@ -23,7 +23,6 @@ from aws_cdk import (
     aws_s3,
     aws_s3_notifications,
     aws_sns,
-    aws_sns_subscriptions,
     aws_sqs,
     aws_stepfunctions,
     aws_stepfunctions_tasks,
@@ -258,10 +257,10 @@ class MyAesSiemStack(cdk.Stack):
                          'applies only during the initial deployment'),
             default='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16')
         sns_email = cdk.CfnParameter(
-            self, 'SnsEmail', allowed_pattern=r'^[0-9a-zA-Z@_\-\+\.]*',
+            self, 'SnsEmail', allowed_pattern=r'^([0-9a-zA-Z@_\-\+\.]*|)',
             description=('Input your email as SNS topic, where Amazon '
                          'OpenSearch Service will send alerts to'),
-            default='user+sns@example.com')
+            default='')
         geoip_license_key = cdk.CfnParameter(
             self, 'GeoLite2LicenseKey',
             allowed_pattern=(
@@ -1692,11 +1691,24 @@ class MyAesSiemStack(cdk.Stack):
             self, 'SnsTopic', topic_name='aes-siem-alert',
             master_key=kms_aes_siem,
             display_name='AES SIEM')
-
-        sns_topic.add_subscription(aws_sns_subscriptions.EmailSubscription(
-            email_address=sns_email.value_as_string))
         sns_topic.grant_publish(aes_siem_sns_role)
         sns_topic.grant_publish(lambda_es_loader_stopper)
+
+        has_sns_email = cdk.CfnCondition(
+            self, "HasSnsEmail",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_equals(
+                    sns_email.value_as_string, '')
+            )
+        )
+        sns_subscription = aws_sns.Subscription(
+            self, "SnsTopicTokenSubscription",
+            topic=sns_topic,
+            endpoint=sns_email.value_as_string,
+            protocol=aws_sns.SubscriptionProtocol.EMAIL,
+        )
+        sns_subscription.node.default_child.cfn_options.condition = (
+            has_sns_email)
 
         ######################################################################
         # for es-loader-stopper
