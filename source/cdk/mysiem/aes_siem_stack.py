@@ -736,8 +736,14 @@ class MyAesSiemStack(cdk.Stack):
             assumed_by=aws_iam.ServicePrincipal(
                 'opensearchservice.amazonaws.com')
         )
-        kms_aes_siem.grant(aes_siem_sns_role,
-                           'kms:Decrypt', 'kms:GenerateDataKey')
+        kms_aes_siem.grant(
+            aes_siem_sns_role,
+            'kms:Decrypt', 'kms:GenerateDataKey'
+        )
+        kms_aes_siem.grant(
+            aws_iam.ServicePrincipal('events.amazonaws.com'),
+            'kms:Decrypt', 'kms:GenerateDataKey'
+        )
 
         # EC2 role
         if self.region.startswith('cn-'):
@@ -1708,6 +1714,21 @@ class MyAesSiemStack(cdk.Stack):
             protocol=aws_sns.SubscriptionProtocol.EMAIL,
         )
         sns_subscription.node.default_child.cfn_options.condition = (
+            has_sns_email)
+
+        # setup Amazon OpenSearch Service monitoring notify
+        aos_domain_arn = (f'arn:{PARTITION}:es:{cdk.Aws.REGION}:'
+                          f'{cdk.Aws.ACCOUNT_ID}:domain/{aes_domain_name}')
+        aos_notifications_rule = aws_events.Rule(
+            self, "EventBridgeRuleAosNotifications",
+            enabled=True,
+            event_pattern=aws_events.EventPattern(
+                source=['aws.es'],
+                resources=[aos_domain_arn]
+            ),
+            targets=[aws_events_targets.SnsTopic(sns_topic)],
+        )
+        aos_notifications_rule.node.default_child.cfn_options.condition = (
             has_sns_email)
 
         ######################################################################
