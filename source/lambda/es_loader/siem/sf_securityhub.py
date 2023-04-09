@@ -149,6 +149,14 @@ def transform(logdata):
 
     if 'security hub' in module:
         logdata['rule']['id'] = logdata['GeneratorId']
+        if logdata.get('Compliance', {}).get('SecurityControlId'):
+            logdata['consolidated_controls_view'] = True
+        else:
+            logdata['consolidated_controls_view'] = False
+        if logdata.get('GeneratorId', '').startswith('security-control'):
+            logdata['consolidated_control_findings'] = True
+        else:
+            logdata['consolidated_control_findings'] = False
     elif 'guardduty' in module:
         logdata['event']['category'] = 'intrusion_detection'
 
