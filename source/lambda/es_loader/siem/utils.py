@@ -106,7 +106,7 @@ def extract_aws_account_from_text(text):
     if text:
         m = RE_ACCOUNT.search(text)
         if m:
-            return(m.group(1))
+            return m.group(1)
         else:
             return None
 
@@ -116,7 +116,7 @@ def extract_aws_region_from_text(text):
     if text:
         m = RE_REGION.search(text)
         if m:
-            return(m.group(1))
+            return m.group(1)
         else:
             return None
 
@@ -126,7 +126,7 @@ def extract_aws_instanceid_from_text(text):
     if text:
         m = RE_INSTANCEID.search(text)
         if m:
-            return(m.group(2))
+            return m.group(2)
         return None
 
 
@@ -827,14 +827,14 @@ def match_log_with_exclude_patterns(log_dict, log_patterns, ex_pattern=None):
             if isinstance(pattern, dict) and isinstance(log_dict[key], dict):
                 res, ex_pattern = match_log_with_exclude_patterns(
                     log_dict[key], pattern)
-                return(res, ex_pattern)
+                return (res, ex_pattern)
             elif isinstance(pattern, re.Pattern):
                 if isinstance(log_dict[key], list):
-                    return(False, None)
+                    return (False, None)
                 elif pattern.match(str(log_dict[key])):
                     ex_pattern = '{{{0}: {1}}}'.format(key, log_dict[key])
-                    return(True, ex_pattern)
-    return(False, None)
+                    return (True, ex_pattern)
+    return (False, None)
 
 
 def merge_dicts(dicta, dictb, path=None):

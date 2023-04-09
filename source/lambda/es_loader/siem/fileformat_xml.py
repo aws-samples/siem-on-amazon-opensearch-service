@@ -66,7 +66,7 @@ class FileFormatXml(FileFormatBase):
                     if len(multilog) > 0:
                         # yield previous log
                         lograw = "".join(multilog).rstrip()
-                        yield(lograw, lograw, logmeta)
+                        yield (lograw, lograw, logmeta)
                     multilog = []
                     is_in_scope = True
                     multilog.append(line)
@@ -80,7 +80,7 @@ class FileFormatXml(FileFormatBase):
             # yield last log
             lograw = "".join(multilog).rstrip()
             logdict = xmltodict.parse(lograw)
-            yield(lograw, logdict, logmeta)
+            yield (lograw, logdict, logmeta)
 
     def convert_lograw_to_dict(self, lograw, logconfig=None):
         return xmltodict.parse(lograw)

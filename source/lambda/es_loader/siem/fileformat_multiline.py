@@ -82,7 +82,7 @@ class FileFormatMultiline(FileFormatBase):
                         # yield previous log
                         lograw = "".join(multilog).rstrip()
                         logdict = self.convert_lograw_to_dict(lograw)
-                        yield(lograw, logdict, logmeta)
+                        yield (lograw, logdict, logmeta)
                     multilog = []
                     is_in_scope = True
                     multilog.append(line)
@@ -96,7 +96,7 @@ class FileFormatMultiline(FileFormatBase):
             # yield last log
             lograw = "".join(multilog).rstrip()
             logdict = self.convert_lograw_to_dict(lograw)
-            yield(lograw, logdict, logmeta)
+            yield (lograw, logdict, logmeta)
 
     def convert_lograw_to_dict(self, lograw, logconfig=None):
         m = self._re_log_pattern_prog.match(lograw)

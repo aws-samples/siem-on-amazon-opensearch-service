@@ -206,7 +206,7 @@ def make_password(length):
                 and sum(c.isdigit() for c in password)
                 and sum(not c.isalnum() for c in password)):
             break
-    return(password)
+    return password
 
 
 def create_kibanaadmin(kibanapass):
@@ -232,7 +232,7 @@ def auth_aes():
 
 
 def output_message(key, res):
-    return(f'{key}: status={res.status_code}, message={res.text}')
+    return f'{key}: status={res.status_code}, message={res.text}'
 
 
 def get_dist_version():

@@ -56,9 +56,9 @@ def split_findings_type(finding_type):
     detection_mechanism = m.group('DetectionMechanism')
     artifact = m.group('Artifact')
 
-    return(FindingTypes(asff_type_namespace, asff_type_category,
-                        threat_purpose, resource_type_affected,
-                        threat_family_name, detection_mechanism, artifact))
+    return (FindingTypes(asff_type_namespace, asff_type_category,
+                         threat_purpose, resource_type_affected,
+                         threat_family_name, detection_mechanism, artifact))
 
 
 def get_values_from_asff_resources(resources):

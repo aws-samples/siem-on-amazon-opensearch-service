@@ -734,7 +734,7 @@ class LogParser:
                     self.__logdata_dict, original_keys)
                 if isinstance(v, str):
                     v = utils.validate_ip(v, ecs_key)
-                if v:
+                if v == 0 or v:
                     new_ecs_dict = utils.put_value_into_nesteddict(ecs_key, v)
             elif isinstance(original_keys, list):
                 temp_list = []

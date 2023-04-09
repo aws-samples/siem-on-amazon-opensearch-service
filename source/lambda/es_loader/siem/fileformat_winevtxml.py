@@ -84,7 +84,7 @@ class FileFormatWinEvtXml(FileFormatBase):
             if first_match and last_match:
                 # it means one line. not multiline
                 logdict = self.convert_lograw_to_dict(line)
-                yield(line, logdict, logmeta)
+                yield (line, logdict, logmeta)
                 is_in_scope = False
             elif first_match:
                 multilog.append(line)
@@ -92,7 +92,7 @@ class FileFormatWinEvtXml(FileFormatBase):
                 multilog.append(line)
                 lograw = "".join(multilog)
                 logdict = self.convert_lograw_to_dict(lograw)
-                yield(lograw, logdict, logmeta)
+                yield (lograw, logdict, logmeta)
                 is_in_scope = False
                 multilog = []
             elif is_in_scope:
