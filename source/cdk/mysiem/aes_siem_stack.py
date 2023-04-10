@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -23,7 +23,6 @@ from aws_cdk import (
     aws_s3,
     aws_s3_notifications,
     aws_sns,
-    aws_sns_subscriptions,
     aws_sqs,
     aws_stepfunctions,
     aws_stepfunctions_tasks,
@@ -164,7 +163,7 @@ def get_subnets(context):
 
 
 def check_iam_role(pathprefix):
-    role_iterator = iam_client.list_roles(PathPrefix=pathprefix)
+    role_iterator = iam_client.list_roles(PathPrefix=pathprefix, MaxItems=2)
     if len(role_iterator['Roles']) == 1:
         return True
     else:
@@ -204,7 +203,8 @@ class MyAesSiemStack(cdk.Stack):
         elb_id_temp = region_info.FactName.ELBV2_ACCOUNT
         elb_map_temp = region_info.RegionInfo.region_map(elb_id_temp)
         no_alb_log_account_list = [
-            'ap-south-2', 'eu-central-2', 'eu-south-2', 'me-central-1']
+            'ap-south-2', 'ap-southeast-4', 'eu-central-2', 'eu-south-2',
+            'me-central-1']
         for acct in no_alb_log_account_list:
             elb_map_temp[acct] = '999999999999'
         region_dict = {}
@@ -237,6 +237,8 @@ class MyAesSiemStack(cdk.Stack):
                     cdk.Fn.condition_equals(
                         cdk.Aws.REGION, 'ap-south-2'),
                     cdk.Fn.condition_equals(
+                        cdk.Aws.REGION, 'ap-southeast-4'),
+                    cdk.Fn.condition_equals(
                         cdk.Aws.REGION, 'eu-central-2'),
                     cdk.Fn.condition_equals(
                         cdk.Aws.REGION, 'eu-south-2'),
@@ -255,10 +257,10 @@ class MyAesSiemStack(cdk.Stack):
                          'applies only during the initial deployment'),
             default='10.0.0.0/8 172.16.0.0/12 192.168.0.0/16')
         sns_email = cdk.CfnParameter(
-            self, 'SnsEmail', allowed_pattern=r'^[0-9a-zA-Z@_\-\+\.]*',
+            self, 'SnsEmail', allowed_pattern=r'^([0-9a-zA-Z@_\-\+\.]*|)',
             description=('Input your email as SNS topic, where Amazon '
                          'OpenSearch Service will send alerts to'),
-            default='user+sns@example.com')
+            default='')
         geoip_license_key = cdk.CfnParameter(
             self, 'GeoLite2LicenseKey',
             allowed_pattern=(
@@ -276,7 +278,7 @@ class MyAesSiemStack(cdk.Stack):
                          'despite withou errors'))
         otx_api_key = cdk.CfnParameter(
             self, 'OtxApiKey', allowed_pattern=r'^([0-9a-f,x]{64}|)$',
-            default='x' * 64, max_length=64,
+            default='', max_length=64,
             description=('(experimental) '
                          'If you wolud like to download IoC from AlienVault '
                          'OTX, please enter OTX API Key. '
@@ -734,8 +736,14 @@ class MyAesSiemStack(cdk.Stack):
             assumed_by=aws_iam.ServicePrincipal(
                 'opensearchservice.amazonaws.com')
         )
-        kms_aes_siem.grant(aes_siem_sns_role,
-                           'kms:Decrypt', 'kms:GenerateDataKey')
+        kms_aes_siem.grant(
+            aes_siem_sns_role,
+            'kms:Decrypt', 'kms:GenerateDataKey'
+        )
+        kms_aes_siem.grant(
+            aws_iam.ServicePrincipal('events.amazonaws.com'),
+            'kms:Decrypt', 'kms:GenerateDataKey'
+        )
 
         # EC2 role
         if self.region.startswith('cn-'):
@@ -1114,7 +1122,8 @@ class MyAesSiemStack(cdk.Stack):
             self, "IocDownload",
             lambda_function=lambda_ioc_download,
             output_path="$.Payload",
-            timeout=cdk.Duration.seconds(899),
+            task_timeout=aws_stepfunctions.Timeout.duration(
+                cdk.Duration.seconds(899)),
         )
         ignore_timeout_state = aws_stepfunctions.Pass(self, "IgnoreTimeout")
         task_ioc_download.add_catch(
@@ -1191,7 +1200,7 @@ class MyAesSiemStack(cdk.Stack):
             timeout=cdk.Duration.seconds(300),
             reserved_concurrent_executions=1,
             environment={
-                'accountid': cdk.Aws.ACCOUNT_ID,
+                'ACCOUNT_ID': cdk.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
                 'aes_admin_role': aes_siem_deploy_role_for_lambda.role_arn,
                 'allow_source_address': allow_source_address.value_as_string,
@@ -1252,7 +1261,7 @@ class MyAesSiemStack(cdk.Stack):
             timeout=cdk.Duration.seconds(600),
             reserved_concurrent_executions=1,
             environment={
-                'accountid': cdk.Aws.ACCOUNT_ID,
+                'ACCOUNT_ID': cdk.Aws.ACCOUNT_ID,
                 'aes_domain_name': aes_domain_name,
                 'aes_admin_role': aes_siem_deploy_role_for_lambda.role_arn,
                 'es_loader_role': lambda_es_loader.role.role_arn,
@@ -1290,7 +1299,7 @@ class MyAesSiemStack(cdk.Stack):
             self, 'AesSiemDomainConfiguredR2',
             service_token=lambda_configure_es.function_arn,)
         aes_config.add_override('Properties.ConfigVersion', __version__)
-        aes_config.add_depends_on(aes_domain)
+        aes_config.add_dependency(aes_domain)
         aes_config.cfn_options.deletion_policy = cdk.CfnDeletionPolicy.RETAIN
 
         es_arn = (f'arn:{PARTITION}:es:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}'
@@ -1417,11 +1426,29 @@ class MyAesSiemStack(cdk.Stack):
         )
 
         # Download IOC Database every xxx minutes
-        rule = aws_events.Rule(
+        enable_ioc = cdk.CfnCondition(
+            self, "EnableIOC",
+            expression=cdk.Fn.condition_or(
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        otx_api_key.value_as_string, '')),
+                cdk.Fn.condition_equals(
+                    enable_tor.value_as_string, 'true'),
+                cdk.Fn.condition_equals(
+                    enable_abuse_ch.value_as_string, 'true'),
+            )
+        )
+        ioc_rule = aws_events.Rule(
             self, 'EventBridgeRuleStepFunctionsIoc',
             schedule=aws_events.Schedule.rate(
-                cdk.Duration.minutes(ioc_download_interval.value_as_number)))
-        rule.add_target(aws_events_targets.SfnStateMachine(ioc_state_machine))
+                cdk.Duration.minutes(ioc_download_interval.value_as_number)),
+            targets=[aws_events_targets.SfnStateMachine(ioc_state_machine)],
+        )
+        ioc_rule.node.default_child.add_property_override(
+            "State",
+            cdk.Fn.condition_if(
+                enable_ioc.logical_id, 'ENABLED', 'DISABLED')
+        )
 
         # collect index metrics every 1 hour
         rule_metrics_exporter = aws_events.Rule(
@@ -1670,11 +1697,39 @@ class MyAesSiemStack(cdk.Stack):
             self, 'SnsTopic', topic_name='aes-siem-alert',
             master_key=kms_aes_siem,
             display_name='AES SIEM')
-
-        sns_topic.add_subscription(aws_sns_subscriptions.EmailSubscription(
-            email_address=sns_email.value_as_string))
         sns_topic.grant_publish(aes_siem_sns_role)
         sns_topic.grant_publish(lambda_es_loader_stopper)
+
+        has_sns_email = cdk.CfnCondition(
+            self, "HasSnsEmail",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_equals(
+                    sns_email.value_as_string, '')
+            )
+        )
+        sns_subscription = aws_sns.Subscription(
+            self, "SnsTopicTokenSubscription",
+            topic=sns_topic,
+            endpoint=sns_email.value_as_string,
+            protocol=aws_sns.SubscriptionProtocol.EMAIL,
+        )
+        sns_subscription.node.default_child.cfn_options.condition = (
+            has_sns_email)
+
+        # setup Amazon OpenSearch Service monitoring notify
+        aos_domain_arn = (f'arn:{PARTITION}:es:{cdk.Aws.REGION}:'
+                          f'{cdk.Aws.ACCOUNT_ID}:domain/{aes_domain_name}')
+        aos_notifications_rule = aws_events.Rule(
+            self, "EventBridgeRuleAosNotifications",
+            enabled=True,
+            event_pattern=aws_events.EventPattern(
+                source=['aws.es'],
+                resources=[aos_domain_arn]
+            ),
+            targets=[aws_events_targets.SnsTopic(sns_topic)],
+        )
+        aos_notifications_rule.node.default_child.cfn_options.condition = (
+            has_sns_email)
 
         ######################################################################
         # for es-loader-stopper
@@ -1853,7 +1908,9 @@ class MyAesSiemStack(cdk.Stack):
         try:
             list_args.remove('')
         except Exception:
-            pass
+            # pass
+            # to ignore Rule-269212
+            None
         return list_args
 
     def make_account_principals(self, *args):

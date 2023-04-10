@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -43,6 +43,7 @@ class FileFormatBase(object):
             # for just testing.
             with open(self.filename, 'rb') as f:
                 rawbody = io.BytesIO(f.read())
+                # confirmd and ignored Rule-884405
             mime_type = utils.get_mime_type(rawbody.read(16))
             rawbody.seek(0)
             if mime_type == 'gzip':
@@ -53,6 +54,7 @@ class FileFormatBase(object):
                     rawbody, encoding='utf8', errors='ignore')
             elif mime_type == 'zip':
                 z = zipfile.ZipFile(rawbody)
+                # confirmd and ignored Rule-884405
                 body = open(z.namelist()[0], encoding='utf8', errors='ignore')
             elif mime_type == 'bzip2':
                 body = bz2.open(

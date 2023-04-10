@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -84,7 +84,7 @@ class FileFormatWinEvtXml(FileFormatBase):
             if first_match and last_match:
                 # it means one line. not multiline
                 logdict = self.convert_lograw_to_dict(line)
-                yield(line, logdict, logmeta)
+                yield (line, logdict, logmeta)
                 is_in_scope = False
             elif first_match:
                 multilog.append(line)
@@ -92,7 +92,7 @@ class FileFormatWinEvtXml(FileFormatBase):
                 multilog.append(line)
                 lograw = "".join(multilog)
                 logdict = self.convert_lograw_to_dict(lograw)
-                yield(lograw, logdict, logmeta)
+                yield (lograw, logdict, logmeta)
                 is_in_scope = False
                 multilog = []
             elif is_in_scope:

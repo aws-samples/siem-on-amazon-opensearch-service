@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -66,7 +66,7 @@ class FileFormatXml(FileFormatBase):
                     if len(multilog) > 0:
                         # yield previous log
                         lograw = "".join(multilog).rstrip()
-                        yield(lograw, lograw, logmeta)
+                        yield (lograw, lograw, logmeta)
                     multilog = []
                     is_in_scope = True
                     multilog.append(line)
@@ -80,7 +80,7 @@ class FileFormatXml(FileFormatBase):
             # yield last log
             lograw = "".join(multilog).rstrip()
             logdict = xmltodict.parse(lograw)
-            yield(lograw, logdict, logmeta)
+            yield (lograw, logdict, logmeta)
 
     def convert_lograw_to_dict(self, lograw, logconfig=None):
         return xmltodict.parse(lograw)

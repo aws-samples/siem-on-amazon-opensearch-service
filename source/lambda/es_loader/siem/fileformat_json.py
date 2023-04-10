@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -65,13 +65,15 @@ class FileFormatJson(FileFormatBase):
                     for record in raw_event[delimiter]:
                         count += 1
                         if start <= count <= end:
-                            yield (json.dumps(record), record, logmeta)
+                            yield (json.dumps(record, ensure_ascii=False),
+                                   record, logmeta)
                         elif count > end:
                             break
                 elif not delimiter:
                     count += 1
                     if start <= count <= end:
-                        yield (json.dumps(raw_event), raw_event, logmeta)
+                        yield (json.dumps(raw_event, ensure_ascii=False),
+                               raw_event, logmeta)
                     elif count > end:
                         break
                 search = json.decoder.WHITESPACE.search(line, offset)

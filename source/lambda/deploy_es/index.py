@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-__copyright__ = 'Amazon.com, Inc. or its affiliates'
-__version__ = '2.9.0'
+__copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
+                 'All Rights Reserved.')
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -28,25 +29,28 @@ print(f'boto3: {boto3.__version__}')
 
 logger = logging.getLogger(__name__)
 helper_domain = CfnResource(json_logging=False, log_level='DEBUG',
-                            boto_level='CRITICAL', sleep_on_delete=120)
+                            boto_level='CRITICAL', sleep_on_delete=20)
 helper_config = CfnResource(json_logging=False, log_level='DEBUG',
-                            boto_level='CRITICAL', sleep_on_delete=120)
+                            boto_level='CRITICAL', sleep_on_delete=20)
 
 opensearch_client = boto3.client('opensearch')
 s3_client = boto3.resource('s3')
 
-accountid = os.environ['accountid']
-region = os.environ['AWS_REGION']
-PARTITION = boto3.Session().get_partition_for_region(region)
+ACCOUNT_ID = os.environ['ACCOUNT_ID']
+REGION = os.environ['AWS_REGION']
+PARTITION = boto3.Session().get_partition_for_region(REGION)
+AOS_SERVICE = 'OpenSearchService'
+ENDPOINT = os.getenv('es_endpoint')
+
 aesdomain = os.getenv('aes_domain_name')
 myaddress = os.getenv('allow_source_address', '').split()
 aes_admin_role = os.getenv('aes_admin_role')
 es_loader_role = os.getenv('es_loader_role')
 metrics_exporter_role = os.getenv('metrics_exporter_role')
-myiamarn = [accountid]
 KIBANAADMIN = 'aesadmin'
 KIBANA_HEADERS = {'Content-Type': 'application/json', 'kbn-xsrf': 'true'}
 DASHBOARDS_HEADERS = {'Content-Type': 'application/json', 'osd-xsrf': 'true'}
+RESTAPI_HEADERS = {'Content-Type': 'application/json'}
 vpc_subnet_id = os.getenv('vpc_subnet_id')
 security_group_id = os.getenv('security_group_id')
 s3_snapshot = os.getenv('s3_snapshot')
@@ -63,8 +67,9 @@ LOGGROUP_RETENTIONS = [
     ('/aws/lambda/aes-siem-ioc-plan', 90),
 ]
 
+
 es_loader_ec2_role = (
-    f'arn:{PARTITION}:iam::{accountid}:role/aes-siem-es-loader-for-ec2')
+    f'arn:{PARTITION}:iam::{ACCOUNT_ID}:role/aes-siem-es-loader-for-ec2')
 
 cwl_resource_policy = {
     'Version': "2012-10-17",
@@ -78,9 +83,9 @@ cwl_resource_policy = {
                 'logs:CreateLogGroup'
             ],
             'Resource': [
-                (f'arn:{PARTITION}:logs:{region}:{accountid}:log-group:/aws/'
+                (f'arn:{PARTITION}:logs:{REGION}:{ACCOUNT_ID}:log-group:/aws/'
                  f'OpenSearchService/domains/{aesdomain}/*'),
-                (f'arn:{PARTITION}:logs:{region}:{accountid}:log-group:/aws/'
+                (f'arn:{PARTITION}:logs:{REGION}:{ACCOUNT_ID}:log-group:/aws/'
                  f'OpenSearchService/domains/{aesdomain}/*:*')
             ]
         }
@@ -92,9 +97,9 @@ access_policies = {
     'Statement': [
         {
             'Effect': 'Allow',
-            'Principal': {'AWS': myiamarn},
+            'Principal': {'AWS': [ACCOUNT_ID]},
             'Action': ['es:*'],
-            'Resource': (f'arn:{PARTITION}:es:{region}:{accountid}'
+            'Resource': (f'arn:{PARTITION}:es:{REGION}:{ACCOUNT_ID}'
                          f':domain/{aesdomain}/*')
         },
         {
@@ -102,8 +107,8 @@ access_policies = {
             'Principal': {'AWS': '*'},
             'Action': ['es:*'],
             'Condition': {'IpAddress': {'aws:SourceIp': myaddress}},
-            'Resource': (f'arn:{PARTITION}:es:{region}:{accountid}:'
-                         f'domain/{aesdomain}/*')
+            'Resource': (f'arn:{PARTITION}:es:{REGION}:{ACCOUNT_ID}'
+                         f':domain/{aesdomain}/*')
         }
     ]
 }
@@ -114,7 +119,7 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': aesdomain,
-    'EngineVersion': 'OpenSearch_2.3',
+    'EngineVersion': 'OpenSearch_2.5',
     'ClusterConfig': {
         'InstanceType': 't3.medium.search',
         'InstanceCount': 1,
@@ -162,7 +167,7 @@ config_domain = {
     'LogPublishingOptions': {
         'ES_APPLICATION_LOGS': {
             'CloudWatchLogsLogGroupArn': (
-                f'arn:{PARTITION}:logs:{region}:{accountid}:log-group:/aws/'
+                f'arn:{PARTITION}:logs:{REGION}:{ACCOUNT_ID}:log-group:/aws/'
                 f'OpenSearchService/domains/{aesdomain}/application-logs'),
             'Enabled': True
         }
@@ -185,7 +190,7 @@ if vpc_subnet_id:
     config_domain['VPCOptions'] = {'SubnetIds': [vpc_subnet_id, ],
                                    'SecurityGroupIds': [security_group_id, ]}
 
-if region == 'ap-northeast-3':
+if REGION == 'ap-northeast-3':
     config_domain['ClusterConfig']['InstanceType'] = 'r5.large.search'
 
 if s3_snapshot:
@@ -201,7 +206,7 @@ def make_password(length):
                 and sum(c.isdigit() for c in password)
                 and sum(not c.isalnum() for c in password)):
             break
-    return(password)
+    return password
 
 
 def create_kibanaadmin(kibanapass):
@@ -221,40 +226,22 @@ def create_kibanaadmin(kibanapass):
 
 def auth_aes():
     credentials = boto3.Session().get_credentials()
-    awsauth = AWSV4SignerAuth(credentials, region)
+    if AOS_SERVICE == 'OpenSearchService':
+        awsauth = AWSV4SignerAuth(credentials, REGION, 'es')
     return awsauth
 
 
-def query_aes(es_endpoint, awsauth, method=None, path=None, payload=None,
-              headers=None):
-    if not headers:
-        headers = {'Content-Type': 'application/json'}
-    url = f'https://{es_endpoint}/{path}'
-    # logger.debug(f'{method} {url}')
-    if method.lower() == 'get':
-        res = requests.get(url, auth=awsauth, stream=True)
-    elif method.lower() == 'post':
-        res = requests.post(url, auth=awsauth, json=payload, headers=headers)
-    elif method.lower() == 'put':
-        res = requests.put(url, auth=awsauth, json=payload, headers=headers)
-    elif method.lower() == 'patch':
-        res = requests.put(url, auth=awsauth, json=payload, headers=headers)
-    elif method.lower() == 'head':
-        res = requests.head(url, auth=awsauth, stream=True)
-    elif method.lower() == 'delete':
-        res = requests.delete(url, auth=awsauth, stream=True)
-    return(res)
-
-
 def output_message(key, res):
-    return(f'{key}: status={res.status_code}, message={res.text}')
+    return f'{key}: status={res.status_code}, message={res.text}'
 
 
-def get_dist_version(es_endpoint):
+def get_dist_version():
     logger.debug('start get_dist_version')
     awsauth = auth_aes()
-    res = query_aes(es_endpoint, awsauth, method='get', path='')
+
+    res = requests.get(f'https://{ENDPOINT}/', auth=awsauth, stream=True)
     logger.info(res.text)
+
     version = json.loads(res.text)['version']
     domain_version = version['number']
     lucene_version = version['lucene_version']
@@ -264,35 +251,51 @@ def get_dist_version(es_endpoint):
     return dist_name, domain_version
 
 
-def upsert_role_mapping(es_endpoint, role_name, es_app_data=None,
+def upsert_role_mapping(dist_name, role_name, es_app_data=None,
                         added_user=None, added_role=None, added_host=None):
     awsauth = auth_aes()
-    logger.info('role_name: ' + role_name)
-    path = '_opendistro/_security/api/rolesmapping/' + role_name
-    res = query_aes(es_endpoint, awsauth, 'GET', path)
+    if dist_name == 'opensearch':
+        base_url = f'https://{ENDPOINT}/_plugins/'
+    else:
+        base_url = f'https://{ENDPOINT}/_opendistro/'
+    logger.info(f'role_name: {role_name}')
+    res = requests.get(
+        url=f'{base_url}_security/api/rolesmapping/{role_name}',
+        auth=awsauth, stream=True)
+
     if res.status_code == 404:
         logger.info('Create new role/mapping')
+
         # create role
-        path_roles = '_opendistro/_security/api/roles/' + role_name
         payload = json.loads(es_app_data['security']['role_es_loader'])
         logger.debug(json.dumps(payload, default=json_serial))
-        res_new = query_aes(es_endpoint, awsauth, 'PATCH', path_roles, payload)
-        logger.info(output_message('role_' + role_name, res_new))
+        res_new = requests.put(
+            url=f'{base_url}_security/api/roles/{role_name}',
+            auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
+        logger.info(output_message(f'role_{role_name}', res_new))
+
         time.sleep(3)
+
         # role mapping for new role
         payload = {'backend_roles': [es_loader_role, ]}
-        res = query_aes(es_endpoint, awsauth, 'PATCH', path, payload)
-        logger.info(output_message('role_mapping_' + role_name, res))
+        res = requests.put(
+            url=f'{base_url}_security/api/rolesmapping/{role_name}',
+            auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
+        logger.info(output_message(f'role_mapping_{role_name}', res))
         return True
+
     elif (res.status_code == 200
             and role_name not in ('all_access', 'security_manager')):
         logger.info('Update role')
-        path_roles = '_opendistro/_security/api/roles/' + role_name
+
         payload = json.loads(es_app_data['security']['role_es_loader'])
         logger.debug(json.dumps(payload, default=json_serial))
-        res_new = query_aes(es_endpoint, awsauth, 'PATCH', path_roles, payload)
-        logger.info(output_message('role_' + role_name, res_new))
-    logger.debug('Current Configration: ' + res.text)
+        res_new = requests.put(
+            url=f'{base_url}_security/api/roles/{role_name}',
+            auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
+        logger.info(output_message(f'role_{role_name}', res_new))
+
+    logger.debug(f'Current Configration: {res.text}')
     res_json = json.loads(res.text)
     current_conf = res_json[role_name]
     need_updating = 0
@@ -314,57 +317,67 @@ def upsert_role_mapping(es_endpoint, role_name, es_app_data=None,
             del current_conf['hidden']
         if 'reserved' in current_conf:
             del current_conf['reserved']
-        logger.info('New configuration ' + json.dumps(current_conf))
-        res = query_aes(es_endpoint, awsauth, 'PATCH', path, current_conf)
-        logger.info(output_message('role_apping_' + role_name, res))
+        logger.info(f'New configuration {json.dumps(current_conf)}')
+        res = requests.put(
+            url=f'{base_url}_security/api/rolesmapping/{role_name}',
+            auth=awsauth, json=current_conf, headers=RESTAPI_HEADERS)
+        logger.info(output_message(f'role_apping_{role_name}', res))
     else:
-        logger.debug("no updating opendistro's role mapping")
+        logger.debug("no updating AOS's role mapping")
 
 
-def configure_opendistro(es_endpoint, es_app_data):
+def configure_opensearch(dist_name, es_app_data):
     logger.info("Create or Update role/mapping")
-    upsert_role_mapping(es_endpoint, 'all_access',
+    upsert_role_mapping(dist_name, 'all_access',
                         added_user=KIBANAADMIN, added_role=aes_admin_role)
-    upsert_role_mapping(es_endpoint, 'security_manager',
+    upsert_role_mapping(dist_name, 'security_manager',
                         added_user=KIBANAADMIN, added_role=aes_admin_role)
-    upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
+    upsert_role_mapping(dist_name, 'aws_log_loader', es_app_data=es_app_data,
                         added_role=es_loader_role)
-    upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
+    upsert_role_mapping(dist_name, 'aws_log_loader', es_app_data=es_app_data,
                         added_role=es_loader_ec2_role)
-    upsert_role_mapping(es_endpoint, 'aws_log_loader', es_app_data=es_app_data,
+    upsert_role_mapping(dist_name, 'aws_log_loader', es_app_data=es_app_data,
                         added_role=metrics_exporter_role)
 
 
-def upsert_policy(es_endpoint, awsauth, items):
+def upsert_policy(dist_name, awsauth, items):
+    if dist_name == 'opensearch':
+        base_url = f'https://{ENDPOINT}/_plugins/'
+    else:
+        base_url = f'https://{ENDPOINT}/_opendistro/'
     for key in items:
-        path = f'_opendistro/_ism/policies/{key}'
-        res = query_aes(es_endpoint, awsauth, 'GET', path)
+        url = f'{base_url}_ism/policies/{key}'
+        res = requests.get(url=url, auth=awsauth, stream=True)
+
         if res.status_code == 200:
             seq_no = json.loads(res.content)['_seq_no']
             primary_term = json.loads(res.content)['_primary_term']
-            path = f'{path}?if_seq_no={seq_no}&if_primary_term={primary_term}'
+            url = f'{url}?if_seq_no={seq_no}&if_primary_term={primary_term}'
+
         payload = json.loads(items[key])
-        res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
-        logger.info(output_message(path, res))
+        res = requests.put(
+            url=url, auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
+        logger.info(output_message(key, res))
 
 
-def upsert_obj(es_endpoint, awsauth, items, api):
+def upsert_obj(awsauth, items, api):
     for key in items:
         payload = json.loads(items[key])
-        path = f'{api}/{key}'
-        res = query_aes(es_endpoint, awsauth, 'PUT', path, payload)
+        res = requests.put(
+            url=f'https://{ENDPOINT}/{api}/{key}',
+            auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
         if res.status_code == 200:
             logger.debug(output_message(key, res))
         else:
             logger.error(output_message(key, res))
 
 
-def delete_obj(es_endpoint, awsauth, items, api):
+def delete_obj(awsauth, items, api):
     for key in items:
-        path = f'{api}/{key}'
-        res = query_aes(es_endpoint, awsauth, 'HEAD', path)
+        url = f'https://{ENDPOINT}/{api}/{key}'
+        res = requests.head(url=url, auth=awsauth, stream=True)
         if res.status_code == 200:
-            res = query_aes(es_endpoint, awsauth, 'DELETE', path)
+            res = requests.delete(url=url, auth=awsauth, stream=True)
             if res.status_code == 200:
                 logger.debug(output_message(key, res))
             else:
@@ -375,69 +388,75 @@ def delete_obj(es_endpoint, awsauth, items, api):
             logger.error(output_message(key, res))
 
 
-def configure_siem(es_endpoint, es_app_data):
-    awsauth = auth_aes()
+def configure_siem(dist_name, es_app_data):
     # create cluster settings #48
     logger.info('Configure default cluster setting of OpenSerch Service')
+    awsauth = auth_aes()
     cluster_settings = es_app_data['cluster-settings']
     for key in cluster_settings:
-        logger.info('system setting :' + key)
+        logger.info(f'system setting: {key}')
         payload = json.loads(cluster_settings[key])
-        res = query_aes(
-            es_endpoint, awsauth, 'PUT', '_cluster/settings', payload)
+        res = requests.put(
+            url=f'https://{ENDPOINT}/_cluster/settings',
+            auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
         logger.debug(output_message(key, res))
 
     # new composable index template. v2.4.1-
     logger.info('Create/Update component index templates')
-    upsert_obj(es_endpoint, awsauth, es_app_data['component-templates'],
+    upsert_obj(awsauth, es_app_data['component-templates'],
                api='_component_template')
     logger.info('Create/Update index templates')
-    upsert_obj(es_endpoint, awsauth, es_app_data['index-templates'],
+    upsert_obj(awsauth, es_app_data['index-templates'],
                api='_index_template')
 
     # create index_state_management_policies such as rollover policy
     upsert_policy(
-        es_endpoint, awsauth, es_app_data['index_state_management_policies'])
+        dist_name, awsauth, es_app_data['index_state_management_policies'])
 
     # index template for rollover
-    upsert_obj(es_endpoint, awsauth, es_app_data['index-rollover'],
+    upsert_obj(awsauth, es_app_data['index-rollover'],
                api='_index_template')
 
     # delete legacy index template
     logger.info('Delete legacy index templates')
-    delete_obj(es_endpoint, awsauth, es_app_data['deleted-old-index-template'],
+    delete_obj(awsauth, es_app_data['deleted-old-index-template'],
                api='_template')
 
     # lagecy intex template. It will be deplecated
     logger.info('Create/Update legacy index templates')
-    upsert_obj(es_endpoint, awsauth, es_app_data['legacy-index-template'],
+    upsert_obj(awsauth, es_app_data['legacy-index-template'],
                api='_template')
 
 
-def configure_index_rollover(es_endpoint, es_app_data):
+def configure_index_rollover(es_app_data):
     awsauth = auth_aes()
     index_patterns = es_app_data['index-rollover']
     logger.info('Create initial index 000001 for rollover')
     for key in index_patterns:
         alias = key.replace('_rollover', '')
-        res_alias = query_aes(es_endpoint, awsauth, 'GET', alias)
+        res_alias = requests.get(
+            f'https://{ENDPOINT}/{alias}', auth=awsauth, stream=True)
         is_refresh = False
         if res_alias.status_code == 200:
-            logger.debug(output_message('Already exists ' + alias, res_alias))
+            logger.debug(output_message(f'Already exists {alias}', res_alias))
             idx = list(json.loads(res_alias.content).keys())[0]
-            res_count = query_aes(es_endpoint, awsauth, 'GET', f'{idx}/_count')
+            res_count = requests.get(
+                f'https://{ENDPOINT}/{idx}/_count', auth=awsauth, stream=True)
             if res_count.status_code == 200:
                 doc_count = json.loads(res_count.content)['count']
                 if doc_count == 0:
-                    query_aes(es_endpoint, awsauth, 'DELETE', idx)
+                    requests.delete(
+                        f'https://{ENDPOINT}/{idx}', auth=awsauth, stream=True)
                     logger.info(f'{idx} is deleted and refreshed')
                     is_refresh = True
         else:
             is_refresh = True
             idx = key.replace('_rollover', '-000001')
         if is_refresh:
+            url = f'https://{ENDPOINT}/{idx}'
             payload = {'aliases': {alias: {"is_write_index": True}}}
-            res = query_aes(es_endpoint, awsauth, 'PUT', idx, payload)
+            res = requests.put(
+                url=url, auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
             if res.status_code == 200:
                 logger.info(output_message(idx, res))
             else:
@@ -445,15 +464,18 @@ def configure_index_rollover(es_endpoint, es_app_data):
         """
         # check whether index alias has @timestamp field
         timestamp_field = f'{idx}/_mapping/field/@timestamp'
-        res_timestamp = query_aes(es_endpoint, awsauth, 'GET', timestamp_field)
+        res_timestamp = requests.get(
+            f'https://{ENDPOINT}/{timestamp_field}', auth=awsauth, stream=True)
         if '@timestamp' not in res_timestamp.text:
             payload = {"@timestamp": "3000-01-01T00:00:00"}
-            res = query_aes(
-                es_endpoint, awsauth, 'POST', f'{idx}/_doc', payload)
+            res = requests.post(
+                f'https://{ENDPOINT}/{idx}/_doc',
+                auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
             time.sleep(1)
             doc_id = json.loads(res.content)['_id']
-            res = query_aes(
-                es_endpoint, awsauth, 'DELETE', f'{idx}/_doc/{doc_id}')
+            res = requests.delete(
+                f'https://{ENDPOINT}/{idx}/_doc/{doc_id}',
+                auth=awsauth, stream=True)
             logger.info('put and deleted dummy data')
         else:
             pass
@@ -472,7 +494,8 @@ def json_serial(obj):
 
 
 def create_loggroup_and_set_retention(cwl_client, log_group, retention):
-    response = cwl_client.describe_log_groups(logGroupNamePrefix=log_group)
+    response = cwl_client.describe_log_groups(
+        logGroupNamePrefix=log_group, limit=1)
     if len(response['logGroups']) == 0:
         logger.info(f'create log group {log_group}')
         response = cwl_client.create_log_group(logGroupName=log_group)
@@ -499,22 +522,23 @@ def setup_aes_system_log():
         create_loggroup_and_set_retention(cwl_client, log_group, retention)
 
 
-def set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth):
+def set_tenant_get_cookies(dist_name, tenant, auth):
     logger.debug(f'Set tenant as {tenant} and get cookies')
     logger.debug(f'dist_name is {dist_name}')
     if dist_name == 'opensearch':
-        base_url = f'https://{es_endpoint}/_dashboards'
+        base_url = f'https://{ENDPOINT}/_dashboards'
         headers = DASHBOARDS_HEADERS
     else:
-        base_url = f'https://{es_endpoint}/_plugin/kibana'
+        base_url = f'https://{ENDPOINT}/_plugin/kibana'
         headers = KIBANA_HEADERS
     if isinstance(auth, dict):
-        url = f'{base_url}/auth/login?security_tenant={tenant}'
         response = requests.post(
-            url, headers=headers, json=json.dumps(auth))
+            url=f'{base_url}/auth/login?security_tenant={tenant}',
+            headers=headers, json=json.dumps(auth))
     elif isinstance(auth, AWSV4SignerAuth):
-        url = f'{base_url}/app/dashboards?security_tenant={tenant}'
-        response = requests.get(url, headers=headers, auth=auth)
+        response = requests.get(
+            url=f'{base_url}/app/dashboards?security_tenant={tenant}',
+            headers=headers, auth=auth)
     else:
         logger.error('There is no valid authentication')
         return False
@@ -528,23 +552,23 @@ def set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth):
         return False
 
 
-def get_saved_objects(es_endpoint, dist_name, cookies, auth=None):
+def get_saved_objects(dist_name, cookies, auth=None):
     if not cookies:
         logger.warning("No authentication. Skipped downloading dashboard")
         return False
     if dist_name == 'opensearch':
-        url = f'https://{es_endpoint}/_dashboards/api/saved_objects/_export'
+        url = f'https://{ENDPOINT}/_dashboards/api/saved_objects/_export'
         headers = DASHBOARDS_HEADERS
     else:
-        url = f'https://{es_endpoint}/_plugin/kibana/api/saved_objects/_export'
+        url = f'https://{ENDPOINT}/_plugin/kibana/api/saved_objects/_export'
         headers = KIBANA_HEADERS
     payload = {'type': ['config', 'dashboard', 'visualization',
                         'index-pattern', 'search']}
     if auth:
-        response = requests.post(url, cookies=cookies, headers=headers,
+        response = requests.post(url=url, cookies=cookies, headers=headers,
                                  json=json.dumps(payload), auth=auth)
     else:
-        response = requests.post(url, cookies=cookies, headers=headers,
+        response = requests.post(url=url, cookies=cookies, headers=headers,
                                  json=json.dumps(payload))
     logger.debug(response.status_code)
     logger.debug(response.reason)
@@ -575,21 +599,29 @@ def backup_dashboard_to_s3(saved_objects, tenant):
         return False
 
 
-def load_dashboard_into_aes(es_endpoint, dist_name, auth, cookies):
-    with ZipFile('dashboard.ndjson.zip') as new_dashboard_zip:
-        new_dashboard_zip.extractall('/tmp/')
-    files = {'file': open('/tmp/dashboard.ndjson', 'rb')}
+def import_saved_objects_into_aos(dist_name, auth, cookies):
+    logger.info("import saved objects")
+
     if dist_name == 'opensearch':
-        url = (f'https://{es_endpoint}/_dashboards/api/saved_objects/'
+        url = (f'https://{ENDPOINT}/_dashboards/api/saved_objects/'
                f'_import?overwrite=true')
         headers = {'osd-xsrf': 'true'}
     else:
-        url = (f'https://{es_endpoint}/_plugin/kibana/api/saved_objects/'
+        url = (f'https://{ENDPOINT}/_plugin/kibana/api/saved_objects/'
                f'_import?overwrite=true')
         headers = {'kbn-xsrf': 'true'}
-    response = requests.post(url, cookies=cookies, files=files,
-                             headers=headers, auth=auth)
-    logger.info(response.text)
+
+    with ZipFile('dashboard.ndjson.zip') as new_dashboard_zip:
+        new_dashboard_zip.extractall('/tmp/')
+    if os.path.exists('/tmp/dashboard.ndjson'):
+        with open('/tmp/dashboard.ndjson', 'rb') as fd:
+            # confirmd and ignored Rule-645108
+            response = requests.post(
+                url=url, cookies=cookies, files={'file': fd},
+                headers=headers, auth=auth)
+            logger.info(response.text)
+    else:
+        logger.error('dashboard.ndjson is not contained')
 
 
 def aes_domain_handler(event, context):
@@ -660,12 +692,6 @@ def aes_domain_poll_create(event, context):
             es_endpoint = response['DomainStatus']['Endpoints']['vpc']
     logger.debug('Finished ES endpoint creation')
 
-    # ToDo: import dashboard for aesadmin private tenant
-    # tenant = 'private'
-    # auth = {'username': 'aesadmin', 'password': kibanapass}
-    # cookies = set_tenant_get_cookies(es_endpoint, dist_name, tenant, auth)
-    # load_dashboard_into_aes(es_endpoint, dist_name, auth, cookies)
-
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource
         helper_domain.Data['es_endpoint'] = es_endpoint
@@ -727,28 +753,26 @@ def aes_config_create_update(event, context):
     es_app_data = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
     es_app_data.read('data.ini')
-    es_endpoint = os.environ['es_endpoint']
 
-    dist_name, domain_version = get_dist_version(es_endpoint)
+    dist_name, domain_version = get_dist_version()
     logger.info(f'dist_name: {dist_name}, domain_version: {domain_version}')
     if domain_version in ('7.4.2', '7.7.0', '7.8.0', '7.9.1'):
         raise Exception(f'Your domain version is Amazon ES {domain_version}. '
                         f'Please upgrade the domain to OpenSearch or '
                         f'Amazon ES v7.10')
-    configure_opendistro(es_endpoint, es_app_data)
-    configure_siem(es_endpoint, es_app_data)
-    configure_index_rollover(es_endpoint, es_app_data)
+    configure_opensearch(dist_name, es_app_data)
+    configure_siem(dist_name, es_app_data)
+    configure_index_rollover(es_app_data)
 
     # Globalテナントのsaved_objects をバックアップする
     tenant = 'global'
     awsauth = auth_aes()
-    cookies = set_tenant_get_cookies(es_endpoint, dist_name, tenant, awsauth)
-    saved_objects = get_saved_objects(
-        es_endpoint, dist_name, cookies, auth=awsauth)
+    cookies = set_tenant_get_cookies(dist_name, tenant, awsauth)
+    saved_objects = get_saved_objects(dist_name, cookies, auth=awsauth)
     bk_response = backup_dashboard_to_s3(saved_objects, tenant)
     if bk_response:
         # Load dashboard and configuration to Global tenant
-        load_dashboard_into_aes(es_endpoint, dist_name, awsauth, cookies)
+        import_saved_objects_into_aos(dist_name, awsauth, cookies)
 
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource

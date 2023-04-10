@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -56,9 +56,9 @@ def split_findings_type(finding_type):
     detection_mechanism = m.group('DetectionMechanism')
     artifact = m.group('Artifact')
 
-    return(FindingTypes(asff_type_namespace, asff_type_category,
-                        threat_purpose, resource_type_affected,
-                        threat_family_name, detection_mechanism, artifact))
+    return (FindingTypes(asff_type_namespace, asff_type_category,
+                         threat_purpose, resource_type_affected,
+                         threat_family_name, detection_mechanism, artifact))
 
 
 def get_values_from_asff_resources(resources):
@@ -86,7 +86,9 @@ def get_values_from_asff_resources(resources):
                 instanceid = (resource['Details']['AwsEc2Volume']
                               ['Attachments'][0]['InstanceId'])
             except Exception:
-                continue
+                # pass
+                # to ignore Rule-269212
+                None
             resource_dict['cloud'] = {'instance': {'id': instanceid}}
         elif resource['Type'] == 'AwsIamRole':
             name = resource['Id'].split('/')[-1]
@@ -135,6 +137,7 @@ def transform(logdata):
         logdata['@timestamp'] = logdata['UpdatedAt'].replace('Z', '+00:00')
     logdata['__doc_id_suffix'] = hashlib.md5(
         f"{logdata['@timestamp']}{workflow}".encode()).hexdigest()
+    # confirmd and ignored Rule-143469
 
     if module in ('guardduty', 'macie'):
         findngs_type = split_findings_type(str(logdata['Types'][0]))
@@ -146,6 +149,14 @@ def transform(logdata):
 
     if 'security hub' in module:
         logdata['rule']['id'] = logdata['GeneratorId']
+        if logdata.get('Compliance', {}).get('SecurityControlId'):
+            logdata['consolidated_controls_view'] = True
+        else:
+            logdata['consolidated_controls_view'] = False
+        if logdata.get('GeneratorId', '').startswith('security-control'):
+            logdata['consolidated_control_findings'] = True
+        else:
+            logdata['consolidated_control_findings'] = False
     elif 'guardduty' in module:
         logdata['event']['category'] = 'intrusion_detection'
 

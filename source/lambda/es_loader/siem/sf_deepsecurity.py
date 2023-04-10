@@ -9,7 +9,7 @@ def transform(logdata):
     fields = logdata['message'].split('|')
     if len(fields) < 8:
         print("Illegal format")
-        return Null
+        return None
     logdata.setdefault('agent', {})
     logdata['agent']['name'] = " ".join([fields[1],fields[2],fields[3]])
     logdata.setdefault('rule', {})

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -15,6 +15,8 @@ from aws_lambda_powertools import Logger
 from siem import FileFormatBase
 
 logger = Logger(child=True)
+
+csv.field_size_limit(1000000)
 
 
 class FileFormatCsv(FileFormatBase):

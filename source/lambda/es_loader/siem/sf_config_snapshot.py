@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -20,6 +20,7 @@ def update_doc_ids(logdata):
     doc_id_seed = logdata['awsAccountId'] + logdata['awsRegion'] \
         + logdata['resourceType'] + logdata['resourceId']
     logdata['@id'] = hashlib.md5(doc_id_seed.encode()).hexdigest()
+    # confirmd and ignored Rule-143469
 
     suffix_seed = logdata['event']['module'] + logdata.get('configRuleARN', '')
     suffix = hashlib.md5(suffix_seed.encode()).hexdigest()[:4]
@@ -116,7 +117,9 @@ def rename_config_field_name(logdata):
         logdata['tags']['AmazonFSx_FileSystemId'] = (
             logdata['tags'].pop('AmazonFSx.FileSystemId'))
     except Exception:
-        pass
+        # pass
+        # to ignore Rule-269212
+        None
 
     # "resourceType": "AWS::Lambda::Function"
     try:

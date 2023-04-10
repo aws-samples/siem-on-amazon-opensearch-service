@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -106,7 +106,7 @@ def extract_aws_account_from_text(text):
     if text:
         m = RE_ACCOUNT.search(text)
         if m:
-            return(m.group(1))
+            return m.group(1)
         else:
             return None
 
@@ -116,7 +116,7 @@ def extract_aws_region_from_text(text):
     if text:
         m = RE_REGION.search(text)
         if m:
-            return(m.group(1))
+            return m.group(1)
         else:
             return None
 
@@ -126,7 +126,7 @@ def extract_aws_instanceid_from_text(text):
     if text:
         m = RE_INSTANCEID.search(text)
         if m:
-            return(m.group(2))
+            return m.group(2)
         return None
 
 
@@ -366,10 +366,12 @@ def get_es_hostname():
 
 def create_awsauth(es_hostname):
     es_region = es_hostname.split('.')[1]
+    service = es_hostname.split('.')[2]
     # For Debug
     # boto3.set_stream_logger('botocore', level='DEBUG')
     credentials = boto3.Session().get_credentials()
-    awsauth = AWSV4SignerAuth(credentials, es_region)
+    awsauth = AWSV4SignerAuth(credentials, es_region, service)
+
     return awsauth
 
 
@@ -825,14 +827,14 @@ def match_log_with_exclude_patterns(log_dict, log_patterns, ex_pattern=None):
             if isinstance(pattern, dict) and isinstance(log_dict[key], dict):
                 res, ex_pattern = match_log_with_exclude_patterns(
                     log_dict[key], pattern)
-                return(res, ex_pattern)
+                return (res, ex_pattern)
             elif isinstance(pattern, re.Pattern):
                 if isinstance(log_dict[key], list):
-                    return(False, None)
+                    return (False, None)
                 elif pattern.match(str(log_dict[key])):
                     ex_pattern = '{{{0}: {1}}}'.format(key, log_dict[key])
-                    return(True, ex_pattern)
-    return(False, None)
+                    return (True, ex_pattern)
+    return (False, None)
 
 
 def merge_dicts(dicta, dictb, path=None):

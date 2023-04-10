@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -26,7 +26,9 @@ def transform(logdata):
         ua = logdata['user_agent']['original']
         logdata['user_agent']['original'] = urllib.parse.unquote(ua)
     except Exception:
-        pass
+        # pass
+        # to ignore Rule-269212
+        None
 
     m = RE_CLOUDFRONT_DIST_ID.search(logdata['@log_s3key'])
     if m:

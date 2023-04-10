@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -399,18 +399,20 @@ class LogS3:
                                    f'{self.s3key} is only {s3size} byte')
             return None
         rawbody = io.BytesIO(obj['Body'].read())
+        # confirmd and ignored Rule-884405
         mime_type = utils.get_mime_type(rawbody.read(16))
         rawbody.seek(0)
         if mime_type == 'text':
             body = io.TextIOWrapper(rawbody, encoding='utf8', errors='ignore')
         elif mime_type == 'parquet':
             body = rawbody
+            # confirmd and ignored Rule-884405
             self.file_format = 'parquet'
         elif mime_type == 'gzip':
             body = gzip.open(rawbody, mode='rb')
         elif mime_type == 'zip':
             z = zipfile.ZipFile(rawbody)
-            body = open(z.namelist()[0])
+            body = z.open(z.namelist()[0])
         elif mime_type == 'bzip2':
             body = bz2.open(rawbody, mode='rb')
         else:
@@ -429,8 +431,9 @@ class LogS3:
                                      errors='ignore')
                 elif mime_type == 'zip':
                     z = zipfile.ZipFile(rawbody)
-                    body = open(z.namelist()[0], encoding='utf8',
-                                errors='ignore')
+                    body = z.open(z.namelist()[0])
+                    body = io.TextIOWrapper(body, encoding='utf8',
+                                            errors='ignore')
                 elif mime_type == 'bzip2':
                     body = bz2.open(rawbody, mode='rt', encoding='utf8',
                                     errors='ignore')
@@ -438,7 +441,6 @@ class LogS3:
                 msg = f'double archived file. {mime_type2} in {mime_type}'
                 logger.error(msg)
                 raise Exception(msg)
-
         return body
 
     def split_logs(self, log_count, max_log_count):
@@ -665,6 +667,7 @@ class LogParser:
                 f'{basic_dict["@message"]}{self.s3key}{self.additional_id}')
             basic_dict['@id'] = hashlib.md5(
                 unique_text.encode('utf-8')).hexdigest()
+            # confirmd and ignored Rule-143469
             del unique_text
             if '__error_message' in self.__logdata_dict:
                 self.__logdata_dict['error'] = {
@@ -731,7 +734,7 @@ class LogParser:
                     self.__logdata_dict, original_keys)
                 if isinstance(v, str):
                     v = utils.validate_ip(v, ecs_key)
-                if v:
+                if v == 0 or v:
                     new_ecs_dict = utils.put_value_into_nesteddict(ecs_key, v)
             elif isinstance(original_keys, list):
                 temp_list = []

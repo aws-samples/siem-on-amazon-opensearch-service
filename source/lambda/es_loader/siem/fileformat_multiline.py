@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -82,7 +82,7 @@ class FileFormatMultiline(FileFormatBase):
                         # yield previous log
                         lograw = "".join(multilog).rstrip()
                         logdict = self.convert_lograw_to_dict(lograw)
-                        yield(lograw, logdict, logmeta)
+                        yield (lograw, logdict, logmeta)
                     multilog = []
                     is_in_scope = True
                     multilog.append(line)
@@ -96,7 +96,7 @@ class FileFormatMultiline(FileFormatBase):
             # yield last log
             lograw = "".join(multilog).rstrip()
             logdict = self.convert_lograw_to_dict(lograw)
-            yield(lograw, logdict, logmeta)
+            yield (lograw, logdict, logmeta)
 
     def convert_lograw_to_dict(self, lograw, logconfig=None):
         m = self._re_log_pattern_prog.match(lograw)

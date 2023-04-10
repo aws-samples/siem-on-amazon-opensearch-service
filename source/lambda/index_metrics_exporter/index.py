@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -25,6 +25,10 @@ ES_ENDPOINT = os.getenv('ES_ENDPOINT')
 REGION = ES_ENDPOINT.split('.')[1]
 BUCKET_NAME = os.getenv('LOG_BUCKET')
 PERIOD_HOUR = int(os.getenv('PERIOD_HOUR', 1))
+try:
+    AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
+except Exception:
+    AWS_ID = None
 
 credentials = boto3.Session().get_credentials()
 awsauth = AWSV4SignerAuth(credentials, REGION)
@@ -442,7 +446,7 @@ def lambda_handler(event, context):
     try:
         AWS_ID = str(context.invoked_function_arn.split(':')[4])
     except Exception:
-        AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
+        print('Using sts api to get AWS Account')
     file_name = f'aos_index_metrics_{uuid.uuid4().hex}.json.gz'
     index_status_dict = get_hotwarm_index_status_dict('hot')
     index_status_dict = get_hotwarm_index_status_dict(

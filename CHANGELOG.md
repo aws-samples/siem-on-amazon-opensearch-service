@@ -6,6 +6,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.1] - 2023-04-10
+### Added
+- Enable Amazon OpenSearch Service notifications by SNS mail #363
+- Support OpenSearch 2.5 #362
+- Support new GeoLite2 license format (40 digits) #360,#361
+- Support ap-southeast-4 #352
+
+### Changed
+- Update index pattern and script for AWS Security Hub consolidated control #365
+- Allow blank email addresses/GeoLite2 license/OTX license #359,#360
+
+### Fixed
+- fix NLB regex for new fields #364
+- fix the S3 regex pattern to avoid errors when the S3 key of AWS Config History contains guardduty #355
+- fix the UTF-8 encoding process for JSON files #353
+- fix ZIP file extraction process #340
+- fix ETL for large CSV files #338
+
 ## [2.9.0] - 2022-12-05
 ### Added
 - Amazon Security Lake integration #334

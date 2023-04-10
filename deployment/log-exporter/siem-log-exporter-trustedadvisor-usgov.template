@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.9.0: log exporter - TrustedAdvisor"
+Description: "SIEM on Amazon OpenSearch Service v2.9.1: log exporter - TrustedAdvisor"
 Parameters:
   cweRulesFrequency:
     Type: Number
@@ -61,7 +61,7 @@ Resources:
           # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
           # SPDX-License-Identifier: MIT-0
           __copyright__ = 'Amazon.com, Inc. or its affiliates'
-          __version__ = '2.9.0'
+          __version__ = '2.9.1'
           __license__ = 'MIT-0'
           __author__ = 'Katsuya Matsuoka'
           __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'

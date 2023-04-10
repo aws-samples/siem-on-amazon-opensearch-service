@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.0'
+__version__ = '2.9.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -72,6 +72,7 @@ def _download_file_from_interet(url, file_name=None, headers={}):
             req.add_header(header, value)
     try:
         response = urllib.request.urlopen(req, timeout=61)
+        # confirmd and ignored Rule-884405
         status_code = response.code
     except urllib.error.HTTPError as e:
         logger.exception(f'failed to download from {url}')
@@ -105,6 +106,7 @@ def _download_file_from_interet(url, file_name=None, headers={}):
                     timespec='seconds').replace('+00:00', 'Z')
     except Exception:
         modified = None
+    response.close()
     res = {'status_code': status_code, 'file_name': file_name,
            'modified': modified}
     return res
@@ -124,7 +126,9 @@ async def _aio_download_file_from_internet(
 
 
 def _put_file_to_s3(local_file, s3_key, count=None):
-    h = hashlib.new('md5')
+    h = hashlib.md5()
+    # confirmd and ignored Rule-143469
+
     file_read_size = h.block_size * (1024 ** 2)
     prefix = ''
     if count:
@@ -138,8 +142,9 @@ def _put_file_to_s3(local_file, s3_key, count=None):
         file_md5 = base64.b64encode(h.digest()).decode('utf-8')
         res = None
         try:
-            res = s3.put_object(Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
-                                ContentMD5=file_md5, ChecksumAlgorithm='sha1')
+            res = s3.put_object(
+                Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key, ContentMD5=file_md5,
+                ChecksumAlgorithm='sha256')
         except ParamValidationError:
             res = s3.put_object(Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
                                 ContentMD5=file_md5)
@@ -155,7 +160,9 @@ def _put_file_to_s3(local_file, s3_key, count=None):
 
 
 async def _aio_put_file_to_s3(s3_session, local_file, s3_key, count=None):
-    h = hashlib.new('md5')
+    h = hashlib.md5()
+    # confirmd and ignored Rule-143469
+
     file_read_size = h.block_size * (1024 ** 2)
     prefix = ''
     if count:
@@ -175,7 +182,7 @@ async def _aio_put_file_to_s3(s3_session, local_file, s3_key, count=None):
                     ContentMD5=file_md5)
             except Exception:
                 logger.exception('{prefix}Failed to upload file to /{s3_key}')
-            #    ContentMD5=file_md5, ChecksumAlgorithm='sha1')
+            #    ContentMD5=file_md5, ChecksumAlgorithm='sha256')
             # except botocore.exceptions.HTTPClientError:
             #    res = await aioclient.put_object(
             #        Body=f, Bucket=S3_BUCKET_NAME, Key=s3_key,
@@ -203,8 +210,10 @@ def _get_file_from_s3(s3_key, local_file=LOCAL_TMP_FILE):
 def _initialize_db():
     logger.info('Starting initializing DB')
     conn = sqlite3.connect(DB_FILE_LOCAL)
+    # confirmd and ignored Rule-884405
     conn.execute('PRAGMA journal_mode=MEMORY')
     cur = conn.cursor()
+    # confirmd and ignored Rule-884405
 
     cur.execute("DROP TABLE IF EXISTS ipaddress")
     cur.execute(
@@ -233,9 +242,8 @@ def _initialize_db():
                               v6_network1_start, v6_network1_end,
                               v6_network2_start, v6_network2_end,
                               network_start, network_end, name)
-        VALUES('built-in', 'ipv4-addr', 0, 0, 0, 0,
-               {imds_addr}, {imds_addr}, 'IMDS')
-    """)
+        VALUES('built-in', 'ipv4-addr', 0, 0, 0, 0, ?, ?, 'IMDS')
+    """, (imds_addr, imds_addr))
     cur.execute(f"""
         INSERT INTO ipaddress(provider, type,
                               v6_network1_start, v6_network1_end,
@@ -965,7 +973,7 @@ def createdb(event, context):
         try:
             is_provider = item['ioc']
         except Exception:
-            continue
+            logger.debug('IOC provider is not found')
         if is_provider:
             if is_provider == 'tor':
                 is_tor = True
