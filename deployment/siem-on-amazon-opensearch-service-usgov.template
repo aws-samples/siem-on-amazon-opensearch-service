@@ -1,4 +1,4 @@
-Description: SIEM on Amazon OpenSearch Service v2.9.1
+Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -848,7 +848,7 @@ Resources:
         - !Ref 'AWS::NoValue'
       DeadLetterConfig:
         TargetArn: !GetAtt 'AesSiemDlq1CD8439D.Arn'
-      Description: SIEM on Amazon OpenSearch Service v2.9.1 / es-loader
+      Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1 / es-loader
       Environment:
         Variables:
           CONTROL_TOWER_LOG_BUCKETS: !Ref 'ControlTowerLogBucketNameList'
@@ -873,11 +873,11 @@ Resources:
     DependsOn:
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
-  LambdaEsLoaderCurrentVersion9DFE6955bdbbd7ed8876c3b1387bd4cd9e23d25a:
+  LambdaEsLoaderCurrentVersion9DFE69557f1297f3d16bad93f2e0e11bbf0ccfe3:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
-      Description: 2.9.1
+      Description: 2.9.2-beta.1
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaEsLoaderSqsEventSourceaessiemAesSiemSqsSplitLogs506AFFA6A7D8B2E9:
@@ -961,7 +961,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.9.1 / add-pandas-layer
+      Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1 / add-pandas-layer
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -974,22 +974,22 @@ Resources:
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-  LambdaAddPandasLayerCurrentVersion52D0754306388ca1cfd3ebb4d63ce24fa332d48b:
+  LambdaAddPandasLayerCurrentVersion52D07543a1247646c6114d8b7fa900fcb3a6368a:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaAddPandasLayer8F3F6957'
-      Description: 2.9.1
+      Description: 2.9.2-beta.1
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   ExecLambdaAddPandasLayer:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaAddPandasLayer8F3F6957.Arn'
-      ConfigVersion: 2.9.1
+      ConfigVersion: 2.9.2-beta.1
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-      - LambdaEsLoaderCurrentVersion9DFE6955bdbbd7ed8876c3b1387bd4cd9e23d25a
+      - LambdaEsLoaderCurrentVersion9DFE69557f1297f3d16bad93f2e0e11bbf0ccfe3
       - LambdaEsLoader4B1E2DD9
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
@@ -1032,7 +1032,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.9.1 / es-loader-stopper
+      Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1 / es-loader-stopper
       Environment:
         Variables:
           AES_SIEM_ALERT_TOPIC_ARN: !Ref 'SnsTopic2C1570A4'
@@ -1047,11 +1047,11 @@ Resources:
     DependsOn:
       - LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
       - LambdaEsLoaderStopperServiceRole83AABC1A
-  LambdaEsLoaderStopperCurrentVersion312AA850aaaaf9c132f6c4985607a538bf9f8525:
+  LambdaEsLoaderStopperCurrentVersion312AA8504651770c2e6dfba6e558bc701f49346e:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoaderStopper35C1D57B'
-      Description: 2.9.1
+      Description: 2.9.2-beta.1
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaGeoipDownloaderServiceRoleE37FB908:
@@ -1104,7 +1104,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.9.1 / geoip-downloader
+      Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1 / geoip-downloader
       Environment:
         Variables:
           license_key: !Ref 'GeoLite2LicenseKey'
@@ -1118,11 +1118,11 @@ Resources:
     DependsOn:
       - LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65
       - LambdaGeoipDownloaderServiceRoleE37FB908
-  LambdaGeoipDownloaderCurrentVersion7F1CD34Fb4d71225d1a3eab100c5d9564c2d5bfb:
+  LambdaGeoipDownloaderCurrentVersion7F1CD34Fe7cc10899f4e453bd31cd54db54b27ca:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaGeoipDownloaderA5EFF97E'
-      Description: 2.9.1
+      Description: 2.9.2-beta.1
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocPlanServiceRole6CDE7C5D:
@@ -1175,7 +1175,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.9.1 / ioc-plan
+      Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1 / ioc-plan
       Environment:
         Variables:
           ABUSE_CH: !Ref 'EnableAbuseCh'
@@ -1192,11 +1192,11 @@ Resources:
     DependsOn:
       - LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE
       - LambdaIocPlanServiceRole6CDE7C5D
-  LambdaIocPlanCurrentVersion1BAA7B4Cf7dc92c61a5ec2b0a2eed6b616424121:
+  LambdaIocPlanCurrentVersion1BAA7B4C4ca6ffdc1ee027669730d658c5005770:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocPlan6E369BFB'
-      Description: 2.9.1
+      Description: 2.9.2-beta.1
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocDownloadServiceRoleEB9001C6:
@@ -1249,7 +1249,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.9.1 / ioc-download
+      Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1 / ioc-download
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1263,11 +1263,11 @@ Resources:
     DependsOn:
       - LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942
       - LambdaIocDownloadServiceRoleEB9001C6
-  LambdaIocDownloadCurrentVersion48773E6B5e5c627d260b98bef9e4264d4b523d6d:
+  LambdaIocDownloadCurrentVersion48773E6Be3e805b29abcdc2ba4f4da3978746d5f:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocDownload5519716E'
-      Description: 2.9.1
+      Description: 2.9.2-beta.1
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocCreatedbServiceRole555565C0:
@@ -1320,7 +1320,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.9.1 / ioc-createdb
+      Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1 / ioc-createdb
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1333,11 +1333,11 @@ Resources:
     DependsOn:
       - LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4
       - LambdaIocCreatedbServiceRole555565C0
-  LambdaIocCreatedbCurrentVersionD9D04E9C3abd9951825122bd56562dbf557eeee3:
+  LambdaIocCreatedbCurrentVersionD9D04E9Cc073b937d977b0a5959aa04284f4b98f:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocCreatedb04F35777'
-      Description: 2.9.1
+      Description: 2.9.2-beta.1
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   IocStateMachineLogGroupC1AB417E:
@@ -1484,7 +1484,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.9.1 / index-metrics-exporter
+      Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1 / index-metrics-exporter
       Environment:
         Variables:
           ES_ENDPOINT: !GetAtt 'AesSiemDomainDeployedR2.es_endpoint'
@@ -1499,11 +1499,11 @@ Resources:
     DependsOn:
       - LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
       - LambdaMetricsExporterServiceRoleDDE0BD95
-  LambdaMetricsExporterCurrentVersion79B0413Fcadcf6888664a2a14aa579a84ccf6a84:
+  LambdaMetricsExporterCurrentVersion79B0413F9d3fee294685c26853ba4ff2787bf646:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaMetricsExporter2737F589'
-      Description: 2.9.1
+      Description: 2.9.2-beta.1
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaDeployAES636B5079:
@@ -1520,7 +1520,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.9.1 / opensearch domain deployment
+      Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1 / opensearch domain deployment
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -1536,18 +1536,18 @@ Resources:
       Timeout: 300
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaDeployAESCurrentVersion047915F1fc7028e4c56a362aeb66dc8bf4a06591:
+  LambdaDeployAESCurrentVersion047915F10d1dd5b6788d5a443db84af24f464b16:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaDeployAES636B5079'
-      Description: 2.9.1
+      Description: 2.9.2-beta.1
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   AesSiemDomainDeployedR2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaDeployAES636B5079.Arn'
-      ConfigVersion: 2.9.1
+      ConfigVersion: 2.9.2-beta.1
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
   LambdaConfigureAESA0471961:
@@ -1564,7 +1564,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.9.1 / opensearch configuration
+      Description: SIEM on Amazon OpenSearch Service v2.9.2-beta.1 / opensearch configuration
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -1584,18 +1584,18 @@ Resources:
       Timeout: 600
     DependsOn:
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaConfigureAESCurrentVersion65114768abf5bc4c6ebe8aa7e282bb81f20ce388:
+  LambdaConfigureAESCurrentVersion6511476821b449b39af9988d0b7337d46607b49a:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaConfigureAESA0471961'
-      Description: 2.9.1
+      Description: 2.9.2-beta.1
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   AesSiemDomainConfiguredR2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaConfigureAESA0471961.Arn'
-      ConfigVersion: 2.9.1
+      ConfigVersion: 2.9.2-beta.1
     DependsOn:
       - AesSiemDomainDeployedR2
     DeletionPolicy: Retain
