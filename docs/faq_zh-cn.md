@@ -38,7 +38,7 @@ ignore_container_stderr = False
 
 1. 导航到 [OpenSearch Service 控制台](https://console.amazonaws.cn/esv3/home?)
 1. 选择[**aes-siem**]域
-1. 选择屏幕顶部的 [**Actions**]，然后从下拉菜单中选择 [**Modify authnication**]。
+1. 选择屏幕顶部的 [**Actions**]，然后从下拉菜单中选择 [**Edit security configuration**]。
 1. 从[细粒度访问控制 - 由 Open Distro for Elasticsearch 提供支持] 中勾选【**Create master User**】
 1. 在[Master usernames]中输入[**aesadmin**]，在[Master password]/[Confirm master password]中输入[**any password**]
 1. 选择屏幕右下方的[**Submit**]
