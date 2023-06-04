@@ -19,6 +19,7 @@ class ResourceValidator(object):
     def __init__(self, scope, SOLUTION_NAME: str, PARTITION: str,
                  AOS_DOMAIN: str,
                  solution_prefix: str, aos_subnet_ids_raw: list,
+                 s3bucket_name_log: str, s3bucket_name_snapshot: str,
                  cfn_parameters_dict: dict, cfn_conditions_dict: dict,
                  same_lambda_func_version, region_mapping):
 
@@ -28,6 +29,8 @@ class ResourceValidator(object):
         self.AOS_DOMAIN = AOS_DOMAIN
         self.solution_prefix = solution_prefix
         self.aos_subnet_ids_raw = aos_subnet_ids_raw
+        self.s3bucket_name_log = s3bucket_name_log
+        self.s3bucket_name_snapshot = s3bucket_name_snapshot
         self.same_lambda_func_version = same_lambda_func_version
         self.deployment_target = cfn_parameters_dict['deployment_target']
         self.log_bucket_policy_update = (
@@ -59,6 +62,8 @@ class ResourceValidator(object):
                 'DOMAIN_OR_COLLECTION_NAME': self.AOS_DOMAIN,
                 'SOLUTION_PREFIX': self.solution_prefix,
                 'AOS_SUBNET_IDS': ','.join(self.aos_subnet_ids_raw),
+                'S3_SNAPSHOT': self.s3bucket_name_snapshot,
+                'S3_LOG': self.s3bucket_name_log,
             },
             current_version_options=aws_lambda.VersionOptions(
                 removal_policy=cdk.RemovalPolicy.RETAIN,
@@ -109,6 +114,22 @@ class ResourceValidator(object):
                             "iam:GetRole"
                         ],
                         resources=["*"]
+                    ),
+                    aws_iam.PolicyStatement(
+                        sid='ToGetBucektPolicy',
+                        actions=[
+                            "s3:GetBucketPolicy",
+                        ],
+                        resources=[(f'arn:{self.PARTITION}:s3:::'
+                                    f'{self.s3bucket_name_log}')]
+                    ),
+                    aws_iam.PolicyStatement(
+                        sid='ToUploadPolicy',
+                        actions=[
+                            "s3:PutObject",
+                        ],
+                        resources=[(f'arn:{self.PARTITION}:s3:::'
+                                    f'{self.s3bucket_name_snapshot}/*')]
                     )
                 ]
             )
@@ -124,6 +145,9 @@ class ResourceValidator(object):
         validated_resource.add_override(
             'Properties.DeploymentTarget',
             self.deployment_target.value_as_string)
+        validated_resource.add_override(
+            'Properties.BucketPolicyUpdate',
+            self.log_bucket_policy_update.value_as_string)
         validated_resource.cfn_options.deletion_policy = (
             cdk.CfnDeletionPolicy.RETAIN)
 

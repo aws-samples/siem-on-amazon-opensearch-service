@@ -71,6 +71,7 @@ DASHBOARDS_HEADERS = {'Content-Type': 'application/json', 'osd-xsrf': 'true'}
 RESTAPI_HEADERS = {'Content-Type': 'application/json'}
 AOS_SECURITY_GROUP_ID = os.getenv('AOS_SECURITY_GROUP_ID')
 S3_SNAPSHOT = os.getenv('S3_SNAPSHOT')
+S3_LOG = os.getenv('S3_LOG')
 LOGGROUP_RETENTIONS = [
     (f'/aws/OpenSearchService/domains/{AOS_DOMAIN}/application-logs', 14),
     ('/aws/lambda/aes-siem-add-pandas-layer', 180),
@@ -819,6 +820,33 @@ def validate_resource(event, context):
             except Exception:
                 cidr_block[i] = response['Vpcs'][0]['CidrBlock']
 
+    logger.info('get and backup s3 bucket policy of log bucket')
+    result = s3_client.BucketPolicy(S3_LOG)
+    is_valid_policy = False
+    try:
+        policy = result.policy
+        logger.debug(policy)
+        is_valid_policy = True
+    except s3_client.meta.client.exceptions.NoSuchBucket as err:
+        logger.info('The Log bucket is not found. This is probably the first '
+                    'deployment. If so, ignore this message.')
+        policy = str(err)
+    except Exception as err:
+        logger.error('Valid bucket policy is not found. '
+                     'Select auto_update_policy of LogBucketPolicyUpdate '
+                     'in CloudFormation Parameters')
+        logger.error(err)
+        policy = str(err)
+    backup_content_to_s3(
+        's3_bucket_policy', 'bucket_policy', S3_LOG, policy.encode())
+
+    if not is_valid_policy:
+        bucket_arn = f'arn:{PARTITION}:s3:::{S3_LOG}'
+        policy = ('{{"Version":"2012-10-17","Statement":[{{"Effect":"Deny",'
+                  '"Principal":{{"AWS":"*"}},"Action":"s3:*","Resource":"{0}",'
+                  '"Condition":{{"Bool":{{"aws:SecureTransport":"false"}}}}}}]'
+                  '}}'.format(bucket_arn))
+
     # needs_slr_aos = check_slr_aos(vpc_id)
     # needs_slr_aoss = check_slr_aoss(vpc_id)
 
@@ -831,6 +859,7 @@ def validate_resource(event, context):
         helper_validation.Data['cidr_block1'] = cidr_block[1]
         helper_validation.Data['cidr_block2'] = cidr_block[2]
         helper_validation.Data['cidr_block3'] = cidr_block[3]
+        helper_validation.Data['s3_log_bucket_policy'] = policy
         # helper_validation.Data['needs_slr_aos'] = needs_slr_aos
         # helper_validation.Data['needs_slr_aoss'] = needs_slr_aoss
         logger.debug(helper_validation.Data)
