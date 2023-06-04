@@ -30,6 +30,8 @@ class ResourceValidator(object):
         self.aos_subnet_ids_raw = aos_subnet_ids_raw
         self.same_lambda_func_version = same_lambda_func_version
         self.deployment_target = cfn_parameters_dict['deployment_target']
+        self.log_bucket_policy_update = (
+            cfn_parameters_dict['log_bucket_policy_update'])
         self.vpce_id = cfn_parameters_dict['vpce_id']
         self.has_lambda_architectures_prop = (
             cfn_conditions_dict['has_lambda_architectures_prop'])

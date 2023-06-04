@@ -347,6 +347,20 @@ class MyAesSiemStack(cdk.Stack):
                          'max is 10080 minutes ( = 7 days ).'),
             min_value=30, max_value=10080, default=720)
 
+        create_sqs_vpce = cdk.CfnParameter(
+            self, 'CreateS3VpcEndpoint', allowed_values=['true', 'false'],
+            description=('Create new SQS VPC Endpoint with SIEM solution. '
+                         'If you use existing VPC and already have S3 VPC '
+                         'Endpoint, select false'),
+            default='true')
+
+        create_s3_vpce = cdk.CfnParameter(
+            self, 'CreateSqsVpcEndpoint', allowed_values=['true', 'false'],
+            description=('Create new S3 VPC Endpoint with SIEM solution. '
+                         'If you use existing VPC and already have S3 VPC '
+                         'Endpoint, select false'),
+            default='true')
+
         ct_log_buckets = cdk.CfnParameter(
             self, 'ControlTowerLogBucketNameList',
             type='String',
@@ -424,6 +438,9 @@ class MyAesSiemStack(cdk.Stack):
                                     enable_tor.logical_id,
                                     enable_abuse_ch.logical_id,
                                     ioc_download_interval.logical_id]},
+                    {'Label': {'default': 'Advanced Configuration'},
+                     'Parameters': [create_sqs_vpce.logical_id,
+                                    create_s3_vpce.logical_id]},
                     {'Label': {'default': ('Control Tower Integration '
                                            '- optional')},
                      'Parameters': [ct_log_buckets.logical_id,
@@ -453,6 +470,8 @@ class MyAesSiemStack(cdk.Stack):
             'enable_tor': enable_tor,
             'enable_abuse_ch': enable_abuse_ch,
             'ioc_download_interval': ioc_download_interval,
+            'create_sqs_vpce': create_sqs_vpce,
+            'create_s3_vpce': create_s3_vpce,
             'ct_log_buckets': ct_log_buckets,
             'ct_role_arn': ct_role_arn,
             'ct_log_sqs': ct_log_sqs,
@@ -603,6 +622,24 @@ class MyAesSiemStack(cdk.Stack):
             )
         )
 
+        sqs_vpce_is_required = cdk.CfnCondition(
+            self, "SqsVpceIsRequired",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_equals(
+                    create_sqs_vpce.value_as_string, 'true'),
+                is_in_vpc,
+            )
+        )
+
+        s3_vpce_is_required = cdk.CfnCondition(
+            self, "S3VpceIsRequired",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_equals(
+                    create_s3_vpce.value_as_string, 'true'),
+                is_in_vpc,
+            )
+        )
+
         is_control_tower_access = cdk.CfnCondition(
             self, "IsControlTowerAcccess",
             expression=cdk.Fn.condition_and(
@@ -643,6 +680,8 @@ class MyAesSiemStack(cdk.Stack):
             'has_geoip_license': has_geoip_license,
             'enable_ioc': enable_ioc,
             'has_sns_email': has_sns_email,
+            'sqs_vpce_is_required': sqs_vpce_is_required,
+            's3_vpce_is_required': s3_vpce_is_required,
             'is_control_tower_access': is_control_tower_access,
             'is_security_lake_access': is_security_lake_access,
         }
@@ -808,7 +847,7 @@ class MyAesSiemStack(cdk.Stack):
         ######################################################################
         # IAM Role
         ######################################################################
-        # snapshot policy for AOS
+        # snaphot policy for AOS
         policydoc_snapshot = aws_iam.PolicyDocument(
             statements=[
                 aws_iam.PolicyStatement(
@@ -955,6 +994,7 @@ class MyAesSiemStack(cdk.Stack):
             "VpcId", validated_resource.get_att('vpc_id').to_string())
         vpce_endpoint_sqs.add_property_override(
             "SubnetIds", validated_resource.get_att('subnets').to_string())
+        vpce_endpoint_sqs.cfn_options.condition = sqs_vpce_is_required
 
         vpce_endpoint_s3 = aws_ec2.CfnVPCEndpoint(
             self, "VpcAesSiemS3Endpoint003F70DF", vpc_id='',
@@ -966,6 +1006,7 @@ class MyAesSiemStack(cdk.Stack):
         vpce_endpoint_s3.add_property_override(
             "RouteTableIds",
             validated_resource.get_att('route_table_ids').to_string())
+        vpce_endpoint_s3.cfn_options.condition = s3_vpce_is_required
 
         ######################################################################
         # SQS for es-laoder's DLQ
