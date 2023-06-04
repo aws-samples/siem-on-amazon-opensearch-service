@@ -1,14 +1,14 @@
 requests==2.31.0
 opensearch-py==2.2.0
-geoip2==4.6.0
+geoip2==4.7.0
 aws-lambda-powertools==1.26.7
 xmltodict==0.13.0
 attrs==22.2.0
 ua-parser==0.16.1
 # in lambada env
-boto3==1.20.32
-botocore==1.23.32
+boto3==1.26.90
+botocore==1.29.90
 python-dateutil==2.8.2
-s3transfer==0.5.2
+s3transfer==0.6.0
 six==1.16.0
-urllib3==1.26.6
+urllib3==1.26.11
