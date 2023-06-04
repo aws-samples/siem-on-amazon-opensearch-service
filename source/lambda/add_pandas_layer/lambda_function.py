@@ -20,7 +20,7 @@ print('version: ' + __version__)
 logger = logging.getLogger(__name__)
 helper = CfnResource(
     json_logging=False, log_level='DEBUG', boto_level='CRITICAL',
-    sleep_on_delete=20, ssl_verify=None)
+    sleep_on_delete=3, ssl_verify=None)
 
 VER = '2.20.0'
 """

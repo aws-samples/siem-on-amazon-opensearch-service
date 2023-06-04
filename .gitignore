@@ -6,6 +6,7 @@ aiohttp*
 aioitertool*
 aiosignal*
 async_timeout*
+asynctest*
 attr*
 aws_lambda_powertools*
 aws_xray_sdk*
@@ -62,6 +63,7 @@ global-s3-assets
 regional-s3-assets
 Lambda*.zip
 dashboard.ndjson.zip
+dashboard.serverless.zip
 
 # working files
 .lambda38/

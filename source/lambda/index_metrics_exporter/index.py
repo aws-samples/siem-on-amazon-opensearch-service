@@ -16,25 +16,30 @@ import os
 import uuid
 
 import boto3
+from botocore.config import Config
 import requests
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
 TIMEOUT = 10.0
 
-ES_ENDPOINT = os.getenv('ES_ENDPOINT')
-REGION = ES_ENDPOINT.split('.')[1]
+ENDPOINT = os.getenv('ENDPOINT')
+REGION = ENDPOINT.split('.')[1]
+SERVICE = ENDPOINT.split('.')[2]
 BUCKET_NAME = os.getenv('LOG_BUCKET')
 PERIOD_HOUR = int(os.getenv('PERIOD_HOUR', 1))
 try:
-    AWS_ID = str(boto3.client("sts").get_caller_identity()["Account"])
+    conf = Config(connect_timeout=1, retries={'max_attempts': 0})
+    client = boto3.client("sts", config=conf)
+    AWS_ID = str(client.get_caller_identity()["Account"])
 except Exception:
     AWS_ID = None
+COLLECTION_NAME = os.getenv('COLLECTION_NAME')
 
 credentials = boto3.Session().get_credentials()
-awsauth = AWSV4SignerAuth(credentials, REGION)
+awsauth = AWSV4SignerAuth(credentials, REGION, SERVICE)
 
 client = OpenSearch(
-    hosts=[{'host': ES_ENDPOINT, 'port': 443}], http_auth=awsauth,
+    hosts=[{'host': ENDPOINT, 'port': 443}], http_auth=awsauth,
     use_ssl=True, verify_certs=True, connection_class=RequestsHttpConnection
 )
 
@@ -42,10 +47,10 @@ s3_resource = boto3.resource('s3')
 bucket = s3_resource.Bucket(BUCKET_NAME)
 
 
-def set_index_metrics_schema(d):
+def set_index_metrics_schema(d, timestamp):
     metrics_type = 'index'
     INDEX_METRICS_SCHEMA = {
-        "@timestamp": TIMESTAMP,
+        "@timestamp": timestamp,
         "opensearch": {
             "cluster": {
                 "id": CLUSTER_ID,
@@ -142,10 +147,10 @@ def set_index_metrics_schema(d):
     return INDEX_METRICS_SCHEMA
 
 
-def set_shard_metrics_schema(d):
+def set_shard_metrics_schema(d, timestamp):
     metrics_type = 'shard'
     SHARD_METRICS_SCHEMA = {
-        "@timestamp": TIMESTAMP,
+        "@timestamp": timestamp,
         "opensearch": {
             "cluster": {
                 "id": CLUSTER_ID,
@@ -199,18 +204,24 @@ def del_none(d):
 
 
 def get_cluster_id_name():
-    url = f'https://{ES_ENDPOINT}/'
-    try:
-        res = requests.get(url=url, auth=awsauth, timeout=TIMEOUT)
-    except requests.exceptions.Timeout:
-        print(f'ERROR: timeout, skip {url}')
-        return None, None
-    except Exception as err:
-        print(f'ERROR: unknown error, skip {url}')
-        print(f'ERROR: {err}')
-        return None, None
-    cluster_id = res.json()['cluster_uuid']
-    cluster_name = res.json()['cluster_name'].split(':')[1]
+    if SERVICE == 'es':
+        url = f'https://{ENDPOINT}/'
+        try:
+            res = requests.get(url=url, auth=awsauth, timeout=TIMEOUT)
+        except requests.exceptions.Timeout:
+            print(f'ERROR: timeout, skip {url}')
+            return None, None
+        except Exception as err:
+            print(f'ERROR: unknown error, skip {url}')
+            print(f'ERROR: {err}')
+            return None, None
+        cluster_id = res.json()['cluster_uuid']
+        cluster_name = res.json()['cluster_name'].split(':')[1]
+
+    elif SERVICE == 'aoss':
+        cluster_id = ENDPOINT.split('.')[0]
+        cluster_name = COLLECTION_NAME
+
     return cluster_id, cluster_name
 
 
@@ -231,7 +242,7 @@ def adjust_metrics_by_schema(schema, metrics, path=None):
     return schema
 
 
-def transform_index_metrics(index, res_json, index_status_dict):
+def transform_index_metrics(index, res_json, index_status_dict, timestamp):
     if index not in index_status_dict:
         return None
     tier = index_status_dict[index]['tier']
@@ -253,7 +264,7 @@ def transform_index_metrics(index, res_json, index_status_dict):
         d['shard_total'] = d['shard_primaries'] * (
             int(index_status_dict[index]['rep']) + 1)
 
-    metrics = set_index_metrics_schema(d)
+    metrics = set_index_metrics_schema(d, timestamp)
     if res_json:
         metrics['opensearch']['index'] = adjust_metrics_by_schema(
             metrics['opensearch']['index'], res_json)
@@ -268,12 +279,16 @@ def transform_index_metrics(index, res_json, index_status_dict):
     return del_none(metrics)
 
 
-def get_hotwarm_index_status_dict(tier, index_status_dict={}):
+def get_hotwarm_index_status_dict(tier='', index_status_dict={}):
     print(f'INFO: Start get_hotwarm_index_status_dict, {tier}')
-    url = f'https://{ES_ENDPOINT}/_cat/indices/_{tier}'
-    params = {'v': 'true', 's': 'index', 'format': 'json',
-              'expand_wildcards': 'all',
-              'h': ('health,status,index,creation.date.string,pri,rep')}
+    if tier:
+        url = f'https://{ENDPOINT}/_cat/indices/_{tier}'
+        params = {'v': 'true', 's': 'index', 'format': 'json',
+                  'expand_wildcards': 'all',
+                  'h': ('health,status,index,creation.date.string,pri,rep')}
+    else:
+        url = f'https://{ENDPOINT}/_cat/indices'
+        params = {'v': 'true', 's': 'index', 'format': 'json'}
     try:
         res = requests.get(
             url=url, params=params, auth=awsauth, timeout=TIMEOUT)
@@ -286,9 +301,11 @@ def get_hotwarm_index_status_dict(tier, index_status_dict={}):
         return False
     if res.status_code != 200:
         print(f'ERROR: {url}')
-        print(f'ERROR: {res.json()}')
+        print(f'ERROR: {res}')
+        print(f'ERROR: {res.text}')
         return False
 
+    print(f'INFO: There are {len(res.json())} status')
     for index_dict in res.json():
         index_name = index_dict.pop('index')
         index_status_dict[index_name] = index_dict
@@ -299,8 +316,8 @@ def get_hotwarm_index_status_dict(tier, index_status_dict={}):
 
 
 def get_cold_index_status_dict(index_status_dict):
-    print(f'INFO: Start get_cold_index_status_dict')
-    url = f'https://{ES_ENDPOINT}/_cold/indices/_search'
+    print('INFO: Start get_cold_index_status_dict')
+    url = f'https://{ENDPOINT}/_cold/indices/_search'
     headers = {'Content-Type': 'application/json'}
     try:
         res = requests.get(
@@ -329,21 +346,18 @@ def get_cold_index_status_dict(index_status_dict):
         except requests.exceptions.Timeout:
             print(f'ERROR: timeout, skip {url}')
             return False
-    print(f'INFO: Done  get_cold_index_status_dict')
+    print('INFO: Done  get_cold_index_status_dict')
     return index_status_dict
 
 
 def get_write_hotwarm_index_metrics(fp, index_status_dict):
-    print(f'INFO: Start get_write_hotwarm_index_metrics')
-    url = (f'https://{ES_ENDPOINT}/_stats/docs,indexing,merge,refresh,'
+    print('INFO: Start get_write_hotwarm_index_metrics')
+    url = (f'https://{ENDPOINT}/_stats/docs,indexing,merge,refresh,'
            'segments,store,fielddata,search')
     headers = {'Content-Type': 'application/json'}
     try:
         res = requests.get(
             url=url, headers=headers, auth=awsauth, timeout=TIMEOUT)
-    except requests.exceptions.Timeout:
-        print(f'ERROR: timeout, skip {url}')
-        return False
     except requests.exceptions.Timeout:
         print(f'ERROR: timeout, skip {url}')
         return False
@@ -353,7 +367,8 @@ def get_write_hotwarm_index_metrics(fp, index_status_dict):
         return False
     if res.status_code != 200:
         print(f'ERROR: {url}')
-        print(f'ERROR: {res.json()}')
+        print(f'ERROR: {res}')
+        print(f'ERROR: {res.text}')
         return False
 
     indices = res.json()['indices']
@@ -362,28 +377,46 @@ def get_write_hotwarm_index_metrics(fp, index_status_dict):
             index, value, index_status_dict)
         if index_metrics:
             fp.write(json.dumps(index_metrics) + '\n')
-    print(f'INFO: Done  get_write_hotwarm_index_metrics')
+    print('INFO: Done  get_write_hotwarm_index_metrics')
 
 
 def get_write_coldclose_index_metrics(fp, index_status_dict):
-    print(f'INFO: Start get_write_coldclose_index_metrics')
+    print('INFO: Start get_write_coldclose_index_metrics')
     for index, index_status in index_status_dict.items():
         if index_status.get('status') in ('cold', 'close'):
             index_metrics = transform_index_metrics(
                 index, None, index_status_dict)
             if index_metrics:
                 fp.write(json.dumps(index_metrics) + '\n')
-    print(f'INFO: Done  get_write_coldclose_index_metrics')
+    print('INFO: Done  get_write_coldclose_index_metrics')
+
+
+def get_write_aoss_index_metrics(fp, index_status_dict, timestamp):
+    print('INFO: Start get_write_aoss_index_metrics')
+    for index, value in index_status_dict.items():
+        d = collections.defaultdict(lambda: None)
+        d['index_name'] = index
+        d['uuid'] = value['uuid']
+        metrics = set_index_metrics_schema(d, timestamp)
+        metrics['opensearch']['index']['primaries']['docs']['count'] = (
+            value['docs.count'])
+        metrics['opensearch']['index']['primaries']['docs']['deleted'] = (
+            value['docs.deleted'])
+
+        fp.write(json.dumps(del_none(metrics)) + '\n')
+        del d
+
+    print('INFO: Done  get_write_aoss_index_metrics')
 
 
 ##############################################################################
 # SHARD
 ##############################################################################
 def get_shard_metrics():
-    print(f'INFO: Start get_shard_metrics')
+    print('INFO: Start get_shard_metrics')
     # GET _search_shards
     # GET _cat/shards?help
-    url = f'https://{ES_ENDPOINT}/_cat/shards'
+    url = f'https://{ENDPOINT}/_cat/shards'
     params = {'v': 'true', 's': 'index', 'bytes': 'b', 'format': 'json',
               'h': ('index,shard,prirep,state,docs,store,id,node')}
     try:
@@ -400,12 +433,12 @@ def get_shard_metrics():
         print(f'ERROR: {url}')
         print(f'ERROR: {res.json()}')
         return False
-    print(f'INFO: Done  get_shard_metrics')
+    print('INFO: Done  get_shard_metrics')
     return res.json()
 
 
-def get_write_shard_metrics(fp, index_status_dict):
-    print(f'INFO: Start get_write_shard_metrics')
+def get_write_shard_metrics(fp, index_status_dict, timestamp):
+    print('INFO: Start get_write_shard_metrics')
     shard_metrics_list = get_shard_metrics()
     for raw_shard_metrics in shard_metrics_list:
         if not raw_shard_metrics:
@@ -428,35 +461,45 @@ def get_write_shard_metrics(fp, index_status_dict):
         d['store'] = raw_shard_metrics.get('store')
         d['state'] = raw_shard_metrics.get('state')
 
-        shard_metrics = set_shard_metrics_schema(d)
+        shard_metrics = set_shard_metrics_schema(d, timestamp)
 
         fp.write(json.dumps(del_none(shard_metrics)) + '\n')
         del d
-    print(f'INFO: Done  get_write_shard_metrics')
+    print('INFO: Done  get_write_shard_metrics')
 
 
 ##############################################################################
 # Main
 ##############################################################################
-TIMESTAMP = datetime.datetime.utcnow().isoformat() + 'Z'
 CLUSTER_ID, CLUSTER_NAME = get_cluster_id_name()
 
 
 def lambda_handler(event, context):
+    timestamp = datetime.datetime.utcnow().isoformat() + 'Z'
     try:
         AWS_ID = str(context.invoked_function_arn.split(':')[4])
     except Exception:
         print('Using sts api to get AWS Account')
     file_name = f'aos_index_metrics_{uuid.uuid4().hex}.json.gz'
-    index_status_dict = get_hotwarm_index_status_dict('hot')
-    index_status_dict = get_hotwarm_index_status_dict(
-        'warm', index_status_dict)
-    index_status_dict = get_cold_index_status_dict(index_status_dict)
+    if SERVICE == 'es':
+        index_status_dict = get_hotwarm_index_status_dict('hot')
+        index_status_dict = get_hotwarm_index_status_dict(
+            'warm', index_status_dict)
+        index_status_dict = get_cold_index_status_dict(index_status_dict)
+    elif SERVICE == 'aoss':
+        index_status_dict = get_hotwarm_index_status_dict()
 
+    if not index_status_dict:
+        return {"statusCode": 400}
+
+    print(f'INFO: There are {len(index_status_dict)} indices or shards')
     with gzip.open(f'/tmp/{file_name}', 'wt') as fp:
-        get_write_hotwarm_index_metrics(fp, index_status_dict)
-        get_write_coldclose_index_metrics(fp, index_status_dict)
-        get_write_shard_metrics(fp, index_status_dict)
+        if SERVICE == 'es':
+            get_write_hotwarm_index_metrics(fp, index_status_dict, timestamp)
+            get_write_coldclose_index_metrics(fp, index_status_dict, timestamp)
+            get_write_shard_metrics(fp, index_status_dict, timestamp)
+        elif SERVICE == 'aoss':
+            get_write_aoss_index_metrics(fp, index_status_dict, timestamp)
 
     now = datetime.datetime.now().strftime('%Y/%m/%d')
     s3file_name = (

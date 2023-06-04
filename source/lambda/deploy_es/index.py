@@ -12,6 +12,7 @@ import configparser
 import json
 import logging
 import os
+import pathlib
 import secrets
 import string
 import time
@@ -24,38 +25,54 @@ import requests
 from crhelper import CfnResource
 from opensearchpy import AWSV4SignerAuth
 
+from aoss import MyAoss
+
 print(f'version: {__version__}')
 print(f'boto3: {boto3.__version__}')
 
 logger = logging.getLogger(__name__)
+helper_validation = CfnResource(json_logging=False, log_level='DEBUG',
+                                boto_level='CRITICAL', sleep_on_delete=3)
 helper_domain = CfnResource(json_logging=False, log_level='DEBUG',
-                            boto_level='CRITICAL', sleep_on_delete=20)
+                            boto_level='CRITICAL', sleep_on_delete=3)
 helper_config = CfnResource(json_logging=False, log_level='DEBUG',
-                            boto_level='CRITICAL', sleep_on_delete=20)
+                            boto_level='CRITICAL', sleep_on_delete=3)
 
 opensearch_client = boto3.client('opensearch')
+serverless_client = boto3.client('opensearchserverless')
+iam_client = boto3.client('iam')
 s3_client = boto3.resource('s3')
+ec2_client = boto3.client('ec2')
 
 ACCOUNT_ID = os.environ['ACCOUNT_ID']
 REGION = os.environ['AWS_REGION']
 PARTITION = boto3.Session().get_partition_for_region(REGION)
-AOS_SERVICE = 'OpenSearchService'
-ENDPOINT = os.getenv('es_endpoint')
+DEPLOYMENT_TARGET = os.getenv(
+    'DEPLOYMENT_TARGET', 'opensearch_managed_cluster')
+# opensearch_managed_cluster or opensearch_serverless
+AOS_SUBNET_IDS = os.getenv('AOS_SUBNET_IDS')
+VPCE_ID = os.getenv('VPCE_ID')
+ENDPOINT = os.getenv('ENDPOINT', '')
+DOMAIN_OR_COLLECTION_NAME = os.getenv('DOMAIN_OR_COLLECTION_NAME')
 
-aesdomain = os.getenv('aes_domain_name')
-myaddress = os.getenv('allow_source_address', '').split()
-aes_admin_role = os.getenv('aes_admin_role')
-es_loader_role = os.getenv('es_loader_role')
-metrics_exporter_role = os.getenv('metrics_exporter_role')
+SOLUTION_PREFIX = os.getenv('SOLUTION_PREFIX')
+if SOLUTION_PREFIX != 'aes-siem':
+    AOS_DOMAIN = SOLUTION_PREFIX
+else:
+    AOS_DOMAIN = DOMAIN_OR_COLLECTION_NAME
+ALLOWED_SOURCE_ADDRESSES = os.getenv('ALLOWED_SOURCE_ADDRESSES', '').split()
+ROLE_AOS_ADMIN = os.getenv('ROLE_AOS_ADMIN')
+ROLE_ES_LOADER = os.getenv('ROLE_ES_LOADER')
+ROLE_METRICS_EXPORTER = os.getenv('ROLE_METRICS_EXPORTER')
+ROLE_SNAPSHOT = os.getenv('ROLE_SNAPSHOT')
 KIBANAADMIN = 'aesadmin'
 KIBANA_HEADERS = {'Content-Type': 'application/json', 'kbn-xsrf': 'true'}
 DASHBOARDS_HEADERS = {'Content-Type': 'application/json', 'osd-xsrf': 'true'}
 RESTAPI_HEADERS = {'Content-Type': 'application/json'}
-vpc_subnet_id = os.getenv('vpc_subnet_id')
-security_group_id = os.getenv('security_group_id')
-s3_snapshot = os.getenv('s3_snapshot')
+AOS_SECURITY_GROUP_ID = os.getenv('AOS_SECURITY_GROUP_ID')
+S3_SNAPSHOT = os.getenv('S3_SNAPSHOT')
 LOGGROUP_RETENTIONS = [
-    (f'/aws/OpenSearchService/domains/{aesdomain}/application-logs', 14),
+    (f'/aws/OpenSearchService/domains/{AOS_DOMAIN}/application-logs', 14),
     ('/aws/lambda/aes-siem-add-pandas-layer', 180),
     ('/aws/lambda/aes-siem-configure-aes', 180),
     ('/aws/lambda/aes-siem-deploy-aes', 180),
@@ -65,7 +82,16 @@ LOGGROUP_RETENTIONS = [
     ('/aws/lambda/aes-siem-ioc-createdb', 90),
     ('/aws/lambda/aes-siem-ioc-download', 90),
     ('/aws/lambda/aes-siem-ioc-plan', 90),
+    ('/aws/lambda/aes-siem-resource-validator', 180),
 ]
+if ENDPOINT:
+    AOS_SERVICE = ENDPOINT.split('.')[2]
+elif DEPLOYMENT_TARGET == 'opensearch_managed_cluster':
+    AOS_SERVICE = 'es'
+elif DEPLOYMENT_TARGET == 'opensearch_serverless':
+    AOS_SERVICE = 'aoss'
+else:
+    AOS_SERVICE = ''
 
 
 es_loader_ec2_role = (
@@ -84,9 +110,9 @@ cwl_resource_policy = {
             ],
             'Resource': [
                 (f'arn:{PARTITION}:logs:{REGION}:{ACCOUNT_ID}:log-group:/aws/'
-                 f'OpenSearchService/domains/{aesdomain}/*'),
+                 f'OpenSearchService/domains/{AOS_DOMAIN}/*'),
                 (f'arn:{PARTITION}:logs:{REGION}:{ACCOUNT_ID}:log-group:/aws/'
-                 f'OpenSearchService/domains/{aesdomain}/*:*')
+                 f'OpenSearchService/domains/{AOS_DOMAIN}/*:*'),
             ]
         }
     ]
@@ -100,25 +126,26 @@ access_policies = {
             'Principal': {'AWS': [ACCOUNT_ID]},
             'Action': ['es:*'],
             'Resource': (f'arn:{PARTITION}:es:{REGION}:{ACCOUNT_ID}'
-                         f':domain/{aesdomain}/*')
+                         f':domain/{AOS_DOMAIN}/*')
         },
         {
             'Effect': 'Allow',
             'Principal': {'AWS': '*'},
             'Action': ['es:*'],
-            'Condition': {'IpAddress': {'aws:SourceIp': myaddress}},
+            'Condition': {
+                'IpAddress': {'aws:SourceIp': ALLOWED_SOURCE_ADDRESSES}},
             'Resource': (f'arn:{PARTITION}:es:{REGION}:{ACCOUNT_ID}'
-                         f':domain/{aesdomain}/*')
+                         f':domain/{AOS_DOMAIN}/*')
         }
     ]
 }
-if vpc_subnet_id:
+if AOS_SUBNET_IDS:
     access_policies['Statement'][0]['Principal'] = {'AWS': '*'}
     del access_policies['Statement'][1]
 access_policies_json = json.dumps(access_policies)
 
 config_domain = {
-    'DomainName': aesdomain,
+    'DomainName': AOS_DOMAIN,
     'EngineVersion': 'OpenSearch_2.5',
     'ClusterConfig': {
         'InstanceType': 't3.medium.search',
@@ -168,7 +195,7 @@ config_domain = {
         'ES_APPLICATION_LOGS': {
             'CloudWatchLogsLogGroupArn': (
                 f'arn:{PARTITION}:logs:{REGION}:{ACCOUNT_ID}:log-group:/aws/'
-                f'OpenSearchService/domains/{aesdomain}/application-logs'),
+                f'OpenSearchService/domains/{AOS_DOMAIN}/application-logs'),
             'Enabled': True
         }
     },
@@ -180,21 +207,21 @@ config_domain = {
         'Enabled': True,
         'InternalUserDatabaseEnabled': False,
         'MasterUserOptions': {
-            'MasterUserARN': aes_admin_role,
+            'MasterUserARN': ROLE_AOS_ADMIN,
             # 'MasterUserName': kibanaadmin,
             # 'MasterUserPassword': kibanapass
         }
     }
 }
-if vpc_subnet_id:
-    config_domain['VPCOptions'] = {'SubnetIds': [vpc_subnet_id, ],
-                                   'SecurityGroupIds': [security_group_id, ]}
+if AOS_SUBNET_IDS:
+    config_domain['VPCOptions'] = {'SubnetIds': [AOS_SUBNET_IDS.split(',')[0]],
+                                   'SecurityGroupIds': [AOS_SECURITY_GROUP_ID]}
 
 if REGION == 'ap-northeast-3':
     config_domain['ClusterConfig']['InstanceType'] = 'r5.large.search'
 
-if s3_snapshot:
-    s3_snapshot_bucket = s3_client.Bucket(s3_snapshot)
+if S3_SNAPSHOT:
+    s3_snapshot_bucket = s3_client.Bucket(S3_SNAPSHOT)
 
 
 def make_password(length):
@@ -211,7 +238,7 @@ def make_password(length):
 
 def create_kibanaadmin(kibanapass):
     response = opensearch_client.update_domain_config(
-        DomainName=aesdomain,
+        DomainName=AOS_DOMAIN,
         AdvancedSecurityOptions={
             # 'Enabled': True,
             'InternalUserDatabaseEnabled': True,
@@ -226,8 +253,8 @@ def create_kibanaadmin(kibanapass):
 
 def auth_aes():
     credentials = boto3.Session().get_credentials()
-    if AOS_SERVICE == 'OpenSearchService':
-        awsauth = AWSV4SignerAuth(credentials, REGION, 'es')
+    awsauth = AWSV4SignerAuth(credentials, REGION, AOS_SERVICE)
+
     return awsauth
 
 
@@ -237,6 +264,10 @@ def output_message(key, res):
 
 def get_dist_version():
     logger.debug('start get_dist_version')
+    if AOS_SERVICE == 'aoss':
+        dist_name = 'opensearch'
+        domain_version = 'serverless'
+        return dist_name, domain_version
     awsauth = auth_aes()
 
     res = requests.get(f'https://{ENDPOINT}/', auth=awsauth, stream=True)
@@ -253,6 +284,9 @@ def get_dist_version():
 
 def upsert_role_mapping(dist_name, role_name, es_app_data=None,
                         added_user=None, added_role=None, added_host=None):
+    if AOS_SERVICE == 'aoss':
+        return
+
     awsauth = auth_aes()
     if dist_name == 'opensearch':
         base_url = f'https://{ENDPOINT}/_plugins/'
@@ -277,7 +311,7 @@ def upsert_role_mapping(dist_name, role_name, es_app_data=None,
         time.sleep(3)
 
         # role mapping for new role
-        payload = {'backend_roles': [es_loader_role, ]}
+        payload = {'backend_roles': [ROLE_ES_LOADER, ]}
         res = requests.put(
             url=f'{base_url}_security/api/rolesmapping/{role_name}',
             auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
@@ -327,17 +361,19 @@ def upsert_role_mapping(dist_name, role_name, es_app_data=None,
 
 
 def configure_opensearch(dist_name, es_app_data):
+    if AOS_SERVICE == 'aoss':
+        return
     logger.info("Create or Update role/mapping")
     upsert_role_mapping(dist_name, 'all_access',
-                        added_user=KIBANAADMIN, added_role=aes_admin_role)
+                        added_user=KIBANAADMIN, added_role=ROLE_AOS_ADMIN)
     upsert_role_mapping(dist_name, 'security_manager',
-                        added_user=KIBANAADMIN, added_role=aes_admin_role)
+                        added_user=KIBANAADMIN, added_role=ROLE_AOS_ADMIN)
     upsert_role_mapping(dist_name, 'aws_log_loader', es_app_data=es_app_data,
-                        added_role=es_loader_role)
+                        added_role=ROLE_ES_LOADER)
     upsert_role_mapping(dist_name, 'aws_log_loader', es_app_data=es_app_data,
                         added_role=es_loader_ec2_role)
     upsert_role_mapping(dist_name, 'aws_log_loader', es_app_data=es_app_data,
-                        added_role=metrics_exporter_role)
+                        added_role=ROLE_METRICS_EXPORTER)
 
 
 def upsert_policy(dist_name, awsauth, items):
@@ -363,13 +399,18 @@ def upsert_policy(dist_name, awsauth, items):
 def upsert_obj(awsauth, items, api):
     for key in items:
         payload = json.loads(items[key])
-        res = requests.put(
-            url=f'https://{ENDPOINT}/{api}/{key}',
-            auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
-        if res.status_code == 200:
-            logger.debug(output_message(key, res))
-        else:
+        for i in range(5):
+            res = requests.put(
+                url=f'https://{ENDPOINT}/{api}/{key}',
+                auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
+            if res.status_code == 200:
+                logger.debug(output_message(key, res))
+                break
+            elif res.status_code in (400, 403) and AOS_SERVICE == 'aoss':
+                time.sleep(2)
+                continue
             logger.error(output_message(key, res))
+            break
 
 
 def delete_obj(awsauth, items, api):
@@ -424,11 +465,12 @@ def configure_siem(dist_name, es_app_data):
 
     # lagecy intex template. It will be deplecated
     logger.info('Create/Update legacy index templates')
-    upsert_obj(awsauth, es_app_data['legacy-index-template'],
-               api='_template')
+    upsert_obj(awsauth, es_app_data['legacy-index-template'], api='_template')
 
 
 def configure_index_rollover(es_app_data):
+    if AOS_SERVICE == 'aoss':
+        return
     awsauth = auth_aes()
     index_patterns = es_app_data['index-rollover']
     logger.info('Create initial index 000001 for rollover')
@@ -511,7 +553,7 @@ def setup_aes_system_log():
     cwl_client = boto3.client('logs')
     logger.info('put_resource_policy for OpenSearch Service system log')
     response = cwl_client.put_resource_policy(
-        policyName=f'OpenSearchService-{aesdomain}-logs',
+        policyName=f'OpenSearchService-{SOLUTION_PREFIX}-logs',
         policyDocument=json.dumps(cwl_resource_policy)
     )
     logger.debug('Response of put_resource_policy')
@@ -523,6 +565,8 @@ def setup_aes_system_log():
 
 
 def set_tenant_get_cookies(dist_name, tenant, auth):
+    if AOS_SERVICE == 'aoss':
+        return
     logger.debug(f'Set tenant as {tenant} and get cookies')
     logger.debug(f'dist_name is {dist_name}')
     if dist_name == 'opensearch':
@@ -552,8 +596,31 @@ def set_tenant_get_cookies(dist_name, tenant, auth):
         return False
 
 
+def register_snapshot_repository():
+    if AOS_SERVICE == 'aoss':
+        return
+    logger.info('register snapshot repository')
+    payload = {
+        "type": "s3",
+        "settings": {
+            "bucket": S3_SNAPSHOT,
+            "region": REGION,
+            "role_arn": ROLE_SNAPSHOT,
+        }
+    }
+    awsauth = auth_aes()
+    api = '_snapshot/siem-snapshot'
+    res = requests.put(
+        f'https://{ENDPOINT}/{api}',
+        auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
+    if res.status_code == 200:
+        logger.info(output_message(api, res))
+    else:
+        logger.error(output_message(api, res))
+
+
 def get_saved_objects(dist_name, cookies, auth=None):
-    if not cookies:
+    if not cookies and AOS_SERVICE == 'es':
         logger.warning("No authentication. Skipped downloading dashboard")
         return False
     if dist_name == 'opensearch':
@@ -575,26 +642,25 @@ def get_saved_objects(dist_name, cookies, auth=None):
     return response.content
 
 
-def backup_dashboard_to_s3(saved_objects, tenant):
+def backup_content_to_s3(dir_name, content_type, content_name, content):
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-    dashboard_file = f'{tenant}-dashboard-{now_str}.ndjson'
-    if saved_objects and isinstance(saved_objects, bytes):
-        with open(f'/tmp/{dashboard_file}', 'wb') as ndjson_file:
-            ndjson_file.write(saved_objects)
-        with ZipFile(f'/tmp/{dashboard_file}.zip', 'w',
-                     compression=ZIP_DEFLATED) as bk_dashboard_zip:
-            bk_dashboard_zip.write(
-                f'/tmp/{dashboard_file}', arcname=dashboard_file)
+    file_name = f'{content_name}-{content_type}-{now_str}.json'
+    if content and isinstance(content, bytes):
+        with open(f'/tmp/{file_name}', 'wb') as raw_file:
+            raw_file.write(content)
+        with ZipFile(f'/tmp/{file_name}.zip', 'w',
+                     compression=ZIP_DEFLATED) as zip_file:
+            zip_file.write(f'/tmp/{file_name}', arcname=file_name)
     else:
-        logging.error('failed to export dashboard')
+        logging.error(f'failed to export {content_type}')
         return False
     try:
         s3_snapshot_bucket.upload_file(
-            Filename=f'/tmp/{dashboard_file}.zip',
-            Key=f'saved_objects/{dashboard_file}.zip')
+            Filename=f'/tmp/{file_name}.zip',
+            Key=f'{dir_name}/{file_name}.zip')
         return True
     except Exception as err:
-        logging.error('failed to upload dashboard to S3')
+        logging.error(f'failed to upload {content_type} to S3')
         logging.error(err)
         return False
 
@@ -611,17 +677,165 @@ def import_saved_objects_into_aos(dist_name, auth, cookies):
                f'_import?overwrite=true')
         headers = {'kbn-xsrf': 'true'}
 
-    with ZipFile('dashboard.ndjson.zip') as new_dashboard_zip:
-        new_dashboard_zip.extractall('/tmp/')
-    if os.path.exists('/tmp/dashboard.ndjson'):
-        with open('/tmp/dashboard.ndjson', 'rb') as fd:
-            # confirmd and ignored Rule-645108
+    if AOS_SERVICE == 'es':
+        with ZipFile('dashboard.ndjson.zip') as new_dashboard_zip:
+            new_dashboard_zip.extractall('/tmp/')
+        if os.path.exists('/tmp/dashboard.ndjson'):
+            with open('/tmp/dashboard.ndjson', 'rb') as fd:
+                # confirmd and ignored Rule-645108
+                response = requests.post(
+                    url=url, cookies=cookies, files={'file': fd},
+                    headers=headers, auth=auth)
+                logger.info(response.text)
+        else:
+            logger.error('dashboard.ndjson is not contained')
+
+    elif AOS_SERVICE == 'aoss':
+        with ZipFile('dashboard.serverless.zip') as new_dashboard_zip:
+            new_dashboard_zip.extractall('/tmp/')
+        temp_dir = pathlib.Path('/tmp')
+        files_list = list(temp_dir.glob('config/*.ndjson'))
+        files_list += list(temp_dir.glob('each-indexpattern-search/*.ndjson'))
+        files_list += list(temp_dir.glob('each-dashboard/*.ndjson'))
+
+        for file_path in files_list:
+            files = {'file': open(file_path, 'rb')}
+            logger.debug(file_path)
             response = requests.post(
-                url=url, cookies=cookies, files={'file': fd},
-                headers=headers, auth=auth)
-            logger.info(response.text)
+                url, files=files, headers=headers, auth=auth)
+            if response.status_code == 200:
+                logger.debug(response.text)
+            else:
+                logger.error(response.text)
+
+
+def resource_validator_handler(event, context):
+    if 'ResourceType' in event \
+            and event['ResourceType'] == 'AWS::CloudFormation::CustomResource':
+        helper_validation(event, context)
     else:
-        logger.error('dashboard.ndjson is not contained')
+        validate_resource(event, context)
+    return {"statusCode": 200}
+
+
+def check_slr_aos(vpc_id=None):
+    needs_slr = False
+    if AOS_SERVICE == 'es' and vpc_id:
+        try:
+            logger.debug('Check IAM Role')
+            response = iam_client.get_role(
+                RoleName='AmazonOpenSearchServerlessServiceRole')
+            logger.debug(response)
+        except Exception:
+            needs_slr = True
+    return needs_slr
+
+
+def check_slr_aoss(vpc_id=None):
+    needs_slr = False
+    if AOS_SERVICE == 'aoss' and vpc_id:
+        try:
+            logger.debug('Check IAM Role')
+            response = iam_client.get_role(
+                RoleName='AWSServiceRoleForAmazonOpenSearchService')
+            logger.debug(response)
+        except Exception:
+            needs_slr = True
+    return needs_slr
+
+
+@helper_validation.update
+@helper_validation.create
+def validate_resource(event, context):
+    logger.info("Got Create/Update")
+    if event:
+        logger.debug(json.dumps(event, default=json_serial))
+
+    suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
+    physicalResourceId = f'vpc-config-{__version__}-{suffix}'
+
+    subnets = sorted(AOS_SUBNET_IDS.split(',')) if AOS_SUBNET_IDS else []
+    vpc_id = ''
+    cidr_block = [0, 1, 2, 3]
+    route_table_ids = []
+    if VPCE_ID and AOS_SERVICE == 'es':
+        logger.debug('Check VPCE for OpenSearch Managed Cluster')
+        try:
+            response = opensearch_client.describe_vpc_endpoints(
+                VpcEndpointIds=[VPCE_ID])
+            logger.debug(response)
+            vpc_options = response['VpcEndpoints'][0].get('VpcOptions')
+            vpc_id = vpc_options.get('VPCId')
+            subnets = sorted(vpc_options.get('SubnetIds'))
+            logger.debug(f'vpc_id: {vpc_id}')
+            logger.debug(f'subnets: {subnets}')
+        except Exception as err:
+            raise Exception(f'VPC endpoint {VPCE_ID} is not found or '
+                            f'something wrong. Invalid VPCE ID. {err}')
+    elif VPCE_ID and AOS_SERVICE == 'aoss':
+        logger.debug('Check VPCE for OpenSearch Serverless')
+        try:
+            response = serverless_client.batch_get_vpc_endpoint(ids=[VPCE_ID])
+            logger.debug(response)
+            vpce_detail = response['vpcEndpointDetails'][0]
+            vpc_id = vpce_detail.get('vpcId')
+            subnets = sorted(vpce_detail.get('subnetIds'))
+            logger.debug(f'vpc_id: {vpc_id}')
+            logger.debug(f'subnets: {subnets}')
+        except Exception as err:
+            raise Exception(f'VPC endpoint {VPCE_ID} is not found or '
+                            f'something wrong. Invalid VPCE ID. {err}')
+    if subnets:
+        logger.debug('Check subnets')
+        response = ec2_client.describe_subnets(SubnetIds=subnets)
+        vpc_id = response['Subnets'][0]['VpcId']
+
+        logger.debug('Check route tables')
+        response = ec2_client.describe_route_tables(
+            Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])
+        for x in response['RouteTables']:
+            for y in x['Associations']:
+                if isinstance(y, dict) and y.get('Main'):
+                    main_route_table = y['RouteTableId']
+                    break
+        for subnet in subnets:
+            response = ec2_client.describe_route_tables(
+                Filters=[{'Name': 'association.subnet-id',
+                          'Values': [subnet]}])
+            if len(response['RouteTables']) == 0:
+                route_table_ids.append(main_route_table)
+            else:
+                for x in response['RouteTables']:
+                    for y in x['Associations']:
+                        if isinstance(y, dict) and y.get('RouteTableId'):
+                            route_table_ids.append(y.get('RouteTableId'))
+            route_table_ids = sorted(list(set(route_table_ids)))
+
+        logger.debug('Check vpc_id')
+        response = ec2_client.describe_vpcs(VpcIds=[vpc_id])
+        for i in range(4):
+            try:
+                cidr_block[i] = response['Vpcs'][i]['CidrBlock']
+            except Exception:
+                cidr_block[i] = response['Vpcs'][0]['CidrBlock']
+
+    # needs_slr_aos = check_slr_aos(vpc_id)
+    # needs_slr_aoss = check_slr_aoss(vpc_id)
+
+    if event and 'RequestType' in event:
+        # Response For CloudFormation Custome Resource
+        helper_validation.Data['vpc_id'] = vpc_id
+        helper_validation.Data['subnets'] = subnets
+        helper_validation.Data['route_table_ids'] = route_table_ids
+        helper_validation.Data['cidr_block0'] = cidr_block[0]
+        helper_validation.Data['cidr_block1'] = cidr_block[1]
+        helper_validation.Data['cidr_block2'] = cidr_block[2]
+        helper_validation.Data['cidr_block3'] = cidr_block[3]
+        # helper_validation.Data['needs_slr_aos'] = needs_slr_aos
+        # helper_validation.Data['needs_slr_aoss'] = needs_slr_aoss
+        logger.debug(helper_validation.Data)
+        logger.info("End Create/Update")
+        return physicalResourceId
 
 
 def aes_domain_handler(event, context):
@@ -633,21 +847,41 @@ def aes_domain_create(event, context):
     logger.info("Got Create")
     if event:
         logger.debug(json.dumps(event, default=json_serial))
+
+    if AOS_SERVICE == 'es':
+        try:
+            response = opensearch_client.describe_domain(
+                DomainName=AOS_DOMAIN)
+        except Exception:
+            logger.info(f'OpenSearch Domain "{AOS_DOMAIN}" will be created')
+            create_new_domain = True
+        else:
+            logger.info(f'OpenSearch Domain "{AOS_DOMAIN}" already exists')
+            create_new_domain = False
+    elif AOS_SERVICE == 'aoss':
+        aoss = MyAoss(serverless_client, DOMAIN_OR_COLLECTION_NAME)
+        create_new_domain = aoss.check_collection_creating_necessity()
+
+    helper_domain.Data.update({"create_new_domain": create_new_domain})
+
     setup_aes_system_log()
-    try:
-        response = opensearch_client.create_domain(**config_domain)
-    except botocore.exceptions.ClientError:
-        logger.exception('retry in 60s')
-        time.sleep(60)
-        response = opensearch_client.create_domain(**config_domain)
-    time.sleep(3)
-    logger.debug(json.dumps(response, default=json_serial))
-    if (response['DomainStatus']['Created']
-            and not response['DomainStatus']['Processing']):
-        raise Exception('OpenSearch Domain already exists. Aborted. '
-                        'Remove the domain and re-deploy')
-    kibanapass = make_password(8)
-    helper_domain.Data.update({"kibanapass": kibanapass})
+
+    if AOS_SERVICE == 'es' and create_new_domain:
+        try:
+            response = opensearch_client.create_domain(**config_domain)
+        except botocore.exceptions.ClientError:
+            logger.exception('retry in 60s')
+            time.sleep(60)
+            response = opensearch_client.create_domain(**config_domain)
+        time.sleep(3)
+        logger.debug(json.dumps(response, default=json_serial))
+        kibanapass = make_password(8)
+        helper_domain.Data.update({"kibanapass": kibanapass})
+    elif AOS_SERVICE == 'aoss' and create_new_domain:
+        aoss.create_collection(VPCE_ID)
+    elif not create_new_domain:
+        pass
+
     logger.info("End Create. To be continue in poll create")
     return True
 
@@ -655,47 +889,72 @@ def aes_domain_create(event, context):
 @helper_domain.poll_create
 def aes_domain_poll_create(event, context):
     logger.info("Got create poll")
+
     suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
     physicalResourceId = f'aes-siem-domain-{__version__}-{suffix}'
+    create_new_domain = helper_domain.Data.get('create_new_domain')
     kibanapass = helper_domain.Data.get('kibanapass')
+    aoss_type = ''
     if not kibanapass:
         kibanapass = 'MASKED'
-    response = opensearch_client.describe_domain(DomainName=aesdomain)
-    logger.debug('Processing domain creation')
-    logger.debug(json.dumps(response, default=json_serial))
-    is_processing = response['DomainStatus']['Processing']
-    if is_processing:
-        return None
+    if AOS_SERVICE == 'aoss':
+        aoss = MyAoss(serverless_client, DOMAIN_OR_COLLECTION_NAME)
 
-    logger.info('OpenSearch Service domain is created')
+    if AOS_SERVICE == 'es' and create_new_domain:
+        response = opensearch_client.describe_domain(DomainName=AOS_DOMAIN)
+        logger.debug('Processing domain creation')
+        logger.debug(json.dumps(response, default=json_serial))
+        is_processing = response['DomainStatus']['Processing']
+        if is_processing:
+            return None
 
-    userdb_enabled = (response['DomainStatus']['AdvancedSecurityOptions']
-                      ['InternalUserDatabaseEnabled'])
-    if not userdb_enabled:
-        logger.info(f'ID: {KIBANAADMIN}, PASSWORD: {kibanapass}')
-        update_response = create_kibanaadmin(kibanapass)
-        while not userdb_enabled:
-            logger.debug('Processing domain configuration')
-            userdb_enabled = (update_response['DomainConfig']
-                              ['AdvancedSecurityOptions']['Options']
-                              ['InternalUserDatabaseEnabled'])
-            time.sleep(3)
-        logger.info('Finished domain configuration with new random password')
+        logger.info('OpenSearch Service domain is created')
 
-    es_endpoint = None
-    while not es_endpoint:
-        time.sleep(10)  # wait to finish setup of endpoint
-        logger.debug('Processing ES endpoint creation')
-        response = opensearch_client.describe_domain(DomainName=aesdomain)
-        es_endpoint = response['DomainStatus'].get('Endpoint')
-        if not es_endpoint and 'Endpoints' in response['DomainStatus']:
-            es_endpoint = response['DomainStatus']['Endpoints']['vpc']
-    logger.debug('Finished ES endpoint creation')
+        userdb_enabled = (response['DomainStatus']['AdvancedSecurityOptions']
+                          ['InternalUserDatabaseEnabled'])
+        if not userdb_enabled:
+            logger.info(f'ID: {KIBANAADMIN}, PASSWORD: {kibanapass}')
+            update_response = create_kibanaadmin(kibanapass)
+            while not userdb_enabled:
+                logger.debug('Processing domain configuration')
+                userdb_enabled = (update_response['DomainConfig']
+                                  ['AdvancedSecurityOptions']['Options']
+                                  ['InternalUserDatabaseEnabled'])
+                time.sleep(3)
+            logger.info(
+                'Finished domain configuration with new random password')
+
+        endpoint = None
+        while not endpoint:
+            time.sleep(10)  # wait to finish setup of endpoint
+            logger.debug('Processing AOS endpoint creation')
+            response = opensearch_client.describe_domain(DomainName=AOS_DOMAIN)
+            endpoint = response['DomainStatus'].get('Endpoint')
+            if not endpoint and 'Endpoints' in response['DomainStatus']:
+                endpoint = response['DomainStatus']['Endpoints']['vpc']
+            logger.debug('Finished AOS endpoint creation')
+        dashboard_admin_name = KIBANAADMIN
+    elif AOS_SERVICE == 'es' and not create_new_domain:
+        response = opensearch_client.describe_domain(DomainName=AOS_DOMAIN)
+        endpoint = response['DomainStatus'].get('Endpoint')
+        if not endpoint and 'Endpoints' in response['DomainStatus']:
+            endpoint = response['DomainStatus']['Endpoints']['vpc']
+        dashboard_admin_name = 'NOT_CREATED'
+    elif AOS_SERVICE == 'aoss' and create_new_domain:
+        status = aoss.get_collection_status()
+        if status != 'ACTIVE':
+            return None
+        endpoint, aoss_type = aoss.get_endpoint_and_type()
+        dashboard_admin_name = 'NOT_CREATED'
+    elif AOS_SERVICE == 'aoss' and not create_new_domain:
+        endpoint, aoss_type = aoss.get_endpoint_and_type()
+        dashboard_admin_name = 'NOT_CREATED'
 
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource
-        helper_domain.Data['es_endpoint'] = es_endpoint
-        helper_domain.Data['kibanaadmin'] = KIBANAADMIN
+        helper_domain.Data['endpoint'] = endpoint
+        helper_domain.Data['aoss_type'] = aoss_type
+        helper_domain.Data['kibanaadmin'] = dashboard_admin_name
         helper_domain.Data['kibanapass'] = kibanapass
         logger.info("End create poll")
         return physicalResourceId
@@ -704,16 +963,47 @@ def aes_domain_poll_create(event, context):
 @helper_domain.update
 def aes_domain_update(event, context):
     logger.info("Got Update")
-    response = opensearch_client.describe_domain(DomainName=aesdomain)
-    es_endpoint = response['DomainStatus'].get('Endpoint')
-    if not es_endpoint and 'Endpoints' in response['DomainStatus']:
-        es_endpoint = response['DomainStatus']['Endpoints']['vpc']
+
+    # check whether opensearch domain or collection exists
+    endpoint = ''
+    aoss_type = ''
+    if AOS_SERVICE == 'es':
+        try:
+            response = opensearch_client.describe_domain(
+                DomainName=AOS_DOMAIN)
+        except Exception:
+            raise Exception(
+                f'OpenSearch Domain "{AOS_DOMAIN}" is not found'
+            ) from None
+        endpoint = response['DomainStatus'].get('Endpoint')
+        if not endpoint and 'Endpoints' in response['DomainStatus']:
+            endpoint = response['DomainStatus']['Endpoints']['vpc']
+        engine_version = response['DomainStatus']['EngineVersion']
+        if (engine_version.startswith('Elasticsearch')
+                and engine_version != 'Elasticsearch_7.10'):
+            raise Exception(f'{engine_version} is not supported version')
+
+    elif AOS_SERVICE == 'aoss':
+        aoss = MyAoss(serverless_client, DOMAIN_OR_COLLECTION_NAME)
+        status = aoss.get_collection_status()
+        if status != 'ACTIVE':
+            raise Exception(
+                f'Collection {DOMAIN_OR_COLLECTION_NAME} is not found or not '
+                f'active. Please ensure {DOMAIN_OR_COLLECTION_NAME} is active')
+        endpoint, aoss_type = aoss.get_endpoint_and_type()
+        if not endpoint:
+            raise Exception(
+                f'Collection {DOMAIN_OR_COLLECTION_NAME} is not found')
+        aoss.update_collection(VPCE_ID)
+
+    logger.info(f'ENDPOINT: {endpoint}')
 
     suffix = ''.join(secrets.choice(string.ascii_uppercase) for i in range(8))
     physicalResourceId = f'aes-siem-domain-{__version__}-{suffix}'
     if event and 'RequestType' in event:
         # Response For CloudFormation Custome Resource
-        helper_domain.Data['es_endpoint'] = es_endpoint
+        helper_domain.Data['endpoint'] = endpoint
+        helper_domain.Data['aoss_type'] = aoss_type
         helper_domain.Data['kibanaadmin'] = KIBANAADMIN
         helper_domain.Data['kibanapass'] = 'MASKED'
         logger.info("End Update")
@@ -753,6 +1043,14 @@ def aes_config_create_update(event, context):
     es_app_data = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
     es_app_data.read('data.ini')
+    if AOS_SERVICE == 'es':
+        del es_app_data['index-templates']['log_aws']
+    elif AOS_SERVICE == 'aoss':
+        es_app_data['cluster-settings'] = {}
+        es_app_data['index_state_management_policies'] = {}
+        es_app_data['index-rollover'] = {}
+        es_app_data['deleted-old-index-template'] = {}
+        es_app_data['legacy-index-template'] = {}
 
     dist_name, domain_version = get_dist_version()
     logger.info(f'dist_name: {dist_name}, domain_version: {domain_version}')
@@ -760,16 +1058,20 @@ def aes_config_create_update(event, context):
         raise Exception(f'Your domain version is Amazon ES {domain_version}. '
                         f'Please upgrade the domain to OpenSearch or '
                         f'Amazon ES v7.10')
+
     configure_opensearch(dist_name, es_app_data)
     configure_siem(dist_name, es_app_data)
     configure_index_rollover(es_app_data)
+
+    register_snapshot_repository()
 
     # Globalテナントのsaved_objects をバックアップする
     tenant = 'global'
     awsauth = auth_aes()
     cookies = set_tenant_get_cookies(dist_name, tenant, awsauth)
     saved_objects = get_saved_objects(dist_name, cookies, auth=awsauth)
-    bk_response = backup_dashboard_to_s3(saved_objects, tenant)
+    bk_response = backup_content_to_s3(
+        'saved_objects', 'dashboard', tenant, saved_objects)
     if bk_response:
         # Load dashboard and configuration to Global tenant
         import_saved_objects_into_aos(dist_name, awsauth, cookies)
@@ -780,8 +1082,9 @@ def aes_config_create_update(event, context):
         return physicalResourceId
 
 
+@helper_validation.delete
 @helper_config.delete
-def aes_config_delete(event, context):
+def custom_resource_delete(event, context):
     logger.info("Got Delete. Nothing to delete")
 
 

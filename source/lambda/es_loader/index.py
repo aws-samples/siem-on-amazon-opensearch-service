@@ -35,6 +35,9 @@ SQS_SPLITTED_LOGS_URL = None
 if 'SQS_SPLITTED_LOGS_URL' in os.environ:
     SQS_SPLITTED_LOGS_URL = os.environ['SQS_SPLITTED_LOGS_URL']
 ES_HOSTNAME = utils.get_es_hostname()
+SERVICE = ES_HOSTNAME.split('.')[2]
+AOSS_TYPE = os.getenv('AOSS_TYPE', '')
+docid_set = set()
 
 
 def extract_logfile_from_s3(record):
@@ -187,6 +190,9 @@ def create_logconfig(logtype):
             logconfig[key] = get_value_from_etl_config(logtype, key)
     if logconfig['file_format'] in ('xml', ):
         logconfig['multiline_firstline'] = logconfig['xml_firstline']
+    if SERVICE == 'aoss':
+        logconfig['index_rotation'] = 'aoss'
+
     return logconfig
 
 
@@ -204,17 +210,32 @@ def get_es_entries(logfile, exclude_log_patterns):
     logparser = siem.LogParser(
         logfile, logconfig, sf_module, geodb_instance, ioc_instance,
         exclude_log_patterns)
-    for lograw, logdata, logmeta in logfile:
-        logparser(lograw, logdata, logmeta)
-        if logparser.is_ignored:
-            logger.debug(f'Skipped log because {logparser.ignored_reason}')
-            continue
-        indexname = utils.get_writable_indexname(
-            logparser.indexname, READ_ONLY_INDICES)
-        action_meta = json.dumps({'index': {'_index': indexname,
-                                            '_id': logparser.doc_id}})
-        # logger.debug(logparser.json)
-        yield [action_meta, logparser.json]
+    if AOSS_TYPE != 'TIMESERIES':
+        for lograw, logdata, logmeta in logfile:
+            logparser(lograw, logdata, logmeta)
+            if logparser.is_ignored:
+                logger.debug(f'Skipped log because {logparser.ignored_reason}')
+                continue
+            indexname = utils.get_writable_indexname(
+                logparser.indexname, READ_ONLY_INDICES)
+            action_meta = json.dumps({'index': {'_index': indexname,
+                                                '_id': logparser.doc_id}})
+            # logger.debug(logparser.json)
+            yield [action_meta, logparser.json]
+    elif AOSS_TYPE == 'TIMESERIES':
+        for lograw, logdata, logmeta in logfile:
+            logparser(lograw, logdata, logmeta)
+            if logparser.is_ignored:
+                logger.debug(f'Skipped log because {logparser.ignored_reason}')
+                continue
+            indexname = utils.get_writable_indexname(
+                logparser.indexname, READ_ONLY_INDICES)
+            if logparser.doc_id not in docid_set:
+                action_meta = json.dumps({'index': {'_index': indexname}})
+                docid_set.add(logparser.doc_id)
+                # logger.debug(logparser.json)
+                yield [action_meta, logparser.json]
+
     del logparser
 
 
@@ -372,10 +393,14 @@ def observability_decorator_switcher(func):
 
 awsauth = utils.create_awsauth(ES_HOSTNAME)
 es_conn = utils.create_es_conn(awsauth, ES_HOSTNAME)
-DOMAIN_INFO = es_conn.info()
-logger.info(DOMAIN_INFO)
-READ_ONLY_INDICES = utils.get_read_only_indices(es_conn, awsauth, ES_HOSTNAME)
-logger.info(json.dumps({'READ_ONLY_INDICES': READ_ONLY_INDICES}))
+if SERVICE == 'es':
+    DOMAIN_INFO = es_conn.info()
+    logger.info(DOMAIN_INFO)
+    READ_ONLY_INDICES = utils.get_read_only_indices(
+        es_conn, awsauth, ES_HOSTNAME)
+    logger.info(json.dumps({'READ_ONLY_INDICES': READ_ONLY_INDICES}))
+elif SERVICE == 'aoss':
+    READ_ONLY_INDICES = ''
 user_libs_list = utils.find_user_custom_libs()
 etl_config = utils.get_etl_config()
 utils.load_modules_on_memory(etl_config, user_libs_list)

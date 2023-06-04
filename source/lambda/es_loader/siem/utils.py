@@ -346,9 +346,9 @@ def convert_custom_timeformat_to_datetime(timestr, TZ, timestamp_format,
 # Amazon OpenSearch Service / AWS Resouce
 #############################################################################
 def get_es_hostname():
-    # get ES_ENDPOINT
-    if 'ES_ENDPOINT' in os.environ:
-        es_hostname = os.environ.get('ES_ENDPOINT', '')
+    # get ENDPOINT
+    if 'ENDPOINT' in os.environ:
+        es_hostname = os.environ.get('ENDPOINT', '')
     else:
         # For local shell execution
         aes_config = configparser.ConfigParser(
@@ -358,9 +358,9 @@ def get_es_hostname():
         if 'aes' in aes_config:
             es_hostname = aes_config['aes']['es_endpoint']
         else:
-            logger.error('You need to set ES_ENDPOINT in ENVRIONMENT '
+            logger.error('You need to set ENDPOINT in ENVRIONMENT '
                          'or modify aes.ini. exit')
-            raise Exception('No ES_ENDPOINT in Environemnt')
+            raise Exception('No ENDPOINT in Environemnt')
     return es_hostname
 
 

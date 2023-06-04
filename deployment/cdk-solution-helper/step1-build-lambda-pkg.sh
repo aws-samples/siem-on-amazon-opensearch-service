@@ -57,6 +57,7 @@ function pip_zip_for_lambda () {
     echo "# delete python libraries which are already installed in lambda environment"
     echo "rm -fr boto* future* urllib3* dateutil* python_dateutil* s3transfer* six* jmespath*"
     rm -fr boto* future* urllib3* dateutil* python_dateutil* s3transfer* six* jmespath*
+
     echo "# Delete unused and architecture dependent lib"
     echo "rm -fr async_timeout* aiosignal* aiohttp* examples frozenlist* multidict* wrapt* yarl*"
     rm -fr async_timeout* aiosignal* aiohttp* examples frozenlist* multidict* wrapt* yarl*
@@ -129,6 +130,13 @@ echo 'rm -f deploy_es/dashboard.ndjson.zip'
 rm -f deploy_es/dashboard.ndjson.zip
 echo 'zip deploy_es/dashboard.ndjson.zip -jD ../saved_objects/dashboard.ndjson'
 zip deploy_es/dashboard.ndjson.zip -jD ../saved_objects/dashboard.ndjson
+
+rm -f deploy_es/dashboard.serverless.zip
+cd ../saved_objects && echo "${PWD}"
+zip ../lambda/deploy_es/dashboard.serverless.zip -r config/opensearch_2.*
+zip ../lambda/deploy_es/dashboard.serverless.zip -r each-dashboard
+zip ../lambda/deploy_es/dashboard.serverless.zip -r each-indexpattern-search
+cd ../lambda && echo "${PWD}"
 
 echo "# start packing es_loader"
 pip_zip_for_lambda "es_loader"
