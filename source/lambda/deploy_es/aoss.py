@@ -32,6 +32,7 @@ class MyAoss:
         return create_new_domain
 
     def _configure_aoss_encryption_policy(self):
+        logger.info('Configure encryption policy for OpenSearch Serverless')
         aoss_encryption_policy = {
             "Rules": [
                 {"ResourceType": "collection",
@@ -56,6 +57,7 @@ class MyAoss:
         return is_successful
 
     def _configure_aoss_network_policy(self, vpce_id):
+        logger.info('Configure netowrk policy for OpenSearch Serverless')
         aoss_network_policy = [
             {
                 "Rules": [
@@ -80,9 +82,12 @@ class MyAoss:
         try:
             res = self.client.get_security_policy(name=name, type='network')
             policy_version = res['securityPolicyDetail']['policyVersion']
+        except self.client.exceptions.ResourceNotFoundException as err:
+            policy_version = None
+            logger.info(str(err))
         except Exception as err:
             policy_version = None
-            print(err)
+            logger.error(err)
 
         try:
             if policy_version:

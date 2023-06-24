@@ -201,7 +201,7 @@ def update_lambda_conf_to_add_pandas_sdk(lambda_client, lambda_info,
     new_layers.append(new_pandas_layer_arn)
     response = lambda_client.update_function_configuration(
         FunctionName='aes-siem-es-loader', Layers=new_layers)
-    logger.info(f'X399: response')
+    logger.info('X399: response')
     logger.info(json.dumps(response))
 
 

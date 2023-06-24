@@ -9,9 +9,9 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import aws_cdk as cdk
 from aws_cdk import (
+    aws_cloudformation,
     aws_events,
     aws_events_targets,
-    aws_cloudformation,
     aws_lambda,
     aws_logs,
     aws_stepfunctions,

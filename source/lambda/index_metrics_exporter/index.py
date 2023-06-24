@@ -16,8 +16,8 @@ import os
 import uuid
 
 import boto3
-from botocore.config import Config
 import requests
+from botocore.config import Config
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
 TIMEOUT = 10.0

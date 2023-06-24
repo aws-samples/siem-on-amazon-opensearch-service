@@ -232,7 +232,6 @@ def get_es_entries(logfile, exclude_log_patterns):
                 logparser.indexname, READ_ONLY_INDICES)
             if logparser.doc_id not in docid_set:
                 action_meta = json.dumps({'index': {'_index': indexname}})
-                docid_set.add(logparser.doc_id)
                 # logger.debug(logparser.json)
                 yield [action_meta, logparser.json]
 
@@ -270,6 +269,8 @@ def check_es_results(results, total_count):
                 error_reason['log_number'] = count
                 if error_reason:
                     error_reasons.append(error_reason)
+            elif AOSS_TYPE == 'TIMESERIES':
+                docid_set.add(result['index']['_id'])
 
     return duration, success, error, error_reasons, retry
 
@@ -283,6 +284,9 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     error_reason_list = []
     retry_needed = False
     filter_path = ['took', 'errors', 'items.index.status', 'items.index.error']
+    if AOSS_TYPE == 'TIMESERIES':
+        filter_path = ['took', 'errors', 'items.index._id',
+                       'items.index.status', 'items.index.error']
     for data in es_entries:
         putdata_list.extend(data)
         output_size += len(data[0]) + len(data[1])

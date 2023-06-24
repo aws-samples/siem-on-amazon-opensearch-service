@@ -8,9 +8,7 @@ __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import aws_cdk as cdk
-from aws_cdk import (
-    aws_cloudwatch,
-)
+from aws_cdk import aws_cloudwatch
 
 
 class CloudWatchDashboardSiem(object):
@@ -44,6 +42,8 @@ class CloudWatchDashboardSiem(object):
         cw_dashboard_serverless.node.default_child.cfn_options.condition = (
             self.is_serverless)
 
+        white_panel_widget = aws_cloudwatch.TextWidget(
+            markdown='', height=4, width=12)
         #######################################################################
         # CloudWatch Alarm
         #######################################################################
@@ -392,6 +392,20 @@ class CloudWatchDashboardSiem(object):
                   aos_primary_write_rejected_metric,
                   aos_replica_write_rejected_metric],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+        # 40x 50x
+        aos_4xx_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES', metric_name='4xx', statistic="sum",
+            dimensions_map={'DomainName': self.AOS_DOMAIN,
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
+        aos_5xx_metric = aws_cloudwatch.Metric(
+            namespace='AWS/ES', metric_name='5xx', statistic="sum",
+            dimensions_map={'DomainName': self.AOS_DOMAIN,
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
+        aos_4xx_5xx_widget = aws_cloudwatch.GraphWidget(
+            title='HTTP requests by error response code (Cluster Total Count)',
+            height=4, width=12,
+            left=[aos_4xx_metric, aos_5xx_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
 
         #######################################################################
         # OpenSearch Serverless
@@ -400,45 +414,263 @@ class CloudWatchDashboardSiem(object):
             markdown=f'# OpenSearch Serverless: {self.AOS_DOMAIN} collection',
             height=1, width=24)
 
+        """
+        # Strage
+        aoss_host_storage_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS', metric_name='HotStorageUsed',
+            period=cdk.Duration.minutes(1), statistic='sum',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID}
+        )
+        aoss_s3_storage_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS', metric_name='StorageUsedInS3',
+            period=cdk.Duration.minutes(1), statistic='sum',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
+
+        aoss_storage_widget = aws_cloudwatch.GraphWidget(
+            title='Storage Hot / S3 (Bytes)',
+            height=4, width=12,
+            left=[aoss_host_storage_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            right=[aoss_s3_storage_metric],
+            right_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+        )
+
+        # Documents
+        aoss_searchable_docs_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS', metric_name='SearchableDocuments',
+            period=cdk.Duration.minutes(1), statistic='sum',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID}
+        )
+        aoss_deleted_docsx_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS', metric_name='DeletedDocuments',
+            period=cdk.Duration.minutes(1), statistic='sum',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
+        aoss_docs_widget = aws_cloudwatch.GraphWidget(
+            title='SearchableDocuments / DeletedDocuments (Counts)',
+            height=4, width=12,
+            left=[aoss_searchable_docs_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+            right=[aoss_deleted_docsx_metric],
+            right_y_axis=aws_cloudwatch.YAxisProps(show_units=False),
+        )
+        """
+
+        # 2xx, 3xx
+        aoss_2xx_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS', metric_name='2xx',
+            period=cdk.Duration.minutes(1), statistic='sum',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
+
+        aoss_3xx_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS', metric_name='3xx',
+            period=cdk.Duration.minutes(1), statistic='sum',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
+
+        aoss_2xx_3xx_widget = aws_cloudwatch.GraphWidget(
+            title='HTTP requests by response code 2xs, 3xx',
+            height=4, width=12,
+            left=[aoss_2xx_metric, aoss_3xx_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
+        # 4xx 5xx
+        aoss_4xx_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS', metric_name='4xx',
+            period=cdk.Duration.minutes(1), statistic='sum',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
+
+        aoss_5xx_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS', metric_name='5xx',
+            period=cdk.Duration.minutes(1), statistic='sum',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID})
+
+        aoss_4xx_5xx_widget = aws_cloudwatch.GraphWidget(
+            title='HTTP requests by error response code 4xx, 5xx',
+            height=4, width=12,
+            left=[aoss_4xx_metric, aoss_5xx_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
+        # Read / Write
+        # Data Rate
+        aoss_ingest_data_rate_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS',
+            period=cdk.Duration.minutes(1), statistic="sum",
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
+            metric_name='IngestionDataRate')
+
+        aoss_ingest_data_rate_widget = aws_cloudwatch.GraphWidget(
+            title=('IngestionDataRate: The indexing rate per second to a '
+                   'collection (Bytes/s)'),
+            height=4, width=12,
+            left=[aoss_ingest_data_rate_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
         # OCU search, OCU indexing
         aoss_search_ocu_metric = aws_cloudwatch.Metric(
             namespace='AWS/AOSS',
+            period=cdk.Duration.hours(1), statistic="sum",
             dimensions_map={'ClientId': cdk.Aws.ACCOUNT_ID},
-            metric_name='SearchOCU', statistic="sum")
+            metric_name='SearchOCU')
 
         aoss_search_ocu_widget = aws_cloudwatch.GraphWidget(
-            title='The number of OCUs used to search collection data',
+            title=('SearchOCU: The number of OCUs used to search collection '
+                   'data'),
             height=4, width=12,
             left=[aoss_search_ocu_metric],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
 
         aoss_indexing_ocu_metric = aws_cloudwatch.Metric(
             namespace='AWS/AOSS',
+            period=cdk.Duration.hours(1), statistic="sum",
             dimensions_map={'ClientId': cdk.Aws.ACCOUNT_ID},
-            metric_name='IndexingOCU', statistic="sum")
+            metric_name='IndexingOCU')
 
         aoss_indexing_ocu_widget = aws_cloudwatch.GraphWidget(
-            title='The number of OCUs used to ingest collection data',
+            title=('IndexingOCU: The number of OCUs used to ingest collection '
+                   'data'),
             height=4, width=12,
             left=[aoss_indexing_ocu_metric],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
 
-        # 40x 50x
-        aoss_4xx_metric = aws_cloudwatch.Metric(
-            namespace='AWS/AOSS', metric_name='4xx',
+        # Request rate
+        aoss_search_req_rate_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS',
+            period=cdk.Duration.minutes(1), statistic="sum",
             dimensions_map={'CollectionName': self.AOS_DOMAIN,
                             'CollectionId': collection_id,
-                            'ClientId': cdk.Aws.ACCOUNT_ID})
-        aoss_5xx_metric = aws_cloudwatch.Metric(
-            namespace='AWS/AOSS', metric_name='5xx',
-            dimensions_map={'CollectionName': self.AOS_DOMAIN,
-                            'CollectionId': collection_id,
-                            'ClientId': cdk.Aws.ACCOUNT_ID})
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
+            metric_name='SearchRequestRate')
 
-        aoss_4xx_5xx_widget = aws_cloudwatch.GraphWidget(
-            title='HTTP requests by error response code',
+        aoss_search_req_rate_widget = aws_cloudwatch.GraphWidget(
+            title=('SearchRequestRate: The total number of search requests '
+                   '(Counts/min)'),
             height=4, width=12,
-            left=[aoss_4xx_metric, aoss_5xx_metric],
+            left=[aoss_search_req_rate_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
+        aoss_ingest_req_rate_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS',
+            period=cdk.Duration.minutes(1), statistic="sum",
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
+            metric_name='IngestionRequestRate')
+
+        aoss_ingest_req_rate_widget = aws_cloudwatch.GraphWidget(
+            title=('IngestionRequestRate: The total number of bulk write '
+                   'operations (Counts/min)'),
+            height=4, width=12,
+            left=[aoss_ingest_req_rate_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
+        # Request latency
+        aoss_search_req_latency_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS',
+            period=cdk.Duration.minutes(1), statistic="avg",
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
+            metric_name='SearchRequestLatency')
+
+        aoss_search_req_latency_widget = aws_cloudwatch.GraphWidget(
+            title=('SearchRequestLatency: The time to complete a search '
+                   'operation (milliseconds)'),
+            height=4, width=12,
+            left=[aoss_search_req_latency_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
+        aoss_ingest_req_latency_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS',
+            period=cdk.Duration.minutes(1), statistic="avg",
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
+            metric_name='IngestionRequestLatency')
+
+        aoss_ingest_req_latency_widget = aws_cloudwatch.GraphWidget(
+            title=('IngestionRequestLatency: The time to complete bulk write '
+                   'operations (milliseconds)'),
+            height=4, width=12,
+            left=[aoss_ingest_req_latency_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
+        # Request errors
+        aoss_search_req_errors_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS',
+            period=cdk.Duration.minutes(1), statistic="sum", color='#d13212',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
+            metric_name='SearchRequestErrors')
+
+        aoss_search_req_errors_widget = aws_cloudwatch.GraphWidget(
+            title=('SearchRequestErrors: The total number of query errors '
+                   '(Counts/min)'),
+            height=4, width=12,
+            left=[aoss_search_req_errors_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
+        aoss_ingest_req_errors_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS',
+            period=cdk.Duration.minutes(1), statistic="sum", color='#d13212',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
+            metric_name='IngestionRequestErrors')
+
+        aoss_ingest_req_errors_widget = aws_cloudwatch.GraphWidget(
+            title=('IngestionRequestErrors: The total number of bulk indexing '
+                   'request errors (counts)'),
+            height=4, width=12,
+            left=[aoss_ingest_req_errors_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
+        # Documents
+        aoss_ingest_docs_rate_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS',
+            period=cdk.Duration.minutes(1), statistic="sum",
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
+            metric_name='IngestionDocumentRate')
+
+        aoss_ingest_docs_rate_widget = aws_cloudwatch.GraphWidget(
+            title=('IngestionDocumentRate: The rate per second at which '
+                   'documents are being ingested to a collection (Counts)'),
+            height=4, width=12,
+            left=[aoss_ingest_docs_rate_metric],
+            left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
+
+        aoss_ingest_docs_errors_metric = aws_cloudwatch.Metric(
+            namespace='AWS/AOSS',
+            period=cdk.Duration.minutes(1), statistic="sum", color='#d13212',
+            dimensions_map={'CollectionName': self.AOS_DOMAIN,
+                            'CollectionId': collection_id,
+                            'ClientId': cdk.Aws.ACCOUNT_ID},
+            metric_name='IngestionDocumentErrors')
+
+        aoss_ingest_docs_errors_widget = aws_cloudwatch.GraphWidget(
+            title=('IngestionDocumentErrors: The total number of document '
+                   'errors during ingestion (counts)'),
+            height=4, width=12,
+            left=[aoss_ingest_docs_errors_metric],
             left_y_axis=aws_cloudwatch.YAxisProps(show_units=False))
 
         #######################################################################
@@ -527,7 +759,7 @@ class CloudWatchDashboardSiem(object):
             aos_title_widget,
             # aos cluster
             aos_cpu_widget, aos_jvmmem_widget,
-            aos_active_shards_widget,
+            aos_4xx_5xx_widget, aos_active_shards_widget,
             aos_cluster_disk_queue_throttle_widget,
             aos_cluster_index_writes_blocked_widget,
             # aos ebs, instance
@@ -555,10 +787,18 @@ class CloudWatchDashboardSiem(object):
             esloader_duration_widget, esloader_throttles_widget,
             esloader_timeout_widget, esloader_concurrent_widget,
             # aoss_title_widget,
+            # aoss_searchable_docs_widget,
+            # aoss_docs_widget, aoss_storage_widget,
             aoss_title_widget,
-            aoss_search_ocu_widget, aoss_indexing_ocu_widget,
             aos_title_widget_read, aos_title_widget_write,
-            aoss_4xx_5xx_widget,
+            aoss_search_ocu_widget, aoss_indexing_ocu_widget,
+            aoss_search_req_rate_widget, aoss_ingest_req_rate_widget,
+            aoss_search_req_latency_widget, aoss_ingest_req_latency_widget,
+            aoss_search_req_errors_widget, aoss_ingest_req_errors_widget,
+            white_panel_widget, aoss_ingest_data_rate_widget,
+            aoss_2xx_3xx_widget, aoss_ingest_docs_rate_widget,
+            aoss_4xx_5xx_widget, aoss_ingest_docs_errors_widget,
+
             # sqs_widget
             sqs_widget,
             sqs_splitted_log_visible_widget, sqs_dlq_visible_widget,

@@ -38,11 +38,16 @@ helper_domain = CfnResource(json_logging=False, log_level='DEBUG',
 helper_config = CfnResource(json_logging=False, log_level='DEBUG',
                             boto_level='CRITICAL', sleep_on_delete=3)
 
-opensearch_client = boto3.client('opensearch')
-serverless_client = boto3.client('opensearchserverless')
 iam_client = boto3.client('iam')
 s3_client = boto3.resource('s3')
 ec2_client = boto3.client('ec2')
+opensearch_client = boto3.client('opensearch')
+try:
+    serverless_client = boto3.client('opensearchserverless')
+except Exception as err:
+    serverless_client = None
+    logger.info('OpenSearch Serverless API is not supported')
+    logger.debug(err)
 
 ACCOUNT_ID = os.environ['ACCOUNT_ID']
 REGION = os.environ['AWS_REGION']
