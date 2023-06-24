@@ -348,11 +348,15 @@ class MyAesSiemStack(cdk.Stack):
             min_value=30, max_value=10080, default=720)
 
         log_bucket_policy_update = cdk.CfnParameter(
-            self, 'LogBucketPolicyUpdate', type='String',
-            allowed_values=['auto_update_policy',
-                            'keep_current_policy'],
-            description=('Specify'),
-            default='auto_update_policy')
+            self, 'LogBucketPolicyUpdate',
+            allowed_values=['update_and_override', 'keep'],
+            description=(
+                'Select "update_and_override" or "keep" for the current policy'
+                ' of the Log bucket. Be sure to select "update_and_override" '
+                'for the first deployment. If you select "update_and_override"'
+                ' when updating, you need to create and manage the bucket '
+                'policy for writing logs to your S3 Log bucket by your self'),
+            default='update_and_override')
 
         create_sqs_vpce = cdk.CfnParameter(
             self, 'CreateS3VpcEndpoint', allowed_values=['true', 'false'],
@@ -436,7 +440,6 @@ class MyAesSiemStack(cdk.Stack):
                     {'Label': {'default': 'Basic Configuration'},
                      'Parameters': [deployment_target.logical_id,
                                     domain_or_collection_name.logical_id,
-                                    vpce_id.logical_id,
                                     sns_email.logical_id,
                                     reserved_concurrency.logical_id]},
                     {'Label': {'default': 'Log Enrichment - optional'},
@@ -447,6 +450,7 @@ class MyAesSiemStack(cdk.Stack):
                                     ioc_download_interval.logical_id]},
                     {'Label': {'default': 'Advanced Configuration'},
                      'Parameters': [log_bucket_policy_update.logical_id,
+                                    vpce_id.logical_id,
                                     create_sqs_vpce.logical_id,
                                     create_s3_vpce.logical_id]},
                     {'Label': {'default': ('Control Tower Integration '
@@ -635,7 +639,7 @@ class MyAesSiemStack(cdk.Stack):
             self, "KeepLogBucketPolicy",
             expression=cdk.Fn.condition_equals(
                 log_bucket_policy_update.value_as_string,
-                'keep_current_policy')
+                'keep')
         )
 
         sqs_vpce_is_required = cdk.CfnCondition(
