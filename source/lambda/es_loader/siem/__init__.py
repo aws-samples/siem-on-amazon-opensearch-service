@@ -489,13 +489,13 @@ class LogParser:
     フィールドのECSへの統一、最後にJSON化、する
     """
     def __init__(self, logfile, logconfig, sf_module, geodb_instance,
-                 ioc_instance, exclude_log_patterns):
+                 ioc_instance, log_exclusion_patterns):
         self.logfile = logfile
         self.logconfig = logconfig
         self.sf_module = sf_module
         self.geodb_instance = geodb_instance
         self.ioc_instance = ioc_instance
-        self.exclude_log_patterns = exclude_log_patterns
+        self.log_exclusion_patterns = log_exclusion_patterns
 
         self.logtype = logfile.logtype
         self.s3key = logfile.s3key
@@ -577,13 +577,16 @@ class LogParser:
         if self.__logdata_dict.get('is_ignored'):
             self.ignored_reason = self.__logdata_dict.get('ignored_reason')
             return True
-        if self.logtype in self.exclude_log_patterns:
-            is_excluded, ex_pattern = utils.match_log_with_exclude_patterns(
-                self.__logdata_dict, self.exclude_log_patterns[self.logtype])
-            if is_excluded:
-                self.ignored_reason = (
-                    f'matched {ex_pattern} with exclude_log_patterns')
-                return True
+        for log_exclusion_pattern in self.log_exclusion_patterns:
+            if self.logtype in log_exclusion_pattern:
+                is_excluded, ex_pattern = (
+                    utils.match_log_with_exclude_patterns(
+                        self.__logdata_dict,
+                        log_exclusion_pattern[self.logtype]))
+                if is_excluded:
+                    self.ignored_reason = (
+                        f'matched {ex_pattern} with log_exclusion_patterns')
+                    return True
         return False
 
     @property

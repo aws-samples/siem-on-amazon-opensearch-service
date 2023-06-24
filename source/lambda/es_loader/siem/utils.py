@@ -568,13 +568,20 @@ def load_sf_module(logfile, logconfig, user_libs_list):
 def make_exclude_own_log_patterns(etl_config):
     log_patterns = {}
     if etl_config['DEFAULT'].getboolean('ignore_own_logs'):
+        logger.info('built-in log exclusion pattern list')
+
         user_agent = etl_config['DEFAULT'].get('custom_user_agent', '')
-        if user_agent:
-            re_user_agent = re.compile('.*' + re.escape(user_agent) + '.*')
-            log_patterns['cloudtrail'] = {'userAgent': re_user_agent}
-            log_patterns['s3accesslog'] = {'UserAgent': re_user_agent}
-            log_patterns['securitylake'] = {
-                'http_request': {'user_agent': re_user_agent}}
+        user_agent = re.escape(user_agent)
+        old_user_agent = 'AesSiemEsLoader'
+        ioc_user_agent = 'siem-ioc-db-creator'
+        all_user_name = f'({user_agent}|{old_user_agent}|{ioc_user_agent})'
+        re_user_agent = re.compile(f'.*{all_user_name}.*')
+
+        log_patterns['cloudtrail'] = {'userAgent': re_user_agent}
+        log_patterns['s3accesslog'] = {'UserAgent': re_user_agent}
+        log_patterns['securitylake'] = {
+            'http_request': {'user_agent': re_user_agent}}
+        logger.info(f'{log_patterns}')
     return log_patterns
 
 
@@ -615,11 +622,12 @@ def merge_dotted_key_value_into_dict(patterns_dict, dotted_key, value):
     return patterns_dict
 
 
-def merge_csv_into_log_patterns(log_patterns, csv_filename):
+def convert_csv_into_log_patterns(csv_filename):
+    log_patterns = {}
     if not csv_filename:
-        logger.info(f'{log_patterns}')
         return log_patterns
-    logger.info(f'{csv_filename} is imported to exclude_log_patterns')
+    logger.info(f'{csv_filename} is imported as custom log exclusion log '
+                'pattern list')
     with open(csv_filename, 'rt') as f:
         for line in csv.DictReader(f):
             if line['pattern_type'].lower() == 'text':
@@ -627,19 +635,16 @@ def merge_csv_into_log_patterns(log_patterns, csv_filename):
             else:
                 pattern = re.compile(str(line['pattern']) + '$')
             log_patterns.setdefault(line['log_type'], {})
-            log_patterns[line['log_type']] = merge_dotted_key_value_into_dict(
-                log_patterns[line['log_type']],
-                line['field'], pattern)
+            log_patterns[line['log_type']][line['field']] = pattern
     logger.info(f'{log_patterns}')
     return log_patterns
 
 
 def make_s3_session_config(etl_config):
     user_agent = etl_config['DEFAULT'].get('custom_user_agent', '')
-    user_agent_ver = etl_config['DEFAULT'].get('custom_user_agent_ver', '')
     if user_agent:
         s3_session_config = botocore.config.Config(
-            user_agent=f'{user_agent}/{user_agent_ver}')
+            user_agent_extra=f'{user_agent}/{__version__}')
     else:
         s3_session_config = None
     return s3_session_config

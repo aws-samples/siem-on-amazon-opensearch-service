@@ -109,10 +109,8 @@ function pip_zip_for_lambda_ioc () {
     echo "# Delete unused lib"
     echo "rm -fr botocore/data/[a-z][a-z]*/*"
     rm -fr botocore/data/[a-z][a-z]*/*
-    echo "rm -fr botocore/data//s3[a-z]*/*"
-    rm -fr botocore/data//s3[a-z]*/*
-    echo "botocore/data/s3/ -type f -not -name 'service-2.json' -print0 | xargs -0 rm -f"
-    find botocore/data/s3/ -type f -not -name 'service-2.json' -print0 | xargs -0 rm -f
+    echo "rm -fr botocore/data/s3[a-z]*/*"
+    rm -fr botocore/data/s3[a-z]*/*
 
     mv -f README.md.org README.md
     echo "cp -f $source_template_dir/../LICENSE $source_template_dir/../CODE_OF_CONDUCT.md $source_template_dir/../CONTRIBUTING.md ${source_dir}/lambda/$1/"

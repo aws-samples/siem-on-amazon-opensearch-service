@@ -27,7 +27,8 @@ class GeoDB():
     NOT_FILE_FRESH_DURATION = 86400   # 24 hours
     RE_DIGIT = re.compile(r'\d')
 
-    def __init__(self):
+    def __init__(self, s3_session_config):
+        self.s3_session_config = s3_session_config
         GEOIP_BUCKET = self._get_geoip_buckent_name()
         has_city_db, has_asn_db = False, False
         if GEOIP_BUCKET:
@@ -91,7 +92,7 @@ class GeoDB():
                 return True
 
         if not os.path.isfile(localfile):
-            s3geo = boto3.resource('s3')
+            s3geo = boto3.resource('s3', config=self.s3_session_config)
             bucket = s3geo.Bucket(geoipbucket)
             s3obj = self.S3KEY_PREFIX + geodb_name
             try:

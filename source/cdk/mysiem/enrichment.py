@@ -12,6 +12,7 @@ from aws_cdk import (
     aws_cloudformation,
     aws_events,
     aws_events_targets,
+    aws_iam,
     aws_lambda,
     aws_logs,
     aws_stepfunctions,
@@ -151,13 +152,22 @@ class Enrichment(object):
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.download',
-            memory_size=256,
+            memory_size=384,
             timeout=cdk.Duration.seconds(900),
             environment={
                 'GEOIP_BUCKET': self.s3bucket_name_geo,
                 'OTX_API_KEY': self.otx_api_key.value_as_string,
                 'LOG_LEVEL': 'INFO'
             },
+            initial_policy=[
+                aws_iam.PolicyStatement(
+                    actions=[
+                        "s3:ListAllMyBuckets",
+                        "s3:PutFunctionConcurrency",
+                    ],
+                    resources=["*"],
+                )
+            ],
             current_version_options=aws_lambda.VersionOptions(
                 removal_policy=cdk.RemovalPolicy.RETAIN,
                 description=__version__
@@ -238,7 +248,8 @@ class Enrichment(object):
         ignore_timeout_state = aws_stepfunctions.Pass(
             self.scope, "IgnoreTimeout")
         task_ioc_download.add_catch(
-            ignore_timeout_state, errors=['States.Timeout'],
+            ignore_timeout_state, errors=['States.Timeout',
+                                          'States.TaskFailed'],
             result_path='$.catcher')
         task_ioc_createdb = aws_stepfunctions_tasks.LambdaInvoke(
             self.scope, "IocCreatedb",
