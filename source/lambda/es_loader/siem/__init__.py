@@ -621,6 +621,8 @@ class LogParser:
             indexname = self.logconfig['index_name']
 
         if self.logconfig['index_rotation'] == 'aoss':
+            if '__index_dt' in self.__logdata_dict:
+                del self.__logdata_dict['__index_dt']
             if self.logconfig['index_suffix']:
                 indexname = f"{indexname}-{self.logconfig['index_suffix']}"
             else:
