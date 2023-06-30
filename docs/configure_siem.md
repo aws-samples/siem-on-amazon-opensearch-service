@@ -158,10 +158,11 @@ You can check the enriched information in the following fields.
 
 Logs stored in the S3 bucket are automatically loaded into OpenSearch Service, but you can exclude some of them by specifying conditions. This will help save OpenSearch Service resources.
 
-There are two conditions you can specify:
+There are three conditions you can specify:
 
 1. S3 bucket storage path (object key)
 1. Log field and value
+1. Multiple log fields and values (AND, OR)
 
 ### Adding an exclusion based on the S3 bucket file path (object key)
 
@@ -233,6 +234,95 @@ This excludes logs where the destination IP address (dstaddr) contains string 19
 ##### Example 3
 
 This excludes logs that match {'userIdentity': {'invokedBy': '*.amazonaws.com'}} in CloudTrail. Field names are nested, and should be dot-separated in CSV. In this example, logs of API calls invoked by AWS services (such as config or log delivery) are not loaded.
+
+### Excluding logs based on complex conditions with multiple log fields and values
+
+You can exclude logs based on complex conditions (such as AND / OR) with multiple log fields and values. For example, in AWS Waf logs, you can exclude by combination of specific actions and source IP addresses. These conditions are set in Parameter Store.
+
+#### Setting Exclusion Conditions to Parameter Store
+
+You can set the exclusion condition `expression` and its `action` as a JSON formatted string in Parameter Store as in the example below.
+
+```json
+{
+    "action": "COUNT",
+    "expression": "field1==`value1` && field2==`value2`"
+}
+```
+
+You can set the action from `COUNT` / `EXCLUDE` / `DISABLE`. When using this function, we recommend that you check the execution logs with the COUNT action before switching to EXCLUDE action.
+
+* COUNT: Just output log records that match the conditions to the execution log (all log records are loaded to OpenSearch Service)
+* EXCLUDE: Actually exclude based on conditions and ingest to OpenSearch Service
+* DISABLE: Disable for this function
+
+This parameter name must be prefixed with `/siem/log-filter/<log_type>/`. The log_type represents the log section name specified in aws.ini or user.ini (eg cloudtrail, vpcflowlogs, waf). You should replace `<log_type>` with the section name of the log to be excluded.
+
+In addition, by setting multiple parameters respectively, exclusion processing is performed as an OR of those multiple conditions. For the value of `expression`, set a conditional expression conforming to [JMESPath](https://github.com/jmespath/jmespath.py) as in the example below (for details, see the [JMESPath document](https://jmespath.org/specification.html).
+
+AND condition
+```
+field1==`value1` && field2==`value2`
+```
+
+OR condition
+```
+field1==`value1` || field2==`value2`
+```
+
+NOT condition
+```
+!(field1==`value1`)
+```
+
+Combined condition
+```
+(field1==`value1` || field2==`value2`) && field3==`value3`
+```
+
+Setting Example
+![Setting example to Paramete Store](/docs/images/exclude-logs-parameter-store.png)
+
+#### Verification
+
+The number of matching records for each action is output to CloudWatch Metrics. The number of records that match the conditions in the COUNT action is output as `CountedLogCount`, and the number of records that match the conditions in the EXCLUDE action and are excluded is output as `ExcludedLogCount`.
+
+##### Verification in COUNT action
+
+In COUNT action, log records matching the conditions are output to CloudWatch Logs as the execution logs of the Lambda function es-loader, and all log records are ingested into OpenSearch Service.
+First, we recommend using this feature in COUNT action to verify whether the conditional expressions set in Parameter Store matches logs as expected.
+Below is an example of the Lambda execution log when a log record is matched by a conditional expression. A summary of the key values is below.
+
+* `message`: Output the value and name of the matched condition
+* `condition_name`: Parameter name of matched condition
+* `expression`: Matched conditional expression
+* `log_record`: Matched log record
+
+```json
+{
+    "level": "INFO",
+    "message": "Log record matched 'httpSourceName ==`CF` && httpRequest.uri==`/public`' with waf/condition-1 in Parameter Store",
+    "location": "exclude_logs_by_conditions:980",
+    "timestamp": "2023-06-28 03:19:05,516+0000",
+    "service": "es-loader",
+    "cold_start": false,
+    "function_name": "aes-siem-es-loader",
+    "function_memory_size": "2048",
+    "function_arn": "arn:aws:lambda:ap-northeast-1:123456789012:function:aes-siem-es-loader",
+    "function_request_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "s3_key": "AWSLogs/123456789012/WAFLogs/cloudfront/siem-sample-waf/2023/06/28/03/18/123456789012_waflogs_cloudfront_siem-sample-waf_20230628T1218Z_xxxxxxxx.log.gz",
+    "s3_bucket": "aes-siem-123456789012-log",
+    "log_record": {},
+    "condition_name": "waf/condition-1",
+    "expression": "httpSourceName ==`CF` && httpRequest.uri==`/public`",
+    "xray_trace_id": "x-xxxxxxxx-xxxxxxxxxxxxxxxx"
+}
+```
+
+##### Verification in EXCLUDE action
+
+In FILTER action, log records that match conditional expressions are excluded and other log records are ingested into the OpenSearch Service.
+You can check from OpenSearch Dashboards whether the conditional expressions are correctly excluded and only other log records are ingested into the OpenSearch Service.
 
 ## Changing OpenSearch Service Configuration Settings
 

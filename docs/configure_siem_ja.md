@@ -158,10 +158,11 @@ ioc_domain = dns.question.name
 
 S3 バケットに保存されたログは自動的に OpenSearch Service に取り込まれますが、条件を指定することで取り込みの除外をすることができます。これによって OpenSearch Service のリソースを節約できます。
 
-設定できる条件は以下の2つです
+設定できる条件は以下の3つです
 
 1. S3 バケットの保存パス(オブジェクトキー)
 1. ログのフィールドと値
+1. 複数のログのフィールドと値 (AND, OR)
 
 ### S3 バケットのファイルパス(オブジェクトキー) による除外
 
@@ -247,6 +248,96 @@ VPC Flow Logs で、送信先 IP ポート(dstport) が 80 または 443 の 2 �
 ##### sample4
 
 CloudTrail で、{'userIdentity': {'invokedBy': '*.amazonaws.com'}} と一致した場合に除外する。フィールド名が入れ子になっているので、CSVではドット区切りで指定。この例は、Config や ログ配信などのAWS のサービスがリクエストしたAPI Callのログを取り込まない。
+
+### 複数のログのフィールドと値による複雑な除外
+
+取り込みログに対して、複数フィールドへの AND や OR などの複雑な条件によって除外設定をできます。除外の条件を Parameter Store に設定することで、条件式に合致したログレコードを除外します。
+
+#### Parameter Store への除外条件の設定
+
+以下の例のように Parameter Store に JSON 形式の文字列として除外条件 (`expression`) とそのアクション (`action`) を設定します。
+
+```json
+{
+    "action": "COUNT",
+    "expression": "field1==`value1` && field2==`value2`"
+}
+```
+
+アクションは `COUNT` / `EXCLUDE` / `DISABLE` の3つから設定します。本機能を使用する場合は COUNT アクションでの動作確認を行い、実行ログを確認した上で EXCLUDE アクションに切り替えることを推奨します。
+
+* COUNT: 条件に合致したログレコードを実行ログに出力 (OpenSearch Service へは全ログレコードが取り込まれる)
+* EXCLUDE: 条件に基づき除外をして OpenSearch Service への取り込み
+* DISABLE: 本機能を無効化
+
+また、このパラメータ名には `/siem/exclude-logs/<log_type>/` の prefix を付ける必要があります。`log_type`は `aws.ini` または `user.ini` に記載のあるログのセクション名 (例 cloudtrail, vpcflowlogs, waf) を表します。`<log_type>` は除外対象のログのセクション名に置き換えます。
+
+複数のパラメータをそれぞれ設定することで、それら複数条件の OR として除外処理をします。`expression` の値は以下の例のように [JMESPath](https://github.com/jmespath/jmespath.py) に準拠した条件式を文字列で設定します (詳細は [JMESPath ドキュメント](https://jmespath.org/specification.html)を参照ください)。
+
+
+AND 条件
+```
+field1==`value1` && field2==`value2`
+```
+
+OR 条件
+```
+field1==`value1` || field2==`value2`
+```
+
+NOT 条件
+```
+!(field1==`value1`)
+```
+
+組み合わせた条件
+```
+(field1==`value1` || field2==`value2`) && field3==`value3`
+```
+
+設定例
+![Paramete Store への設定例](/docs/images/exclude-logs-parameter-store.png)
+
+#### 動作確認
+
+それぞれのアクションでの該当したレコード数は CloudWatch Metrics に出力されます。COUNT アクションでの条件に合致したレコード数は `CountedLogCount`、EXCLUDE アクションでの条件に合致して除外したレコード数は `ExcludedLogCount` として総数を出力します。
+
+##### COUNT アクションでの動作確認
+
+COUNT アクションの場合、Lambda 関数 es-loader の実行ログとして、 条件に合致したログレコードを CloudWatch Logs に出力し、全レコードを OpenSearch Service へ取り込みます。
+まずは、Parameter Store に設定した条件式が想定通りにログを検出するかを COUNT アクションで検証することを推奨します。
+条件に合致した際の Lambda 実行ログの例を以下に示します。主要な値の概要は以下の通りです。
+
+* `message`: 合致した条件式の値と名前を出力
+* `condition_name`: 合致した条件のパラメータ名
+* `expression`: 合致した条件式の値
+* `log_record`: 検知されたログレコード
+
+```json
+{
+    "level": "INFO",
+    "message": "Log record matched 'httpSourceName ==`CF` && httpRequest.uri==`/public`' with waf/condition-1 in Parameter Store",
+    "location": "exclude_logs_by_conditions:980",
+    "timestamp": "2023-06-28 03:19:05,516+0000",
+    "service": "es-loader",
+    "cold_start": false,
+    "function_name": "aes-siem-es-loader",
+    "function_memory_size": "2048",
+    "function_arn": "arn:aws:lambda:ap-northeast-1:123456789012:function:aes-siem-es-loader",
+    "function_request_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "s3_key": "AWSLogs/123456789012/WAFLogs/cloudfront/siem-sample-waf/2023/06/28/03/18/123456789012_waflogs_cloudfront_siem-sample-waf_20230628T1218Z_xxxxxxxx.log.gz",
+    "s3_bucket": "aes-siem-123456789012-log",
+    "log_record": {},
+    "condition_name": "waf/condition-1",
+    "expression": "httpSourceName ==`CF` && httpRequest.uri==`/public`",
+    "xray_trace_id": "x-xxxxxxxx-xxxxxxxxxxxxxxxx"
+}
+```
+
+##### EXCLUDE アクションでの動作確認
+
+EXCLUDE アクションの場合、条件に合致したログレコードを除外して、それ以外のログレコードを OpenSearch Service へ取り込みます。
+条件式により除外されたログレコード以外のみ OpenSearch Service に取り込まれているかを OpenSearch Dashboards の Discover から確認します。
 
 ## OpenSearch Service の設定変更
 
