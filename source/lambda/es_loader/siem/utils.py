@@ -22,6 +22,7 @@ import boto3
 import botocore
 import requests
 from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities import parameters
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
 try:
@@ -533,6 +534,40 @@ def get_etl_config():
         etl_config[each_config]['timestamp_tz'] = timestr_to_hours(
             etl_config[each_config]['timestamp_tz'])
     return etl_config
+
+
+def get_exclusion_conditions():
+    parameters_prefix = '/siem/exclude-logs/'
+    exclusion_parameters = parameters.get_parameters(parameters_prefix)
+    exclusion_conditions = {}
+    for parameter_name, parameter in exclusion_parameters.items():
+        parameter_name_with_prefix = parameters_prefix + parameter_name
+        if '/' not in parameter_name:
+            logger.info(
+                f'Prameter name {parameter_name} '
+                'must have logtype prefix.')
+            continue
+        try:
+            parameter = json.loads(parameter)
+        except Exception:
+            logger.info(
+                f'Prameter {parameter_name_with_prefix} '
+                'is invalid JSON format.')
+            continue
+        if 'action' not in parameter or 'expression' not in parameter:
+            logger.info(
+                f'Parameter {parameter_name_with_prefix} '
+                'must have `action` and `expression` keys in JSON format.')
+            continue
+        action = parameter['action'].lower()
+        if action != 'exclude' and action != 'count':
+            continue
+        parameter['name'] = parameter_name
+        logtype = parameter_name.split('/')[0]
+        if logtype not in exclusion_conditions:
+            exclusion_conditions[logtype] = []
+        exclusion_conditions[logtype].append(parameter)
+    return exclusion_conditions
 
 
 def load_modules_on_memory(etl_config, user_libs):

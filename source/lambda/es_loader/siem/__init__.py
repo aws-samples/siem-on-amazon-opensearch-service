@@ -19,6 +19,7 @@ from datetime import datetime, timedelta, timezone
 from functools import cached_property
 from typing import Tuple
 
+import jmespath
 from aws_lambda_powertools import Logger
 
 from siem import user_agent, utils
@@ -52,6 +53,8 @@ class LogS3:
         self.s3bucket = s3bucket
         self.s3key = s3key
         self.s3obj_size = self.s3obj_size
+        self.excluded_log_count = 0
+        self.counted_log_count = 0
 
         self.loggroup = None
         self.logstream = None
@@ -568,6 +571,8 @@ class LogParser:
         self.enrich()
         # add filed prefix to original log
         self.add_field_prefix()
+        # exclude logs by conditional expressions in Parameter Store
+        self.exclude_logs_by_conditions()
 
     ###########################################################################
     # Property
@@ -958,6 +963,44 @@ class LogParser:
                     del self.__logdata_dict[field]
                 except KeyError:
                     pass
+
+    def exclude_logs_by_conditions(self):
+        if 'exclusion_conditions' not in self.logconfig:
+            return
+        record = self.__logdata_dict
+        exclusion_conditions = self.logconfig['exclusion_conditions']
+        is_matched_count_action = False
+        for condition in exclusion_conditions:
+            action = condition['action'].lower()
+            expression = condition['expression']
+            condition_name = condition['name']
+            try:
+                is_excluded = jmespath.search(expression, record)
+            except Exception as err:
+                logger.append_keys(expression=expression)
+                msg = f"Failed to query JMESPath with '{condition_name}'"
+                logger.exception(msg)
+                logger.remove_keys(["expression"])
+                raise Exception(f"{msg}. {err}") from None
+            if is_excluded:
+                if action == 'exclude':
+                    self.logfile.excluded_log_count += 1
+                    self.__logdata_dict['is_ignored'] = True
+                    break
+                if action == 'count':
+                    logger.append_keys(
+                        log_record=record,
+                        condition_name=condition_name,
+                        expression=expression)
+                    logger.info(
+                        f"Log record matched '{expression}' "
+                        f"with {condition_name} in Parameter Store"
+                    )
+                    logger.remove_keys(
+                        ["condition_name", "expression", "log_record"])
+                    is_matched_count_action = True
+        if is_matched_count_action:
+            self.logfile.counted_log_count += 1
 
     ###########################################################################
     # Method/Function - Support

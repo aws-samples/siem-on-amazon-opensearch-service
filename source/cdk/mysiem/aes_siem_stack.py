@@ -1232,6 +1232,21 @@ class MyAesSiemStack(cdk.Stack):
         lambda_metrics_exporter.role.attach_inline_policy(
             inline_policy_to_load_entries_into_aos)
 
+        inline_policy_to_get_parameters_by_path = aws_iam.Policy(
+            self, 'aes-siem-policy-to-get-parameters-by-path',
+            policy_name='aes-siem-policy-to-get-parameters-by-path',
+            statements=[
+                aws_iam.PolicyStatement(
+                    actions=['ssm:GetParametersByPath'],
+                    resources=[
+                        f'arn:aws:ssm:*:{cdk.Aws.ACCOUNT_ID}:'
+                        'parameter/siem/exclude-logs/*'
+                    ]),
+            ]
+        )
+        lambda_es_loader.role.attach_inline_policy(
+            inline_policy_to_get_parameters_by_path)
+
         # grant additional permission to es_loader role
         additional_kms_cmks = self.node.try_get_context('additional_kms_cmks')
         if additional_kms_cmks:

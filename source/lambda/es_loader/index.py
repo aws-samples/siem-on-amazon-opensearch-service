@@ -192,6 +192,8 @@ def create_logconfig(logtype):
         logconfig['multiline_firstline'] = logconfig['xml_firstline']
     if SERVICE == 'aoss':
         logconfig['index_rotation'] = 'aoss'
+    if logtype in exclusion_conditions:
+        logconfig['exclusion_conditions'] = exclusion_conditions[logtype]
 
     return logconfig
 
@@ -214,7 +216,9 @@ def get_es_entries(logfile, exclude_log_patterns):
         for lograw, logdata, logmeta in logfile:
             logparser(lograw, logdata, logmeta)
             if logparser.is_ignored:
-                logger.debug(f'Skipped log because {logparser.ignored_reason}')
+                if logparser.ignored_reason:
+                    logger.debug(
+                        f'Skipped log because {logparser.ignored_reason}')
                 continue
             indexname = utils.get_writable_indexname(
                 logparser.indexname, READ_ONLY_INDICES)
@@ -226,7 +230,9 @@ def get_es_entries(logfile, exclude_log_patterns):
         for lograw, logdata, logmeta in logfile:
             logparser(lograw, logdata, logmeta)
             if logparser.is_ignored:
-                logger.debug(f'Skipped log because {logparser.ignored_reason}')
+                if logparser.ignored_reason:
+                    logger.debug(
+                        f'Skipped log because {logparser.ignored_reason}')
                 continue
             indexname = utils.get_writable_indexname(
                 logparser.indexname, READ_ONLY_INDICES)
@@ -351,6 +357,8 @@ def output_metrics(metrics, logfile=None, collected_metrics={}):
     total_output_size = collected_metrics['total_output_size']
     success_count = collected_metrics['success_count']
     error_count = collected_metrics['error_count']
+    excluded_log_count = logfile.excluded_log_count
+    counted_log_count = logfile.counted_log_count
     es_response_time = collected_metrics['es_response_time']
     input_file_size = logfile.s3obj_size
     s3_key = logfile.s3key
@@ -367,6 +375,11 @@ def output_metrics(metrics, logfile=None, collected_metrics={}):
         name="SuccessLogLoadCount", unit=MetricUnit.Count, value=success_count)
     metrics.add_metric(
         name="ErrorLogLoadCount", unit=MetricUnit.Count, value=error_count)
+    metrics.add_metric(
+        name="ExcludedLogCount", unit=MetricUnit.Count,
+        value=excluded_log_count)
+    metrics.add_metric(
+        name="CountedLogCount", unit=MetricUnit.Count, value=counted_log_count)
     metrics.add_metric(
         name="TotalDurationTime", unit=MetricUnit.Milliseconds, value=duration)
     metrics.add_metric(
@@ -409,6 +422,7 @@ user_libs_list = utils.find_user_custom_libs()
 etl_config = utils.get_etl_config()
 utils.load_modules_on_memory(etl_config, user_libs_list)
 logtype_s3key_dict = utils.create_logtype_s3key_dict(etl_config)
+exclusion_conditions = utils.get_exclusion_conditions()
 
 log_exclusion_patterns = []
 builtin_log_exclusion_patterns = (
@@ -510,6 +524,7 @@ def process_record(record):
             logger.critical(
                 f'Skipped S3 object because {logfile.critical_reason}')
         return None
+
     # 抽出したログからESにPUTするデータを作成する
     es_entries = get_es_entries(logfile, log_exclusion_patterns)
     # 作成したデータをESにPUTしてメトリクスを収集する
