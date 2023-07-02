@@ -492,13 +492,12 @@ class LogParser:
     フィールドのECSへの統一、最後にJSON化、する
     """
     def __init__(self, logfile, logconfig, sf_module, geodb_instance,
-                 ioc_instance, log_exclusion_patterns):
+                 ioc_instance):
         self.logfile = logfile
         self.logconfig = logconfig
         self.sf_module = sf_module
         self.geodb_instance = geodb_instance
         self.ioc_instance = ioc_instance
-        self.log_exclusion_patterns = log_exclusion_patterns
 
         self.logtype = logfile.logtype
         self.s3key = logfile.s3key
@@ -582,12 +581,11 @@ class LogParser:
         if self.__logdata_dict.get('is_ignored'):
             self.ignored_reason = self.__logdata_dict.get('ignored_reason')
             return True
-        for log_exclusion_pattern in self.log_exclusion_patterns:
-            if self.logtype in log_exclusion_pattern:
+        elif 'exclusion_patterns' in self.logconfig:
+            for pattern in self.logconfig['exclusion_patterns']:
                 is_excluded, ex_pattern = (
                     utils.match_log_with_exclude_patterns(
-                        self.__logdata_dict,
-                        log_exclusion_pattern[self.logtype]))
+                        self.__logdata_dict, pattern))
                 if is_excluded:
                     self.ignored_reason = (
                         f'matched {ex_pattern} with log_exclusion_patterns')
@@ -984,7 +982,6 @@ class LogParser:
                 raise Exception(f"{msg}. {err}") from None
             if is_excluded:
                 if action == 'exclude':
-                    self.logfile.excluded_log_count += 1
                     self.__logdata_dict['is_ignored'] = True
                     break
                 if action == 'count':

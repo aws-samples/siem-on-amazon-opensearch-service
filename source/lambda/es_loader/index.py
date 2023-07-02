@@ -192,13 +192,15 @@ def create_logconfig(logtype):
         logconfig['multiline_firstline'] = logconfig['xml_firstline']
     if SERVICE == 'aoss':
         logconfig['index_rotation'] = 'aoss'
+    if logtype in log_exclusion_patterns:
+        logconfig['exclusion_patterns'] = log_exclusion_patterns[logtype]
     if logtype in exclusion_conditions:
         logconfig['exclusion_conditions'] = exclusion_conditions[logtype]
 
     return logconfig
 
 
-def get_es_entries(logfile, exclude_log_patterns):
+def get_es_entries(logfile):
     """get opensearch entries.
 
     To return json to load OpenSearch Service, extract log, map fields to ecs
@@ -210,12 +212,12 @@ def get_es_entries(logfile, exclude_log_patterns):
     sf_module = utils.load_sf_module(logfile, logconfig, user_libs_list)
 
     logparser = siem.LogParser(
-        logfile, logconfig, sf_module, geodb_instance, ioc_instance,
-        exclude_log_patterns)
+        logfile, logconfig, sf_module, geodb_instance, ioc_instance)
     if AOSS_TYPE != 'TIMESERIES':
         for lograw, logdata, logmeta in logfile:
             logparser(lograw, logdata, logmeta)
             if logparser.is_ignored:
+                logfile.excluded_log_count += 1
                 if logparser.ignored_reason:
                     logger.debug(
                         f'Skipped log because {logparser.ignored_reason}')
@@ -230,6 +232,7 @@ def get_es_entries(logfile, exclude_log_patterns):
         for lograw, logdata, logmeta in logfile:
             logparser(lograw, logdata, logmeta)
             if logparser.is_ignored:
+                logfile.excluded_log_count += 1
                 if logparser.ignored_reason:
                     logger.debug(
                         f'Skipped log because {logparser.ignored_reason}')
@@ -424,16 +427,15 @@ utils.load_modules_on_memory(etl_config, user_libs_list)
 logtype_s3key_dict = utils.create_logtype_s3key_dict(etl_config)
 exclusion_conditions = utils.get_exclusion_conditions()
 
-log_exclusion_patterns = []
-builtin_log_exclusion_patterns = (
+builtin_log_exclusion_patterns: dict = (
     utils.make_exclude_own_log_patterns(etl_config))
 csv_filename = utils.get_exclude_log_patterns_csv_filename(etl_config)
-custom_log_exclusion_patterns = (
+custom_log_exclusion_patterns: dict = (
     utils.convert_csv_into_log_patterns(csv_filename))
-if builtin_log_exclusion_patterns:
-    log_exclusion_patterns.append(builtin_log_exclusion_patterns)
-if custom_log_exclusion_patterns:
-    log_exclusion_patterns.append(custom_log_exclusion_patterns)
+log_exclusion_patterns: dict = utils.merge_log_exclusion_patterns(
+    builtin_log_exclusion_patterns, custom_log_exclusion_patterns)
+# e.g. log_exclusion_patterns['cloudtrail'] = [pattern1, pattern2]
+
 s3_session_config = utils.make_s3_session_config(etl_config)
 s3_client = boto3.client('s3', config=s3_session_config)
 sqs_queue = utils.sqs_queue(SQS_SPLITTED_LOGS_URL)
@@ -526,7 +528,7 @@ def process_record(record):
         return None
 
     # 抽出したログからESにPUTするデータを作成する
-    es_entries = get_es_entries(logfile, log_exclusion_patterns)
+    es_entries = get_es_entries(logfile)
     # 作成したデータをESにPUTしてメトリクスを収集する
     (collected_metrics, error_reason_list, retry_needed) = (
         bulkloads_into_opensearch(es_entries, collected_metrics))

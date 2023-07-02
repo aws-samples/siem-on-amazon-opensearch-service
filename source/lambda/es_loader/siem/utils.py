@@ -600,23 +600,64 @@ def load_sf_module(logfile, logconfig, user_libs_list):
     return sf_module
 
 
-def make_exclude_own_log_patterns(etl_config):
+def make_exclude_own_log_patterns(etl_config) -> dict:
     log_patterns = {}
     if etl_config['DEFAULT'].getboolean('ignore_own_logs'):
         logger.info('built-in log exclusion pattern list')
 
         user_agent = etl_config['DEFAULT'].get('custom_user_agent', '')
-        user_agent = re.escape(user_agent)
         old_user_agent = 'AesSiemEsLoader'
         ioc_user_agent = 'siem-ioc-db-creator'
-        all_user_name = f'({user_agent}|{old_user_agent}|{ioc_user_agent})'
-        re_user_agent = re.compile(f'.*{all_user_name}.*')
+        all_ua_name = f'({user_agent}|{old_user_agent}|{ioc_user_agent})'
+        re_all_ua_agent = re.compile(f'.*{all_ua_name}.*')
 
-        log_patterns['cloudtrail'] = {'userAgent': re_user_agent}
-        log_patterns['s3accesslog'] = {'UserAgent': re_user_agent}
-        log_patterns['securitylake'] = {
-            'http_request': {'user_agent': re_user_agent}}
+        func1 = 'aes-siem-ioc-download'
+        func2 = 'aes-siem-ioc-plan'
+        func3 = 'aes-siem-ioc-createdb'
+        func4 = 'aes-siem-es-loader'
+        func5 = 'aes-siem-index-metrics-exporter'
+        slfunc1 = 'SecurityLake_Glue_Partition_Updater_Lambda'
+
+        func = fr'arn.*({func1}|{func2}|{func3}|{func4}|{func5}|{slfunc1}.*)'
+        re_func = re.compile(func)
+
+        principal_id = (
+            fr'AROA.*({func1}|{func2}|{func3}|{func4}|{func5}|{slfunc1}.*)')
+        re_principal_id = re.compile(principal_id)
+
+        role1 = 'LambdaEsLoaderServiceRole'
+        role2 = 'AmazonSecurityLakeS3ReplicationRole'
+        role = fr'arn.*({role1}|{role2}).*'
+        re_role = re.compile(role)
+
+        src1 = 'securitylake.amazonaws.com'
+        re_src = re.compile(src1)
+
+        # CloudTrail
+        ct1 = {'userAgent': re_all_ua_agent,
+               'sourceIPAddress': re_src,
+               'userIdentity': {'principalId': re_principal_id,
+                                'arn': re_role}}
+        ct2 = {'requestParameters': {'functionName': re_func,
+                                     'roleArn': re_role}}
+        log_patterns['cloudtrail'] = [ct1, ct2]
+
+        # S3 Accesslog
+        agent = fr'(arn:.*{func}|{role}|svc:{src1})'
+        re_agent = re.compile(agent)
+        sa1 = {'Requester': re_agent,
+               'UserAgent': re_all_ua_agent}
+        log_patterns['s3accesslog'] = [sa1]
+
+        # Security Lake
+        sl1 = {'src_endpoint': {'domain': re_src}}
+        sl2 = {'resources': {'uid': re_func}}
+        sl3 = {'actor': {'user': {'uid': re_principal_id}}}
+        sl4 = {'actor': {'session': {'issuer': re_role}}}
+        log_patterns['securitylake'] = [sl1, sl2, sl3, sl4]
+
         logger.info(f'{log_patterns}')
+
     return log_patterns
 
 
@@ -646,6 +687,16 @@ def get_exclude_log_patterns_csv_filename(etl_config):
     return local_file
 
 
+def merge_log_exclusion_patterns(patterns1, patterns2) -> dict:
+    new_patterns = {}
+    logtypes = patterns1.keys() | patterns2.keys()
+    for logtype in logtypes:
+        p1 = patterns1.get(logtype, [])
+        p2 = patterns2.get(logtype, [])
+        new_patterns[logtype] = p1 + p2
+    return new_patterns
+
+
 def merge_dotted_key_value_into_dict(patterns_dict, dotted_key, value):
     if not patterns_dict:
         patterns_dict = {}
@@ -657,7 +708,7 @@ def merge_dotted_key_value_into_dict(patterns_dict, dotted_key, value):
     return patterns_dict
 
 
-def convert_csv_into_log_patterns(csv_filename):
+def convert_csv_into_log_patterns(csv_filename) -> dict:
     log_patterns = {}
     if not csv_filename:
         return log_patterns
@@ -669,8 +720,10 @@ def convert_csv_into_log_patterns(csv_filename):
                 pattern = re.compile(str(re.escape(line['pattern'])) + '$')
             else:
                 pattern = re.compile(str(line['pattern']) + '$')
-            log_patterns.setdefault(line['log_type'], {})
-            log_patterns[line['log_type']][line['field']] = pattern
+            log_patterns.setdefault(line['log_type'], [])
+            d = merge_dotted_key_value_into_dict({}, line['field'], pattern)
+            log_patterns[line['log_type']].append(d)
+
     logger.info(f'{log_patterns}')
     return log_patterns
 
@@ -863,17 +916,25 @@ def match_log_with_exclude_patterns(log_dict, log_patterns, ex_pattern=None):
 
     """
     for key, pattern in log_patterns.items():
+        res = False
+        ex_pattern = None
         if key in log_dict:
             if isinstance(pattern, dict) and isinstance(log_dict[key], dict):
                 res, ex_pattern = match_log_with_exclude_patterns(
                     log_dict[key], pattern)
                 return (res, ex_pattern)
+            elif isinstance(pattern, dict) and isinstance(log_dict[key], list):
+                for x in log_dict[key]:
+                    res, ex_pattern = match_log_with_exclude_patterns(
+                        x, pattern)
+                    return (res, ex_pattern)
             elif isinstance(pattern, re.Pattern):
-                if isinstance(log_dict[key], list):
-                    return (False, None)
-                elif pattern.match(str(log_dict[key])):
+                if pattern.match(str(log_dict[key])):
                     ex_pattern = '{{{0}: {1}}}'.format(key, log_dict[key])
                     return (True, ex_pattern)
+        if res:
+            return (res, ex_pattern)
+
     return (False, None)
 
 
