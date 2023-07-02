@@ -72,6 +72,10 @@ function pip_zip_for_lambda () {
     cp -f "$source_template_dir/../LICENSE" "$source_template_dir/../CODE_OF_CONDUCT.md" "$source_template_dir/../CONTRIBUTING.md" "${source_dir}/lambda/$1/"
     echo "zip -r -9 ../$1.zip *"
     zip -r -9 ../"$1".zip ./* > /dev/null
+    if [[ "${AWS_EXECUTION_ENV}" == "CloudShell" ]]; then
+      echo "rm -r ../\"$1\".zip"
+      rm -r ../"$1".zip
+    fi
     echo "rm ${source_dir}/lambda/$1/LICENSE ${source_dir}/lambda/$1/CODE_OF_CONDUCT.md ${source_dir}/lambda/$1/CONTRIBUTING.md"
     rm "${source_dir}/lambda/$1/LICENSE" "${source_dir}/lambda/$1/CODE_OF_CONDUCT.md" "${source_dir}/lambda/$1/CONTRIBUTING.md"
     cd ..
@@ -117,6 +121,10 @@ function pip_zip_for_lambda_ioc () {
     cp -f "$source_template_dir/../LICENSE" "$source_template_dir/../CODE_OF_CONDUCT.md" "$source_template_dir/../CONTRIBUTING.md" "${source_dir}/lambda/$1/"
     echo "zip -r -9 ../$1.zip *"
     zip -r -9 ../"$1".zip ./* > /dev/null
+    if [[ "${AWS_EXECUTION_ENV}" == "CloudShell" ]]; then
+      echo "rm -r ../\"$1\".zip"
+      rm -r ../"$1".zip
+    fi
     echo "rm ${source_dir}/lambda/$1/LICENSE ${source_dir}/lambda/$1/CODE_OF_CONDUCT.md ${source_dir}/lambda/$1/CONTRIBUTING.md"
     rm "${source_dir}/lambda/$1/LICENSE" "${source_dir}/lambda/$1/CODE_OF_CONDUCT.md" "${source_dir}/lambda/$1/CONTRIBUTING.md"
     cd ..
