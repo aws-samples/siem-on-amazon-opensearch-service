@@ -19,7 +19,6 @@ from datetime import datetime, timedelta, timezone
 from functools import cached_property
 from typing import Tuple
 
-import jmespath
 from aws_lambda_powertools import Logger
 
 from siem import user_agent, utils
@@ -973,18 +972,19 @@ class LogParser:
             expression = condition['expression']
             condition_name = condition['name']
             try:
-                is_excluded = jmespath.search(expression, record)
-            except Exception as err:
-                logger.append_keys(expression=expression)
+                is_excluded = expression.search(record)
+            except Exception:
                 msg = f"Failed to query JMESPath with '{condition_name}'"
                 logger.exception(msg)
-                logger.remove_keys(["expression"])
-                raise Exception(f"{msg}. {err}") from None
+                continue
             if is_excluded:
                 if action == 'exclude':
                     self.__logdata_dict['is_ignored'] = True
                     break
                 if action == 'count':
+                    is_matched_count_action = True
+                    if self.logfile.counted_log_count > 2:
+                        continue
                     logger.append_keys(
                         log_record=record,
                         condition_name=condition_name,
@@ -995,7 +995,6 @@ class LogParser:
                     )
                     logger.remove_keys(
                         ["condition_name", "expression", "log_record"])
-                    is_matched_count_action = True
         if is_matched_count_action:
             self.logfile.counted_log_count += 1
 

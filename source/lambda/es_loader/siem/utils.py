@@ -20,6 +20,7 @@ from functools import lru_cache
 
 import boto3
 import botocore
+import jmespath
 import requests
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities import parameters
@@ -543,30 +544,47 @@ def get_exclusion_conditions():
     for parameter_name, parameter in exclusion_parameters.items():
         parameter_name_with_prefix = parameters_prefix + parameter_name
         if '/' not in parameter_name:
-            logger.info(
+            logger.error(
                 f'Prameter name {parameter_name} '
                 'must have logtype prefix.')
             continue
         try:
             parameter = json.loads(parameter)
         except Exception:
-            logger.info(
+            logger.exception(
                 f'Prameter {parameter_name_with_prefix} '
                 'is invalid JSON format.')
             continue
         if 'action' not in parameter or 'expression' not in parameter:
-            logger.info(
+            logger.error(
                 f'Parameter {parameter_name_with_prefix} '
                 'must have `action` and `expression` keys in JSON format.')
             continue
+        try:
+            expression = parameter['expression']
+            parameter['expression'] = jmespath.compile(expression)
+        except Exception:
+            # logger.append_keys(expression=expression)
+            # github.com/aws-powertools/powertools-lambda-python/issues/1016
+            msg = f"Failed to compile JMESPath with '{parameter_name}'"
+            logger.exception(msg)
+            # logger.remove_keys(["expression"])
+            continue
         action = parameter['action'].lower()
         if action != 'exclude' and action != 'count':
+            logger.error(
+                f'Prameter {parameter_name_with_prefix} is invalid action, '
+                f'{action}. it should be EXCLUDE or COUNT')
             continue
         parameter['name'] = parameter_name
         logtype = parameter_name.split('/')[0]
         if logtype not in exclusion_conditions:
             exclusion_conditions[logtype] = []
         exclusion_conditions[logtype].append(parameter)
+
+    if exclusion_conditions:
+        logger.info('exclusion_conditions of JMESPath')
+        logger.info(exclusion_conditions)
     return exclusion_conditions
 
 
