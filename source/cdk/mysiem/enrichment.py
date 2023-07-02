@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.0-beta.1'
+__version__ = '2.10.0-beta.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -268,7 +268,9 @@ class Enrichment(object):
         ioc_state_machine = aws_stepfunctions.StateMachine(
             self.scope, "IocStateMachine",
             state_machine_name='aes-siem-ioc-state-machine',
-            definition=definition, timeout=cdk.Duration.minutes(60),
+            definition_body=(
+                aws_stepfunctions.DefinitionBody.from_chainable(definition)),
+            timeout=cdk.Duration.minutes(60),
             logs=aws_stepfunctions.LogOptions(
                 destination=ioc_state_machine_log_group,
                 level=aws_stepfunctions.LogLevel.ALL))

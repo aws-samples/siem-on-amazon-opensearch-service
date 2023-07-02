@@ -1,4 +1,4 @@
-Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1
+Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -11,7 +11,6 @@ Metadata:
         Parameters:
           - DeploymentTarget
           - DomainOrCollectionName
-          - VpcEndpointId
           - SnsEmail
           - ReservedConcurrency
       - Label:
@@ -26,6 +25,7 @@ Metadata:
           default: Advanced Configuration
         Parameters:
           - LogBucketPolicyUpdate
+          - VpcEndpointId
           - CreateS3VpcEndpoint
           - CreateSqsVpcEndpoint
       - Label:
@@ -214,11 +214,12 @@ Parameters:
     MinValue: 30
   LogBucketPolicyUpdate:
     Type: String
-    Default: auto_update_policy
+    Default: update_and_override
     AllowedValues:
-      - auto_update_policy
-      - keep_current_policy
-    Description: Specify
+      - update_and_override
+      - keep
+    Description: Select "update_and_override" or "keep" for the current policy of the Log bucket. Be sure to select "update_and_override" for the first deployment. If you select "update_and_override" when
+      updating, you need to create and manage the bucket policy for writing logs to your S3 Log bucket by your self
   CreateS3VpcEndpoint:
     Type: String
     Default: 'true'
@@ -332,7 +333,7 @@ Conditions:
       - ''
   KeepLogBucketPolicy: !Equals
     - !Ref 'LogBucketPolicyUpdate'
-    - keep_current_policy
+    - keep
   SqsVpceIsRequired: !And
     - !Equals
       - !Ref 'CreateS3VpcEndpoint'
@@ -396,7 +397,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / resource validator for deployment
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / resource validator for deployment
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -415,11 +416,11 @@ Resources:
       Timeout: 30
     DependsOn:
       - LambdaResourceValidatorServiceRole8BE4D6B0
-  LambdaResourceValidatorCurrentVersion1C9DB5C10b7fe09e2cbb528642bdfcb07da1de09:
+  LambdaResourceValidatorCurrentVersion1C9DB5C117d1c76ae520fa15e9c730184dadb326:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaResourceValidatorE0EF57CE'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   aessiempolicyforvpcvalidation724B105E:
@@ -462,7 +463,7 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaResourceValidatorE0EF57CE.Arn'
-      ConfigVersion: 2.10.0-beta.1
+      ConfigVersion: 2.10.0-beta.2
       vpce: !Ref 'VpcEndpointId'
       DeploymentTarget: !Ref 'DeploymentTarget'
       BucketPolicyUpdate: !Ref 'LogBucketPolicyUpdate'
@@ -1024,7 +1025,7 @@ Resources:
         - !Ref 'AWS::NoValue'
       DeadLetterConfig:
         TargetArn: !GetAtt 'AesSiemDlq1CD8439D.Arn'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / es-loader
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / es-loader
       Environment:
         Variables:
           AOSS_TYPE: !GetAtt 'AesSiemDomainDeployedR2.aoss_type'
@@ -1056,11 +1057,11 @@ Resources:
     DependsOn:
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
-  LambdaEsLoaderCurrentVersion9DFE69552627dbb5ccde70ecafac3c2cc4034d9b:
+  LambdaEsLoaderCurrentVersion9DFE6955d60867b88b2a53273eaf384e980b367c:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaEsLoaderSqsEventSourceaessiemAesSiemSqsSplitLogs506AFFA6A7D8B2E9:
@@ -1144,7 +1145,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / add-pandas-layer
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / add-pandas-layer
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1157,22 +1158,22 @@ Resources:
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-  LambdaAddPandasLayerCurrentVersion52D07543d7795306df0155bbfff0b80723d89e9a:
+  LambdaAddPandasLayerCurrentVersion52D07543598b4cdd453a0e700b1a81b1e066ae8e:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaAddPandasLayer8F3F6957'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   ExecLambdaAddPandasLayer:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaAddPandasLayer8F3F6957.Arn'
-      ConfigVersion: 2.10.0-beta.1
+      ConfigVersion: 2.10.0-beta.2
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-      - LambdaEsLoaderCurrentVersion9DFE69552627dbb5ccde70ecafac3c2cc4034d9b
+      - LambdaEsLoaderCurrentVersion9DFE6955d60867b88b2a53273eaf384e980b367c
       - LambdaEsLoader4B1E2DD9
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
@@ -1219,7 +1220,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / es-loader-stopper
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / es-loader-stopper
       Environment:
         Variables:
           AES_SIEM_ALERT_TOPIC_ARN: !Ref 'SnsTopic2C1570A4'
@@ -1234,11 +1235,11 @@ Resources:
     DependsOn:
       - LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
       - LambdaEsLoaderStopperServiceRole83AABC1A
-  LambdaEsLoaderStopperCurrentVersion312AA850f7d2c446f4f0c9964dbea8af245d67cf:
+  LambdaEsLoaderStopperCurrentVersion312AA850ac396e8abff921d495e76584c7e20cec:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoaderStopper35C1D57B'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaMetricsExporterServiceRoleDDE0BD95:
@@ -1303,7 +1304,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / index-metrics-exporter
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / index-metrics-exporter
       Environment:
         Variables:
           COLLECTION_NAME: !Ref 'DomainOrCollectionName'
@@ -1325,11 +1326,11 @@ Resources:
     DependsOn:
       - LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
       - LambdaMetricsExporterServiceRoleDDE0BD95
-  LambdaMetricsExporterCurrentVersion79B0413F9833aa695dd0034c6b596de7a124ecdd:
+  LambdaMetricsExporterCurrentVersion79B0413F3f36e550ad289996ea8be4e8c0c54089:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaMetricsExporter2737F589'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   EventBridgeRuleLambdaMetricsExporterE956E7F2:
@@ -1397,7 +1398,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / geoip-downloader
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / geoip-downloader
       Environment:
         Variables:
           license_key: !Ref 'GeoLite2LicenseKey'
@@ -1411,11 +1412,11 @@ Resources:
     DependsOn:
       - LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65
       - LambdaGeoipDownloaderServiceRoleE37FB908
-  LambdaGeoipDownloaderCurrentVersion7F1CD34F27bca99ff8f221c3b112a26cbc348f60:
+  LambdaGeoipDownloaderCurrentVersion7F1CD34F770b30b9e02243d99ab352c398232d85:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaGeoipDownloaderA5EFF97E'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   ExecLambdaGeoipDownloader:
@@ -1492,7 +1493,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / ioc-plan
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / ioc-plan
       Environment:
         Variables:
           ABUSE_CH: !Ref 'EnableAbuseCh'
@@ -1509,11 +1510,11 @@ Resources:
     DependsOn:
       - LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE
       - LambdaIocPlanServiceRole6CDE7C5D
-  LambdaIocPlanCurrentVersion1BAA7B4C53d2f11cb85280bfe0919b5763f26b9c:
+  LambdaIocPlanCurrentVersion1BAA7B4Ce7fd4e8207793d3d4027c898b438d2b1:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocPlan6E369BFB'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocDownloadServiceRoleEB9001C6:
@@ -1533,6 +1534,11 @@ Resources:
     Properties:
       PolicyDocument:
         Statement:
+          - Action:
+              - s3:ListAllMyBuckets
+              - s3:PutFunctionConcurrency
+            Effect: Allow
+            Resource: '*'
           - Action:
               - s3:GetObject*
               - s3:GetBucket*
@@ -1566,7 +1572,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / ioc-download
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / ioc-download
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1574,17 +1580,17 @@ Resources:
           OTX_API_KEY: !Ref 'OtxApiKey'
       FunctionName: aes-siem-ioc-download
       Handler: lambda_function.download
-      MemorySize: 256
+      MemorySize: 384
       Runtime: python3.9
       Timeout: 900
     DependsOn:
       - LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942
       - LambdaIocDownloadServiceRoleEB9001C6
-  LambdaIocDownloadCurrentVersion48773E6Bad572abe2973704bbb0d8f19ce1d48cc:
+  LambdaIocDownloadCurrentVersion48773E6B0cfef85c3d5c6a9e6c978d472b170763:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocDownload5519716E'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocCreatedbServiceRole555565C0:
@@ -1637,7 +1643,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / ioc-createdb
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / ioc-createdb
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1650,11 +1656,11 @@ Resources:
     DependsOn:
       - LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4
       - LambdaIocCreatedbServiceRole555565C0
-  LambdaIocCreatedbCurrentVersionD9D04E9Cf16de687e32063615dfca34efd3bc245:
+  LambdaIocCreatedbCurrentVersionD9D04E9C8d190b7d9640aab61bae03b289cbe5f2:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaIocCreatedb04F35777'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   IocStateMachineLogGroupC1AB417E:
@@ -1714,7 +1720,7 @@ Resources:
     Properties:
       RoleArn: !GetAtt 'IocStateMachineRole095AC46F.Arn'
       DefinitionString: !Sub '{"StartAt":"IocPlan","States":{"IocPlan":{"Next":"need to download?","Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","OutputPath":"$.Payload","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocPlan6E369BFB.Arn}","Payload":""}},"need
-        to download?":{"Type":"Choice","Choices":[{"Variable":"$.mapped[0].ioc","IsPresent":false,"Next":"SkipDownload"}],"Default":"MapDownload"},"MapDownload":{"Type":"Map","Next":"IocCreatedb","Parameters":{"mapped.$":"$$.Map.Item.Value"},"Iterator":{"StartAt":"IocDownload","States":{"IocDownload":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.Timeout"],"ResultPath":"$.catcher","Next":"IgnoreTimeout"}],"Type":"Task","TimeoutSeconds":899,"OutputPath":"$.Payload","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocDownload5519716E.Arn}","Payload.$":"$"}},"IgnoreTimeout":{"Type":"Pass","End":true}}},"ItemsPath":"$.mapped","MaxConcurrency":4},"IocCreatedb":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocCreatedb04F35777.Arn}","Payload.$":"$"}},"SkipDownload":{"Type":"Pass","End":true}},"TimeoutSeconds":3600}'
+        to download?":{"Type":"Choice","Choices":[{"Variable":"$.mapped[0].ioc","IsPresent":false,"Next":"SkipDownload"}],"Default":"MapDownload"},"MapDownload":{"Type":"Map","Next":"IocCreatedb","Parameters":{"mapped.$":"$$.Map.Item.Value"},"Iterator":{"StartAt":"IocDownload","States":{"IocDownload":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.Timeout","States.TaskFailed"],"ResultPath":"$.catcher","Next":"IgnoreTimeout"}],"Type":"Task","TimeoutSeconds":899,"OutputPath":"$.Payload","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocDownload5519716E.Arn}","Payload.$":"$"}},"IgnoreTimeout":{"Type":"Pass","End":true}}},"ItemsPath":"$.mapped","MaxConcurrency":4},"IocCreatedb":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocCreatedb04F35777.Arn}","Payload.$":"$"}},"SkipDownload":{"Type":"Pass","End":true}},"TimeoutSeconds":3600}'
       LoggingConfiguration:
         Destinations:
           - CloudWatchLogsLogGroup:
@@ -1906,7 +1912,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / opensearch domain deployment
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / opensearch domain deployment
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -1926,18 +1932,18 @@ Resources:
     DependsOn:
       - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaDeployAESCurrentVersion047915F124c2c9db9bdbb911d780dbe8d9c18e2e:
+  LambdaDeployAESCurrentVersion047915F1493014b760d4d02a8a1b09457f8ec8ec:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaDeployAES636B5079'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   AesSiemDomainDeployedR2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaDeployAES636B5079.Arn'
-      ConfigVersion: 2.10.0-beta.1
+      ConfigVersion: 2.10.0-beta.2
       Target: !Ref 'DeploymentTarget'
       Name: !Ref 'DomainOrCollectionName'
       vpce: !Ref 'VpcEndpointId'
@@ -1958,7 +1964,7 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.1 / opensearch configuration
+      Description: SIEM on Amazon OpenSearch Service v2.10.0-beta.2 / opensearch configuration
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -1985,18 +1991,18 @@ Resources:
     DependsOn:
       - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaConfigureAESCurrentVersion6511476884b791d49ff9bbcfdf3ad4ec4f878387:
+  LambdaConfigureAESCurrentVersion651147680828e3eaf20aadf1ad7755a3fd39278b:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaConfigureAESA0471961'
-      Description: 2.10.0-beta.1
+      Description: 2.10.0-beta.2
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   AesSiemDomainConfiguredR2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaConfigureAESA0471961.Arn'
-      ConfigVersion: 2.10.0-beta.1
+      ConfigVersion: 2.10.0-beta.2
       Target: !Ref 'DeploymentTarget'
       Name: !Ref 'DomainOrCollectionName'
     DependsOn:
@@ -2025,6 +2031,18 @@ Resources:
         - !Ref 'LambdaEsLoaderServiceRoleFFD43869'
         - !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
         - !Ref 'LambdaMetricsExporterServiceRoleDDE0BD95'
+  aessiempolicytogetparametersbypathB5BFC6F0:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParametersByPath
+            Effect: Allow
+            Resource: !Sub 'arn:aws-cn:ssm:*:${AWS::AccountId}:parameter/siem/exclude-logs/*'
+        Version: '2012-10-17'
+      PolicyName: aes-siem-policy-to-get-parameters-by-path
+      Roles:
+        - !Ref 'LambdaEsLoaderServiceRoleFFD43869'
   BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC:
     Type: AWS::IAM::Role
     Properties:
@@ -2317,34 +2335,35 @@ Resources:
         5 invocations","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, @duration, @requestId\n                | sort @duration desc\n                |
         head 5"}},{"type":"metric","width":12,"height":4,"x":12,"y":16,"properties":{"view":"timeSeries","title":"ConcurrentExecutions (Count)","region":"${AWS::Region}","metrics":[["AWS/Lambda","ConcurrentExecutions","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"},"period":60}},{"type":"text","width":24,"height":1,"x":0,"y":20,"properties":{"markdown":"#
         OpenSearch Service: ${DomainOrCollectionName} domain"}},{"type":"metric","width":12,"height":4,"x":0,"y":21,"properties":{"view":"timeSeries","title":"Data Node CPUUtilization (Cluster Max Percentage)","region":"${AWS::Region}","metrics":[["AWS/ES","CPUUtilization","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Maximum"}]],"yAxis":{"left":{"max":100,"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":21,"properties":{"view":"timeSeries","title":"Data
-        Node JVMMemoryPressure (Cluster Max Percentage)","region":"${AWS::Region}","metrics":[["AWS/ES","JVMMemoryPressure","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"yAxis":{"left":{"max":100,"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":0,"y":25,"properties":{"view":"timeSeries","title":"Active
-        Shards Count","region":"${AWS::Region}","metrics":[["AWS/ES","Shards.active","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"],["AWS/ES","Shards.activePrimary","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":25,"properties":{"view":"timeSeries","title":"Cluster
-        DiskThroughputThrottle","region":"${AWS::Region}","metrics":[["AWS/ES","ThroughputThrottle","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"Cluster Disk ThroughputThrottle","stat":"Maximum"}]],"annotations":{"horizontal":[{"value":1,"yAxis":"left"}]},"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":29,"properties":{"view":"timeSeries","title":"ClusterIndexWritesBlocked
-        (Cluster Max Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ClusterIndexWritesBlocked","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"text","width":12,"height":1,"x":12,"y":29,"properties":{"markdown":"#
-        Read / Search"}},{"type":"text","width":12,"height":1,"x":0,"y":33,"properties":{"markdown":"# Write / Indexing"}},{"type":"metric","width":12,"height":4,"x":12,"y":33,"properties":{"view":"timeSeries","title":"EBS
+        Node JVMMemoryPressure (Cluster Max Percentage)","region":"${AWS::Region}","metrics":[["AWS/ES","JVMMemoryPressure","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"yAxis":{"left":{"max":100,"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":0,"y":25,"properties":{"view":"timeSeries","title":"HTTP
+        requests by error response code (Cluster Total Count)","region":"${AWS::Region}","metrics":[["AWS/ES","4xx","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","5xx","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":25,"properties":{"view":"timeSeries","title":"Active
+        Shards Count","region":"${AWS::Region}","metrics":[["AWS/ES","Shards.active","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"],["AWS/ES","Shards.activePrimary","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":29,"properties":{"view":"timeSeries","title":"Cluster
+        DiskThroughputThrottle","region":"${AWS::Region}","metrics":[["AWS/ES","ThroughputThrottle","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"Cluster Disk ThroughputThrottle","stat":"Maximum"}]],"annotations":{"horizontal":[{"value":1,"yAxis":"left"}]},"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":29,"properties":{"view":"timeSeries","title":"ClusterIndexWritesBlocked
+        (Cluster Max Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ClusterIndexWritesBlocked","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"text","width":12,"height":1,"x":0,"y":33,"properties":{"markdown":"#
+        Read / Search"}},{"type":"text","width":12,"height":1,"x":12,"y":33,"properties":{"markdown":"# Write / Indexing"}},{"type":"metric","width":12,"height":4,"x":0,"y":34,"properties":{"view":"timeSeries","title":"EBS
         Read Throughput / IOPS","region":"${AWS::Region}","metrics":[["AWS/ES","ReadThroughput","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"ReadThroughput (Bytes/Second)","stat":"Maximum"}],["AWS/ES","ReadIOPS","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"ReadIOPS
-        (Count/Second)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":37,"properties":{"view":"timeSeries","title":"EBS
+        (Count/Second)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":34,"properties":{"view":"timeSeries","title":"EBS
         Write Throughput / IOPS","region":"${AWS::Region}","metrics":[["AWS/ES","WriteThroughput","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"WriteThroughput (Bytes/Second)","stat":"Maximum"}],["AWS/ES","WriteIOPS","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"WriteIOPS
-        (Count/Second)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":37,"properties":{"view":"timeSeries","title":"EBS
+        (Count/Second)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":38,"properties":{"view":"timeSeries","title":"EBS
         Read Latency / Disk Queue","region":"${AWS::Region}","metrics":[["AWS/ES","ReadLatency","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"ReadLatency (Seconds)","stat":"Maximum"}],["AWS/ES","DiskQueueDepth","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"DiskQueueDepth
-        (Count)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":41,"properties":{"view":"timeSeries","title":"EBS
+        (Count)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":38,"properties":{"view":"timeSeries","title":"EBS
         Write Latency / Disk Queue","region":"${AWS::Region}","metrics":[["AWS/ES","WriteLatency","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"WriteLatency (Seconds)","stat":"Maximum"}],["AWS/ES","DiskQueueDepth","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"DiskQueueDepth
-        (Count)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":41,"properties":{"view":"timeSeries","title":"Search
+        (Count)","stat":"Maximum","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":42,"properties":{"view":"timeSeries","title":"Search
         Rate / Latency (Node Average)","region":"${AWS::Region}","metrics":[["AWS/ES","SearchRate","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"SearchRate (Count)"}],["AWS/ES","SearchLatency","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"SearchLatency
-        (Milliseconds)","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":45,"properties":{"view":"timeSeries","title":"Indexing
+        (Milliseconds)","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":42,"properties":{"view":"timeSeries","title":"Indexing
         Rate / Latency (Node Average)","region":"${AWS::Region}","metrics":[["AWS/ES","IndexingRate","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"IndexingRate (Count)"}],["AWS/ES","IndexingLatency","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"label":"IndexingLatency
-        (Milliseconds)","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":45,"properties":{"view":"timeSeries","title":"ThreadpoolReadQueue
-        (Node Average Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolSearchQueue","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"annotations":{"horizontal":[{"value":1000,"yAxis":"left"}]},"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":0,"y":49,"properties":{"view":"timeSeries","title":"ThreadpoolWriteQueue
-        (Node Average Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolWriteQueue","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"annotations":{"horizontal":[{"value":10000,"yAxis":"left"}]},"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":49,"properties":{"view":"timeSeries","title":"Threadpool
-        Search Rejected Count (Node Total Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolSearchRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":53,"properties":{"view":"timeSeries","title":"Threadpool
-        Indexing Rejected Count (Node Total Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","CoordinatingWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","PrimaryWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","ReplicaWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":24,"height":1,"x":0,"y":57,"properties":{"markdown":"#
-        SQS"}},{"type":"metric","width":12,"height":4,"x":0,"y":58,"properties":{"view":"timeSeries","title":"${AesSiemSqsSplitLogs0191F431.QueueName}: NumberOfMessagesReceived (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","NumberOfMessagesReceived","QueueName","${AesSiemSqsSplitLogs0191F431.QueueName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":58,"properties":{"view":"timeSeries","title":"${AesSiemDlq1CD8439D.QueueName}:
-        ApproximateNumberOfMessagesVisible (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","ApproximateNumberOfMessagesVisible","QueueName","${AesSiemDlq1CD8439D.QueueName}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"text","width":24,"height":1,"x":0,"y":62,"properties":{"markdown":"#
-        Lambda Function Logs: ${LambdaEsLoader4B1E2DD9}"}},{"type":"log","width":24,"height":6,"x":0,"y":63,"properties":{"view":"table","title":"CRITICAL Logs","region":"${AWS::Region}","query":"SOURCE
-        ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, message, s3_key\n                | filter level == \"CRITICAL\"\n                | sort @timestamp desc\n                | limit 100"}},{"type":"log","width":24,"height":6,"x":0,"y":69,"properties":{"view":"table","title":"ERROR
+        (Milliseconds)","yAxis":"right"}]],"yAxis":{"left":{"showUnits":false},"right":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":46,"properties":{"view":"timeSeries","title":"ThreadpoolReadQueue
+        (Node Average Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolSearchQueue","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"annotations":{"horizontal":[{"value":1000,"yAxis":"left"}]},"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":46,"properties":{"view":"timeSeries","title":"ThreadpoolWriteQueue
+        (Node Average Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolWriteQueue","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}"]],"annotations":{"horizontal":[{"value":10000,"yAxis":"left"}]},"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":0,"y":50,"properties":{"view":"timeSeries","title":"Threadpool
+        Search Rejected Count (Node Total Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolSearchRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":50,"properties":{"view":"timeSeries","title":"Threadpool
+        Indexing Rejected Count (Node Total Count)","region":"${AWS::Region}","metrics":[["AWS/ES","ThreadpoolWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","CoordinatingWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","PrimaryWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}],["AWS/ES","ReplicaWriteRejected","ClientId","${AWS::AccountId}","DomainName","${DomainOrCollectionName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":24,"height":1,"x":0,"y":54,"properties":{"markdown":"#
+        SQS"}},{"type":"metric","width":12,"height":4,"x":0,"y":55,"properties":{"view":"timeSeries","title":"${AesSiemSqsSplitLogs0191F431.QueueName}: NumberOfMessagesReceived (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","NumberOfMessagesReceived","QueueName","${AesSiemSqsSplitLogs0191F431.QueueName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":55,"properties":{"view":"timeSeries","title":"${AesSiemDlq1CD8439D.QueueName}:
+        ApproximateNumberOfMessagesVisible (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","ApproximateNumberOfMessagesVisible","QueueName","${AesSiemDlq1CD8439D.QueueName}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"text","width":24,"height":1,"x":0,"y":59,"properties":{"markdown":"#
+        Lambda Function Logs: ${LambdaEsLoader4B1E2DD9}"}},{"type":"log","width":24,"height":6,"x":0,"y":60,"properties":{"view":"table","title":"CRITICAL Logs","region":"${AWS::Region}","query":"SOURCE
+        ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, message, s3_key\n                | filter level == \"CRITICAL\"\n                | sort @timestamp desc\n                | limit 100"}},{"type":"log","width":24,"height":6,"x":0,"y":66,"properties":{"view":"table","title":"ERROR
         Logs","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, message, s3_key\n                | filter level == \"ERROR\"\n                | sort
-        @timestamp desc\n                | limit 100"}},{"type":"text","width":12,"height":3,"x":0,"y":75,"properties":{"markdown":"## Sample query\nTo investigate critical/error log with CloudWatch Logs
-        Insights\n\n```\nfields @timestamp, @message\n| filter s3_key == \"copy s3_key and paste here\"\nOR @requestId == \"copy function_request_id and paste here\"```"}},{"type":"log","width":24,"height":6,"x":0,"y":78,"properties":{"view":"table","title":"Exception
+        @timestamp desc\n                | limit 100"}},{"type":"text","width":12,"height":3,"x":0,"y":72,"properties":{"markdown":"## Sample query\nTo investigate critical/error log with CloudWatch Logs
+        Insights\n\n```\nfields @timestamp, @message\n| filter s3_key == \"copy s3_key and paste here\"\nOR @requestId == \"copy function_request_id and paste here\"```"}},{"type":"log","width":24,"height":6,"x":0,"y":75,"properties":{"view":"table","title":"Exception
         Logs","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, @message\n                | filter @message =~ /^\\[ERROR]/\n                | filter
         @message not like /No active exception to reraise/\n                # exclude raise without Exception\n                | sort @timestamp desc\n                | limit 100"}}]}'
       DashboardName: SIEM
@@ -2361,19 +2380,28 @@ Resources:
           (Count)","region":"${AWS::Region}","metrics":[["AWS/Lambda","Throttles","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"},"period":60}},{"type":"log","width":12,"height":4,"x":0,"y":9,"properties":{"view":"table","title":"Longest
           5 invocations","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, @duration, @requestId\n                | sort @duration desc\n                |
           head 5"}},{"type":"metric","width":12,"height":4,"x":12,"y":9,"properties":{"view":"timeSeries","title":"ConcurrentExecutions (Count)","region":"${AWS::Region}","metrics":[["AWS/Lambda","ConcurrentExecutions","FunctionName","${LambdaEsLoader4B1E2DD9}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"},"period":60}},{"type":"text","width":24,"height":1,"x":0,"y":13,"properties":{"markdown":"#
-          OpenSearch Serverless: ${DomainOrCollectionName} collection"}},{"type":"metric","width":12,"height":4,"x":0,"y":14,"properties":{"view":"timeSeries","title":"The number of OCUs used to search
-          collection data","region":"${AWS::Region}","metrics":[["AWS/AOSS","SearchOCU","ClientId","${AWS::AccountId}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":14,"properties":{"view":"timeSeries","title":"The
-          number of OCUs used to ingest collection data","region":"${AWS::Region}","metrics":[["AWS/AOSS","IndexingOCU","ClientId","${AWS::AccountId}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":12,"height":1,"x":0,"y":18,"properties":{"markdown":"#
-          Read / Search"}},{"type":"text","width":12,"height":1,"x":12,"y":18,"properties":{"markdown":"# Write / Indexing"}},{"type":"metric","width":12,"height":4,"x":0,"y":19,"properties":{"view":"timeSeries","title":"HTTP
-          requests by error response code","region":"${AWS::Region}","metrics":[["AWS/AOSS","4xx","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}"],["AWS/AOSS","5xx","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}"]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":24,"height":1,"x":0,"y":23,"properties":{"markdown":"#
-          SQS"}},{"type":"metric","width":12,"height":4,"x":0,"y":24,"properties":{"view":"timeSeries","title":"${AesSiemSqsSplitLogs0191F431.QueueName}: NumberOfMessagesReceived (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","NumberOfMessagesReceived","QueueName","${AesSiemSqsSplitLogs0191F431.QueueName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":24,"properties":{"view":"timeSeries","title":"${AesSiemDlq1CD8439D.QueueName}:
-          ApproximateNumberOfMessagesVisible (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","ApproximateNumberOfMessagesVisible","QueueName","${AesSiemDlq1CD8439D.QueueName}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"text","width":24,"height":1,"x":0,"y":28,"properties":{"markdown":"#
-          Lambda Function Logs: ${LambdaEsLoader4B1E2DD9}"}},{"type":"log","width":24,"height":6,"x":0,"y":29,"properties":{"view":"table","title":"CRITICAL Logs","region":"${AWS::Region}","query":"SOURCE
+          OpenSearch Serverless: ${DomainOrCollectionName} collection"}},{"type":"metric","width":12,"height":4,"x":0,"y":14,"properties":{"view":"timeSeries","title":"HTTP requests by response code 2xs,
+          3xx","region":"${AWS::Region}","metrics":[["AWS/AOSS","2xx","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}],["AWS/AOSS","3xx","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":12,"height":1,"x":12,"y":14,"properties":{"markdown":"#
+          Write / Indexing"}},{"type":"metric","width":12,"height":4,"x":0,"y":18,"properties":{"view":"timeSeries","title":"HTTP requests by error response code 4xx, 5xx","region":"${AWS::Region}","metrics":[["AWS/AOSS","4xx","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}],["AWS/AOSS","5xx","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":18,"properties":{"view":"timeSeries","title":"IngestionDataRate:
+          The indexing rate per second to a collection (Bytes/s)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionDataRate","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":12,"height":4,"x":0,"y":22,"properties":{"markdown":""}},{"type":"metric","width":12,"height":4,"x":12,"y":22,"properties":{"view":"timeSeries","title":"IngestionDocumentRate:
+          The rate per second at which documents are being ingested to a collection (Counts)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionDocumentRate","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":12,"height":1,"x":0,"y":26,"properties":{"markdown":"#
+          Read / Search"}},{"type":"metric","width":12,"height":4,"x":12,"y":26,"properties":{"view":"timeSeries","title":"IngestionDocumentErrors: The total number of document errors during ingestion (counts)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionDocumentErrors","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"color":"#d13212","period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":30,"properties":{"view":"timeSeries","title":"SearchOCU:
+          The number of OCUs used to search collection data","region":"${AWS::Region}","metrics":[["AWS/AOSS","SearchOCU","ClientId","${AWS::AccountId}",{"period":3600,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":30,"properties":{"view":"timeSeries","title":"IndexingOCU:
+          The number of OCUs used to ingest collection data","region":"${AWS::Region}","metrics":[["AWS/AOSS","IndexingOCU","ClientId","${AWS::AccountId}",{"period":3600,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":34,"properties":{"view":"timeSeries","title":"SearchRequestRate:
+          The total number of search requests (Counts/min)","region":"${AWS::Region}","metrics":[["AWS/AOSS","SearchRequestRate","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":34,"properties":{"view":"timeSeries","title":"IngestionRequestRate:
+          The total number of bulk write operations (Counts/min)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionRequestRate","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":38,"properties":{"view":"timeSeries","title":"SearchRequestLatency:
+          The time to complete a search operation (milliseconds)","region":"${AWS::Region}","metrics":[["AWS/AOSS","SearchRequestLatency","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":38,"properties":{"view":"timeSeries","title":"IngestionRequestLatency:
+          The time to complete bulk write operations (milliseconds)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionRequestLatency","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"period":60}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":0,"y":42,"properties":{"view":"timeSeries","title":"SearchRequestErrors:
+          The total number of query errors (Counts/min)","region":"${AWS::Region}","metrics":[["AWS/AOSS","SearchRequestErrors","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"color":"#d13212","period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"metric","width":12,"height":4,"x":12,"y":42,"properties":{"view":"timeSeries","title":"IngestionRequestErrors:
+          The total number of bulk indexing request errors (counts)","region":"${AWS::Region}","metrics":[["AWS/AOSS","IngestionRequestErrors","ClientId","${AWS::AccountId}","CollectionId","${Param1}","CollectionName","${DomainOrCollectionName}",{"color":"#d13212","period":60,"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}}}},{"type":"text","width":24,"height":1,"x":0,"y":46,"properties":{"markdown":"#
+          SQS"}},{"type":"metric","width":12,"height":4,"x":0,"y":47,"properties":{"view":"timeSeries","title":"${AesSiemSqsSplitLogs0191F431.QueueName}: NumberOfMessagesReceived (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","NumberOfMessagesReceived","QueueName","${AesSiemSqsSplitLogs0191F431.QueueName}",{"stat":"Sum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"metric","width":12,"height":4,"x":12,"y":47,"properties":{"view":"timeSeries","title":"${AesSiemDlq1CD8439D.QueueName}:
+          ApproximateNumberOfMessagesVisible (Count)","region":"${AWS::Region}","metrics":[["AWS/SQS","ApproximateNumberOfMessagesVisible","QueueName","${AesSiemDlq1CD8439D.QueueName}",{"stat":"Maximum"}]],"yAxis":{"left":{"showUnits":false}},"legend":{"position":"hidden"}}},{"type":"text","width":24,"height":1,"x":0,"y":51,"properties":{"markdown":"#
+          Lambda Function Logs: ${LambdaEsLoader4B1E2DD9}"}},{"type":"log","width":24,"height":6,"x":0,"y":52,"properties":{"view":"table","title":"CRITICAL Logs","region":"${AWS::Region}","query":"SOURCE
           ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' | fields @timestamp, message, s3_key\n                | filter level == \"CRITICAL\"\n                | sort @timestamp desc\n                | limit
-          100"}},{"type":"log","width":24,"height":6,"x":0,"y":35,"properties":{"view":"table","title":"ERROR Logs","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' |
-          fields @timestamp, message, s3_key\n                | filter level == \"ERROR\"\n                | sort @timestamp desc\n                | limit 100"}},{"type":"text","width":12,"height":3,"x":0,"y":41,"properties":{"markdown":"##
+          100"}},{"type":"log","width":24,"height":6,"x":0,"y":58,"properties":{"view":"table","title":"ERROR Logs","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}'' |
+          fields @timestamp, message, s3_key\n                | filter level == \"ERROR\"\n                | sort @timestamp desc\n                | limit 100"}},{"type":"text","width":12,"height":3,"x":0,"y":64,"properties":{"markdown":"##
           Sample query\nTo investigate critical/error log with CloudWatch Logs Insights\n\n```\nfields @timestamp, @message\n| filter s3_key == \"copy s3_key and paste here\"\nOR @requestId == \"copy function_request_id
-          and paste here\"```"}},{"type":"log","width":24,"height":6,"x":0,"y":44,"properties":{"view":"table","title":"Exception Logs","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}''
+          and paste here\"```"}},{"type":"log","width":24,"height":6,"x":0,"y":67,"properties":{"view":"table","title":"Exception Logs","region":"${AWS::Region}","query":"SOURCE ''/aws/lambda/${LambdaEsLoader4B1E2DD9}''
           | fields @timestamp, @message\n                | filter @message =~ /^\\[ERROR]/\n                | filter @message not like /No active exception to reraise/\n                # exclude raise without
           Exception\n                | sort @timestamp desc\n                | limit 100"}}]}'
         - Param1: !Select
