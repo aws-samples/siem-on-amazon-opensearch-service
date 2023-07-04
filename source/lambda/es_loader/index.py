@@ -465,6 +465,7 @@ ioc_instance = ioc.DB(s3_session_config)
 utils.show_local_dir()
 
 
+@logger.inject_lambda_context(clear_state=True)
 @observability_decorator_switcher
 def lambda_handler(event, context):
     main(event, context)
@@ -488,11 +489,12 @@ def main(event, context):
             # s3 notification from SQS
             for record in event['Records']:
                 recs = json.loads(record['body'])
-                try:
+                if 'Records' in recs:
+                    # Control Tower
                     for record in recs['Records']:
                         process_record(record)
-                except KeyError:
-                    # from sqs-splitted-logs
+                else:
+                    # from sqs-splitted-log, Security Lake(via EventBridge)
                     process_record(recs)
         elif event['Records'][0].get('EventSource') == 'aws:sns':
             # s3 notification from SNS
