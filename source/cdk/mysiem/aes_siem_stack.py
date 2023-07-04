@@ -347,6 +347,7 @@ class MyAesSiemStack(cdk.Stack):
                          'max is 10080 minutes ( = 7 days ).'),
             min_value=30, max_value=10080, default=720)
 
+        """
         log_bucket_policy_update = cdk.CfnParameter(
             self, 'LogBucketPolicyUpdate',
             allowed_values=['update_and_override', 'keep'],
@@ -357,6 +358,7 @@ class MyAesSiemStack(cdk.Stack):
                 ' when updating, you need to create and manage the bucket '
                 'policy for writing logs to your S3 Log bucket by your self'),
             default='update_and_override')
+        """
 
         create_sqs_vpce = cdk.CfnParameter(
             self, 'CreateS3VpcEndpoint', allowed_values=['true', 'false'],
@@ -449,8 +451,8 @@ class MyAesSiemStack(cdk.Stack):
                                     enable_abuse_ch.logical_id,
                                     ioc_download_interval.logical_id]},
                     {'Label': {'default': 'Advanced Configuration'},
-                     'Parameters': [log_bucket_policy_update.logical_id,
-                                    vpce_id.logical_id,
+                     # 'Parameters': [log_bucket_policy_update.logical_id,
+                     'Parameters': [vpce_id.logical_id,
                                     create_sqs_vpce.logical_id,
                                     create_s3_vpce.logical_id]},
                     {'Label': {'default': ('Control Tower Integration '
@@ -482,7 +484,7 @@ class MyAesSiemStack(cdk.Stack):
             'enable_tor': enable_tor,
             'enable_abuse_ch': enable_abuse_ch,
             'ioc_download_interval': ioc_download_interval,
-            'log_bucket_policy_update': log_bucket_policy_update,
+            # 'log_bucket_policy_update': log_bucket_policy_update,
             'create_sqs_vpce': create_sqs_vpce,
             'create_s3_vpce': create_s3_vpce,
             'ct_log_buckets': ct_log_buckets,
@@ -635,12 +637,14 @@ class MyAesSiemStack(cdk.Stack):
             )
         )
 
+        """
         keep_log_bucket_policy = cdk.CfnCondition(
             self, "KeepLogBucketPolicy",
             expression=cdk.Fn.condition_equals(
                 log_bucket_policy_update.value_as_string,
                 'keep')
         )
+        """
 
         sqs_vpce_is_required = cdk.CfnCondition(
             self, "SqsVpceIsRequired",
@@ -700,7 +704,7 @@ class MyAesSiemStack(cdk.Stack):
             'has_geoip_license': has_geoip_license,
             'enable_ioc': enable_ioc,
             'has_sns_email': has_sns_email,
-            'keep_log_bucket_policy': keep_log_bucket_policy,
+            # 'keep_log_bucket_policy': keep_log_bucket_policy,
             'sqs_vpce_is_required': sqs_vpce_is_required,
             's3_vpce_is_required': s3_vpce_is_required,
             'is_control_tower_access': is_control_tower_access,
@@ -858,6 +862,7 @@ class MyAesSiemStack(cdk.Stack):
         )
         s3_log.node.add_dependency(validated_resource)
 
+        """
         s3_log.policy.node.default_child.add_property_override(
             "PolicyDocument",
             cdk.Fn.condition_if(
@@ -866,6 +871,7 @@ class MyAesSiemStack(cdk.Stack):
                 s3_log.policy.document
             )
         )
+        """
 
         # create s3 bucket for aes snapshot
         s3_snapshot = aws_s3.Bucket(

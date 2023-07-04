@@ -864,7 +864,7 @@ def validate_resource(event, context):
         helper_validation.Data['cidr_block1'] = cidr_block[1]
         helper_validation.Data['cidr_block2'] = cidr_block[2]
         helper_validation.Data['cidr_block3'] = cidr_block[3]
-        helper_validation.Data['s3_log_bucket_policy'] = policy
+        # helper_validation.Data['s3_log_bucket_policy'] = policy
         # helper_validation.Data['needs_slr_aos'] = needs_slr_aos
         # helper_validation.Data['needs_slr_aoss'] = needs_slr_aoss
         logger.debug(helper_validation.Data)

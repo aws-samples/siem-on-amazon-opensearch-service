@@ -33,8 +33,8 @@ class ResourceValidator(object):
         self.s3bucket_name_snapshot = s3bucket_name_snapshot
         self.same_lambda_func_version = same_lambda_func_version
         self.deployment_target = cfn_parameters_dict['deployment_target']
-        self.log_bucket_policy_update = (
-            cfn_parameters_dict['log_bucket_policy_update'])
+        # self.log_bucket_policy_update = (
+        #    cfn_parameters_dict['log_bucket_policy_update'])
         self.vpce_id = cfn_parameters_dict['vpce_id']
         self.has_lambda_architectures_prop = (
             cfn_conditions_dict['has_lambda_architectures_prop'])
@@ -145,9 +145,9 @@ class ResourceValidator(object):
         validated_resource.add_override(
             'Properties.DeploymentTarget',
             self.deployment_target.value_as_string)
-        validated_resource.add_override(
-            'Properties.BucketPolicyUpdate',
-            self.log_bucket_policy_update.value_as_string)
+        # validated_resource.add_override(
+        #    'Properties.BucketPolicyUpdate',
+        #    self.log_bucket_policy_update.value_as_string)
         validated_resource.cfn_options.deletion_policy = (
             cdk.CfnDeletionPolicy.RETAIN)
 
