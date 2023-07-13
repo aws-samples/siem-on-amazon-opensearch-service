@@ -413,6 +413,7 @@ def upsert_obj(awsauth, items, api):
                 logger.debug(output_message(key, res))
                 break
             elif res.status_code in (400, 403) and AOS_SERVICE == 'aoss':
+                logger.warning(res.text)
                 time.sleep(2)
                 continue
             logger.error(output_message(key, res))
@@ -1076,15 +1077,22 @@ def aes_config_create_update(event, context):
         logger.debug(json.dumps(event, default=json_serial))
     es_app_data = configparser.ConfigParser(
         interpolation=configparser.ExtendedInterpolation())
+    logger.info('read data.ini')
     es_app_data.read('data.ini')
     if AOS_SERVICE == 'es':
         del es_app_data['index-templates']['log_aws']
     elif AOS_SERVICE == 'aoss':
+        logger.info('read data-serverless.ini')
+        es_app_data.read('data-serverless.ini')
         es_app_data['cluster-settings'] = {}
         es_app_data['index_state_management_policies'] = {}
         es_app_data['index-rollover'] = {}
         es_app_data['deleted-old-index-template'] = {}
         es_app_data['legacy-index-template'] = {}
+        actor = json.loads(es_app_data['ocsf-schema-core']['actor'])
+        actor['process'] = {"type": "object"}
+        actor['file'] = {"type": "object"}
+        es_app_data['ocsf-schema-core']['actor'] = json.dumps(actor)
 
     dist_name, domain_version = get_dist_version()
     logger.info(f'dist_name: {dist_name}, domain_version: {domain_version}')

@@ -775,15 +775,25 @@ class LogParser:
         return ecs_dict
 
     def transform_to_ecs(self):
+        cloud = self.__logdata_dict.get('cloud', {})
+        csp = cloud.get('provider')
+        account1 = cloud.get('account', {}).get('id')
+        region = cloud.get('region')
+
         ecs_dict = {'ecs': {'version': self.logconfig['ecs_version']}}
-        if self.logconfig['cloud_provider']:
+        if not csp and self.logconfig['cloud_provider']:
             ecs_dict['cloud'] = {'provider': self.logconfig['cloud_provider']}
+
         ecs_dict = self.get_value_and_input_into_ecs_dict(ecs_dict)
-        if 'cloud' in ecs_dict:
+        is_cloud = 'cloud' in ecs_dict or 'cloud' in self.__logdata_dict
+        if is_cloud:
+            ecs_dict.setdefault('cloud', {})
+
+        if not account1 and is_cloud:
             # Set AWS Account ID
-            if ('account' in ecs_dict['cloud']
-                    and 'id' in ecs_dict['cloud']['account']):
-                if ecs_dict['cloud']['account']['id'] in ('unknown', ):
+            account2 = ecs_dict['cloud'].get('account', {}).get('id')
+            if account2:
+                if account2 == 'unknown':
                     # for vpcflowlogs
                     ecs_dict['cloud']['account'] = {'id': self.accountid}
             elif self.accountid:
@@ -791,6 +801,7 @@ class LogParser:
             else:
                 ecs_dict['cloud']['account'] = {'id': 'unknown'}
 
+        if not region and is_cloud:
             # Set AWS Region
             if 'region' in ecs_dict['cloud']:
                 pass
