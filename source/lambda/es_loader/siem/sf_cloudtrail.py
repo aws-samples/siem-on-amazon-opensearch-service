@@ -7,6 +7,8 @@ __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
+from siem import utils
+
 
 def convert_text_into_dict(temp_value):
     if isinstance(temp_value, str):
@@ -24,6 +26,13 @@ def extract_instance_id(logdata):
             if logdata.get('requestParameters'):
                 instance_id = logdata.get(
                     'requestParameters', {}).get('target')
+        elif event_name in ('PutComplianceItems'):
+            if logdata.get('requestParameters'):
+                instance_id = logdata.get(
+                    'requestParameters', {}).get('resourceId', '')
+                m = utils.RE_INSTANCEID.match(instance_id)
+                if not m:
+                    instance_id = ''
     elif event_source in ('sts.amazonaws.com'):
         if logdata.get('userAgent') == 'ec2.amazonaws.com':
             instance_id = logdata.get(
@@ -214,5 +223,9 @@ def transform(logdata):
             ids = None
         if ids and isinstance(ids, list) and isinstance(ids[0], dict):
             logdata['requestParameters']['accountIds'] = str(ids)
+    elif event_source in ('codeguru-security.amazonaws.com'):
+        if logdata['requestParameters'].get('resourceId'):
+            logdata['requestParameters']['resourceId'] = repr(
+                logdata['requestParameters']['resourceId'])
 
     return logdata
