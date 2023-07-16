@@ -1082,11 +1082,16 @@ class LogParser:
     def del_none(self, d):
         """値のないキーを削除する。削除しないとESへのLoad時にエラーとなる """
         for key, value in list(d.items()):
+            if isinstance(value, list):
+                for v in value:
+                    if isinstance(v, dict):
+                        self.del_none(v)
             if isinstance(value, dict):
                 self.del_none(value)
             if isinstance(value, dict) and len(value) == 0:
                 del d[key]
-            elif isinstance(value, list) and len(value) == 0:
+            elif (isinstance(value, list)
+                    and (len(value) == 0 or value == [''])):
                 del d[key]
             elif isinstance(value, str) and (value in ('', '-', 'null', '[]')):
                 del d[key]

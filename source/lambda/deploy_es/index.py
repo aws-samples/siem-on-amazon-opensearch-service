@@ -412,8 +412,12 @@ def upsert_obj(awsauth, items, api):
             if res.status_code == 200:
                 logger.debug(output_message(key, res))
                 break
-            elif res.status_code in (400, 403) and AOS_SERVICE == 'aoss':
-                logger.warning(res.text)
+            elif res.status_code == 400 and AOS_SERVICE == 'aoss':
+                logger.error(res.text)
+                time.sleep(2)
+                continue
+            elif res.status_code == 403 and AOS_SERVICE == 'aoss':
+                logger.info(res.text)
                 time.sleep(2)
                 continue
             logger.error(output_message(key, res))

@@ -18,6 +18,9 @@ def transform(logdata):
         logdata['error'] = {
             'message': logdata['connection-attempt-failure-reason']}
 
+    if logdata.get('client-ip') == 'NA':
+        del logdata['client-ip']
+
     bytes = (int(logdata.get('egress-bytes', 0))
              + int(logdata.get('ingress-bytes', 0)))
     packets = (int(logdata.get('egress-packets', 0))

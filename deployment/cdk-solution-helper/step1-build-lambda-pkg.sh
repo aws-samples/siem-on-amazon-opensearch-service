@@ -30,11 +30,11 @@ if [ ! -f "data-serverless.ini" ]; then
         PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"
     elif [ -e "/usr/local/bin/gsed" ]; then
         shopt -s expand_aliases
-        # shellcheck disable=SC2263
+        # shellcheck disable=SC2262
         alias sed=/usr/local/bin/gsed
     fi
     # shellcheck disable=SC2263
-    sed -e '/keyword"\},/ {/uid/! {/[vV]ersion/! {/mapping/!d}}}' data.ini > data-serverless.ini
+    sed -e '/^component_template_ecs_minimum /,$ {/keyword"\},/ {/uid/! {/[vV]ersion/! {/mapping/! d}}}}' data.ini  > data-serverless.ini
     # shellcheck disable=SC2263
     sed -i '/time_dt/d' data-serverless.ini
     # shellcheck disable=SC2263

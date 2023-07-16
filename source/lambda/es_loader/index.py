@@ -213,36 +213,19 @@ def get_es_entries(logfile):
 
     logparser = siem.LogParser(
         logfile, logconfig, sf_module, geodb_instance, ioc_instance)
-    if AOSS_TYPE != 'TIMESERIES':
-        for lograw, logdata, logmeta in logfile:
-            logparser(lograw, logdata, logmeta)
-            if logparser.is_ignored:
-                logfile.excluded_log_count += 1
-                if logparser.ignored_reason:
-                    logger.debug(
-                        f'Skipped log because {logparser.ignored_reason}')
-                continue
-            indexname = utils.get_writable_indexname(
-                logparser.indexname, READ_ONLY_INDICES)
-            action_meta = json.dumps({'index': {'_index': indexname,
-                                                '_id': logparser.doc_id}})
-            # logger.debug(logparser.json)
-            yield [action_meta, logparser.json]
-    elif AOSS_TYPE == 'TIMESERIES':
-        for lograw, logdata, logmeta in logfile:
-            logparser(lograw, logdata, logmeta)
-            if logparser.is_ignored:
-                logfile.excluded_log_count += 1
-                if logparser.ignored_reason:
-                    logger.debug(
-                        f'Skipped log because {logparser.ignored_reason}')
-                continue
-            indexname = utils.get_writable_indexname(
-                logparser.indexname, READ_ONLY_INDICES)
-            if logparser.doc_id not in docid_set:
-                action_meta = json.dumps({'index': {'_index': indexname}})
-                # logger.debug(logparser.json)
-                yield [action_meta, logparser.json]
+    for lograw, logdata, logmeta in logfile:
+        logparser(lograw, logdata, logmeta)
+        if logparser.is_ignored:
+            logfile.excluded_log_count += 1
+            if logparser.ignored_reason:
+                logger.debug(
+                    f'Skipped log because {logparser.ignored_reason}')
+            continue
+        indexname = utils.get_writable_indexname(
+            logparser.indexname, READ_ONLY_INDICES)
+        action_meta = {'index': {'_index': indexname, '_id': logparser.doc_id}}
+        # logger.debug(logparser.json)
+        yield [action_meta, logparser.json]
 
     del logparser
 
@@ -278,14 +261,15 @@ def check_es_results(results, total_count):
                 error_reason['log_number'] = count
                 if error_reason:
                     error_reasons.append(error_reason)
-            elif AOSS_TYPE == 'TIMESERIES':
-                docid_set.add(result['index']['_id'])
+            else:
+                success += 1
 
     return duration, success, error, error_reasons, retry
 
 
 def bulkloads_into_opensearch(es_entries, collected_metrics):
     global es_conn
+    global docid_set
     output_size, total_output_size = 0, 0
     total_count, success_count, error_count, es_response_time = 0, 0, 0, 0
     results = False
@@ -293,12 +277,17 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     error_reason_list = []
     retry_needed = False
     filter_path = ['took', 'errors', 'items.index.status', 'items.index.error']
-    if AOSS_TYPE == 'TIMESERIES':
-        filter_path = ['took', 'errors', 'items.index._id',
-                       'items.index.status', 'items.index.error']
+    docid_list = []
     for data in es_entries:
-        putdata_list.extend(data)
-        output_size += len(data[0]) + len(data[1])
+        if AOSS_TYPE == 'TIMESERIES':
+            docid = data[0]['index'].pop('_id')
+            if docid in docid_set:
+                continue
+            docid_list.append(docid)
+        action_meta = json.dumps(data[0])
+        parsed_json = data[1]
+        putdata_list.extend([action_meta, parsed_json])
+        output_size += len(action_meta) + len(parsed_json)
         # es の http.max_content_length は t2 で10MB なのでデータがたまったらESにロード
         if output_size > 6000000:
             total_output_size += output_size
@@ -317,7 +306,7 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
             error_count += error
             es_response_time += es_took
             output_size = 0
-            total_count += len(putdata_list)
+            total_count = success_count + error_count
             putdata_list = []
             if len(error_reasons):
                 error_reason_list.extend(error_reasons)
@@ -340,11 +329,15 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
         success_count += success
         error_count += error
         es_response_time += es_took
-        total_count += len(putdata_list)
+        total_count = success_count + error_count
         if len(error_reasons):
             error_reason_list.extend(error_reasons)
         if retry:
             retry_needed = True
+    if AOSS_TYPE == 'TIMESERIES':
+        for error_reason in reversed(error_reason_list):
+            del docid_list[error_reason['log_number'] - 1]
+        docid_set.update(docid_list)
     collected_metrics['total_output_size'] = total_output_size
     collected_metrics['total_log_load_count'] = total_count
     collected_metrics['success_count'] = success_count

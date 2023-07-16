@@ -36,4 +36,6 @@ def transform(logdata):
     else:
         logdata['distribution_id'] = "unknown"
 
+    logdata['date_time'] = logdata['date_time'].replace('\t', ' ')
+
     return logdata
