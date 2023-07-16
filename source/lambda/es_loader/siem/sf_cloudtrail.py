@@ -11,7 +11,7 @@ from siem import utils
 
 
 def convert_text_into_dict(temp_value):
-    if isinstance(temp_value, str):
+    if isinstance(temp_value, str) or isinstance(temp_value, list):
         return {'value': temp_value}
     else:
         return temp_value
@@ -227,5 +227,11 @@ def transform(logdata):
         if logdata['requestParameters'].get('resourceId'):
             logdata['requestParameters']['resourceId'] = repr(
                 logdata['requestParameters']['resourceId'])
+    elif event_source in ('dynamodb.amazonaws.com'):
+        try:
+            logdata['requestParameters']['items'] = convert_text_into_dict(
+                logdata['requestParameters']['items'])
+        except (KeyError, TypeError):
+            pass
 
     return logdata
