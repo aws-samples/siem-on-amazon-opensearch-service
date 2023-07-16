@@ -39,12 +39,14 @@ def transform(logdata):
     logdata['@log_type'] = f'ocsf{log_type}'
 
     if category_uid == 2:
-        mtime = int(logdata.get('finding', {}).get('modified_time'))
-        ctime = int(logdata.get('finding', {}).get('created_time'))
+        mtime = logdata.get('finding', {}).get('modified_time')
+        ctime = logdata.get('finding', {}).get('created_time')
         if mtime:
+            mtime = int(mtime)
             logdata['@timestamp'] = mtime
             logdata['__index_dt'] = utils.convert_epoch_to_datetime(mtime)
         elif ctime:
+            ctime = int(ctime)
             logdata['@timestamp'] = ctime
             logdata['__index_dt'] = utils.convert_epoch_to_datetime(ctime)
 
