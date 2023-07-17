@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.10.0-beta.3: log exporter - CWL resource without compress"
+Description: "SIEM on Amazon OpenSearch Service v2.10.0-rc.1: log exporter - CWL resource without compress"
 Parameters:
   KdfName:
     Type: String
