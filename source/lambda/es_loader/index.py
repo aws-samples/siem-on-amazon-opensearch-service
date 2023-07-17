@@ -391,7 +391,7 @@ def output_metrics(metrics, logfile=None, collected_metrics={}):
 def observability_decorator_switcher(func):
     if os.environ.get('AWS_EXECUTION_ENV'):
         @metrics.log_metrics
-        @logger.inject_lambda_context
+        @logger.inject_lambda_context(clear_state=True)
         @wraps(func)
         def decorator(*args, **kwargs):
             return func(*args, **kwargs)
@@ -458,7 +458,6 @@ ioc_instance = ioc.DB(s3_session_config)
 utils.show_local_dir()
 
 
-@logger.inject_lambda_context(clear_state=True)
 @observability_decorator_switcher
 def lambda_handler(event, context):
     main(event, context)
