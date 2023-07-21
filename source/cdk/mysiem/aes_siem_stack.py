@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.0-rc.1'
+__version__ = '2.10.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -267,7 +267,9 @@ class MyAesSiemStack(cdk.Stack):
             allowed_values=['opensearch_managed_cluster',
                             'opensearch_serverless'],
             # managed_cluster or serverless
-            description='Amazon OpenSearch Service for deployment',
+            description=('Where would you like to deploy the SIEM solution? '
+                         'Amazon OpenSearch managed cluster or serverless? '
+                         'Serverless is experimental option'),
             default='opensearch_managed_cluster')
 
         domain_or_collection_name = cdk.CfnParameter(
@@ -294,7 +296,8 @@ class MyAesSiemStack(cdk.Stack):
 
         sns_email = cdk.CfnParameter(
             self, 'SnsEmail', allowed_pattern=r'^([0-9a-zA-Z@_\-\+\.]*|)',
-            description=('Input your email as SNS topic, where Amazon '
+            description=('(Optional) '
+                         'Input your email as SNS topic, where Amazon '
                          'OpenSearch Service will send alerts to'),
             default='')
 
@@ -304,7 +307,8 @@ class MyAesSiemStack(cdk.Stack):
                 r'^([0-9a-zA-Z]{6}_[0-9a-zA-Z]{29}_mmk|[0-9a-zA-Z]{16}|)$'),
             default='',
             max_length=40,
-            description=("If you wolud like to enrich geoip locaiton such as "
+            description=("(Optional) "
+                         "If you wolud like to enrich geoip locaiton such as "
                          "IP address's country, get a license key from MaxMind"
                          " and input the key. "
                          "The license is a string of 16 or 40 digits"))
@@ -318,30 +322,27 @@ class MyAesSiemStack(cdk.Stack):
         otx_api_key = cdk.CfnParameter(
             self, 'OtxApiKey', allowed_pattern=r'^([0-9a-f,x]{64}|)$',
             default='', max_length=64,
-            description=('(experimental) '
+            description=('(Optional) '
                          'If you wolud like to download IoC from AlienVault '
                          'OTX, please enter OTX API Key. '
                          'See details: https://otx.alienvault.com'))
 
         enable_tor = cdk.CfnParameter(
             self, 'EnableTor', allowed_values=['true', 'false'],
-            description=('(experimental) '
-                         'Would you like to download TOR IoC? '
+            description=('Would you like to download TOR IoC? '
                          'See details: https://check.torproject.org/api/bulk'),
             default='false')
 
         enable_abuse_ch = cdk.CfnParameter(
             self, 'EnableAbuseCh', allowed_values=['true', 'false'],
             description=(
-                '(experimental) '
                 'Would you like to download IoC from abuse.ch? '
                 'See details: https://feodotracker.abuse.ch/blocklist/'),
             default='false')
 
         ioc_download_interval = cdk.CfnParameter(
             self, 'IocDownloadInterval', type='Number',
-            description=('(experimental) '
-                         'Specify interval in minute to download IoC, '
+            description=('Specify interval in minute to download IoC, '
                          'default is 720 miniutes ( = 12 hours ).'
                          'min is 30 minutes. '
                          'max is 10080 minutes ( = 7 days ).'),
@@ -450,7 +451,8 @@ class MyAesSiemStack(cdk.Stack):
                                     enable_tor.logical_id,
                                     enable_abuse_ch.logical_id,
                                     ioc_download_interval.logical_id]},
-                    {'Label': {'default': 'Advanced Configuration'},
+                    {'Label': {'default': ('Advanced Configuration '
+                                           '- optional')},
                      # 'Parameters': [log_bucket_policy_update.logical_id,
                      'Parameters': [vpce_id.logical_id,
                                     create_sqs_vpce.logical_id,
@@ -460,9 +462,8 @@ class MyAesSiemStack(cdk.Stack):
                      'Parameters': [ct_log_buckets.logical_id,
                                     ct_log_sqs.logical_id,
                                     ct_role_arn.logical_id, ]},
-                    {'Label': {'default': ('(Experimental) '
-                                           'Security Lake Integration - '
-                                           'optional')},
+                    {'Label': {'default': ('Security Lake Integration '
+                                           '- optional')},
                      'Parameters': [sl_log_sqs.logical_id,
                                     sl_role_arn.logical_id,
                                     sl_external_id.logical_id, ]},
@@ -1245,7 +1246,7 @@ class MyAesSiemStack(cdk.Stack):
                 aws_iam.PolicyStatement(
                     actions=['ssm:GetParametersByPath'],
                     resources=[
-                        f'arn:aws:ssm:*:{cdk.Aws.ACCOUNT_ID}:'
+                        f'arn:{PARTITION}:ssm:*:{cdk.Aws.ACCOUNT_ID}:'
                         'parameter/siem/exclude-logs/*'
                     ]),
             ]

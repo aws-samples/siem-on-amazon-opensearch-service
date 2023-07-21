@@ -6,6 +6,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2023-07-21
+### Added
+- Supported Amazon OpenSearch 2.7 #381
+- Supported general OCSF with JSON file #374
+- Supported Amazon Security Lake (GA) #374,#377,#380
+- Functionality of log exclusion with AND/OR conditions #376,#378
+- A parameter of AWS CDK/AWS CloudFormation to use existing VPC Endpoints (when available) #337
+- Supported VPC Endpoint of OpenSearch Serverless or Managed Cluster #358
+- An option to add SIEM solution to existing OpenSearch cluster/serverless #333
+- Supported Amazon OpenSearch Serverless #333
+
+### Changed
+- Enhanced deployment script (auto_setup_on_cloudshell.sh) on CloudShell with CDK #379
+- Enhanced own log exclusion such ad es-loader/enrichment database #377
+- Updated AWS SDK for pandas from 2.20.0 to v3.1.0 #373
+
+### Fixed
+- Fixed parse issue: (CloudTrail) requestParameters.resourceId,requestParameters.items #367,#382
+
 ## [2.9.1] - 2023-04-10
 ### Added
 - Enable Amazon OpenSearch Service notifications by SNS mail #363

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.0-rc.1'
+__version__ = '2.10.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -11,10 +11,18 @@ from siem import utils
 
 
 def convert_text_into_dict(temp_value):
-    if isinstance(temp_value, str) or isinstance(temp_value, list):
-        return {'value': temp_value}
-    else:
+    if isinstance(temp_value, dict):
         return temp_value
+    elif isinstance(temp_value, str):
+        return {'value': temp_value}
+    elif isinstance(temp_value, list):
+        if len(temp_value) == 0:
+            return {}
+        elif isinstance(temp_value[0], str):
+            return {'value': temp_value}
+        elif isinstance(temp_value[0], dict):
+            return temp_value
+    return {'value': repr(temp_value)}
 
 
 def extract_instance_id(logdata):

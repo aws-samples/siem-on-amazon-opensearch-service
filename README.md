@@ -5,7 +5,7 @@
 
 SIEM on Amazon OpenSearch Service is a solution for collecting multiple types of logs from multiple AWS accounts, correlating and visualizing the logs to help investigate security incidents. Deployment is easily done with the help of AWS CloudFormation or AWS Cloud Development Kit (AWS CDK), taking only about 30 minutes to complete. As soon as AWS services logs are put into a specified Amazon Simple Storage Service (Amazon S3) bucket, a purpose-built AWS Lambda function automatically loads those logs into SIEM on OpenSearch Service, enabling you to view visualized logs in the dashboard and correlate multiple logs to investigate security incidents.
 
-Jump to | [Configuring AWS Services(Log Sources)](docs/configure_aws_service.md) | [Changing Configurations of SIEM on OpenSearch Service](docs/configure_siem.md) | [Advanced Deployment](docs/deployment.md) | [Dashboard](docs/dashboard.md)  | [AWS Control Tower Integration](docs/controltower.md) |  [Amazon Security Lake Integration](docs/securitylake.md) | [Supported Log Types](docs/suppoted_log_type.md) | [FAQ](docs/faq.md) | [Changelog](CHANGELOG.md) |
+Jump to | [Configuring AWS Services(Log Sources)](docs/configure_aws_service.md) | [Changing Configurations of SIEM on OpenSearch Service](docs/configure_siem.md) | [Advanced Deployment](docs/deployment.md) | [OpenSearch Serverless](docs/serverless.md) | [Dashboard](docs/dashboard.md)  | [AWS Control Tower Integration](docs/controltower.md) |  [Amazon Security Lake Integration](docs/securitylake.md) | [Supported Log Types](docs/suppoted_log_type.md) | [FAQ](docs/faq.md) | [Changelog](CHANGELOG.md) |
 
 ![Sample dashboard](./docs/images/dashboard-sample.jpg)
 
