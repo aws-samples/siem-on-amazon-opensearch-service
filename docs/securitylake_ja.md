@@ -57,3 +57,28 @@ Security Lake Integration パラメータ例
 設定直後はログの取り込み失敗になる可能性がありますが、新しい Lambda 関数 (es-loader) のインスタンスが作成されると、取り込みが成功します。または、手動で es-loader を deploy し、強制的に新しいインスタンスを起動させることでエラーが解消します。
 
 以上で Security Lake のログ取り込み設定は完了です
+
+### カスタムソース
+
+Security Lake の S3 バケットに [カスタムソースからデータを配置](https://docs.aws.amazon.com/ja_jp/security-lake/latest/userguide/custom-sources.html)できます。SIEM on OpenSearch で取り込むことはできますが、想定しているファイル名と一致しない場合は、user.ini に追加の設定が必要です
+
+* 想定しているファイル名: `[0-9a-f]{32}\.gz\.parquet`
+* 想定しているディレクトリ名: `[Ss]ecurity[Ll]ake/`
+
+もし、どちらにも一致しない場合は user.ini に以下のような設定をしてください
+
+user.ini
+
+```
+[securitylake]
+s3_key = [0-9a-f]{32}\.gz\.parquet|[Ss]ecurity[Ll]ake/|parquetのファイル名
+```
+
+または
+
+```
+[securitylake]
+s3_key = [0-9a-f]{32}\.gz\.parquet|[Ss]ecurity[Ll]ake/|S3パスに付与されるサービス名
+```
+
+既存の s3_key のパラメータを残すように設定してください。差分の設定は継承されるので、s3_key 以外で変更が不要であれば転記は不要です
