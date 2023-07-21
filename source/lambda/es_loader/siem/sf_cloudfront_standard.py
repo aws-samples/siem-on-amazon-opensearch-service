@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.1'
+__version__ = '2.10.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -35,5 +35,7 @@ def transform(logdata):
         logdata['distribution_id'] = m.group(1)
     else:
         logdata['distribution_id'] = "unknown"
+
+    logdata['date_time'] = logdata['date_time'].replace('\t', ' ')
 
     return logdata

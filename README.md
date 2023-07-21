@@ -5,7 +5,7 @@
 
 SIEM on Amazon OpenSearch Service is a solution for collecting multiple types of logs from multiple AWS accounts, correlating and visualizing the logs to help investigate security incidents. Deployment is easily done with the help of AWS CloudFormation or AWS Cloud Development Kit (AWS CDK), taking only about 30 minutes to complete. As soon as AWS services logs are put into a specified Amazon Simple Storage Service (Amazon S3) bucket, a purpose-built AWS Lambda function automatically loads those logs into SIEM on OpenSearch Service, enabling you to view visualized logs in the dashboard and correlate multiple logs to investigate security incidents.
 
-Jump to | [Configuring AWS Services(Log Sources)](docs/configure_aws_service.md) | [Changing Configurations of SIEM on OpenSearch Service](docs/configure_siem.md) | [Advanced Deployment](docs/deployment.md) | [Dashboard](docs/dashboard.md)  | [AWS Control Tower Integration](docs/controltower.md) |  [Amazon Security Lake Integration](docs/securitylake.md) | [Supported Log Types](docs/suppoted_log_type.md) | [FAQ](docs/faq.md) | [Changelog](CHANGELOG.md) |
+Jump to | [Configuring AWS Services(Log Sources)](docs/configure_aws_service.md) | [Changing Configurations of SIEM on OpenSearch Service](docs/configure_siem.md) | [Advanced Deployment](docs/deployment.md) | [OpenSearch Serverless](docs/serverless.md) | [Dashboard](docs/dashboard.md)  | [AWS Control Tower Integration](docs/controltower.md) |  [Amazon Security Lake Integration](docs/securitylake.md) | [Supported Log Types](docs/suppoted_log_type.md) | [FAQ](docs/faq.md) | [Changelog](CHANGELOG.md) |
 
 ![Sample dashboard](./docs/images/dashboard-sample.jpg)
 
@@ -122,12 +122,12 @@ If you want to update "SIEM on OpenSearch Service/SIEM on Amazon ES" to the late
 
 ### Upgrading the OpenSearch Service domain
 
-Upgrade the domain to OpenSearch 2.5/2.3/1.3/1.2/1.1/1.0 or Elasticsearch version 7.10. Some Dashboards assume OpenSearch Service 1.1 or higher, so the recommended version is OpenSearch Service 2.5 with "Enable compatibility mode":
+Upgrade the domain to OpenSearch 2.7/2.5/2.3/1.3/1.2/1.1/1.0 or Elasticsearch version 7.10. Some Dashboards assume OpenSearch Service 1.1 or higher, so the recommended version is OpenSearch Service 2.7 with "Enable compatibility mode":
 
 1. Navigate to the [OpenSearch Service console](https://console.aws.amazon.com/es/home?)
 1. Choose domain: [**aes-siem**]
 1. Choose [**Actions**] icon, and choose [**Upgrade domain**] from the drop-down menu
-1. For "Version to upgrade to", choose [**OpenSearch 2.5**] (Recommended), [**OpenSearch 2.3/1.3/1.2/1.1/1.0**], or [**Elasticsearch 7.10**]
+1. For "Version to upgrade to", choose [**OpenSearch 2.7**] (Recommended), [**OpenSearch 2.5/2.3/1.3/1.2/1.1/1.0**], or [**Elasticsearch 7.10**]
 1. Choose "Enable compatibility mode" (Recommended)
 1. Then choose [**Submit**]
 

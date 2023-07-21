@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.1'
+__version__ = '2.10.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -52,6 +52,8 @@ class LogS3:
         self.s3bucket = s3bucket
         self.s3key = s3key
         self.s3obj_size = self.s3obj_size
+        self.excluded_log_count = 0
+        self.counted_log_count = 0
 
         self.loggroup = None
         self.logstream = None
@@ -489,13 +491,12 @@ class LogParser:
     フィールドのECSへの統一、最後にJSON化、する
     """
     def __init__(self, logfile, logconfig, sf_module, geodb_instance,
-                 ioc_instance, exclude_log_patterns):
+                 ioc_instance):
         self.logfile = logfile
         self.logconfig = logconfig
         self.sf_module = sf_module
         self.geodb_instance = geodb_instance
         self.ioc_instance = ioc_instance
-        self.exclude_log_patterns = exclude_log_patterns
 
         self.logtype = logfile.logtype
         self.s3key = logfile.s3key
@@ -568,6 +569,8 @@ class LogParser:
         self.enrich()
         # add filed prefix to original log
         self.add_field_prefix()
+        # exclude logs by conditional expressions in Parameter Store
+        self.exclude_logs_by_conditions()
 
     ###########################################################################
     # Property
@@ -577,13 +580,15 @@ class LogParser:
         if self.__logdata_dict.get('is_ignored'):
             self.ignored_reason = self.__logdata_dict.get('ignored_reason')
             return True
-        if self.logtype in self.exclude_log_patterns:
-            is_excluded, ex_pattern = utils.match_log_with_exclude_patterns(
-                self.__logdata_dict, self.exclude_log_patterns[self.logtype])
-            if is_excluded:
-                self.ignored_reason = (
-                    f'matched {ex_pattern} with exclude_log_patterns')
-                return True
+        elif 'exclusion_patterns' in self.logconfig:
+            for pattern in self.logconfig['exclusion_patterns']:
+                is_excluded, ex_pattern = (
+                    utils.match_log_with_exclude_patterns(
+                        self.__logdata_dict, pattern))
+                if is_excluded:
+                    self.ignored_reason = (
+                        f'matched {ex_pattern} with log_exclusion_patterns')
+                    return True
         return False
 
     @property
@@ -616,8 +621,20 @@ class LogParser:
             del self.__logdata_dict['__index_name']
         else:
             indexname = self.logconfig['index_name']
+
+        if self.logconfig['index_rotation'] == 'aoss':
+            if '__index_dt' in self.__logdata_dict:
+                del self.__logdata_dict['__index_dt']
+            if self.logconfig['index_suffix']:
+                indexname = f"{indexname}-{self.logconfig['index_suffix']}"
+            else:
+                indexname = f'{indexname}-001'
+            return indexname
+
         if 'auto' in self.logconfig['index_rotation']:
             return indexname
+        if self.logconfig['index_suffix']:
+            indexname = f"{indexname}-{self.logconfig['index_suffix']}"
         if 'event_ingested' in self.logconfig['index_time']:
             index_dt = self.event_ingested
         elif '__index_dt' in self.__logdata_dict:
@@ -758,15 +775,25 @@ class LogParser:
         return ecs_dict
 
     def transform_to_ecs(self):
+        cloud = self.__logdata_dict.get('cloud', {})
+        csp = cloud.get('provider')
+        account1 = cloud.get('account', {}).get('id')
+        region = cloud.get('region')
+
         ecs_dict = {'ecs': {'version': self.logconfig['ecs_version']}}
-        if self.logconfig['cloud_provider']:
+        if not csp and self.logconfig['cloud_provider']:
             ecs_dict['cloud'] = {'provider': self.logconfig['cloud_provider']}
+
         ecs_dict = self.get_value_and_input_into_ecs_dict(ecs_dict)
-        if 'cloud' in ecs_dict:
+        is_cloud = 'cloud' in ecs_dict or 'cloud' in self.__logdata_dict
+        if is_cloud:
+            ecs_dict.setdefault('cloud', {})
+
+        if not account1 and is_cloud:
             # Set AWS Account ID
-            if ('account' in ecs_dict['cloud']
-                    and 'id' in ecs_dict['cloud']['account']):
-                if ecs_dict['cloud']['account']['id'] in ('unknown', ):
+            account2 = ecs_dict['cloud'].get('account', {}).get('id')
+            if account2:
+                if account2 == 'unknown':
                     # for vpcflowlogs
                     ecs_dict['cloud']['account'] = {'id': self.accountid}
             elif self.accountid:
@@ -774,6 +801,7 @@ class LogParser:
             else:
                 ecs_dict['cloud']['account'] = {'id': 'unknown'}
 
+        if not region and is_cloud:
             # Set AWS Region
             if 'region' in ecs_dict['cloud']:
                 pass
@@ -944,6 +972,43 @@ class LogParser:
                 except KeyError:
                     pass
 
+    def exclude_logs_by_conditions(self):
+        if 'exclusion_conditions' not in self.logconfig:
+            return
+        record = self.__logdata_dict
+        exclusion_conditions = self.logconfig['exclusion_conditions']
+        is_matched_count_action = False
+        for condition in exclusion_conditions:
+            action = condition['action'].lower()
+            expression = condition['expression']
+            condition_name = condition['name']
+            try:
+                is_excluded = expression.search(record)
+            except Exception:
+                msg = f"Failed to query JMESPath with '{condition_name}'"
+                logger.exception(msg)
+                continue
+            if is_excluded:
+                if action == 'exclude':
+                    self.__logdata_dict['is_ignored'] = True
+                    break
+                if action == 'count':
+                    is_matched_count_action = True
+                    if self.logfile.counted_log_count > 2:
+                        continue
+                    logger.append_keys(
+                        log_record=record,
+                        condition_name=condition_name,
+                        expression=expression)
+                    logger.info(
+                        f"Log record matched '{expression}' "
+                        f"with {condition_name} in Parameter Store"
+                    )
+                    logger.remove_keys(
+                        ["condition_name", "expression", "log_record"])
+        if is_matched_count_action:
+            self.logfile.counted_log_count += 1
+
     ###########################################################################
     # Method/Function - Support
     ###########################################################################
@@ -1017,11 +1082,16 @@ class LogParser:
     def del_none(self, d):
         """値のないキーを削除する。削除しないとESへのLoad時にエラーとなる """
         for key, value in list(d.items()):
+            if isinstance(value, list):
+                for v in value:
+                    if isinstance(v, dict):
+                        self.del_none(v)
             if isinstance(value, dict):
                 self.del_none(value)
             if isinstance(value, dict) and len(value) == 0:
                 del d[key]
-            elif isinstance(value, list) and len(value) == 0:
+            elif (isinstance(value, list)
+                    and (len(value) == 0 or value == [''])):
                 del d[key]
             elif isinstance(value, str) and (value in ('', '-', 'null', '[]')):
                 del d[key]

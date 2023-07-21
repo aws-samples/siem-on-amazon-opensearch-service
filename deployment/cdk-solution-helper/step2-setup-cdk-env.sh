@@ -21,17 +21,21 @@ if ! (type pip3 > /dev/null 2>&1); then
 fi
 
 # CDK
-echo "Install Node.js"
-curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
-# shellcheck disable=SC1090
-source ~/.nvm/nvm.sh
-nvm install 16
-nvm alias default 16
-node -e "console.log('Running Node.js ' + process.version)"
-nvm use 16
-echo "Install CDK"
-echo "npm install -g aws-cdk@${cdk_version}"
-npm install -g aws-cdk@"${cdk_version}"
+if [[ "${AWS_EXECUTION_ENV}" = "CloudShell" ]]; then
+  sudo npm install -g aws-cdk@"${cdk_version}"
+else
+  echo "Install Node.js"
+  curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+  # shellcheck disable=SC1090
+  source ~/.nvm/nvm.sh
+  nvm install 16
+  nvm alias default 16
+  node -e "console.log('Running Node.js ' + process.version)"
+  nvm use 16
+  echo "Install CDK"
+  echo "npm install -g aws-cdk@${cdk_version}"
+  npm install -g aws-cdk@"${cdk_version}"
+fi
 
 # create virtual venv
 cd "$repo_root" || exit

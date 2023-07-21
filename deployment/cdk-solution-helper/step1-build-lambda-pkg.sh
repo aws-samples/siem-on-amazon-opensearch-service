@@ -23,6 +23,24 @@ fi
 source .venv/bin/activate
 python3 -m pip install wheel pip==22.3.1
 
+# For OpenSearch Serverless
+cd "${source_dir}"/lambda/deploy_es || exit
+if [ ! -f "data-serverless.ini" ]; then
+    if [ -e "/usr/local/opt/gnu-sed/libexec/gnubin/sed" ]; then
+        PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"
+    elif [ -e "/usr/local/bin/gsed" ]; then
+        shopt -s expand_aliases
+        # shellcheck disable=SC2262
+        alias sed=/usr/local/bin/gsed
+    fi
+    # shellcheck disable=SC2263
+    sed -e '/^component_template_ecs_minimum /,$ {/keyword"\},/ {/uid/! {/[vV]ersion/! {/mapping/! d}}}}' data.ini  > data-serverless.ini
+    # shellcheck disable=SC2263
+    sed -i '/time_dt/d' data-serverless.ini
+    # shellcheck disable=SC2263
+    sed -i '/log-ocsf_aws/,/log-aws-clientvpn_rollover/ s/"component_template_log"/"component_template_ecs_minimum"/' data-serverless.ini
+fi
+
 echo "------------------------------------------------------------------------"
 echo "[Packing] pip and zip source folder"
 echo "------------------------------------------------------------------------"
@@ -57,6 +75,7 @@ function pip_zip_for_lambda () {
     echo "# delete python libraries which are already installed in lambda environment"
     echo "rm -fr boto* future* urllib3* dateutil* python_dateutil* s3transfer* six* jmespath*"
     rm -fr boto* future* urllib3* dateutil* python_dateutil* s3transfer* six* jmespath*
+
     echo "# Delete unused and architecture dependent lib"
     echo "rm -fr async_timeout* aiosignal* aiohttp* examples frozenlist* multidict* wrapt* yarl*"
     rm -fr async_timeout* aiosignal* aiohttp* examples frozenlist* multidict* wrapt* yarl*
@@ -71,6 +90,10 @@ function pip_zip_for_lambda () {
     cp -f "$source_template_dir/../LICENSE" "$source_template_dir/../CODE_OF_CONDUCT.md" "$source_template_dir/../CONTRIBUTING.md" "${source_dir}/lambda/$1/"
     echo "zip -r -9 ../$1.zip *"
     zip -r -9 ../"$1".zip ./* > /dev/null
+    if [[ "${AWS_EXECUTION_ENV}" == "CloudShell" ]]; then
+      echo "rm -r ../\"$1\".zip"
+      rm -r ../"$1".zip
+    fi
     echo "rm ${source_dir}/lambda/$1/LICENSE ${source_dir}/lambda/$1/CODE_OF_CONDUCT.md ${source_dir}/lambda/$1/CONTRIBUTING.md"
     rm "${source_dir}/lambda/$1/LICENSE" "${source_dir}/lambda/$1/CODE_OF_CONDUCT.md" "${source_dir}/lambda/$1/CONTRIBUTING.md"
     cd ..
@@ -108,16 +131,18 @@ function pip_zip_for_lambda_ioc () {
     echo "# Delete unused lib"
     echo "rm -fr botocore/data/[a-z][a-z]*/*"
     rm -fr botocore/data/[a-z][a-z]*/*
-    echo "rm -fr botocore/data//s3[a-z]*/*"
-    rm -fr botocore/data//s3[a-z]*/*
-    echo "botocore/data/s3/ -type f -not -name 'service-2.json' -print0 | xargs -0 rm -f"
-    find botocore/data/s3/ -type f -not -name 'service-2.json' -print0 | xargs -0 rm -f
+    echo "rm -fr botocore/data/s3[a-z]*/*"
+    rm -fr botocore/data/s3[a-z]*/*
 
     mv -f README.md.org README.md
     echo "cp -f $source_template_dir/../LICENSE $source_template_dir/../CODE_OF_CONDUCT.md $source_template_dir/../CONTRIBUTING.md ${source_dir}/lambda/$1/"
     cp -f "$source_template_dir/../LICENSE" "$source_template_dir/../CODE_OF_CONDUCT.md" "$source_template_dir/../CONTRIBUTING.md" "${source_dir}/lambda/$1/"
     echo "zip -r -9 ../$1.zip *"
     zip -r -9 ../"$1".zip ./* > /dev/null
+    if [[ "${AWS_EXECUTION_ENV}" == "CloudShell" ]]; then
+      echo "rm -r ../\"$1\".zip"
+      rm -r ../"$1".zip
+    fi
     echo "rm ${source_dir}/lambda/$1/LICENSE ${source_dir}/lambda/$1/CODE_OF_CONDUCT.md ${source_dir}/lambda/$1/CONTRIBUTING.md"
     rm "${source_dir}/lambda/$1/LICENSE" "${source_dir}/lambda/$1/CODE_OF_CONDUCT.md" "${source_dir}/lambda/$1/CONTRIBUTING.md"
     cd ..
@@ -129,6 +154,13 @@ echo 'rm -f deploy_es/dashboard.ndjson.zip'
 rm -f deploy_es/dashboard.ndjson.zip
 echo 'zip deploy_es/dashboard.ndjson.zip -jD ../saved_objects/dashboard.ndjson'
 zip deploy_es/dashboard.ndjson.zip -jD ../saved_objects/dashboard.ndjson
+
+rm -f deploy_es/dashboard.serverless.zip
+cd ../saved_objects && echo "${PWD}"
+zip ../lambda/deploy_es/dashboard.serverless.zip -r config/opensearch_2.*
+zip ../lambda/deploy_es/dashboard.serverless.zip -r each-dashboard
+zip ../lambda/deploy_es/dashboard.serverless.zip -r each-indexpattern-search
+cd ../lambda && echo "${PWD}"
 
 echo "# start packing es_loader"
 pip_zip_for_lambda "es_loader"

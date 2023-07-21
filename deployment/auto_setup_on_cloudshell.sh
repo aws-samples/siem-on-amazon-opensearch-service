@@ -69,13 +69,13 @@ function func_migrate_old_repo_to_new_repo () {
     fi
   fi
   if [ -d "$OLDDIR1" ];then
-    if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
+    if [[ $AWS_EXECUTION_ENV = "CloudShell" ]]; then
       rm -fr "${OLDDIR1}/source/lambda"
       tar -zcf "${OLDDIR1}.tgz" -C "$HOME/" "${OLDDIR1##*/}" && rm -fr "$OLDDIR1"
     fi
   fi
   if [ -d "$OLDDIR2" ];then
-    if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
+    if [[ $AWS_EXECUTION_ENV = "CloudShell" ]]; then
       rm -fr "${OLDDIR2}/source/lambda"
       tar -zcf "${OLDDIR2}.tgz" -C "$HOME/" "${OLDDIR2##*/}" && rm -fr "$OLDDIR2"
     fi
@@ -309,7 +309,7 @@ fi
 if [ -d "$BASEDIR" ]; then
   echo "git rebase to get latest commit"
   cd "$BASEDIR" || exit
-  git checkout .
+  git stash
   git fetch > /dev/null
   git checkout main && git pull --rebase > /dev/null
   git checkout develop && git pull --rebase > /dev/null
@@ -332,7 +332,7 @@ read -r -p "Enter CDK_DEFAULT_ACCOUNT: default is [$GUESS_CDK_DEFAULT_ACCOUNT]: 
 export CDK_DEFAULT_ACCOUNT=${TEMP_CDK_DEFAULT_ACCOUNT:-$GUESS_CDK_DEFAULT_ACCOUNT}
 
 ### set AWS Region ###
-if [[ $AWS_EXECUTION_ENV == "CloudShell" ]]; then
+if [[ $AWS_EXECUTION_ENV = "CloudShell" ]]; then
   GUESS_AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION
   unset AWS_REGION
 else
@@ -375,10 +375,11 @@ echo "./step2-setup-cdk-env.sh"
 date
 chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh> /dev/null
 # shellcheck disable=SC1090
-source ~/.bashrc
-nvm use lts/*
-echo -e "Done\n"
-
+if [[ "${AWS_EXECUTION_ENV}" != "CloudShell" ]]; then
+  source ~/.bashrc
+  nvm use lts/*
+  echo -e "Done\n"
+fi
 find "$HOME" -name '.cache' -print0 | xargs --null rm -fr
 
 echo "### 5. Setting Installation Options with the AWS CDK ###"

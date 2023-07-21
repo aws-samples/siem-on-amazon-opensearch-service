@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.1'
+__version__ = '2.10.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -273,8 +273,8 @@ def extract_ip(logdata):
         contents = configuration.get('AWS:Network', {}).get('Content')
         if contents:
             for content in contents:
-                ip_list.append(content['IPV6'])
-                ip_list.append(content['IPV4'])
+                ip_list.append(content.get('IPV6', ''))
+                ip_list.append(content.get('IPV4', ''))
 
     if private_ip or public_ip or len(ip_list):
         if 'related' not in logdata:
@@ -286,6 +286,12 @@ def extract_ip(logdata):
             logdata['related']['ip'].append(public_ip)
         if len(ip_list):
             logdata['related']['ip'].extend(ip_list)
+        ip_set = set(logdata['related']['ip'])
+        try:
+            ip_set.remove('')
+        except Exception:
+            pass
+        logdata['related']['ip'] = sorted(list(ip_set))
 
     return logdata
 

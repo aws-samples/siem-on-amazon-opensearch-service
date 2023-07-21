@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.9.1: log exporter - core resource"
+Description: "SIEM on Amazon OpenSearch Service v2.10.0: log exporter - core resource"
 Parameters:
   siemLogBucketName:
     Type: String

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.1'
+__version__ = '2.10.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -20,8 +20,10 @@ from functools import lru_cache
 
 import boto3
 import botocore
+import jmespath
 import requests
 from aws_lambda_powertools import Logger
+from aws_lambda_powertools.utilities import parameters
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
 try:
@@ -346,9 +348,9 @@ def convert_custom_timeformat_to_datetime(timestr, TZ, timestamp_format,
 # Amazon OpenSearch Service / AWS Resouce
 #############################################################################
 def get_es_hostname():
-    # get ES_ENDPOINT
-    if 'ES_ENDPOINT' in os.environ:
-        es_hostname = os.environ.get('ES_ENDPOINT', '')
+    # get ENDPOINT
+    if 'ENDPOINT' in os.environ:
+        es_hostname = os.environ.get('ENDPOINT', '')
     else:
         # For local shell execution
         aes_config = configparser.ConfigParser(
@@ -358,9 +360,9 @@ def get_es_hostname():
         if 'aes' in aes_config:
             es_hostname = aes_config['aes']['es_endpoint']
         else:
-            logger.error('You need to set ES_ENDPOINT in ENVRIONMENT '
+            logger.error('You need to set ENDPOINT in ENVRIONMENT '
                          'or modify aes.ini. exit')
-            raise Exception('No ES_ENDPOINT in Environemnt')
+            raise Exception('No ENDPOINT in Environemnt')
     return es_hostname
 
 
@@ -535,6 +537,57 @@ def get_etl_config():
     return etl_config
 
 
+def get_exclusion_conditions():
+    parameters_prefix = '/siem/exclude-logs/'
+    exclusion_parameters = parameters.get_parameters(parameters_prefix)
+    exclusion_conditions = {}
+    for parameter_name, parameter in exclusion_parameters.items():
+        parameter_name_with_prefix = parameters_prefix + parameter_name
+        if '/' not in parameter_name:
+            logger.error(
+                f'Prameter name {parameter_name} '
+                'must have logtype prefix.')
+            continue
+        try:
+            parameter = json.loads(parameter)
+        except Exception:
+            logger.exception(
+                f'Prameter {parameter_name_with_prefix} '
+                'is invalid JSON format.')
+            continue
+        if 'action' not in parameter or 'expression' not in parameter:
+            logger.error(
+                f'Parameter {parameter_name_with_prefix} '
+                'must have `action` and `expression` keys in JSON format.')
+            continue
+        try:
+            expression = parameter['expression']
+            parameter['expression'] = jmespath.compile(expression)
+        except Exception:
+            # logger.append_keys(expression=expression)
+            # github.com/aws-powertools/powertools-lambda-python/issues/1016
+            msg = f"Failed to compile JMESPath with '{parameter_name}'"
+            logger.exception(msg)
+            # logger.remove_keys(["expression"])
+            continue
+        action = parameter['action'].lower()
+        if action != 'exclude' and action != 'count':
+            logger.error(
+                f'Prameter {parameter_name_with_prefix} is invalid action, '
+                f'{action}. it should be EXCLUDE or COUNT')
+            continue
+        parameter['name'] = parameter_name
+        logtype = parameter_name.split('/')[0]
+        if logtype not in exclusion_conditions:
+            exclusion_conditions[logtype] = []
+        exclusion_conditions[logtype].append(parameter)
+
+    if exclusion_conditions:
+        logger.info('exclusion_conditions of JMESPath')
+        logger.info(exclusion_conditions)
+    return exclusion_conditions
+
+
 def load_modules_on_memory(etl_config, user_libs):
     for logtype in etl_config:
         if etl_config[logtype].get('script_ecs'):
@@ -565,16 +618,64 @@ def load_sf_module(logfile, logconfig, user_libs_list):
     return sf_module
 
 
-def make_exclude_own_log_patterns(etl_config):
+def make_exclude_own_log_patterns(etl_config) -> dict:
     log_patterns = {}
     if etl_config['DEFAULT'].getboolean('ignore_own_logs'):
+        logger.info('built-in log exclusion pattern list')
+
         user_agent = etl_config['DEFAULT'].get('custom_user_agent', '')
-        if user_agent:
-            re_user_agent = re.compile('.*' + re.escape(user_agent) + '.*')
-            log_patterns['cloudtrail'] = {'userAgent': re_user_agent}
-            log_patterns['s3accesslog'] = {'UserAgent': re_user_agent}
-            log_patterns['securitylake'] = {
-                'http_request': {'user_agent': re_user_agent}}
+        old_user_agent = 'AesSiemEsLoader'
+        ioc_user_agent = 'siem-ioc-db-creator'
+        all_ua_name = f'({user_agent}|{old_user_agent}|{ioc_user_agent})'
+        re_all_ua_agent = re.compile(f'.*{all_ua_name}.*')
+
+        func1 = 'aes-siem-ioc-download'
+        func2 = 'aes-siem-ioc-plan'
+        func3 = 'aes-siem-ioc-createdb'
+        func4 = 'aes-siem-es-loader'
+        func5 = 'aes-siem-index-metrics-exporter'
+        slfunc1 = 'SecurityLake_Glue_Partition_Updater_Lambda'
+
+        func = fr'arn.*({func1}|{func2}|{func3}|{func4}|{func5}|{slfunc1}.*)'
+        re_func = re.compile(func)
+
+        principal_id = (
+            fr'AROA.*({func1}|{func2}|{func3}|{func4}|{func5}|{slfunc1}.*)')
+        re_principal_id = re.compile(principal_id)
+
+        role1 = 'LambdaEsLoaderServiceRole'
+        role2 = 'AmazonSecurityLakeS3ReplicationRole'
+        role = fr'arn.*({role1}|{role2}).*'
+        re_role = re.compile(role)
+
+        src1 = 'securitylake.amazonaws.com'
+        re_src = re.compile(src1)
+
+        # CloudTrail
+        ct1 = {'userAgent': re_all_ua_agent,
+               'sourceIPAddress': re_src,
+               'userIdentity': {'principalId': re_principal_id,
+                                'arn': re_role}}
+        ct2 = {'requestParameters': {'functionName': re_func,
+                                     'roleArn': re_role}}
+        log_patterns['cloudtrail'] = [ct1, ct2]
+
+        # S3 Accesslog
+        agent = fr'(arn:.*{func}|{role}|svc:{src1})'
+        re_agent = re.compile(agent)
+        sa1 = {'Requester': re_agent,
+               'UserAgent': re_all_ua_agent}
+        log_patterns['s3accesslog'] = [sa1]
+
+        # Security Lake
+        sl1 = {'src_endpoint': {'domain': re_src}}
+        sl2 = {'resources': {'uid': re_func}}
+        sl3 = {'actor': {'user': {'uid': re_principal_id}}}
+        sl4 = {'actor': {'session': {'issuer': re_role}}}
+        log_patterns['securitylake'] = [sl1, sl2, sl3, sl4]
+
+        logger.info(f'{log_patterns}')
+
     return log_patterns
 
 
@@ -604,6 +705,16 @@ def get_exclude_log_patterns_csv_filename(etl_config):
     return local_file
 
 
+def merge_log_exclusion_patterns(patterns1, patterns2) -> dict:
+    new_patterns = {}
+    logtypes = patterns1.keys() | patterns2.keys()
+    for logtype in logtypes:
+        p1 = patterns1.get(logtype, [])
+        p2 = patterns2.get(logtype, [])
+        new_patterns[logtype] = p1 + p2
+    return new_patterns
+
+
 def merge_dotted_key_value_into_dict(patterns_dict, dotted_key, value):
     if not patterns_dict:
         patterns_dict = {}
@@ -615,31 +726,31 @@ def merge_dotted_key_value_into_dict(patterns_dict, dotted_key, value):
     return patterns_dict
 
 
-def merge_csv_into_log_patterns(log_patterns, csv_filename):
+def convert_csv_into_log_patterns(csv_filename) -> dict:
+    log_patterns = {}
     if not csv_filename:
-        logger.info(f'{log_patterns}')
         return log_patterns
-    logger.info(f'{csv_filename} is imported to exclude_log_patterns')
+    logger.info(f'{csv_filename} is imported as custom log exclusion log '
+                'pattern list')
     with open(csv_filename, 'rt') as f:
         for line in csv.DictReader(f):
             if line['pattern_type'].lower() == 'text':
                 pattern = re.compile(str(re.escape(line['pattern'])) + '$')
             else:
                 pattern = re.compile(str(line['pattern']) + '$')
-            log_patterns.setdefault(line['log_type'], {})
-            log_patterns[line['log_type']] = merge_dotted_key_value_into_dict(
-                log_patterns[line['log_type']],
-                line['field'], pattern)
+            log_patterns.setdefault(line['log_type'], [])
+            d = merge_dotted_key_value_into_dict({}, line['field'], pattern)
+            log_patterns[line['log_type']].append(d)
+
     logger.info(f'{log_patterns}')
     return log_patterns
 
 
 def make_s3_session_config(etl_config):
     user_agent = etl_config['DEFAULT'].get('custom_user_agent', '')
-    user_agent_ver = etl_config['DEFAULT'].get('custom_user_agent_ver', '')
     if user_agent:
         s3_session_config = botocore.config.Config(
-            user_agent=f'{user_agent}/{user_agent_ver}')
+            user_agent_extra=f'{user_agent}/{__version__}')
     else:
         s3_session_config = None
     return s3_session_config
@@ -823,17 +934,25 @@ def match_log_with_exclude_patterns(log_dict, log_patterns, ex_pattern=None):
 
     """
     for key, pattern in log_patterns.items():
+        res = False
+        ex_pattern = None
         if key in log_dict:
             if isinstance(pattern, dict) and isinstance(log_dict[key], dict):
                 res, ex_pattern = match_log_with_exclude_patterns(
                     log_dict[key], pattern)
                 return (res, ex_pattern)
+            elif isinstance(pattern, dict) and isinstance(log_dict[key], list):
+                for x in log_dict[key]:
+                    res, ex_pattern = match_log_with_exclude_patterns(
+                        x, pattern)
+                    return (res, ex_pattern)
             elif isinstance(pattern, re.Pattern):
-                if isinstance(log_dict[key], list):
-                    return (False, None)
-                elif pattern.match(str(log_dict[key])):
+                if pattern.match(str(log_dict[key])):
                     ex_pattern = '{{{0}: {1}}}'.format(key, log_dict[key])
                     return (True, ex_pattern)
+        if res:
+            return (res, ex_pattern)
+
     return (False, None)
 
 

@@ -57,3 +57,28 @@ Example: Security Lake Integration Parameter
 Immediately after configuration, log ingestion may fail, but will succeed once a new instance of the Lambda function (es-loader) is created. Alternatively, manually deploying the es-loader and forcing it to launch a new instance will resolve the error.
 
 This completes the log ingestion configuration for Security Lake
+
+### Custom Sources
+
+You can [collect data from custom sources](https://docs.aws.amazon.com/security-lake/latest/userguide/custom-sources.html) in Security Lake's S3 buckets. Although it can be imported into SIEM on OpenSearch, additional settings are required in user.ini if the file name does not match the expected one
+
+* Expected file name: `[0-9a-f]{32}\.gz\.parquet`
+* Expected directory name: `[Ss]ecurity[Ll]ake/`
+
+If neither matches, please set the following configuration in user.ini
+
+user.ini
+
+```
+[securitylake]
+s3_key = [0-9a-f]{32}\.gz\.parquet|[Ss]ecurity[Ll]ake/|file_name_of_parquet
+```
+
+Otherwise
+
+```
+[securitylake]
+s3_key = [0-9a-f]{32}\.gz\.parquet|[Ss]ecurity[Ll]ake/|service_name_in_s3_path
+```
+
+Please set it to keep the existing s3_key parameters. If there is no need to change other than s3_key, so copy from aws.ini & paste is not necessary because the differential settings are inherited.

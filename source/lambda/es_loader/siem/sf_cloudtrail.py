@@ -2,17 +2,27 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.1'
+__version__ = '2.10.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
+from siem import utils
+
 
 def convert_text_into_dict(temp_value):
-    if isinstance(temp_value, str):
-        return {'value': temp_value}
-    else:
+    if isinstance(temp_value, dict):
         return temp_value
+    elif isinstance(temp_value, str):
+        return {'value': temp_value}
+    elif isinstance(temp_value, list):
+        if len(temp_value) == 0:
+            return {}
+        elif isinstance(temp_value[0], str):
+            return {'value': temp_value}
+        elif isinstance(temp_value[0], dict):
+            return temp_value
+    return {'value': repr(temp_value)}
 
 
 def extract_instance_id(logdata):
@@ -24,6 +34,13 @@ def extract_instance_id(logdata):
             if logdata.get('requestParameters'):
                 instance_id = logdata.get(
                     'requestParameters', {}).get('target')
+        elif event_name in ('PutComplianceItems'):
+            if logdata.get('requestParameters'):
+                instance_id = logdata.get(
+                    'requestParameters', {}).get('resourceId', '')
+                m = utils.RE_INSTANCEID.match(instance_id)
+                if not m:
+                    instance_id = ''
     elif event_source in ('sts.amazonaws.com'):
         if logdata.get('userAgent') == 'ec2.amazonaws.com':
             instance_id = logdata.get(
@@ -214,5 +231,15 @@ def transform(logdata):
             ids = None
         if ids and isinstance(ids, list) and isinstance(ids[0], dict):
             logdata['requestParameters']['accountIds'] = str(ids)
+    elif event_source in ('codeguru-security.amazonaws.com'):
+        if logdata['requestParameters'].get('resourceId'):
+            logdata['requestParameters']['resourceId'] = repr(
+                logdata['requestParameters']['resourceId'])
+    elif event_source in ('dynamodb.amazonaws.com'):
+        try:
+            logdata['requestParameters']['items'] = convert_text_into_dict(
+                logdata['requestParameters']['items'])
+        except (KeyError, TypeError):
+            pass
 
     return logdata

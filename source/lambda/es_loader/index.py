@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.1'
+__version__ = '2.10.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -35,6 +35,9 @@ SQS_SPLITTED_LOGS_URL = None
 if 'SQS_SPLITTED_LOGS_URL' in os.environ:
     SQS_SPLITTED_LOGS_URL = os.environ['SQS_SPLITTED_LOGS_URL']
 ES_HOSTNAME = utils.get_es_hostname()
+SERVICE = ES_HOSTNAME.split('.')[2]
+AOSS_TYPE = os.getenv('AOSS_TYPE', '')
+docid_set = set()
 
 
 def extract_logfile_from_s3(record):
@@ -187,10 +190,17 @@ def create_logconfig(logtype):
             logconfig[key] = get_value_from_etl_config(logtype, key)
     if logconfig['file_format'] in ('xml', ):
         logconfig['multiline_firstline'] = logconfig['xml_firstline']
+    if SERVICE == 'aoss':
+        logconfig['index_rotation'] = 'aoss'
+    if logtype in log_exclusion_patterns:
+        logconfig['exclusion_patterns'] = log_exclusion_patterns[logtype]
+    if logtype in exclusion_conditions:
+        logconfig['exclusion_conditions'] = exclusion_conditions[logtype]
+
     return logconfig
 
 
-def get_es_entries(logfile, exclude_log_patterns):
+def get_es_entries(logfile):
     """get opensearch entries.
 
     To return json to load OpenSearch Service, extract log, map fields to ecs
@@ -202,19 +212,21 @@ def get_es_entries(logfile, exclude_log_patterns):
     sf_module = utils.load_sf_module(logfile, logconfig, user_libs_list)
 
     logparser = siem.LogParser(
-        logfile, logconfig, sf_module, geodb_instance, ioc_instance,
-        exclude_log_patterns)
+        logfile, logconfig, sf_module, geodb_instance, ioc_instance)
     for lograw, logdata, logmeta in logfile:
         logparser(lograw, logdata, logmeta)
         if logparser.is_ignored:
-            logger.debug(f'Skipped log because {logparser.ignored_reason}')
+            logfile.excluded_log_count += 1
+            if logparser.ignored_reason:
+                logger.debug(
+                    f'Skipped log because {logparser.ignored_reason}')
             continue
         indexname = utils.get_writable_indexname(
             logparser.indexname, READ_ONLY_INDICES)
-        action_meta = json.dumps({'index': {'_index': indexname,
-                                            '_id': logparser.doc_id}})
+        action_meta = {'index': {'_index': indexname, '_id': logparser.doc_id}}
         # logger.debug(logparser.json)
         yield [action_meta, logparser.json]
+
     del logparser
 
 
@@ -249,12 +261,15 @@ def check_es_results(results, total_count):
                 error_reason['log_number'] = count
                 if error_reason:
                     error_reasons.append(error_reason)
+            else:
+                success += 1
 
     return duration, success, error, error_reasons, retry
 
 
 def bulkloads_into_opensearch(es_entries, collected_metrics):
     global es_conn
+    global docid_set
     output_size, total_output_size = 0, 0
     total_count, success_count, error_count, es_response_time = 0, 0, 0, 0
     results = False
@@ -262,9 +277,17 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
     error_reason_list = []
     retry_needed = False
     filter_path = ['took', 'errors', 'items.index.status', 'items.index.error']
+    docid_list = []
     for data in es_entries:
-        putdata_list.extend(data)
-        output_size += len(data[0]) + len(data[1])
+        if AOSS_TYPE == 'TIMESERIES':
+            docid = data[0]['index'].pop('_id')
+            if docid in docid_set:
+                continue
+            docid_list.append(docid)
+        action_meta = json.dumps(data[0])
+        parsed_json = data[1]
+        putdata_list.extend([action_meta, parsed_json])
+        output_size += len(action_meta) + len(parsed_json)
         # es の http.max_content_length は t2 で10MB なのでデータがたまったらESにロード
         if output_size > 6000000:
             total_output_size += output_size
@@ -283,7 +306,7 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
             error_count += error
             es_response_time += es_took
             output_size = 0
-            total_count += len(putdata_list)
+            total_count = success_count + error_count
             putdata_list = []
             if len(error_reasons):
                 error_reason_list.extend(error_reasons)
@@ -306,11 +329,15 @@ def bulkloads_into_opensearch(es_entries, collected_metrics):
         success_count += success
         error_count += error
         es_response_time += es_took
-        total_count += len(putdata_list)
+        total_count = success_count + error_count
         if len(error_reasons):
             error_reason_list.extend(error_reasons)
         if retry:
             retry_needed = True
+    if AOSS_TYPE == 'TIMESERIES':
+        for error_reason in reversed(error_reason_list):
+            del docid_list[error_reason['log_number'] - 1]
+        docid_set.update(docid_list)
     collected_metrics['total_output_size'] = total_output_size
     collected_metrics['total_log_load_count'] = total_count
     collected_metrics['success_count'] = success_count
@@ -326,6 +353,8 @@ def output_metrics(metrics, logfile=None, collected_metrics={}):
     total_output_size = collected_metrics['total_output_size']
     success_count = collected_metrics['success_count']
     error_count = collected_metrics['error_count']
+    excluded_log_count = logfile.excluded_log_count
+    counted_log_count = logfile.counted_log_count
     es_response_time = collected_metrics['es_response_time']
     input_file_size = logfile.s3obj_size
     s3_key = logfile.s3key
@@ -343,6 +372,11 @@ def output_metrics(metrics, logfile=None, collected_metrics={}):
     metrics.add_metric(
         name="ErrorLogLoadCount", unit=MetricUnit.Count, value=error_count)
     metrics.add_metric(
+        name="ExcludedLogCount", unit=MetricUnit.Count,
+        value=excluded_log_count)
+    metrics.add_metric(
+        name="CountedLogCount", unit=MetricUnit.Count, value=counted_log_count)
+    metrics.add_metric(
         name="TotalDurationTime", unit=MetricUnit.Milliseconds, value=duration)
     metrics.add_metric(
         name="EsResponseTime", unit=MetricUnit.Milliseconds,
@@ -357,7 +391,7 @@ def output_metrics(metrics, logfile=None, collected_metrics={}):
 def observability_decorator_switcher(func):
     if os.environ.get('AWS_EXECUTION_ENV'):
         @metrics.log_metrics
-        @logger.inject_lambda_context
+        @logger.inject_lambda_context(clear_state=True)
         @wraps(func)
         def decorator(*args, **kwargs):
             return func(*args, **kwargs)
@@ -372,19 +406,29 @@ def observability_decorator_switcher(func):
 
 awsauth = utils.create_awsauth(ES_HOSTNAME)
 es_conn = utils.create_es_conn(awsauth, ES_HOSTNAME)
-DOMAIN_INFO = es_conn.info()
-logger.info(DOMAIN_INFO)
-READ_ONLY_INDICES = utils.get_read_only_indices(es_conn, awsauth, ES_HOSTNAME)
-logger.info(json.dumps({'READ_ONLY_INDICES': READ_ONLY_INDICES}))
+if SERVICE == 'es':
+    DOMAIN_INFO = es_conn.info()
+    logger.info(DOMAIN_INFO)
+    READ_ONLY_INDICES = utils.get_read_only_indices(
+        es_conn, awsauth, ES_HOSTNAME)
+    logger.info(json.dumps({'READ_ONLY_INDICES': READ_ONLY_INDICES}))
+elif SERVICE == 'aoss':
+    READ_ONLY_INDICES = ''
 user_libs_list = utils.find_user_custom_libs()
 etl_config = utils.get_etl_config()
 utils.load_modules_on_memory(etl_config, user_libs_list)
 logtype_s3key_dict = utils.create_logtype_s3key_dict(etl_config)
+exclusion_conditions = utils.get_exclusion_conditions()
 
-exclude_own_log_patterns = utils.make_exclude_own_log_patterns(etl_config)
+builtin_log_exclusion_patterns: dict = (
+    utils.make_exclude_own_log_patterns(etl_config))
 csv_filename = utils.get_exclude_log_patterns_csv_filename(etl_config)
-exclude_log_patterns = utils.merge_csv_into_log_patterns(
-    exclude_own_log_patterns, csv_filename)
+custom_log_exclusion_patterns: dict = (
+    utils.convert_csv_into_log_patterns(csv_filename))
+log_exclusion_patterns: dict = utils.merge_log_exclusion_patterns(
+    builtin_log_exclusion_patterns, custom_log_exclusion_patterns)
+# e.g. log_exclusion_patterns['cloudtrail'] = [pattern1, pattern2]
+
 s3_session_config = utils.make_s3_session_config(etl_config)
 s3_client = boto3.client('s3', config=s3_session_config)
 sqs_queue = utils.sqs_queue(SQS_SPLITTED_LOGS_URL)
@@ -409,8 +453,8 @@ security_lake_s3_client = utils.get_s3_client_for_crosss_account(
     role_session_name=security_lake_role_session_name,
     external_id=security_lake_external_id)
 
-geodb_instance = geodb.GeoDB()
-ioc_instance = ioc.DB()
+geodb_instance = geodb.GeoDB(s3_session_config)
+ioc_instance = ioc.DB(s3_session_config)
 utils.show_local_dir()
 
 
@@ -437,11 +481,12 @@ def main(event, context):
             # s3 notification from SQS
             for record in event['Records']:
                 recs = json.loads(record['body'])
-                try:
+                if 'Records' in recs:
+                    # Control Tower
                     for record in recs['Records']:
                         process_record(record)
-                except KeyError:
-                    # from sqs-splitted-logs
+                else:
+                    # from sqs-splitted-log, Security Lake(via EventBridge)
                     process_record(recs)
         elif event['Records'][0].get('EventSource') == 'aws:sns':
             # s3 notification from SNS
@@ -475,8 +520,9 @@ def process_record(record):
             logger.critical(
                 f'Skipped S3 object because {logfile.critical_reason}')
         return None
+
     # 抽出したログからESにPUTするデータを作成する
-    es_entries = get_es_entries(logfile, exclude_log_patterns)
+    es_entries = get_es_entries(logfile)
     # 作成したデータをESにPUTしてメトリクスを収集する
     (collected_metrics, error_reason_list, retry_needed) = (
         bulkloads_into_opensearch(es_entries, collected_metrics))

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.1'
+__version__ = '2.10.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -33,8 +33,9 @@ class DB():
     NOT_FILE_FRESH_DURATION = 43200   # 12 hours
     RE_IPADDR = re.compile(r'[0-9a-fA-F:.]*$')
 
-    def __init__(self):
+    def __init__(self, s3_session_config):
         self.GEOIP_BUCKET = self._get_geoip_buckent_name()
+        self.s3_session_config = s3_session_config
         has_ioc_db = self._download_database()
         self.cur = None
         if has_ioc_db:
@@ -119,7 +120,7 @@ class DB():
                 return True
 
         if not os.path.isfile(self.DB_FILE_LOCAL):
-            _s3 = boto3.resource('s3')
+            _s3 = boto3.resource('s3', config=self.s3_session_config)
             bucket = _s3.Bucket(self.GEOIP_BUCKET)
             try:
                 bucket.download_file(self.DB_FILE_S3KEY, self.DB_FILE_LOCAL)

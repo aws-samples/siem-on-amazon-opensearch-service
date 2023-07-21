@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.9.1'
+__version__ = '2.10.0'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -33,8 +33,10 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ParamValidationError
 
-OBJ_LIMIT = 5000
-DB_MAX_SIZE_MB = 384
+MAX_OBJ_COUNT = int(os.getenv('MAX_OBJ_COUNT', 5000))
+MAX_OBJ_SIZE_MB = int(os.getenv('MAX_OBJ_SIZE_MB', 100))
+MAX_DB_SIZE_MB = int(os.getenv('MAX_DB_SIZE_MB', 384))
+USER_AGENT = 'siem-ioc-db-creator'
 DB_FILE = 'ioc.db'
 S3KEY_PREFIX = 'IOC'
 TMP_DIR = '/tmp'
@@ -61,7 +63,10 @@ try:
 except (ValueError, TypeError):
     logger.setLevel('WARNING')
 
-config = Config(connect_timeout=5, retries={'max_attempts': 0})
+config = Config(connect_timeout=5, retries={'max_attempts': 0},
+                user_agent_extra=f'{USER_AGENT}/{__version__}')
+aioconfig = Config(connect_timeout=5,
+                   user_agent_extra=f'{USER_AGENT}/{__version__}')
 s3 = boto3.client('s3', config=config)
 
 
@@ -114,14 +119,20 @@ def _download_file_from_interet(url, file_name=None, headers={}):
 
 async def _aio_download_file_from_internet(
         session, url, headers=None, local_file=None):
-    chunk_size = 256 * 1024
+    chunk_size = 1024 * 1024
     async with session.get(url) as resp:
         with open(local_file, 'wb') as fd:
             async for chunk in resp.content.iter_chunked(chunk_size):
                 fd.write(chunk)
-        if resp.status != 200:
-            if os.path.exists(local_file):
+        if os.path.exists(local_file):
+            file_size = os.path.getsize(local_file)
+            if resp.status != 200:
                 os.remove(local_file)
+            elif file_size > MAX_OBJ_SIZE_MB * 1024 * 1024:
+                os.remove(local_file)
+                logger.warning(f'{local_file} is {file_size} Byte and too '
+                               'large. Deleted it.')
+                return 413
         return resp.status
 
 
@@ -167,7 +178,7 @@ async def _aio_put_file_to_s3(s3_session, local_file, s3_key, count=None):
     prefix = ''
     if count:
         prefix = f'[{count}] '
-    async with s3_session.client('s3') as aioclient:
+    async with s3_session.client('s3', config=aioconfig) as aioclient:
         with open(local_file, 'rb') as f:
             read_bytes = f.read(file_read_size)
             while read_bytes:
@@ -237,14 +248,14 @@ def _initialize_db():
                    network_start, network_end)
         )""")
     imds_addr = int(ipaddress.ip_address('169.254.169.254'))
-    cur.execute(f"""
+    cur.execute("""
         INSERT INTO ipaddress(provider, type,
                               v6_network1_start, v6_network1_end,
                               v6_network2_start, v6_network2_end,
                               network_start, network_end, name)
         VALUES('built-in', 'ipv4-addr', 0, 0, 0, 0, ?, ?, 'IMDS')
     """, (imds_addr, imds_addr))
-    cur.execute(f"""
+    cur.execute("""
         INSERT INTO ipaddress(provider, type,
                               v6_network1_start, v6_network1_end,
                               v6_network2_start, v6_network2_end,
@@ -390,10 +401,10 @@ def _put_db_to_s3(conn, cur):
 
     # check db file size
     db_size = os.path.getsize(DB_FILE_LOCAL)
-    if db_size >= (DB_MAX_SIZE_MB * 1024 * 1024):
+    if db_size >= (MAX_DB_SIZE_MB * 1024 * 1024):
         raise Exception(
             f'The IoC database is too large at {db_size/1024/1024} MB.'
-            f'The file must be {DB_MAX_SIZE_MB} MB or less.')
+            f'The file size must be {MAX_DB_SIZE_MB} MB or less.')
     # with open(DB_FILE_LOCAL, 'rb') as f_in:
     #    with gzip.open(f'{DB_FILE_LOCAL}.gz', 'wb', compresslevel=9) as f_out:
     #        shutil.copyfileobj(f_in, f_out)
@@ -427,7 +438,7 @@ def _check_keys_or_create_dir(prefix):
         return True
 
 
-def _list_s3keys(prefix, obj_limit=OBJ_LIMIT):
+def _list_s3keys(prefix, max_obj_count=MAX_OBJ_COUNT):
     response = s3.list_objects_v2(
         Bucket=S3_BUCKET_NAME, Prefix=prefix)
     if 'Contents' not in response:
@@ -443,12 +454,23 @@ def _list_s3keys(prefix, obj_limit=OBJ_LIMIT):
                 Bucket=S3_BUCKET_NAME, Prefix=prefix, ContinuationToken=token)
             contents.extend(response['Contents'])
 
-        contents = [c for c in contents if not c['Key'].endswith('/')]
+        content_list = []
+        for content in contents:
+            key = content['Key']
+            if not key.endswith('/'):
+                size = content['Size']
+                if size > MAX_OBJ_SIZE_MB * 1024 ** 2:
+                    logger.warning(
+                        f'{key} is {size} Bytes and too large. Skipped')
+                    continue
+                content_list.append(content)
+
+        contents = content_list
         logger.info(
-            f'There are {len(contents)} files in /{prefix} directory')
+            f'There are {len(contents)} valid files in /{prefix} directory')
         contents = sorted(
             contents, key=lambda x: x['LastModified'], reverse=True)
-        contents = contents[:obj_limit]
+        contents = contents[:max_obj_count]
         logger.info(f'Fetching the latest {len(contents)} files from '
                     f'/{prefix} directory')
         return contents
@@ -691,7 +713,7 @@ class OTX:
                     subscribed_pulse = json.load(f)
                 all_ids.extend(subscribed_pulse['results'])
 
-            all_ids = sorted(all_ids, reverse=True)[:OBJ_LIMIT]
+            all_ids = sorted(all_ids, reverse=True)[:MAX_OBJ_COUNT]
             logger.info(f'Number of downloading OTX files is {len(all_ids)}')
 
             n = self.SLICE
@@ -766,7 +788,7 @@ class OTX:
 
     async def _createdb_main(self):
         s3_objs = _list_s3keys(
-            self.PREFIX_S3_KEY, obj_limit=(OBJ_LIMIT * 2))
+            self.PREFIX_S3_KEY, max_obj_count=(MAX_OBJ_COUNT * 2))
         task_num = 6
         s3_obj_count = len(s3_objs)
         task_list = []
@@ -778,7 +800,7 @@ class OTX:
 
     async def _download_insertdb(self, s3_obj_list):
         aiosession = aioboto3.Session()
-        async with aiosession.client('s3') as aioclient:
+        async with aiosession.client('s3', config=aioconfig) as aioclient:
             for s3_obj in s3_obj_list:
                 s3_key = s3_obj['Key']
                 local_file = f"{TMP_DIR}/{s3_key.split('/')[-1]}"
@@ -956,7 +978,7 @@ def download(event, context):
         result = OTX.download(mapped['ids'])
     elif mapped['ioc'] == 'custom':
         result = {'ioc': 'custom'}
-    logger.info(f'Finished download')
+    logger.info('Finished download')
     return result
 
 

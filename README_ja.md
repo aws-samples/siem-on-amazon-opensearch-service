@@ -7,7 +7,7 @@ SIEM on Amazon OpenSearch Service は、セキュリティインシデントを�
 
 > Amazon OpenSearch Service のサービス名変更に伴い、SIEM on Amazon Elasticsearch Service から SIEM on Amazon OpenSearch Service に名前を変更しました。
 
-Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_service_ja.md) | [SIEM の設定](docs/configure_siem_ja.md) | [高度なデプロイ](docs/deployment_ja.md) | [ダッシュボード](docs/dashboard_ja.md) | [サポートログタイプ](docs/suppoted_log_type.md) | [AWS Control Tower との統合](docs/controltower_ja.md) |  [Amazon Security Lake との統合](docs/securitylake_ja.md) | [よくある質問](docs/faq_ja.md) | [変更履歴](CHANGELOG.md) |
+Jump to | [AWS サービス(ログ送信元)の設定](docs/configure_aws_service_ja.md) | [SIEM の設定](docs/configure_siem_ja.md) | [高度なデプロイ](docs/deployment_ja.md) | [OpenSearch Serverless](docs/serverless_ja.md) | [ダッシュボード](docs/dashboard_ja.md) | [サポートログタイプ](docs/suppoted_log_type.md) | [AWS Control Tower との統合](docs/controltower_ja.md) |  [Amazon Security Lake との統合](docs/securitylake_ja.md) | [よくある質問](docs/faq_ja.md) | [変更履歴](CHANGELOG.md) |
 
 ![Sample dashboard](./docs/images/dashboard-sample.jpg)
 
@@ -129,7 +129,7 @@ SIEM on OpenSearch Service または SIEM on Amazon ES を新しいバージョ�
 
 ### OpenSearch Service のドメインのアップグレード
 
-OpenSearch Service を OpenSearch の 2.5/2.3/1.3/1.2/1.1/1.0 または Elasticsearch の 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.1 以上を前提にしているため、推奨バージョンは OpenSearch 2.5 の「互換性モードを有効化」です。
+OpenSearch Service を OpenSearch の 2.7/2.5/2.3/1.3/1.2/1.1/1.0 または Elasticsearch の 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.1 以上を前提にしています。推奨バージョンは OpenSearch 2.7 の「互換性モードを有効化」です。
 
 1. [OpenSearch Service コンソール](https://console.aws.amazon.com/es/home?) に移動
 1. [**aes-siem**] ドメインを選択
