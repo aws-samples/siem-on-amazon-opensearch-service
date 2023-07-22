@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.0'
+__version__ = '2.10.0a'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -350,7 +350,7 @@ def get_cold_index_status_dict(index_status_dict):
     return index_status_dict
 
 
-def get_write_hotwarm_index_metrics(fp, index_status_dict):
+def get_write_hotwarm_index_metrics(fp, index_status_dict, timestamp):
     print('INFO: Start get_write_hotwarm_index_metrics')
     url = (f'https://{ENDPOINT}/_stats/docs,indexing,merge,refresh,'
            'segments,store,fielddata,search')
@@ -374,18 +374,18 @@ def get_write_hotwarm_index_metrics(fp, index_status_dict):
     indices = res.json()['indices']
     for index, value in indices.items():
         index_metrics = transform_index_metrics(
-            index, value, index_status_dict)
+            index, value, index_status_dict, timestamp)
         if index_metrics:
             fp.write(json.dumps(index_metrics) + '\n')
     print('INFO: Done  get_write_hotwarm_index_metrics')
 
 
-def get_write_coldclose_index_metrics(fp, index_status_dict):
+def get_write_coldclose_index_metrics(fp, index_status_dict, timestamp):
     print('INFO: Start get_write_coldclose_index_metrics')
     for index, index_status in index_status_dict.items():
         if index_status.get('status') in ('cold', 'close'):
             index_metrics = transform_index_metrics(
-                index, None, index_status_dict)
+                index, None, index_status_dict, timestamp)
             if index_metrics:
                 fp.write(json.dumps(index_metrics) + '\n')
     print('INFO: Done  get_write_coldclose_index_metrics')
