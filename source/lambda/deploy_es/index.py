@@ -766,6 +766,7 @@ def validate_resource(event, context):
     physicalResourceId = f'vpc-config-{__version__}-{suffix}'
 
     subnets = sorted(AOS_SUBNET_IDS.split(',')) if AOS_SUBNET_IDS else []
+    subnets = list(sorted(set(subnets)))
     vpc_id = ''
     cidr_block = [0, 1, 2, 3]
     route_table_ids = []
