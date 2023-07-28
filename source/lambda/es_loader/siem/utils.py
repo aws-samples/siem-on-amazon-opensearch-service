@@ -560,9 +560,12 @@ def get_exclusion_conditions():
                 f'Parameter {parameter_name_with_prefix} '
                 'must have `action` and `expression` keys in JSON format.')
             continue
+        action = parameter['action'].lower()
+        if action == 'disable':
+            continue
         try:
             expression = parameter['expression']
-            parameter['expression'] = jmespath.compile(expression)
+            parameter['compiled_expression'] = jmespath.compile(expression)
         except Exception:
             # logger.append_keys(expression=expression)
             # github.com/aws-powertools/powertools-lambda-python/issues/1016
@@ -570,7 +573,6 @@ def get_exclusion_conditions():
             logger.exception(msg)
             # logger.remove_keys(["expression"])
             continue
-        action = parameter['action'].lower()
         if action != 'exclude' and action != 'count':
             logger.error(
                 f'Prameter {parameter_name_with_prefix} is invalid action, '

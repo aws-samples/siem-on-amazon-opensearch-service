@@ -981,9 +981,10 @@ class LogParser:
         for condition in exclusion_conditions:
             action = condition['action'].lower()
             expression = condition['expression']
+            compiled_expression = condition['compiled_expression']
             condition_name = condition['name']
             try:
-                is_excluded = expression.search(record)
+                is_excluded = compiled_expression.search(record)
             except Exception:
                 msg = f"Failed to query JMESPath with '{condition_name}'"
                 logger.exception(msg)
