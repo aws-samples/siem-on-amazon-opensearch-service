@@ -1,4 +1,4 @@
-Description: SIEM on Amazon OpenSearch Service v2.10.0
+Description: SIEM on Amazon OpenSearch Service v2.10.0a
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -404,7 +404,7 @@ Resources:
       Timeout: 30
     DependsOn:
       - LambdaResourceValidatorServiceRole8BE4D6B0
-  LambdaResourceValidatorCurrentVersion1C9DB5C1386d40e64504275b8d67bc70d088c8cc:
+  LambdaResourceValidatorCurrentVersion1C9DB5C18940d89e84c076ce35cd9f2601a46439:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaResourceValidatorE0EF57CE'
@@ -1042,7 +1042,7 @@ Resources:
     DependsOn:
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
-  LambdaEsLoaderCurrentVersion9DFE69550483136678b0fb8ed271a79421bcb99a:
+  LambdaEsLoaderCurrentVersion9DFE6955043b16baf5823c1f0f9c351eaa91d478:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
@@ -1158,7 +1158,7 @@ Resources:
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-      - LambdaEsLoaderCurrentVersion9DFE69550483136678b0fb8ed271a79421bcb99a
+      - LambdaEsLoaderCurrentVersion9DFE6955043b16baf5823c1f0f9c351eaa91d478
       - LambdaEsLoader4B1E2DD9
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
@@ -1311,7 +1311,7 @@ Resources:
     DependsOn:
       - LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
       - LambdaMetricsExporterServiceRoleDDE0BD95
-  LambdaMetricsExporterCurrentVersion79B0413F645e22a550159959c60a5f88fd6ed2b2:
+  LambdaMetricsExporterCurrentVersion79B0413F74a6bfb2d82a0e149af300b9e0a6f3ca:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaMetricsExporter2737F589'
@@ -1917,7 +1917,7 @@ Resources:
     DependsOn:
       - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaDeployAESCurrentVersion047915F1ce3da89df1ffa0da78c111b3a75f8916:
+  LambdaDeployAESCurrentVersion047915F1058ac55f008d50add11dcd30cd56ba06:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaDeployAES636B5079'
@@ -1976,7 +1976,7 @@ Resources:
     DependsOn:
       - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaConfigureAESCurrentVersion65114768b51be324d3f92d1e341a6842ba118176:
+  LambdaConfigureAESCurrentVersion65114768076bb4d9eb3866d9d7adc519f060c61e:
     Type: AWS::Lambda::Version
     Properties:
       FunctionName: !Ref 'LambdaConfigureAESA0471961'
