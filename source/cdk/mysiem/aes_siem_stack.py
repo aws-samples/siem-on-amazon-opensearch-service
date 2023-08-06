@@ -368,6 +368,13 @@ class MyAesSiemStack(cdk.Stack):
                          'Endpoint, select false'),
             default='true')
 
+        create_ssm_vpce = cdk.CfnParameter(
+            self, 'CreateSsmVpcEndpoint', allowed_values=['true', 'false'],
+            description=('Create new Systems Manager VPC Endpoint with SIEM '
+                         'solution. If you use existing VPC and already have '
+                         'Systems Manager VPC Endpoint, select false'),
+            default='true')
+
         create_s3_vpce = cdk.CfnParameter(
             self, 'CreateSqsVpcEndpoint', allowed_values=['true', 'false'],
             description=('Create new S3 VPC Endpoint with SIEM solution. '
@@ -456,6 +463,7 @@ class MyAesSiemStack(cdk.Stack):
                      # 'Parameters': [log_bucket_policy_update.logical_id,
                      'Parameters': [vpce_id.logical_id,
                                     create_sqs_vpce.logical_id,
+                                    create_ssm_vpce.logical_id,
                                     create_s3_vpce.logical_id]},
                     {'Label': {'default': ('Control Tower Integration '
                                            '- optional')},
@@ -487,6 +495,7 @@ class MyAesSiemStack(cdk.Stack):
             'ioc_download_interval': ioc_download_interval,
             # 'log_bucket_policy_update': log_bucket_policy_update,
             'create_sqs_vpce': create_sqs_vpce,
+            'create_ssm_vpce': create_ssm_vpce,
             'create_s3_vpce': create_s3_vpce,
             'ct_log_buckets': ct_log_buckets,
             'ct_role_arn': ct_role_arn,
@@ -657,6 +666,15 @@ class MyAesSiemStack(cdk.Stack):
             )
         )
 
+        ssm_vpce_is_required = cdk.CfnCondition(
+            self, "SsmVpceIsRequired",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_equals(
+                    create_ssm_vpce.value_as_string, 'true'),
+                is_in_vpc,
+            )
+        )
+
         s3_vpce_is_required = cdk.CfnCondition(
             self, "S3VpceIsRequired",
             expression=cdk.Fn.condition_and(
@@ -708,6 +726,7 @@ class MyAesSiemStack(cdk.Stack):
             'has_sns_email': has_sns_email,
             # 'keep_log_bucket_policy': keep_log_bucket_policy,
             'sqs_vpce_is_required': sqs_vpce_is_required,
+            'ssm_vpce_is_required': ssm_vpce_is_required,
             's3_vpce_is_required': s3_vpce_is_required,
             'is_control_tower_access': is_control_tower_access,
             'is_security_lake_access': is_security_lake_access,
@@ -1034,6 +1053,19 @@ class MyAesSiemStack(cdk.Stack):
         vpce_endpoint_sqs.add_property_override(
             "SubnetIds", validated_resource.get_att('subnets').to_string())
         vpce_endpoint_sqs.cfn_options.condition = sqs_vpce_is_required
+
+        vpce_endpoint_ssm = aws_ec2.CfnVPCEndpoint(
+            self, "VpcAesSiemSSMEndpoint", vpc_id='', subnet_ids=[],
+            vpc_endpoint_type="Interface",
+            private_dns_enabled=True,
+            security_group_ids=[sg_vpc_aes_siem2.attr_group_id],
+            service_name=f"com.amazonaws.{cdk.Aws.REGION}.ssm",
+        )
+        vpce_endpoint_ssm.add_property_override(
+            "VpcId", validated_resource.get_att('vpc_id').to_string())
+        vpce_endpoint_ssm.add_property_override(
+            "SubnetIds", validated_resource.get_att('subnets').to_string())
+        vpce_endpoint_ssm.cfn_options.condition = ssm_vpce_is_required
 
         vpce_endpoint_s3 = aws_ec2.CfnVPCEndpoint(
             self, "VpcAesSiemS3Endpoint003F70DF", vpc_id='',

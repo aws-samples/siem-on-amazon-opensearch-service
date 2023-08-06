@@ -23,7 +23,6 @@ import botocore
 import jmespath
 import requests
 from aws_lambda_powertools import Logger
-from aws_lambda_powertools.utilities import parameters
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
 try:
@@ -537,11 +536,41 @@ def get_etl_config():
     return etl_config
 
 
+def get_ssm_params(parameters_prefix):
+    config = botocore.config.Config(
+        connect_timeout=2,
+        retries={"total_max_attempts": 1, "max_attempts": 1})
+    ssm_client = boto3.client('ssm', config=config)
+    try:
+        res = ssm_client.get_parameters_by_path(
+            Path=parameters_prefix, Recursive=True, WithDecryption=False,
+            MaxResults=10)
+    except Exception:
+        logger.exception('Could not connect to SSM Endpoint '
+                         'or could not get SSM parameters.')
+        return
+
+    next_token = None
+    while True:
+        if next_token:
+            res = ssm_client.get_parameters_by_path(
+                Path=parameters_prefix, Recursive=True, WithDecryption=False,
+                MaxResults=10, NextToken=next_token)
+        for p in res['Parameters']:
+            parameter_name_with_prefix = p['Name']
+            parameter_name = parameter_name_with_prefix.replace(
+                parameters_prefix, '')
+            parameter = p['Value']
+            yield parameter_name, parameter
+        next_token = res.get('NextToken')
+        if next_token is None:
+            break
+
+
 def get_exclusion_conditions():
     parameters_prefix = '/siem/exclude-logs/'
-    exclusion_parameters = parameters.get_parameters(parameters_prefix)
     exclusion_conditions = {}
-    for parameter_name, parameter in exclusion_parameters.items():
+    for parameter_name, parameter in get_ssm_params(parameters_prefix):
         parameter_name_with_prefix = parameters_prefix + parameter_name
         if '/' not in parameter_name:
             logger.error(
