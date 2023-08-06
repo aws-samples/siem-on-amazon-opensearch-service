@@ -8,6 +8,7 @@ __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
+
 import configparser
 import json
 import logging
@@ -51,7 +52,11 @@ except Exception as err:
 
 ACCOUNT_ID = os.environ['ACCOUNT_ID']
 REGION = os.environ['AWS_REGION']
-PARTITION = boto3.Session().get_partition_for_region(REGION)
+try:
+    PARTITION = boto3.Session().get_partition_for_region(REGION)
+except Exception as e:
+    logger.info(e)
+    PARTITION = boto3.Session().get_partition_for_region('us-east-1')
 DEPLOYMENT_TARGET = os.getenv(
     'DEPLOYMENT_TARGET', 'opensearch_managed_cluster')
 # opensearch_managed_cluster or opensearch_serverless

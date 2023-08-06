@@ -91,7 +91,7 @@ RE_INSTANCEID = re.compile(
     r'(\W|_|^)(?P<instanceid>i-([0-9a-z]{8}|[0-9a-z]{17}))(\W|_|$)')
 RE_ACCOUNT = re.compile(r'\W([0-9]{12})/')
 RE_REGION = re.compile(
-    r'(global|(us|ap|ca|eu|me|sa|af|cn)-(gov-)?[a-zA-Z]+-[0-9])')
+    r'(global|(us|ap|ca|eu|il|me|sa|af|cn)-(gov-)?[a-zA-Z]+-[0-9])')
 # for timestamp
 RE_WITH_NANOSECONDS = re.compile(r'(.*)([0-9]{2}\.[0-9]{1,9})(.*)')
 RE_SYSLOG_FORMAT = re.compile(r'([A-Z][a-z]{2})\s+(\d{1,2})\s+'

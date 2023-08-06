@@ -233,7 +233,7 @@ class MyAesSiemStack(cdk.Stack):
         elb_map_temp = region_info.RegionInfo.region_map(elb_id_temp)
         no_alb_log_account_list = [
             'ap-south-2', 'ap-southeast-4', 'eu-central-2', 'eu-south-2',
-            'me-central-1']
+            'il-central-1', 'me-central-1']
         for acct in no_alb_log_account_list:
             elb_map_temp[acct] = '999999999999'
         region_dict = {}
@@ -576,6 +576,7 @@ class MyAesSiemStack(cdk.Stack):
                     cdk.Fn.condition_equals(cdk.Aws.REGION, 'ap-southeast-4'),
                     cdk.Fn.condition_equals(cdk.Aws.REGION, 'eu-central-2'),
                     cdk.Fn.condition_equals(cdk.Aws.REGION, 'eu-south-2'),
+                    cdk.Fn.condition_equals(cdk.Aws.REGION, 'il-central-1'),
                     cdk.Fn.condition_equals(cdk.Aws.REGION, 'me-central-1'),
                 )
             )
