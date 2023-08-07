@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.0a'
+__version__ = '2.10.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -23,7 +23,6 @@ import botocore
 import jmespath
 import requests
 from aws_lambda_powertools import Logger
-from aws_lambda_powertools.utilities import parameters
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
 try:
@@ -43,6 +42,12 @@ class MyEncoder(json.JSONEncoder):
 
 
 class AutoRefreshableSession:
+    region = os.environ.get('AWS_REGION', 'us-east-1')
+    if region.startswith('cn-'):
+        endpoint_url = f'https://sts.{region}.amazonaws.com.cn'
+    else:
+        endpoint_url = f'https://sts.{region}.amazonaws.com'
+
     def __init__(self, role_arn, role_session_name, external_id=None):
         self.role_arn = role_arn
         self.role_session_name = role_session_name
@@ -51,7 +56,8 @@ class AutoRefreshableSession:
         self.create_auto_refreshable_session()
 
     def _refresh(self):
-        sts_client = boto3.client('sts')
+        sts_client = boto3.client(
+            'sts', region_name=self.region, endpoint_url=self.endpoint_url)
         params = {
             'RoleArn': self.role_arn,
             'RoleSessionName': self.role_session_name,
@@ -91,7 +97,7 @@ RE_INSTANCEID = re.compile(
     r'(\W|_|^)(?P<instanceid>i-([0-9a-z]{8}|[0-9a-z]{17}))(\W|_|$)')
 RE_ACCOUNT = re.compile(r'\W([0-9]{12})/')
 RE_REGION = re.compile(
-    r'(global|(us|ap|ca|eu|me|sa|af|cn)-(gov-)?[a-zA-Z]+-[0-9])')
+    r'(global|(us|ap|ca|eu|il|me|sa|af|cn)-(gov-)?[a-zA-Z]+-[0-9])')
 # for timestamp
 RE_WITH_NANOSECONDS = re.compile(r'(.*)([0-9]{2}\.[0-9]{1,9})(.*)')
 RE_SYSLOG_FORMAT = re.compile(r'([A-Z][a-z]{2})\s+(\d{1,2})\s+'
@@ -537,11 +543,41 @@ def get_etl_config():
     return etl_config
 
 
+def get_ssm_params(parameters_prefix):
+    config = botocore.config.Config(
+        connect_timeout=2,
+        retries={"total_max_attempts": 1, "max_attempts": 1})
+    ssm_client = boto3.client('ssm', config=config)
+    try:
+        res = ssm_client.get_parameters_by_path(
+            Path=parameters_prefix, Recursive=True, WithDecryption=False,
+            MaxResults=10)
+    except Exception:
+        logger.exception('Could not connect to SSM Endpoint '
+                         'or could not get SSM parameters.')
+        return
+
+    next_token = None
+    while True:
+        if next_token:
+            res = ssm_client.get_parameters_by_path(
+                Path=parameters_prefix, Recursive=True, WithDecryption=False,
+                MaxResults=10, NextToken=next_token)
+        for p in res['Parameters']:
+            parameter_name_with_prefix = p['Name']
+            parameter_name = parameter_name_with_prefix.replace(
+                parameters_prefix, '')
+            parameter = p['Value']
+            yield parameter_name, parameter
+        next_token = res.get('NextToken')
+        if next_token is None:
+            break
+
+
 def get_exclusion_conditions():
     parameters_prefix = '/siem/exclude-logs/'
-    exclusion_parameters = parameters.get_parameters(parameters_prefix)
     exclusion_conditions = {}
-    for parameter_name, parameter in exclusion_parameters.items():
+    for parameter_name, parameter in get_ssm_params(parameters_prefix):
         parameter_name_with_prefix = parameters_prefix + parameter_name
         if '/' not in parameter_name:
             logger.error(

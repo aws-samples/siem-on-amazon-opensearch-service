@@ -712,12 +712,12 @@ S3 バケットに保存されているログをバッチで OpenSearch Service 
 
 1. AWS マネジメントコンソールの Lambda コンソールに移動
 1. aes-siem-es-loader 関数に移動して以下の 2 つの環境変数名と値をメモします
-    * ES_ENDPOINT
+    * ENDPOINT
     * GEOIP_BUCKET
 1. 環境変数を EC2 インスタンスの Amazon Linux のターミナルに貼り付けます。値は環境に合わせて変更してください
 
     ```sh
-    export ES_ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
+    export ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
     export GEOIP_BUCKET=aes-siem-123456789012-geo
     ```
 

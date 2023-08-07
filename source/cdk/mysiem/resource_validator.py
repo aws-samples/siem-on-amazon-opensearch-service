@@ -2,17 +2,13 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.0'
+__version__ = '2.10.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import aws_cdk as cdk
-from aws_cdk import (
-    aws_cloudformation,
-    aws_iam,
-    aws_lambda,
-)
+from aws_cdk import aws_cloudformation, aws_iam, aws_lambda
 
 
 class ResourceValidator(object):

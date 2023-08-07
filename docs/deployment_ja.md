@@ -78,7 +78,7 @@ export AWS_DEFAULT_REGION=<AWS_REGION> # region where the distributable is deplo
 
 ### 3. AWS Lambda デプロイパッケージの作成
 
-SIEM on OpenSearch Service で使用する AWS Lambda 関数は 3rd Party のライブラリを利用します。ローカルにこれらのライブラリをダウンロードをしてデプロイパッケージを作成します。Python 3 がインストールされていることを確認してください。
+SIEM on OpenSearch Service で使用する AWS Lambda 関数は 3rd Party のライブラリを利用します。ローカルにこれらのライブラリをダウンロードしてデプロイパッケージを作成します。Python 3 がインストールされていることを確認してください。
 
 ```shell
 cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
@@ -172,22 +172,40 @@ cdk context  --j
 
 ### 6. AWS CDK の実行
 
-CloudFormation テンプレートと同じパラーメーターを指定して CDK コマンドを実行します。パラメーターは、CDK コマンドでデプロイ後に、CloudFormation のコンソールから変更することもできます。
+CloudFormation テンプレートと同じパラーメーターを指定して CDK コマンドを実行します。パラメーターは、CDK コマンドでデプロイ後に、CloudFormation のコンソールから変更することもできます。初期インストール時には、パラメータなしでもデプロイできます。
 
 |パラメーター|説明|
 |------------|----|
-|AllowedSourceIpAddresses|Amazon VPC 外に SIEM on OpenSearch Service をデプロイした時に、アクセスを許可するIPアドレス。複数アドレスはスペース区切り|
-|||
-|SnsEmail|メールアドレス。SIEM on OpenSearch Service で検知したアラートを SNS 経由で送信する|
-|ReservedConcurrency|es-loaderの同時実行数の上限値。デフォルトは10。エラーがないにもかかわらずログ取り込み遅延やThrottleが常時発生する場合はこの値を増やしてください|
-|||
-|GeoLite2LicenseKey|Maxmindのライセンスキー。IP アドレスに国情報を付与|
-|OtxApiKey|AlienVault OTX の API キー。入力すると AlienVault から IoC をダウンロードする|
-|EnableTor|Tor Project から IoC をダウンロードするかどうか。値は "true" か "false"(初期値)|
-|EnableAbuseCh|Abuse.ch から IoC をダウンロードするかどうか。値は "true" か "false"(初期値)||
-|IocDownloadInterval|IoC をダウンロードする間隔を分で指定。初期値は720分|
+| **Initial Deployment Parameters** ||
+| AllowedSourceIpAddresses |Amazon VPC 外に SIEM on OpenSearch Service をデプロイした時に、アクセスを許可するIPアドレス。複数アドレスはスペース区切り|
+| **Basic Configuration** ||
+| DeploymentTarget | SIEM ソリューションをどこにインストールしますか？ 値は、`opensearch_managed_cluster` (初期値) か `opensearch_serverless` です。**Serverless は実験的オプションです**|
+| DomainOrCollectionName | Amazon OpenSearch Service のドメイン名、または OpenSearch Serverless のコレクション名|
+| SnsEmail |メールアドレス。SIEM on OpenSearch Service で検知したアラートを SNS 経由で送信する|
+| ReservedConcurrency |es-loaderの同時実行数の上限値。デフォルトは `10`。エラーがないにもかかわらずログ取り込み遅延やThrottleが常時発生する場合はこの値を増やしてください|
+| **Log Enrichment - optional** ||
+| GeoLite2LicenseKey | Maxmindのライセンスキー。IP アドレスに国情報を付与|
+| OtxApiKey | AlienVault OTX の API キー。入力すると AlienVault から IoC をダウンロードする|
+| EnableTor | Tor Project から IoC をダウンロードするかどうか。値は `true` か `false`(初期値)|
+| EnableAbuseCh | Abuse.ch から IoC をダウンロードするかどうか。値は `true` か `false`(初期値)||
+| IocDownloadInterval | IoC をダウンロードする間隔を分で指定。初期値は720分|
+| **Advanced Configuration - optional** ||
+| VpcEndpointId | OpenSearch managed cluster または OpenSearch Serverless の VPC Endpoint ID を指定してください。VPC Endpoint はデプロイ前に指定してください。もし指定した場合は、いくつかの Lambda 関数とリソースは VPC 内にデプロイされます|
+| CreateS3VpcEndpoint | 新しく S3 の VPC Endpoint を作成しますか？値は `true`(default) か `false`です。もし、すでに VPC があり、S3 の VPC Endpoint がある場合は、`false` を指定してください |
+| CreateSqsVpcEndpoint | 新しく SQS の VPC Endpoint を作成しますか？値は `true`(default) か `false`です。もし、すでに VPC があり、SQS の VPC Endpoint がある場合は、`false` を指定してください |
+| CreateSsmVpcEndpoint | 新しく Systems Manager の VPC Endpoint を作成しますか？値は `true`(default) か `false`です。もし、すでに VPC があり、Systems Manager の VPC Endpoint がある場合は、`false` を指定してください |
+| CreateStsVpcEndpoint | 新しく STS の VPC Endpoint を作成しますか？Control Tower または Security Lake との統合を選択した場合のみ STS VPC Endpoint は作成されます。値は `true`(default) か `false`です。もし、すでに VPC があり、STS の VPC Endpoint がある場合は、`false` を指定してください。 |
+| **Control Tower Integration - optional** | [Amazon Security Lake との統合](securitylake_ja.md) |
+| ControlTowerLogBucketNameList | Log Archive アカウントにある S3 バケット名を指定してください。複数ある場合は、カンマ区切り入力してください. (例: `aws-controltower-logs-123456789012-ap-northeast-1, aws-controltower-s3-access-logs-123456789012-ap-northeast-1` )|
+| ControlTowerSqsForLogBuckets | Log Archive アカウントで作成した SQS の ARN を指定してください。(例:  `arn:aws:sqs:ap-northeast-1:12345678902:aes-siem-ct` )|
+| ControlTowerRoleArnForEsLoader | aes-siem-es-loader が引き受けるために作成した IAM Role の ARN を指定してください。(例:  `arn:aws:iam::123456789012:role/ct-role-for-siem` )|
+| **Security Lake Integration - optional** | [AWS Control Tower との統合](controltower_ja.md) |
+| SecurityLakeSubscriberSqs | Security Lake が作成するサブスクライバーの SQS の ARN を指定してください。(例:  `arn:aws:sqs:us-east-1:12345678902:AmazonSecurityLake-00001111-2222-3333-5555-666677778888-Main-Queue` ` ) |
+| SecurityLakeRoleArn | Security Lake が作成するサブスクライバーの IAM Role の ARN を指定してください。(例:  `arn:aws:iam::123456789012:role/AmazonSecurityLake-00001111-2222-3333-5555-666677778888` ) |
+| SecurityLakeExternalId | Security Lake でサブスクライバー作成時に指定した external ID を指定してください。(例:  `externalid123` ) |
 
-文法) --parameters オプション1=パラメータ1 --parameters オプション2=パラメータ2
+
+文法) `--parameters オプション1=パラメータ1 --parameters オプション2=パラメータ2`
 複数のパラメーターがある場合は、--parametersを繰り返す
 
 パラメーター付きでの実行例)
