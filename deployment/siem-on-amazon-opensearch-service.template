@@ -211,14 +211,14 @@ Parameters:
     Description: Specify interval in minute to download IoC, default is 720 miniutes ( = 12 hours ).min is 30 minutes. max is 10080 minutes ( = 7 days ).
     MaxValue: 10080
     MinValue: 30
-  CreateS3VpcEndpoint:
+  CreateSqsVpcEndpoint:
     Type: String
     Default: 'true'
     AllowedValues:
       - 'true'
       - 'false'
     Description: Create new SQS VPC Endpoint with SIEM solution. If you use existing VPC and already have S3 VPC Endpoint, select false
-  CreateSqsVpcEndpoint:
+  CreateS3VpcEndpoint:
     Type: String
     Default: 'true'
     AllowedValues:
@@ -324,12 +324,12 @@ Conditions:
       - ''
   SqsVpceIsRequired: !And
     - !Equals
-      - !Ref 'CreateS3VpcEndpoint'
+      - !Ref 'CreateSqsVpcEndpoint'
       - 'true'
     - !Condition 'IsInVpc'
   S3VpceIsRequired: !And
     - !Equals
-      - !Ref 'CreateSqsVpcEndpoint'
+      - !Ref 'CreateS3VpcEndpoint'
       - 'true'
     - !Condition 'IsInVpc'
   IsControlTowerAcccess: !And
