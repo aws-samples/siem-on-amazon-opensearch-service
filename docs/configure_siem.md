@@ -698,12 +698,12 @@ You can batch load logs stored in the S3 bucket into OpenSearch Service. Normall
 
 1. Navigate to the Lambda console in the AWS Management Console
 1. Navigate to the aes-siem-es-loader function and take a note of the following two environment variable names and values:
-   * ES_ENDPOINT
+   * ENDPOINT
    * GEOIP_BUCKET
 1. Paste the environment variables into the Amazon Linux terminal on the EC2 instance. Change the values to suit your environment
 
    ```sh
-   export ES_ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
+   export ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
    export GEOIP_BUCKET=aes-siem-123456789012-geo
    ```
 

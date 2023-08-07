@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.10.0: log exporter - TrustedAdvisor"
+Description: "SIEM on Amazon OpenSearch Service v2.10.1: log exporter - TrustedAdvisor"
 Parameters:
   cweRulesFrequency:
     Type: Number
@@ -61,7 +61,7 @@ Resources:
           # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
           # SPDX-License-Identifier: MIT-0
           __copyright__ = 'Amazon.com, Inc. or its affiliates'
-          __version__ = '2.10.0'
+          __version__ = '2.10.1'
           __license__ = 'MIT-0'
           __author__ = 'Katsuya Matsuoka'
           __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -171,10 +171,6 @@ Resources:
               f.close()
               print(f'Upload path: s3://{bucket.name}/{s3file_name}')
               bucket.upload_file(f'/tmp/{file_name}', s3file_name)
-      Role:
-        Fn::GetAtt:
-          - getTrustedAdvisorCheckResultRoleF50F3B65
-          - Arn
       Description: "SIEM: get trustedadvisor check result"
       Environment:
         Variables:
@@ -184,6 +180,10 @@ Resources:
             Ref: enableJapaneseDescription
       FunctionName: siem-get-trustedadvisor-check-result
       Handler: index.lambda_handler
+      Role:
+        Fn::GetAtt:
+          - getTrustedAdvisorCheckResultRoleF50F3B65
+          - Arn
       Runtime: python3.8
       Timeout: 600
     DependsOn:

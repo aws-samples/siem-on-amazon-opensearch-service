@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.1] - 2023-08-07
+### Added
+- Added STS VPC Endpoint for Control Tower/Security Lake integration when using VPC #391
+- Supports AWS il-central-1/Israel (Tel Aviv) Region #390
+- Added tls_connection_creation_time field to NLB #364
+- Added SSM VPC Endpoint when using VPC #387
+
+### Fixed
+- Fixed s3 and sqs vpce params #389
+- Fixed an error with fielddata on @id field in SecurityHub #386
+- Fixed issue that caused an error when there were duplicated subnet-id in cdk.json #385
+- Fixed log exclusion feature issue #384
+- Fixed index_metrics_exporter issue #383
+
 ## [2.10.0] - 2023-07-21
 ### Added
 - Supported Amazon OpenSearch 2.7 #381

@@ -160,7 +160,7 @@ You can change the following parameters as common configurations. No modificatio
 | .management_id | The AWS account ID that is the administrator account in Organizations |
 | .member_ids | The AWS account IDs that are member accounts in Organizations, separated by commas |
 | no_organizations | Automatically generates a bucket policy for accounts that are not managed by Organizations, by using the account information entered here. No input is required if you manage another S3 bucket by yourself |
-| .aws_accounts | Enter comma-separated AWS account IDs that are not managed by Oarganizations |
+| .aws_accounts | Enter comma-separated AWS account IDs that are not managed by Organizations |
 | additional_s3_buckets | Enumerates S3 bucket names separated by commas |
 | additional_kms_cmks | Enumerates the ARNs of AWS KMS customer-managed keys, separated by commas |
 
@@ -178,22 +178,39 @@ Deploy the AWS CDK:
 cdk deploy --no-rollback
 ```
 
-You can specify the same parameters as for the CloudFormation template. The parameters can also be changed from the CloudFormation console after deployment with the CDK command.
+You can specify the same parameters as for the CloudFormation template. The parameters can also be changed from the CloudFormation console after deployment with the CDK command. During the initial installation, you can deploy without any parameters.
 
 | Parameter | Description |
 |------------|----|
+| **Initial Deployment Parameters** ||
 | AllowedSourceIpAddresses | The IP addresses that you want to allow access from when deploying SIEM on OpenSearch Service outside of your Amazon VPC. Multiple addresses are space-separated |
-|||
+| **Basic Configuration** ||
+| DeploymentTarget | Where would you like to deploy the SIEM solution? Value is  `opensearch_managed_cluster`(default) or `opensearch_serverless`. **Serverless is experimental option**|
+| DomainOrCollectionName | Amazon OpenSearch Service Domain name or OpenSearch Serverless Collection name|
 | SnsEmail | Email address. Alerts detected by SIEM on OpenSearch Service will be sent to this email address via SNS |
-| ReservedConcurrency | The maximum number of concurrency executions for es-loader. The default value is 10. Increase this value if you see delays in loading logs or if you see constant throttling occur even though there are no errors |
-|||
+| ReservedConcurrency | The maximum number of concurrency executions for es-loader. The default value is `10`. Increase this value if you see delays in loading logs or if you see constant throttling occur even though there are no errors |
+| **Log Enrichment - optional** ||
 | GeoLite2LicenseKey | Maxmind license key. It will add country information to each IP address |
-|OtxApiKey|If you wolud like to download IoC from AlienVault OTX, please enter OTX API Key.|
-|EnableTor|Would you like to download Tor IoC? Value is "true" or "false" (default)|
-|EnableAbuseCh|Would you like to download IoC from abuse.ch? Value is "true" or "false" (default)|
-|IocDownloadInterval|Specify interval in minute to download IoC, default is 720 miniutes|
+| OtxApiKey | If you wolud like to download IoC from AlienVault OTX, please enter OTX API Key.|
+| EnableTor | Would you like to download Tor IoC? Value is `true` or `false`(default)|
+| EnableAbuseCh| Would you like to download IoC from abuse.ch? Value is `true` or `false`(default)|
+| IocDownloadInterval| Specify interval in minute to download IoC, default is 720 minutes|
+| **Advanced Configuration - optional** ||
+| VpcEndpointId | Specify VPC Endpoint for OpenSearch managed cluster or OpenSearch Serverless. This should be manually created before deployment. If you specify VPC Endpoint, a few lambda functions and other resources will be deployed into VPC |
+| CreateS3VpcEndpoint | Create new S3 VPC Endpoint with SIEM solution. Value is `true`(default) or `false`. If you use existing VPC and already have S3 VPC Endpoint, select `false` |
+| CreateSqsVpcEndpoint | Create new SQS VPC Endpoint with SIEM solution. Value is `true`(default) or `false`. If you use existing VPC and already have SQS VPC Endpoint, select `false` |
+| CreateSsmVpcEndpoint | Create new Systems Manager VPC Endpoint with SIEM solution. Value is `true`(default) or `false`. If you use existing VPC and already have Systems Manager VPC Endpoint, select `false` |
+| CreateStsVpcEndpoint | Create new STS VPC Endpoint with SIEM solution. An STS VPC Endpoint is created only if you choose to integrate with Control Tower or Security Lake. Value is `true`(default) or `false`. If you use existing VPC and already have STS VPC Endpoint, select `false` |
+| **Control Tower Integration - optional** | [AWS Control Tower Integration](controltower.md) |
+| ControlTowerLogBucketNameList | Specify S3 log bucket names in the Log Archive account. Comma separated list. (e.g., `aws-controltower-logs-123456789012-ap-northeast-1, aws-controltower-s3-access-logs-123456789012-ap-northeast-1` )|
+| ControlTowerSqsForLogBuckets | Specify SQS ARN for S3 log buckets in Log Archive Account. (e.g., `arn:aws:sqs:ap-northeast-1:12345678902:aes-siem-ct` )|
+| ControlTowerRoleArnForEsLoader | Specify IAM Role ARN to be assumed by aes-siem-es-loader. (e.g., `arn:aws:iam::123456789012:role/ct-role-for-siem` )|
+| **Security Lake Integration - optional** | [Amazon Security Lake Integration](securitylake.md) |
+| SecurityLakeSubscriberSqs | Specify SQS ARN of Security Lake Subscriber. (e.g., `arn:aws:sqs:us-east-1:12345678902:AmazonSecurityLake-00001111-2222-3333-5555-666677778888-Main-Queue` ` ) |
+| SecurityLakeRoleArn | Specify IAM Role ARN to be assumed by aes-siem-es-loader. (e.g., `arn:aws:iam::123456789012:role/AmazonSecurityLake-00001111-2222-3333-5555-666677778888` ) |
+| SecurityLakeExternalId | Specify Security Lake external ID for cross account. (e.g., `externalid123` ) |
 
-Syntax) --parameters Option1=Parameter1 --parameters Option2=Parameter2
+Syntax) `--parameters Option1=Parameter1 --parameters Option2=Parameter2`
 If you have more than one parameter, repeat --parameters
 
 Example of deployment with parameters)

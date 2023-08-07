@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.0'
+__version__ = '2.10.1'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -285,7 +285,7 @@ class MyAesSiemStack(cdk.Stack):
                          'managed cluster or OpenSearch Serverless. This '
                          'should be manually created before deployment. '
                          'If you specify VPC Endpoint, a few lambda functions '
-                         'and other resources will be deploy into VPC'),
+                         'and other resources will be deployed into VPC'),
             default='')
 
         allow_source_address = cdk.CfnParameter(
@@ -308,7 +308,7 @@ class MyAesSiemStack(cdk.Stack):
             default='',
             max_length=40,
             description=("(Optional) "
-                         "If you wolud like to enrich geoip locaiton such as "
+                         "If you would like to enrich geoip location such as "
                          "IP address's country, get a license key from MaxMind"
                          " and input the key. "
                          "The license is a string of 16 or 40 digits"))
@@ -317,13 +317,13 @@ class MyAesSiemStack(cdk.Stack):
             self, 'ReservedConcurrency', default=10, type='Number',
             description=('Input lambda reserved concurrency for es-loader. '
                          'Increase this value if there are steady logs delay '
-                         'despite withou errors'))
+                         'despite without errors'))
 
         otx_api_key = cdk.CfnParameter(
             self, 'OtxApiKey', allowed_pattern=r'^([0-9a-f,x]{64}|)$',
             default='', max_length=64,
             description=('(Optional) '
-                         'If you wolud like to download IoC from AlienVault '
+                         'If you would like to download IoC from AlienVault '
                          'OTX, please enter OTX API Key. '
                          'See details: https://otx.alienvault.com'))
 
@@ -343,7 +343,7 @@ class MyAesSiemStack(cdk.Stack):
         ioc_download_interval = cdk.CfnParameter(
             self, 'IocDownloadInterval', type='Number',
             description=('Specify interval in minute to download IoC, '
-                         'default is 720 miniutes ( = 12 hours ).'
+                         'default is 720 minutes ( = 12 hours ).'
                          'min is 30 minutes. '
                          'max is 10080 minutes ( = 7 days ).'),
             min_value=30, max_value=10080, default=720)
@@ -362,9 +362,9 @@ class MyAesSiemStack(cdk.Stack):
         """
 
         create_sqs_vpce = cdk.CfnParameter(
-            self, 'CreateS3VpcEndpoint', allowed_values=['true', 'false'],
+            self, 'CreateSqsVpcEndpoint', allowed_values=['true', 'false'],
             description=('Create new SQS VPC Endpoint with SIEM solution. '
-                         'If you use existing VPC and already have S3 VPC '
+                         'If you use existing VPC and already have SQS VPC '
                          'Endpoint, select false'),
             default='true')
 
@@ -383,7 +383,7 @@ class MyAesSiemStack(cdk.Stack):
             default='true')
 
         create_s3_vpce = cdk.CfnParameter(
-            self, 'CreateSqsVpcEndpoint', allowed_values=['true', 'false'],
+            self, 'CreateS3VpcEndpoint', allowed_values=['true', 'false'],
             description=('Create new S3 VPC Endpoint with SIEM solution. '
                          'If you use existing VPC and already have S3 VPC '
                          'Endpoint, select false'),
@@ -469,10 +469,10 @@ class MyAesSiemStack(cdk.Stack):
                                            '- optional')},
                      # 'Parameters': [log_bucket_policy_update.logical_id,
                      'Parameters': [vpce_id.logical_id,
+                                    create_s3_vpce.logical_id,
                                     create_sqs_vpce.logical_id,
                                     create_ssm_vpce.logical_id,
-                                    create_sts_vpce.logical_id,
-                                    create_s3_vpce.logical_id]},
+                                    create_sts_vpce.logical_id]},
                     {'Label': {'default': ('Control Tower Integration '
                                            '- optional')},
                      'Parameters': [ct_log_buckets.logical_id,

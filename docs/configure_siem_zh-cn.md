@@ -322,12 +322,12 @@ Lambda 层的压缩文件内的目录结构应如下所示：
 
 1. 导航到 AWS 管理控制台中的 Lambda
 1. 导航到 aes-siem-es-loader 函数并记下两个环境变量名称和值：
-    * ES_ENDPOINT
+    * ENDPOINT
     * GEOIP_BUCKET
 1. 将环境变量粘贴到 EC2 实例上的 Amazon Linux 终端中。 以适合您的环境来更改值
 
    ```sh
-   export ES_ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
+   export ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
    export GEOIP_BUCKET=aes-siem-123456789012-geo
    ```
 

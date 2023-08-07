@@ -1,4 +1,4 @@
-Description: SIEM on Amazon OpenSearch Service v2.10.0a
+Description: SIEM on Amazon OpenSearch Service v2.10.1
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -27,6 +27,8 @@ Metadata:
           - VpcEndpointId
           - CreateS3VpcEndpoint
           - CreateSqsVpcEndpoint
+          - CreateSsmVpcEndpoint
+          - CreateStsVpcEndpoint
       - Label:
           default: Control Tower Integration - optional
         Parameters:
@@ -143,6 +145,9 @@ Mappings:
     eu-south-2:
       ElbV2AccountId: '999999999999'
       LambdaArch: x86_64
+    il-central-1:
+      ElbV2AccountId: '999999999999'
+      LambdaArch: x86_64
     me-central-1:
       ElbV2AccountId: '999999999999'
       LambdaArch: x86_64
@@ -164,7 +169,7 @@ Parameters:
     Default: ''
     AllowedPattern: (^vpce-[0-9a-z]*|aos-[0-9a-z]*|)
     Description: (Optional) Specify VPC Endpoint for OpenSearch managed cluster or OpenSearch Serverless. This should be manually created before deployment. If you specify VPC Endpoint, a few lambda functions
-      and other resources will be deploy into VPC
+      and other resources will be deployed into VPC
   AllowedSourceIpAddresses:
     Type: String
     Default: 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
@@ -179,17 +184,17 @@ Parameters:
     Type: String
     Default: ''
     AllowedPattern: ^([0-9a-zA-Z]{6}_[0-9a-zA-Z]{29}_mmk|[0-9a-zA-Z]{16}|)$
-    Description: (Optional) If you wolud like to enrich geoip locaiton such as IP address's country, get a license key from MaxMind and input the key. The license is a string of 16 or 40 digits
+    Description: (Optional) If you would like to enrich geoip location such as IP address's country, get a license key from MaxMind and input the key. The license is a string of 16 or 40 digits
     MaxLength: 40
   ReservedConcurrency:
     Type: Number
     Default: 10
-    Description: Input lambda reserved concurrency for es-loader. Increase this value if there are steady logs delay despite withou errors
+    Description: Input lambda reserved concurrency for es-loader. Increase this value if there are steady logs delay despite without errors
   OtxApiKey:
     Type: String
     Default: ''
     AllowedPattern: ^([0-9a-f,x]{64}|)$
-    Description: '(Optional) If you wolud like to download IoC from AlienVault OTX, please enter OTX API Key. See details: https://otx.alienvault.com'
+    Description: '(Optional) If you would like to download IoC from AlienVault OTX, please enter OTX API Key. See details: https://otx.alienvault.com'
     MaxLength: 64
   EnableTor:
     Type: String
@@ -208,17 +213,31 @@ Parameters:
   IocDownloadInterval:
     Type: Number
     Default: 720
-    Description: Specify interval in minute to download IoC, default is 720 miniutes ( = 12 hours ).min is 30 minutes. max is 10080 minutes ( = 7 days ).
+    Description: Specify interval in minute to download IoC, default is 720 minutes ( = 12 hours ).min is 30 minutes. max is 10080 minutes ( = 7 days ).
     MaxValue: 10080
     MinValue: 30
-  CreateS3VpcEndpoint:
+  CreateSqsVpcEndpoint:
     Type: String
     Default: 'true'
     AllowedValues:
       - 'true'
       - 'false'
-    Description: Create new SQS VPC Endpoint with SIEM solution. If you use existing VPC and already have S3 VPC Endpoint, select false
-  CreateSqsVpcEndpoint:
+    Description: Create new SQS VPC Endpoint with SIEM solution. If you use existing VPC and already have SQS VPC Endpoint, select false
+  CreateSsmVpcEndpoint:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Create new Systems Manager VPC Endpoint with SIEM solution. If you use existing VPC and already have Systems Manager VPC Endpoint, select false
+  CreateStsVpcEndpoint:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Create new STS VPC Endpoint with SIEM solution. If you use existing VPC and already have STS VPC Endpoint, select false
+  CreateS3VpcEndpoint:
     Type: String
     Default: 'true'
     AllowedValues:
@@ -287,6 +306,9 @@ Conditions:
         - eu-south-2
       - !Equals
         - !Ref 'AWS::Region'
+        - il-central-1
+      - !Equals
+        - !Ref 'AWS::Region'
         - me-central-1
   IsServerless: !Equals
     - !Ref 'DeploymentTarget'
@@ -324,12 +346,17 @@ Conditions:
       - ''
   SqsVpceIsRequired: !And
     - !Equals
-      - !Ref 'CreateS3VpcEndpoint'
+      - !Ref 'CreateSqsVpcEndpoint'
+      - 'true'
+    - !Condition 'IsInVpc'
+  SsmVpceIsRequired: !And
+    - !Equals
+      - !Ref 'CreateSsmVpcEndpoint'
       - 'true'
     - !Condition 'IsInVpc'
   S3VpceIsRequired: !And
     - !Equals
-      - !Ref 'CreateSqsVpcEndpoint'
+      - !Ref 'CreateS3VpcEndpoint'
       - 'true'
     - !Condition 'IsInVpc'
   IsControlTowerAcccess: !And
@@ -358,6 +385,14 @@ Conditions:
       - !Equals
         - !Ref 'SecurityLakeSubscriberSqs'
         - ''
+  StsVpceIsRequired: !And
+    - !Condition 'IsInVpc'
+    - !Equals
+      - !Ref 'CreateStsVpcEndpoint'
+      - 'true'
+    - !Or
+      - !Condition 'IsControlTowerAcccess'
+      - !Condition 'IsSecurityLakeAcccess'
 Resources:
   LambdaResourceValidatorServiceRole8BE4D6B0:
     Type: AWS::IAM::Role
@@ -374,10 +409,6 @@ Resources:
   LambdaResourceValidatorE0EF57CE:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
-      Role: !GetAtt 'LambdaResourceValidatorServiceRole8BE4D6B0.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -385,7 +416,10 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / resource validator for deployment
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / resource validator for deployment
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -400,15 +434,16 @@ Resources:
       Handler: index.resource_validator_handler
       MemorySize: 128
       ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaResourceValidatorServiceRole8BE4D6B0.Arn'
       Runtime: python3.9
       Timeout: 30
     DependsOn:
       - LambdaResourceValidatorServiceRole8BE4D6B0
-  LambdaResourceValidatorCurrentVersion1C9DB5C15ac27035fe8d159a08e0f7b5baa36d74:
+  LambdaResourceValidatorCurrentVersion1C9DB5C17ae77ca398e3f21e38059fa6a4624190:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaResourceValidatorE0EF57CE'
-      Description: 2.10.0
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   aessiempolicyforvpcvalidation724B105E:
@@ -451,13 +486,14 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaResourceValidatorE0EF57CE.Arn'
-      ConfigVersion: 2.10.0
+      ConfigVersion: 2.10.1
       vpce: !Ref 'VpcEndpointId'
       DeploymentTarget: !Ref 'DeploymentTarget'
     DeletionPolicy: Retain
   KmsAesSiemLog44B26597:
     Type: AWS::KMS::Key
     Properties:
+      Description: CMK for SIEM solution
       KeyPolicy:
         Statement:
           - Action: kms:*
@@ -528,7 +564,6 @@ Resources:
               Service: events.amazonaws.com
             Resource: '*'
         Version: '2012-10-17'
-      Description: CMK for SIEM solution
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   KmsAesSiemLogAliasE0A4C571:
@@ -842,9 +877,9 @@ Resources:
   AesSiemEsLoaderEC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
+      InstanceProfileName: !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
       Roles:
         - !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
-      InstanceProfileName: !Ref 'AesSiemEsLoaderEC2RoleFE3F9F00'
   AesSiemVpcNoinboundSecurityGroup58555CE0:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -880,21 +915,43 @@ Resources:
   VpcAesSiemSQSEndpoint8BFF7847:
     Type: AWS::EC2::VPCEndpoint
     Properties:
-      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.sqs'
-      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
       PrivateDnsEnabled: true
       SecurityGroupIds:
         - !GetAtt 'AesSiemVpcSecurityGroup2nd.GroupId'
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.sqs'
       SubnetIds: !GetAtt 'ExecCustomResourceValidator.subnets'
       VpcEndpointType: Interface
+      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
     Condition: SqsVpceIsRequired
+  VpcAesSiemSSMEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !GetAtt 'AesSiemVpcSecurityGroup2nd.GroupId'
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.ssm'
+      SubnetIds: !GetAtt 'ExecCustomResourceValidator.subnets'
+      VpcEndpointType: Interface
+      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
+    Condition: SsmVpceIsRequired
+  VpcAesSiemSTSEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - !GetAtt 'AesSiemVpcSecurityGroup2nd.GroupId'
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.sts'
+      SubnetIds: !GetAtt 'ExecCustomResourceValidator.subnets'
+      VpcEndpointType: Interface
+      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
+    Condition: StsVpceIsRequired
   VpcAesSiemS3Endpoint003F70DF:
     Type: AWS::EC2::VPCEndpoint
     Properties:
-      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
-      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
       RouteTableIds: !GetAtt 'ExecCustomResourceValidator.route_table_ids'
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
       VpcEndpointType: Gateway
+      VpcId: !GetAtt 'ExecCustomResourceValidator.vpc_id'
     Condition: S3VpceIsRequired
   AesSiemDlq1CD8439D:
     Type: AWS::SQS::Queue
@@ -994,10 +1051,6 @@ Resources:
   LambdaEsLoader4B1E2DD9:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip'
-      Role: !GetAtt 'LambdaEsLoaderServiceRoleFFD43869.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -1005,9 +1058,12 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip'
       DeadLetterConfig:
         TargetArn: !GetAtt 'AesSiemDlq1CD8439D.Arn'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / es-loader
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / es-loader
       Environment:
         Variables:
           AOSS_TYPE: !GetAtt 'AesSiemDomainDeployedR2.aoss_type'
@@ -1028,6 +1084,7 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 2048
       ReservedConcurrentExecutions: !Ref 'ReservedConcurrency'
+      Role: !GetAtt 'LambdaEsLoaderServiceRoleFFD43869.Arn'
       Runtime: python3.8
       Timeout: 600
       VpcConfig:
@@ -1039,19 +1096,19 @@ Resources:
     DependsOn:
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
-  LambdaEsLoaderCurrentVersion9DFE695513ecc79853e6176aec3f44b227926272:
+  LambdaEsLoaderCurrentVersion9DFE69559d330d5e40aab92d8e7c48dfcf413efc:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
-      Description: 2.10.0a
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaEsLoaderSqsEventSourceaessiemAesSiemSqsSplitLogs506AFFA6A7D8B2E9:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
-      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
       BatchSize: 1
       EventSourceArn: !GetAtt 'AesSiemSqsSplitLogs0191F431.Arn'
+      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
   LambdaAddPandasLayerRoleDCA80237:
     Type: AWS::IAM::Role
     Properties:
@@ -1116,10 +1173,6 @@ Resources:
   LambdaAddPandasLayer8F3F6957:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/add_pandas_layer.zip'
-      Role: !GetAtt 'LambdaAddPandasLayerRoleDCA80237.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -1127,7 +1180,10 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / add-pandas-layer
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/add_pandas_layer.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / add-pandas-layer
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1135,27 +1191,28 @@ Resources:
       Handler: lambda_function.lambda_handler
       MemorySize: 128
       ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaAddPandasLayerRoleDCA80237.Arn'
       Runtime: python3.9
       Timeout: 300
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-  LambdaAddPandasLayerCurrentVersion52D0754315ab44518bc14f5ced9a655710088ff9:
+  LambdaAddPandasLayerCurrentVersion52D07543b1e7e56f09782d11af5e366e9982d448:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaAddPandasLayer8F3F6957'
-      Description: 2.10.0
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   ExecLambdaAddPandasLayer:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaAddPandasLayer8F3F6957.Arn'
-      ConfigVersion: 2.10.0
+      ConfigVersion: 2.10.1
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-      - LambdaEsLoaderCurrentVersion9DFE695513ecc79853e6176aec3f44b227926272
+      - LambdaEsLoaderCurrentVersion9DFE69559d330d5e40aab92d8e7c48dfcf413efc
       - LambdaEsLoader4B1E2DD9
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
@@ -1191,10 +1248,6 @@ Resources:
   LambdaEsLoaderStopper35C1D57B:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader_stopper.zip'
-      Role: !GetAtt 'LambdaEsLoaderStopperServiceRole83AABC1A.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -1202,7 +1255,10 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / es-loader-stopper
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader_stopper.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / es-loader-stopper
       Environment:
         Variables:
           AES_SIEM_ALERT_TOPIC_ARN: !Ref 'SnsTopic2C1570A4'
@@ -1212,16 +1268,17 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 128
       ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaEsLoaderStopperServiceRole83AABC1A.Arn'
       Runtime: python3.9
       Timeout: 300
     DependsOn:
       - LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
       - LambdaEsLoaderStopperServiceRole83AABC1A
-  LambdaEsLoaderStopperCurrentVersion312AA850a7bdfb70b9971a2c1e72746a856cd441:
+  LambdaEsLoaderStopperCurrentVersion312AA8506e593f0678aa225869e79f5acaa56514:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaEsLoaderStopper35C1D57B'
-      Description: 2.10.0
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaMetricsExporterServiceRoleDDE0BD95:
@@ -1275,10 +1332,6 @@ Resources:
   LambdaMetricsExporter2737F589:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/index_metrics_exporter.zip'
-      Role: !GetAtt 'LambdaMetricsExporterServiceRoleDDE0BD95.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -1286,7 +1339,10 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / index-metrics-exporter
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/index_metrics_exporter.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / index-metrics-exporter
       Environment:
         Variables:
           COLLECTION_NAME: !Ref 'DomainOrCollectionName'
@@ -1297,6 +1353,7 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 256
       ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaMetricsExporterServiceRoleDDE0BD95.Arn'
       Runtime: python3.9
       Timeout: 300
       VpcConfig:
@@ -1308,11 +1365,11 @@ Resources:
     DependsOn:
       - LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
       - LambdaMetricsExporterServiceRoleDDE0BD95
-  LambdaMetricsExporterCurrentVersion79B0413F2142e9fd22d6114fe58ef1961bf02cbd:
+  LambdaMetricsExporterCurrentVersion79B0413Fced3ad794caaa12477f3c638d2512576:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaMetricsExporter2737F589'
-      Description: 2.10.0a
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   EventBridgeRuleLambdaMetricsExporterE956E7F2:
@@ -1369,10 +1426,6 @@ Resources:
   LambdaGeoipDownloaderA5EFF97E:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/geoip_downloader.zip'
-      Role: !GetAtt 'LambdaGeoipDownloaderServiceRoleE37FB908.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -1380,7 +1433,10 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / geoip-downloader
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/geoip_downloader.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / geoip-downloader
       Environment:
         Variables:
           license_key: !Ref 'GeoLite2LicenseKey'
@@ -1389,16 +1445,17 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 320
       ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaGeoipDownloaderServiceRoleE37FB908.Arn'
       Runtime: python3.9
       Timeout: 300
     DependsOn:
       - LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65
       - LambdaGeoipDownloaderServiceRoleE37FB908
-  LambdaGeoipDownloaderCurrentVersion7F1CD34Fdc4a0710535c9dc9062ec4524c967d2a:
+  LambdaGeoipDownloaderCurrentVersion7F1CD34F03c4039c22eb83877cd5671c2fff4c5a:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaGeoipDownloaderA5EFF97E'
-      Description: 2.10.0
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   ExecLambdaGeoipDownloader:
@@ -1464,10 +1521,6 @@ Resources:
   LambdaIocPlan6E369BFB:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
-      Role: !GetAtt 'LambdaIocPlanServiceRole6CDE7C5D.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -1475,7 +1528,10 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / ioc-plan
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / ioc-plan
       Environment:
         Variables:
           ABUSE_CH: !Ref 'EnableAbuseCh'
@@ -1487,16 +1543,17 @@ Resources:
       Handler: lambda_function.plan
       MemorySize: 128
       ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'LambdaIocPlanServiceRole6CDE7C5D.Arn'
       Runtime: python3.9
       Timeout: 300
     DependsOn:
       - LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE
       - LambdaIocPlanServiceRole6CDE7C5D
-  LambdaIocPlanCurrentVersion1BAA7B4C4067b37e9a1f0af506f6eda866bc5406:
+  LambdaIocPlanCurrentVersion1BAA7B4C4c9360258ed99eb23891d07005381c92:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaIocPlan6E369BFB'
-      Description: 2.10.0
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocDownloadServiceRoleEB9001C6:
@@ -1543,10 +1600,6 @@ Resources:
   LambdaIocDownload5519716E:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
-      Role: !GetAtt 'LambdaIocDownloadServiceRoleEB9001C6.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -1554,7 +1607,10 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / ioc-download
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / ioc-download
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1563,16 +1619,17 @@ Resources:
       FunctionName: aes-siem-ioc-download
       Handler: lambda_function.download
       MemorySize: 384
+      Role: !GetAtt 'LambdaIocDownloadServiceRoleEB9001C6.Arn'
       Runtime: python3.9
       Timeout: 900
     DependsOn:
       - LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942
       - LambdaIocDownloadServiceRoleEB9001C6
-  LambdaIocDownloadCurrentVersion48773E6Bc2828473d958ba0c790132a3abc4fc26:
+  LambdaIocDownloadCurrentVersion48773E6B0cb5ee22cdff6d938d48eac0156a6952:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaIocDownload5519716E'
-      Description: 2.10.0
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   LambdaIocCreatedbServiceRole555565C0:
@@ -1614,10 +1671,6 @@ Resources:
   LambdaIocCreatedb04F35777:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
-      Role: !GetAtt 'LambdaIocCreatedbServiceRole555565C0.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -1625,7 +1678,10 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / ioc-createdb
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / ioc-createdb
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1633,16 +1689,17 @@ Resources:
       FunctionName: aes-siem-ioc-createdb
       Handler: lambda_function.createdb
       MemorySize: 1024
+      Role: !GetAtt 'LambdaIocCreatedbServiceRole555565C0.Arn'
       Runtime: python3.9
       Timeout: 900
     DependsOn:
       - LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4
       - LambdaIocCreatedbServiceRole555565C0
-  LambdaIocCreatedbCurrentVersionD9D04E9C574013da44ae75d2a65ceed7b122e3a2:
+  LambdaIocCreatedbCurrentVersionD9D04E9C20d0c34df337c5f5e3bcdb3388c32371:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaIocCreatedb04F35777'
-      Description: 2.10.0
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   IocStateMachineLogGroupC1AB417E:
@@ -1700,14 +1757,14 @@ Resources:
   IocStateMachine01BE6E56:
     Type: AWS::StepFunctions::StateMachine
     Properties:
-      RoleArn: !GetAtt 'IocStateMachineRole095AC46F.Arn'
-      DefinitionString: !Sub '{"StartAt":"IocPlan","States":{"IocPlan":{"Next":"need to download?","Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","OutputPath":"$.Payload","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocPlan6E369BFB.Arn}","Payload":""}},"need
-        to download?":{"Type":"Choice","Choices":[{"Variable":"$.mapped[0].ioc","IsPresent":false,"Next":"SkipDownload"}],"Default":"MapDownload"},"MapDownload":{"Type":"Map","Next":"IocCreatedb","Parameters":{"mapped.$":"$$.Map.Item.Value"},"Iterator":{"StartAt":"IocDownload","States":{"IocDownload":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.Timeout","States.TaskFailed"],"ResultPath":"$.catcher","Next":"IgnoreTimeout"}],"Type":"Task","TimeoutSeconds":899,"OutputPath":"$.Payload","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocDownload5519716E.Arn}","Payload.$":"$"}},"IgnoreTimeout":{"Type":"Pass","End":true}}},"ItemsPath":"$.mapped","MaxConcurrency":4},"IocCreatedb":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocCreatedb04F35777.Arn}","Payload.$":"$"}},"SkipDownload":{"Type":"Pass","End":true}},"TimeoutSeconds":3600}'
+      DefinitionString: !Sub '{"StartAt":"IocPlan","States":{"IocPlan":{"Next":"need to download?","Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","OutputPath":"$.Payload","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocPlan6E369BFB.Arn}","Payload":""}},"need
+        to download?":{"Type":"Choice","Choices":[{"Variable":"$.mapped[0].ioc","IsPresent":false,"Next":"SkipDownload"}],"Default":"MapDownload"},"MapDownload":{"Type":"Map","Next":"IocCreatedb","Parameters":{"mapped.$":"$$.Map.Item.Value"},"Iterator":{"StartAt":"IocDownload","States":{"IocDownload":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Catch":[{"ErrorEquals":["States.Timeout","States.TaskFailed"],"ResultPath":"$.catcher","Next":"IgnoreTimeout"}],"Type":"Task","TimeoutSeconds":899,"OutputPath":"$.Payload","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocDownload5519716E.Arn}","Payload.$":"$"}},"IgnoreTimeout":{"Type":"Pass","End":true}}},"ItemsPath":"$.mapped","MaxConcurrency":4},"IocCreatedb":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ClientExecutionTimeoutException","Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","Resource":"arn:${AWS::Partition}:states:::lambda:invoke","Parameters":{"FunctionName":"${LambdaIocCreatedb04F35777.Arn}","Payload.$":"$"}},"SkipDownload":{"Type":"Pass","End":true}},"TimeoutSeconds":3600}'
       LoggingConfiguration:
         Destinations:
           - CloudWatchLogsLogGroup:
               LogGroupArn: !GetAtt 'IocStateMachineLogGroupC1AB417E.Arn'
         Level: ALL
+      RoleArn: !GetAtt 'IocStateMachineRole095AC46F.Arn'
       StateMachineName: aes-siem-ioc-state-machine
     DependsOn:
       - IocStateMachineRoleDefaultPolicy2B85C920
@@ -1865,28 +1922,24 @@ Resources:
   AossDataAccessPolicyForDeployment:
     Type: AWS::OpenSearchServerless::AccessPolicy
     Properties:
+      Description: Created By SIEM Solution. DO NOT EDIT
       Name: siem-data-access-for-deploymet
       Policy: !Sub '[{"Description":"For SIEM Deployment","Principal":["${AesSiemDeployRoleForLambda654D64F2.Arn}"],"Rules":[{"Resource":["collection/${DomainOrCollectionName}"],"Permission":["aoss:CreateCollectionItems","aoss:UpdateCollectionItems"],"ResourceType":"collection"},{"Resource":["index/${DomainOrCollectionName}/*"],"Permission":["aoss:*"],"ResourceType":"index"}]},{"Description":"For
         SIEM Deployment2","Principal":["${AesSiemDeployRoleForLambda654D64F2.Arn}"],"Rules":[{"Resource":["collection/*"],"Permission":["aoss:DescribeCollectionItems"],"ResourceType":"collection"}]}]'
       Type: data
-      Description: Created By SIEM Solution. DO NOT EDIT
     Condition: IsServerless
   AossDataAccessPolicyForLoader:
     Type: AWS::OpenSearchServerless::AccessPolicy
     Properties:
+      Description: Created By SIEM Solution. DO NOT EDIT
       Name: siem-data-access-for-loader
       Policy: !Sub '[{"Description":"For SIEM Loader","Principal":["${LambdaEsLoaderServiceRoleFFD43869.Arn}"],"Rules":[{"Resource":["index/${DomainOrCollectionName}/log-*","index/${DomainOrCollectionName}/metrics-*"],"Permission":["aoss:CreateIndex","aoss:UpdateIndex","aoss:ReadDocument","aoss:WriteDocument"],"ResourceType":"index"}]},{"Description":"For
         SIEM metrics exporter","Principal":["${LambdaMetricsExporterServiceRoleDDE0BD95.Arn}"],"Rules":[{"Resource":["index/${DomainOrCollectionName}/*"],"Permission":["aoss:DescribeIndex"],"ResourceType":"index"}]}]'
       Type: data
-      Description: Created By SIEM Solution. DO NOT EDIT
     Condition: IsServerless
   LambdaDeployAES636B5079:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
-      Role: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -1894,7 +1947,10 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / opensearch domain deployment
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / opensearch domain deployment
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -1909,23 +1965,24 @@ Resources:
       Handler: index.aes_domain_handler
       MemorySize: 128
       ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
       Runtime: python3.9
       Timeout: 300
     DependsOn:
       - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaDeployAESCurrentVersion047915F16f7d4d0aaf45715c3ad63562b148eb7c:
+  LambdaDeployAESCurrentVersion047915F12d804815ef98b03bc2f42b170bc78a23:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaDeployAES636B5079'
-      Description: 2.10.0a
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   AesSiemDomainDeployedR2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaDeployAES636B5079.Arn'
-      ConfigVersion: 2.10.0a
+      ConfigVersion: 2.10.1
       Target: !Ref 'DeploymentTarget'
       Name: !Ref 'DomainOrCollectionName'
       vpce: !Ref 'VpcEndpointId'
@@ -1935,10 +1992,6 @@ Resources:
   LambdaConfigureAESA0471961:
     Type: AWS::Lambda::Function
     Properties:
-      Code:
-        S3Bucket: '%%BUCKET_NAME%%'
-        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
-      Role: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
       Architectures: !If
         - HasLambdaArchitecturesProp
         - - !FindInMap
@@ -1946,7 +1999,10 @@ Resources:
             - !Ref 'AWS::Region'
             - LambdaArch
         - !Ref 'AWS::NoValue'
-      Description: SIEM on Amazon OpenSearch Service v2.10.0 / opensearch configuration
+      Code:
+        S3Bucket: '%%BUCKET_NAME%%'
+        S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
+      Description: SIEM on Amazon OpenSearch Service v2.10.1 / opensearch configuration
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -1962,6 +2018,7 @@ Resources:
       Handler: index.aes_config_handler
       MemorySize: 128
       ReservedConcurrentExecutions: 1
+      Role: !GetAtt 'AesSiemDeployRoleForLambda654D64F2.Arn'
       Runtime: python3.9
       Timeout: 600
       VpcConfig:
@@ -1973,18 +2030,18 @@ Resources:
     DependsOn:
       - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaConfigureAESCurrentVersion651147687933e5e9093a255f6ec47262e8ca0976:
+  LambdaConfigureAESCurrentVersion651147680245522d800bcf9d193db1d42d6d3eb7:
     Type: AWS::Lambda::Version
     Properties:
+      Description: 2.10.1
       FunctionName: !Ref 'LambdaConfigureAESA0471961'
-      Description: 2.10.0a
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
   AesSiemDomainConfiguredR2:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaConfigureAESA0471961.Arn'
-      ConfigVersion: 2.10.0a
+      ConfigVersion: 2.10.1
       Target: !Ref 'DeploymentTarget'
       Name: !Ref 'DomainOrCollectionName'
     DependsOn:
@@ -2185,9 +2242,9 @@ Resources:
   SnsTopicTokenSubscriptionD7374A11:
     Type: AWS::SNS::Subscription
     Properties:
+      Endpoint: !Ref 'SnsEmail'
       Protocol: email
       TopicArn: !Ref 'SnsTopic2C1570A4'
-      Endpoint: !Ref 'SnsEmail'
     Condition: HasSnsEmail
   EventBridgeRuleAosNotificationsC282068B:
     Type: AWS::Events::Rule
@@ -2232,8 +2289,8 @@ Resources:
   EventSourceMappingForCT63FDE1BA:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
-      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
       EventSourceArn: !Ref 'ControlTowerSqsForLogBuckets'
+      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
     Condition: IsControlTowerAcccess
   accesstosecuritylakelogbuckets32CCAD02:
     Type: AWS::IAM::Policy
@@ -2265,20 +2322,20 @@ Resources:
   EventSourceMappingForCT230540116:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
-      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
       EventSourceArn: !Ref 'SecurityLakeSubscriberSqs'
+      FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
     Condition: IsSecurityLakeAcccess
   TotalFreeStorageSpaceRemainsLowAlarm3888040E:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      ComparisonOperator: LessThanOrEqualToThreshold
-      EvaluationPeriods: 30
       AlarmDescription: Triggered when total free space for the cluster remains less 200MB for 30 minutes.
+      ComparisonOperator: LessThanOrEqualToThreshold
       Dimensions:
         - Name: ClientId
           Value: !Ref 'AWS::AccountId'
         - Name: DomainName
           Value: !Ref 'DomainOrCollectionName'
+      EvaluationPeriods: 30
       MetricName: FreeStorageSpace
       Namespace: AWS/ES
       Period: 60

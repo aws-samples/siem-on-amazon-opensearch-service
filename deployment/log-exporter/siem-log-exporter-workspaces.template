@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.10.0: log exporter - Workspaces"
+Description: "SIEM on Amazon OpenSearch Service v2.10.1: log exporter - Workspaces"
 Parameters:
   cweRulesFrequency:
     Type: Number
@@ -69,7 +69,7 @@ Resources:
           # SPDX-License-Identifier: MIT-0
           __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                            'All Rights Reserved.')
-          __version__ = '2.10.0'
+          __version__ = '2.10.1'
           __license__ = 'MIT-0'
           __author__ = 'Akihiro Nakajima'
           __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -155,10 +155,6 @@ Resources:
               f.close()
               print(f'Upload path: s3://{bucket.name}/{s3file_name}')
               bucket.upload_file(f'/tmp/{file_name}', s3file_name)
-      Role:
-        Fn::GetAtt:
-          - getWorkspacesInventoryRoleC66252C0
-          - Arn
       Description: "SIEM: get workspaces inventory"
       Environment:
         Variables:
@@ -167,6 +163,10 @@ Resources:
       FunctionName: siem-get-workspaces-inventory
       Handler: index.lambda_handler
       MemorySize: 160
+      Role:
+        Fn::GetAtt:
+          - getWorkspacesInventoryRoleC66252C0
+          - Arn
       Runtime: python3.9
       Timeout: 600
     DependsOn:
