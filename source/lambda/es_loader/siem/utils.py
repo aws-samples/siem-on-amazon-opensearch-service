@@ -42,6 +42,12 @@ class MyEncoder(json.JSONEncoder):
 
 
 class AutoRefreshableSession:
+    region = os.environ.get('AWS_REGION', 'us-east-1')
+    if region.startswith('cn-'):
+        endpoint_url = f'https://sts.{region}.amazonaws.com.cn'
+    else:
+        endpoint_url = f'https://sts.{region}.amazonaws.com'
+
     def __init__(self, role_arn, role_session_name, external_id=None):
         self.role_arn = role_arn
         self.role_session_name = role_session_name
@@ -50,7 +56,8 @@ class AutoRefreshableSession:
         self.create_auto_refreshable_session()
 
     def _refresh(self):
-        sts_client = boto3.client('sts')
+        sts_client = boto3.client(
+            'sts', region_name=self.region, endpoint_url=self.endpoint_url)
         params = {
             'RoleArn': self.role_arn,
             'RoleSessionName': self.role_session_name,
