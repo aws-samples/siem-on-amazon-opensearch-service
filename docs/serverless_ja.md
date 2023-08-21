@@ -1,4 +1,4 @@
-# OpenSearch Serverless へのデプロイ (Experimantal)
+# OpenSearch Serverless へのデプロイ (Experimental)
 <!-- markdownlint-disable-file MD033 -->
 
 [In English](serverless.md) | [READMEに戻る](../README_ja.md)
@@ -17,6 +17,8 @@ Amazon OpenSearch Serverless に SIEM on OpenSearch をデプロイすると、�
 |Index 名と ローテーション|index 名に選択した年月日が付与され、自動でローテーションされる|index 名は固定で、連番を手動で付与 (例: log-aws-xxxx-001)|
 |ログの重複排除|重複排除され、同じログはOpenSearch に Load されない|[Time series コレクション]<br>重複排除されない。同一の es-loader の Lambda インスタンスで処理された場合のみ重複排除される<br>[Search コレクション]<br>重複排除される|
 |フィールドの ソートと集計|設定で変更可能。SIEM のデフォルト設定は 200 です|[doc_values](https://opensearch.org/docs/latest/field-types/supported-field-types/keyword/#parameters) は 100 フィールドまでです。フィールド数の多いログの取り込み時にはご注意ください|
+|ログの削除| index単位の削除、<br>検索式(_delete_by_query)による削除 | index単位の削除 |
+|OpenSearch API| [ほぼ全てのAPIをサポート](https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/supported-operations.html)| [少なくとも reindex と snapshot は未サポート](https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/serverless-genref.html) |
 
 サービスとしての違いは公式ドキュメントをご参照ください
 
@@ -73,6 +75,25 @@ CDK/CloudFormation ではデータアクセスポリシーは、ログの書き�
         1. コレクション名に CloudFormation で指定した [コレクション名] を入力
         1. インデックス名は `*` を入力
 
+## index のローテーション
+
+デファオルトでは、インデックス名に001が付与されます。自動ローテーションはされません。例) `log-aws-cloudtrail-001`
+ローテーションをする場合は、手動でsuffixを指定してください。
+
+設定例
+
+```ini
+# user.ini
+[cloudtrail]
+index_suffix = 002
+```
+
+インデックス名: `log-aws-cloudtrail-002`
+
+## シングルサインオンの実現
+
+AWS IAM Identity Center によるシングルサインオンは [AWS Control Tower との統合 - SAML 認証](controltower_ja.md#saml-認証) をご参照ください
+
 ## Known Issue と制約
 
-* ログの下記込み時に、「Internal error occurred while processing request」等の内部エラーが発生することがあります。自動でリトライ処理を行いますが、連続して失敗した場合は、ログは DLQ に移動します。SQS から再処理を実行して下さい
+* ログの書込みに、「Internal error occurred while processing request」等の内部エラーが発生することがあります。自動でリトライ処理を行いますが、連続して失敗した場合は、ログは DLQ に移動します。SQS から再処理を実行して下さい
