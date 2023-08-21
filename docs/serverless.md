@@ -1,4 +1,4 @@
-# Deployment to OpenSearch Serverless (Experimantal)
+# Deployment to OpenSearch Serverless (Experimental)
 <!-- markdownlint-disable-file MD033 -->
 
 [View this page in Japanese (日本語)](serverless_ja.md) | [Back to README](../README.md)
@@ -17,6 +17,8 @@ Please note that there are differences from Managed Cluster because the service 
 | Index name and rotation | The index name is given the selected date and automatically rotated | The index name is fixed and manually numbered (e.g. log-aws-xxxx-001) |
 | Deduplication | Duplicate logs are excluded and not loaded into OpenSearch | [Time series collection]<br>Not deduplicated. It is deduplicated only when processed by the same es-loader Lambda instance<br> [Search collection]<br>Deduplicated |
 | Sorting, aggregations | It can be changed by configuration. The default configuration for SIEM is 200 | [doc_values](https://opensearch.org/docs/latest/field-types/supported-field-types/keyword/#parameters) is up to 100 fields. Please be careful when importing logs with many fields |
+| Delete Logs | Delete by index, <br>Delete by search expression (_delete_by_query) | Delete by index |
+| Supported OpenSearch API operations | [Almost all APIs](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-operations.html) | [At least reindex and snapshot are not supported](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-genref.html) |
 
 Please refer to the official documentation for the differences as a service.
 
@@ -75,6 +77,25 @@ Example:
         1. Enter the CloudFormation-specified [Collection Name] in Collection field
         1. Enter `*` for Index Name.
 
+## Index rotation
+
+By default, 001 is added to the index name. No automatic rotation. e.g. `log-aws-cloudtrail-001`
+Specify the suffix manually when rotating.
+
+Setting Example
+
+``` ini
+# user.ini
+[cloudtrail]
+index_suffix = 002
+```
+
+Index Name: `log-aws-cloudtrail-002`
+
+## Enabling single sign-on
+
+For single sign-on with AWS IAM Identity Center, see [AWS Control Tower Integration - SAML federation](controltower.md#saml-federation)
+
 ## Known Issue
 
-* When logging, internal errors such as "Internal error occurred while processing request" may occur. Automatic retry processing is performed, but if it fails continuously, the log will be moved to DLQ. Please execute Dead-letter queue redrive.
+* When loading logs, internal errors such as "Internal error occurred while processing request" may occur. Automatic retry processing is performed, but if it fails continuously, the log will be moved to DLQ. Please execute Dead-letter queue redrive.
