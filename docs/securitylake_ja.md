@@ -23,7 +23,9 @@ CDK / CloudFormation 実行時の Security Lake 関連のパラメーターは�
 1. AWS Organizations を利用の場合は delegated administrator を設定します (オプション) [Doc](https://docs.aws.amazon.com/security-lake/latest/userguide/multi-account-management.html)
 1. Security Lake を有効化します。[Doc](https://docs.aws.amazon.com/security-lake/latest/userguide/getting-started.html)
 1. 複数リージョンを監視する場合は集約の設定をします。(オプション) [Doc](https://docs.aws.amazon.com/security-lake/latest/userguide/manage-regions.html)
-1. SIME on OpenSearch をデプロイするリージョンでサブスクライバーを設定します。[Doc](https://docs.aws.amazon.com/security-lake/latest/userguide/subscriber-management.html)
+1. SIEM on OpenSearch をデプロイするリージョンでサブスクライバーを設定します。[Doc](https://docs.aws.amazon.com/security-lake/latest/userguide/subscriber-management.html)
+    * ログとイベントソース
+        * `すべてのログとイベントのソース` を選択します。または、取り込みたいカスタムログソースが `特定のログとイベントのソース` で選択されていることを確認します。
     * データアクセス方法: `S3`
     * サブスクライバーの認証情報
         * アカウント ID: `SIEMをデプロイしたAWSアカウント`
@@ -69,14 +71,14 @@ Security Lake の S3 バケットに [カスタムソースからデータを配
 
 user.ini
 
-```
+```ini
 [securitylake]
 s3_key = [0-9a-f]{32}\.gz\.parquet|[Ss]ecurity[Ll]ake/|parquetのファイル名
 ```
 
 または
 
-```
+```ini
 [securitylake]
 s3_key = [0-9a-f]{32}\.gz\.parquet|[Ss]ecurity[Ll]ake/|S3パスに付与されるサービス名
 ```
