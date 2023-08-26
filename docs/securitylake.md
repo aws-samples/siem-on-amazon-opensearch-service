@@ -71,14 +71,14 @@ If neither matches, please set the following configuration in user.ini
 
 user.ini
 
-```
+```ini
 [securitylake]
 s3_key = [0-9a-f]{32}\.gz\.parquet|[Ss]ecurity[Ll]ake/|file_name_of_parquet
 ```
 
 Otherwise
 
-```
+```ini
 [securitylake]
 s3_key = [0-9a-f]{32}\.gz\.parquet|[Ss]ecurity[Ll]ake/|service_name_in_s3_path
 ```
