@@ -167,14 +167,14 @@ You can change the following parameters as common configurations. No modificatio
 | snapshot | aes-siem-*[AWS Account ID]*-snapshot | S3 bucket name for snapshots |
 | geo | aes-siem-*[AWS Account ID]*-geo | S3 bucket name for GeoIP downloads |
 | kms_cmk_alias | aes-siem-key | Changes the alias name of the AWS KMS customer-managed key |
-| organizations | Automatically generates an S3 bucket policy by using the AWS Organizations information entered here. No input is required if you manage another S3 bucket by yourself |
+| organizations || Automatically generates an S3 bucket policy by using the AWS Organizations information entered here. No input is required if you manage another S3 bucket by yourself |
 | .org_id | Organizations ID. Example) o-12345678 |
-| .management_id | The AWS account ID that is the administrator account in Organizations |
-| .member_ids | The AWS account IDs that are member accounts in Organizations, separated by commas |
-| no_organizations | Automatically generates a bucket policy for accounts that are not managed by Organizations, by using the account information entered here. No input is required if you manage another S3 bucket by yourself |
-| .aws_accounts | Enter comma-separated AWS account IDs that are not managed by Organizations |
-| additional_s3_buckets | Enumerates S3 bucket names separated by commas |
-| additional_kms_cmks | Enumerates the ARNs of AWS KMS customer-managed keys, separated by commas |
+| .management_id || The AWS account ID that is the administrator account in Organizations |
+| .member_ids || The AWS account IDs that are member accounts in Organizations, separated by commas |
+| no_organizations || Automatically generates a bucket policy for accounts that are not managed by Organizations, by using the account information entered here. No input is required if you manage another S3 bucket by yourself |
+| .aws_accounts || Enter comma-separated AWS account IDs that are not managed by Organizations |
+| additional_s3_buckets || Enumerates S3 bucket names separated by commas |
+| additional_kms_cmks || Enumerates the ARNs of AWS KMS customer-managed keys, separated by commas |
 
 Finally, validate the JSON file. If JSON is displayed after execution and there is no error, the syntax of the JSON file is fine.
 
@@ -208,6 +208,7 @@ You can specify the same parameters as for the CloudFormation template. The para
 | EnableAbuseCh| Would you like to download IoC from abuse.ch? Value is `true` or `false`(default)|
 | IocDownloadInterval| Specify interval in minute to download IoC, default is 720 minutes|
 | **Advanced Configuration - optional** ||
+| LogBucketPolicyUpdate | Select `update_and_override`(default) or `keep` for the current policy of the Log bucket. Be sure to select `update_and_override` for the first deployment. If you select `update_and_override` when updating, you need to create and manage the bucket policy for writing logs to your S3 Log bucket by yourself |
 | VpcEndpointId | Specify VPC Endpoint for OpenSearch managed cluster or OpenSearch Serverless. This should be manually created before deployment. If you specify VPC Endpoint, a few lambda functions and other resources will be deployed into VPC |
 | CreateS3VpcEndpoint | Create new S3 VPC Endpoint with SIEM solution. Value is `true`(default) or `false`. If you use existing VPC and already have S3 VPC Endpoint, select `false` |
 | CreateSqsVpcEndpoint | Create new SQS VPC Endpoint with SIEM solution. Value is `true`(default) or `false`. If you use existing VPC and already have SQS VPC Endpoint, select `false` |

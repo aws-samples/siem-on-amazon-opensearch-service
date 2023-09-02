@@ -48,6 +48,7 @@ cdk.out
 # deploy
 deployment/open-source/
 add_pandas_layer.zip
+aws_api_caller.zip
 es_loader.zip
 es_loader_stopper.zip
 geoip_downloader.zip

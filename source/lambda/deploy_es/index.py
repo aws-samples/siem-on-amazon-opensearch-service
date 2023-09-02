@@ -43,6 +43,7 @@ iam_client = boto3.client('iam')
 s3_client = boto3.resource('s3')
 ec2_client = boto3.client('ec2')
 opensearch_client = boto3.client('opensearch')
+ssm_client = boto3.client('ssm')
 try:
     serverless_client = boto3.client('opensearchserverless')
 except Exception as err:
@@ -893,6 +894,20 @@ def validate_resource(event, context):
                   '"Condition":{{"Bool":{{"aws:SecureTransport":"false"}}}}}}]'
                   '}}'.format(bucket_arn))
 
+    def ssm_put_parameter(param_name, policy):
+        if not policy:
+            policy = ' '
+        ssm_client.put_parameter(Name=f'/siem/bucketpolicy/log/{param_name}',
+                                 Value=policy, Type='String', Overwrite=True)
+
+    ssm_put_parameter('policy1', policy[:3000])
+    ssm_put_parameter('policy2', policy[3000:6000])
+    ssm_put_parameter('policy3', policy[6000:9008])
+    ssm_put_parameter('policy4', policy[9000:12000])
+    ssm_put_parameter('policy5', policy[12000:15000])
+    ssm_put_parameter('policy6', policy[15000:18000])
+    ssm_put_parameter('policy7', policy[18000:20480])
+
     # needs_slr_aos = check_slr_aos(vpc_id)
     # needs_slr_aoss = check_slr_aoss(vpc_id)
 
@@ -905,7 +920,6 @@ def validate_resource(event, context):
         helper_validation.Data['cidr_block1'] = cidr_block[1]
         helper_validation.Data['cidr_block2'] = cidr_block[2]
         helper_validation.Data['cidr_block3'] = cidr_block[3]
-        # helper_validation.Data['s3_log_bucket_policy'] = policy
         # helper_validation.Data['needs_slr_aos'] = needs_slr_aos
         # helper_validation.Data['needs_slr_aoss'] = needs_slr_aoss
         logger.debug(helper_validation.Data)
@@ -1164,10 +1178,20 @@ def aes_config_create_update(event, context):
         return physicalResourceId
 
 
-@helper_validation.delete
 @helper_config.delete
-def custom_resource_delete(event, context):
+def aes_config_delete(event, context):
     logger.info("Got Delete. Nothing to delete")
+
+
+@helper_validation.delete
+def custom_resource_delete(event, context):
+    logger.info("Got Delete")
+    try:
+        response = ssm_client.delete_parameters(Names=[
+            f'/siem/bucketpolicy/log/policy{n}' for n in range(1, 8)])
+        logger.info(response)
+    except Exception:
+        logger.exception("something wrong")
 
 
 if __name__ == '__main__':

@@ -202,11 +202,12 @@ CloudFormation テンプレートと同じパラーメーターを指定して C
 | EnableAbuseCh | Abuse.ch から IoC をダウンロードするかどうか。値は `true` か `false`(初期値)||
 | IocDownloadInterval | IoC をダウンロードする間隔を分で指定。初期値は720分|
 | **Advanced Configuration - optional** ||
+| LogBucketPolicyUpdate | Log バケットのポリシーについて、`update_and_override`(初期値) または `keep` を選択してください。最初のデプロイ時には `update_and_override` を選んでください。更新時に `update_and_override` を選んだ場合は、ログを取り込むためのバケットポリシーはご自身で作成・管理をしてください |
 | VpcEndpointId | OpenSearch managed cluster または OpenSearch Serverless の VPC Endpoint ID を指定してください。VPC Endpoint はデプロイ前に指定してください。もし指定した場合は、いくつかの Lambda 関数とリソースは VPC 内にデプロイされます|
-| CreateS3VpcEndpoint | 新しく S3 の VPC Endpoint を作成しますか？値は `true`(default) か `false`です。もし、すでに VPC があり、S3 の VPC Endpoint がある場合は、`false` を指定してください |
-| CreateSqsVpcEndpoint | 新しく SQS の VPC Endpoint を作成しますか？値は `true`(default) か `false`です。もし、すでに VPC があり、SQS の VPC Endpoint がある場合は、`false` を指定してください |
-| CreateSsmVpcEndpoint | 新しく Systems Manager の VPC Endpoint を作成しますか？値は `true`(default) か `false`です。もし、すでに VPC があり、Systems Manager の VPC Endpoint がある場合は、`false` を指定してください |
-| CreateStsVpcEndpoint | 新しく STS の VPC Endpoint を作成しますか？Control Tower または Security Lake との統合を選択した場合のみ STS VPC Endpoint は作成されます。値は `true`(default) か `false`です。もし、すでに VPC があり、STS の VPC Endpoint がある場合は、`false` を指定してください。 |
+| CreateS3VpcEndpoint | 新しく S3 の VPC Endpoint を作成しますか？値は `true`(初期値) か `false`です。もし、すでに VPC があり、S3 の VPC Endpoint がある場合は、`false` を指定してください |
+| CreateSqsVpcEndpoint | 新しく SQS の VPC Endpoint を作成しますか？値は `true`(初期値) か `false`です。もし、すでに VPC があり、SQS の VPC Endpoint がある場合は、`false` を指定してください |
+| CreateSsmVpcEndpoint | 新しく Systems Manager の VPC Endpoint を作成しますか？値は `true`(初期値) か `false`です。もし、すでに VPC があり、Systems Manager の VPC Endpoint がある場合は、`false` を指定してください |
+| CreateStsVpcEndpoint | 新しく STS の VPC Endpoint を作成しますか？Control Tower または Security Lake との統合を選択した場合のみ STS VPC Endpoint は作成されます。値は `true`(初期値) か `false`です。もし、すでに VPC があり、STS の VPC Endpoint がある場合は、`false` を指定してください。 |
 | **Control Tower Integration - optional** | [Amazon Security Lake との統合](securitylake_ja.md) |
 | ControlTowerLogBucketNameList | Log Archive アカウントにある S3 バケット名を指定してください。複数ある場合は、カンマ区切り入力してください. (例: `aws-controltower-logs-123456789012-ap-northeast-1, aws-controltower-s3-access-logs-123456789012-ap-northeast-1` )|
 | ControlTowerSqsForLogBuckets | Log Archive アカウントで作成した SQS の ARN を指定してください。(例:  `arn:aws:sqs:ap-northeast-1:12345678902:aes-siem-ct` )|

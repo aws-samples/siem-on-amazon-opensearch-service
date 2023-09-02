@@ -23,24 +23,6 @@ fi
 source .venv/bin/activate
 python3 -m pip install wheel pip==22.3.1
 
-# For OpenSearch Serverless
-cd "${source_dir}"/lambda/deploy_es || exit
-if [ ! -f "data-serverless.ini" ]; then
-    if [ -e "/usr/local/opt/gnu-sed/libexec/gnubin/sed" ]; then
-        PATH="/usr/local/opt/gnu-sed/libexec/gnubin:$PATH"
-    elif [ -e "/usr/local/bin/gsed" ]; then
-        shopt -s expand_aliases
-        # shellcheck disable=SC2262
-        alias sed=/usr/local/bin/gsed
-    fi
-    # shellcheck disable=SC2263
-    sed -e '/^component_template_ecs_minimum /,$ {/keyword"\},/ {/uid/! {/[vV]ersion/! {/mapping/! d}}}}' data.ini  > data-serverless.ini
-    # shellcheck disable=SC2263
-    sed -i '/time_dt/d' data-serverless.ini
-    # shellcheck disable=SC2263
-    sed -i '/log-ocsf_aws/,/log-aws-clientvpn_rollover/ s/"component_template_log"/"component_template_ecs_minimum"/' data-serverless.ini
-fi
-
 echo "------------------------------------------------------------------------"
 echo "[Packing] pip and zip source folder"
 echo "------------------------------------------------------------------------"
@@ -86,8 +68,10 @@ function pip_zip_for_lambda () {
         mv THIRD-PARTY-LICENSES aws_lambda_powertools-*-info/
     fi
     mv -f README.md.org README.md
-    echo "cp -f $source_template_dir/../LICENSE $source_template_dir/../CODE_OF_CONDUCT.md $source_template_dir/../CONTRIBUTING.md ${source_dir}/lambda/$1/"
-    cp -f "$source_template_dir/../LICENSE" "$source_template_dir/../CODE_OF_CONDUCT.md" "$source_template_dir/../CONTRIBUTING.md" "${source_dir}/lambda/$1/"
+    if [ ! -e "${source_dir}/lambda/$1/LICENSE" ] ; then
+        echo "cp -f $source_template_dir/../LICENSE $source_template_dir/../CODE_OF_CONDUCT.md $source_template_dir/../CONTRIBUTING.md ${source_dir}/lambda/$1/"
+        cp -f "$source_template_dir/../LICENSE" "$source_template_dir/../CODE_OF_CONDUCT.md" "$source_template_dir/../CONTRIBUTING.md" "${source_dir}/lambda/$1/"
+    fi
     echo "zip -r -9 ../$1.zip *"
     zip -r -9 ../"$1".zip ./* > /dev/null
     if [[ "${AWS_EXECUTION_ENV}" == "CloudShell" ]]; then
@@ -174,6 +158,9 @@ echo "# start packing geoip_downloader"
 pip_zip_for_lambda "geoip_downloader"
 echo "# start packing index_metrics_exporter"
 pip_zip_for_lambda "index_metrics_exporter"
+
+echo "# start packing aws_api_caller"
+pip_zip_for_lambda "aws_api_caller"
 
 echo "# start packing ioc_database"
 pip_zip_for_lambda_ioc "ioc_database"

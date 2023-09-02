@@ -121,11 +121,11 @@ AWS の各サービスのログを S3 バケットへの出力する方法は、
 
 ## SIEM のアップデート
 
-SIEM on OpenSearch Service または SIEM on Amazon ES を新しいバージョンにアップデートする時は、OpenSearch / Elasticsearch のドメインをアップグレードしてから、初期インストールと同じ方法 (CloudFormation or AWS CDK) でアップデートしてください。SIEM の変更履歴は [こちら](CHANGELOG.md) から確認できます。
+SIEM on OpenSearch Service を新しいバージョンにアップデートする時は、OpenSearch / Elasticsearch のドメインをアップグレードしてから、初期インストールと同じ方法 (CloudFormation or AWS CDK) でアップデートしてください。SIEM の変更履歴は [こちら](CHANGELOG.md) から確認できます。
 
 > **注) Global tenant の 設定やダッシュボード等は自動で上書きされるのでご注意ください。アップデート前に使用していた設定ファイルやダッシュボード等は S3 バケットの aes-siem-[AWS_Account]-snapshot/saved_objects/ にバックアップされるので、元の設定にする場合は手動でリストアしてください。**
 
-> **注) S3 バケットポリシー、KMS の キーポリシーは、IAM ポリシー等は、CDK/CloudFormation で自動生成されています。手動で変更は非推奨ですが、変更している場合は上書きされるので、それぞれをバックアップをしてからアップデート後に差分を更新して下さい。**
+> **注) S3 バケットポリシー、KMS の キーポリシー、IAM ポリシー等は、CDK/CloudFormation で自動生成されています。手動で変更は非推奨ですが、変更している場合は上書きされるので、それぞれをバックアップをしてからアップデート後に差分を更新して下さい。または、CDK/CloudFormation のアップデート時に、パラメーターの LogBucketPolicyUpdate を `keep` とすることで現在のバケットポリシーが維持されます**
 
 ### OpenSearch Service のドメインのアップグレード
 
@@ -199,6 +199,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|OpenSearch Service の手動スナップショット取得|
 |S3 bucket|aes-siem-[AWS_Account]-geo|ダウンロードした GeoIP を保存|
 |Step Functions|aes-siem-ioc-state-machine|IoC のダウンロードと Database の作成|
+|Lambda function|aes-siem-aws-api-caller|CDK/CloudFormation から AWS API の呼び出ししに利用|
 |Lambda function|aes-siem-ioc-plan|IoC をダウンロードするための map を作成|
 |Lambda function|aes-siem-ioc-createdb|IoC をダウンロード|
 |Lambda function|aes-siem-ioc-download|IoC の Database を作成|
@@ -211,6 +212,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 |Lambda function|aes-siem-BucketNotificationsHandler|ログ用 S3 バケットのイベント通知を設定|
 |Lambda function|aes-siem-add-pandas-layer|es-loader にaws_sdk_pandas を Lambda レイヤーとして追加|
 |AWS Key Management Service<br>(AWS KMS) KMSキー & Alias|aes-siem-key|ログの暗号化に使用|
+|SSM Parameter Store|/siem/bucketpolicy/log/policy1-7|ログ用 S3 バケットの Bucket Policy の更新時に一時的に使用|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|処理するログ行数が多い時は分割。それを管理するキュー|
 |Amazon SQS Queue|aes-siem-dlq|OpenSearch Service のログ取り込み失敗用 Dead Letter Queue|
 |CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|OpenSearch Service クラスターの合計空き容量が 200MB 以下の状態が 30 分間継続した場合に発報|

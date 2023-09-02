@@ -10,6 +10,7 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 import aws_cdk as cdk
 import boto3
 from aws_cdk import (
+    custom_resources as cr,
     aws_ec2,
     aws_events,
     aws_events_targets,
@@ -348,7 +349,6 @@ class MyAesSiemStack(cdk.Stack):
                          'max is 10080 minutes ( = 7 days ).'),
             min_value=30, max_value=10080, default=720)
 
-        """
         log_bucket_policy_update = cdk.CfnParameter(
             self, 'LogBucketPolicyUpdate',
             allowed_values=['update_and_override', 'keep'],
@@ -357,9 +357,8 @@ class MyAesSiemStack(cdk.Stack):
                 ' of the Log bucket. Be sure to select "update_and_override" '
                 'for the first deployment. If you select "update_and_override"'
                 ' when updating, you need to create and manage the bucket '
-                'policy for writing logs to your S3 Log bucket by your self'),
+                'policy for writing logs to your S3 Log bucket by yourself'),
             default='update_and_override')
-        """
 
         create_sqs_vpce = cdk.CfnParameter(
             self, 'CreateSqsVpcEndpoint', allowed_values=['true', 'false'],
@@ -467,8 +466,8 @@ class MyAesSiemStack(cdk.Stack):
                                     ioc_download_interval.logical_id]},
                     {'Label': {'default': ('Advanced Configuration '
                                            '- optional')},
-                     # 'Parameters': [log_bucket_policy_update.logical_id,
-                     'Parameters': [vpce_id.logical_id,
+                     'Parameters': [log_bucket_policy_update.logical_id,
+                                    vpce_id.logical_id,
                                     create_s3_vpce.logical_id,
                                     create_sqs_vpce.logical_id,
                                     create_ssm_vpce.logical_id,
@@ -501,7 +500,7 @@ class MyAesSiemStack(cdk.Stack):
             'enable_tor': enable_tor,
             'enable_abuse_ch': enable_abuse_ch,
             'ioc_download_interval': ioc_download_interval,
-            # 'log_bucket_policy_update': log_bucket_policy_update,
+            'log_bucket_policy_update': log_bucket_policy_update,
             'create_sqs_vpce': create_sqs_vpce,
             'create_ssm_vpce': create_ssm_vpce,
             'create_sts_vpce': create_sts_vpce,
@@ -665,14 +664,12 @@ class MyAesSiemStack(cdk.Stack):
             )
         )
 
-        """
         keep_log_bucket_policy = cdk.CfnCondition(
             self, "KeepLogBucketPolicy",
             expression=cdk.Fn.condition_equals(
                 log_bucket_policy_update.value_as_string,
                 'keep')
         )
-        """
 
         sqs_vpce_is_required = cdk.CfnCondition(
             self, "SqsVpceIsRequired",
@@ -755,7 +752,7 @@ class MyAesSiemStack(cdk.Stack):
             'has_geoip_license': has_geoip_license,
             'enable_ioc': enable_ioc,
             'has_sns_email': has_sns_email,
-            # 'keep_log_bucket_policy': keep_log_bucket_policy,
+            'keep_log_bucket_policy': keep_log_bucket_policy,
             'sqs_vpce_is_required': sqs_vpce_is_required,
             'ssm_vpce_is_required': ssm_vpce_is_required,
             'sts_vpce_is_required': sts_vpce_is_required,
@@ -915,16 +912,49 @@ class MyAesSiemStack(cdk.Stack):
         )
         s3_log.node.add_dependency(validated_resource)
 
-        """
+        # restore current s3 bucket policy
+        def ssm_get_param(log_bucket_policy_update, param_name):
+            get_parameter = cr.AwsCustomResource(
+                self, f's3bucket{param_name}',
+                function_name='aes-siem-aws-api-caller',
+                on_update=cr.AwsSdkCall(
+                    service="SSM",
+                    action="getParameter",
+                    output_paths=["Parameter.Value"],
+                    parameters={
+                        "Name": f'/siem/bucketpolicy/log/{param_name}',
+                        "WithDecryption": False},
+                    physical_resource_id=cr.PhysicalResourceId.of(
+                        f"CustomResource::{param_name}{__version__}"
+                        f"{log_bucket_policy_update.value_as_string}")
+                ),
+                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
+                    resources=[(f'arn:{PARTITION}:ssm:*:{cdk.Aws.ACCOUNT_ID}:'
+                                'parameter/siem/bucketpolicy/*')]
+                ),
+                install_latest_aws_sdk=True,
+            )
+            get_parameter.node.add_dependency(validated_resource)
+            return get_parameter.get_response_field("Parameter.Value")
+
+        pol1 = ssm_get_param(log_bucket_policy_update, "policy1")
+        pol2 = ssm_get_param(log_bucket_policy_update, "policy2")
+        pol3 = ssm_get_param(log_bucket_policy_update, "policy3")
+        pol4 = ssm_get_param(log_bucket_policy_update, "policy4")
+        pol5 = ssm_get_param(log_bucket_policy_update, "policy5")
+        pol6 = ssm_get_param(log_bucket_policy_update, "policy6")
+        pol7 = ssm_get_param(log_bucket_policy_update, "policy7")
+        s3_log_bucket_policy = cdk.Fn.join(
+            '', [pol1, pol2, pol3, pol4, pol5, pol6, pol7])
+
         s3_log.policy.node.default_child.add_property_override(
             "PolicyDocument",
             cdk.Fn.condition_if(
                 keep_log_bucket_policy.logical_id,
-                validated_resource.get_att('s3_log_bucket_policy').to_string(),
+                s3_log_bucket_policy,
                 s3_log.policy.document
             )
         )
-        """
 
         # create s3 bucket for aes snapshot
         s3_snapshot = aws_s3.Bucket(
