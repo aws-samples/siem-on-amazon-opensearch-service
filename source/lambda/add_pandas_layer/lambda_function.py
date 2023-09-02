@@ -22,32 +22,42 @@ helper = CfnResource(
     json_logging=False, log_level='DEBUG', boto_level='CRITICAL',
     sleep_on_delete=3, ssl_verify=None)
 
-VER = '3.1.0'
+VER = '3.3.0'
 """
-curl -s https://raw.githubusercontent.com/aws/aws-sdk-pandas/main/docs/source/layers.rst \
+VER='3.3.0'
+curl -s https://raw.githubusercontent.com/aws/aws-sdk-pandas/$VER/docs/source/layers.rst \
    | grep '| 3.8' | sort -k2,6 | awk -F'|' '{print $2, $4, $5}' \
    | awk '!colname[$1]++{printf "    \"%s\": \"%s\",\n", $1, $3}'
 """
 
 pandas_layers = {
-    "af-south-1": "arn:aws:lambda:af-south-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:7",
-    "ap-northeast-1": "arn:aws:lambda:ap-northeast-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:7",
-    "ap-northeast-2": "arn:aws:lambda:ap-northeast-2:336392948345:layer:AWSSDKPandas-Python38-Arm64:3",
-    "ap-northeast-3": "arn:aws:lambda:ap-northeast-3:336392948345:layer:AWSSDKPandas-Python38-Arm64:3",
-    "ap-south-1": "arn:aws:lambda:ap-south-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:7",
-    "ap-southeast-1": "arn:aws:lambda:ap-southeast-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:7",
-    "ap-southeast-2": "arn:aws:lambda:ap-southeast-2:336392948345:layer:AWSSDKPandas-Python38-Arm64:7",
-    "ca-central-1": "arn:aws:lambda:ca-central-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:3",
-    "eu-central-1": "arn:aws:lambda:eu-central-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:7",
-    "eu-north-1": "arn:aws:lambda:eu-north-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:3",
-    "eu-west-1": "arn:aws:lambda:eu-west-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:8",
-    "eu-west-2": "arn:aws:lambda:eu-west-2:336392948345:layer:AWSSDKPandas-Python38-Arm64:7",
-    "eu-west-3": "arn:aws:lambda:eu-west-3:336392948345:layer:AWSSDKPandas-Python38-Arm64:3",
-    "sa-east-1": "arn:aws:lambda:sa-east-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:3",
-    "us-east-1": "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:7",
-    "us-east-2": "arn:aws:lambda:us-east-2:336392948345:layer:AWSSDKPandas-Python38-Arm64:7",
-    "us-west-1": "arn:aws:lambda:us-west-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:3",
-    "us-west-2": "arn:aws:lambda:us-west-2:336392948345:layer:AWSSDKPandas-Python38-Arm64:7",
+    "af-south-1": "arn:aws:lambda:af-south-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:9",
+    "ap-east-1": "arn:aws:lambda:ap-east-1:839552336658:layer:AWSSDKPandas-Python38:2",
+    "ap-northeast-1": "arn:aws:lambda:ap-northeast-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:9",
+    "ap-northeast-2": "arn:aws:lambda:ap-northeast-2:336392948345:layer:AWSSDKPandas-Python38-Arm64:5",
+    "ap-northeast-3": "arn:aws:lambda:ap-northeast-3:336392948345:layer:AWSSDKPandas-Python38-Arm64:5",
+    "ap-south-1": "arn:aws:lambda:ap-south-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:9",
+    "ap-south-2": "arn:aws:lambda:ap-south-2:246107603503:layer:AWSSDKPandas-Python38:6",
+    "ap-southeast-1": "arn:aws:lambda:ap-southeast-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:9",
+    "ap-southeast-2": "arn:aws:lambda:ap-southeast-2:336392948345:layer:AWSSDKPandas-Python38-Arm64:9",
+    "ap-southeast-3": "arn:aws:lambda:ap-southeast-3:258944054355:layer:AWSSDKPandas-Python38:2",
+    "ap-southeast-4": "arn:aws:lambda:ap-southeast-4:945386623051:layer:AWSSDKPandas-Python38:2",
+    "ca-central-1": "arn:aws:lambda:ca-central-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:5",
+    "eu-central-1": "arn:aws:lambda:eu-central-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:9",
+    "eu-central-2": "arn:aws:lambda:eu-central-2:956415814219:layer:AWSSDKPandas-Python38:2",
+    "eu-north-1": "arn:aws:lambda:eu-north-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:5",
+    "eu-south-1": "arn:aws:lambda:eu-south-1:774444163449:layer:AWSSDKPandas-Python38:2",
+    "eu-south-2": "arn:aws:lambda:eu-south-2:982086096842:layer:AWSSDKPandas-Python38:2",
+    "eu-west-1": "arn:aws:lambda:eu-west-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:10",
+    "eu-west-2": "arn:aws:lambda:eu-west-2:336392948345:layer:AWSSDKPandas-Python38-Arm64:9",
+    "eu-west-3": "arn:aws:lambda:eu-west-3:336392948345:layer:AWSSDKPandas-Python38-Arm64:5",
+    "me-central-1": "arn:aws:lambda:me-central-1:593833071574:layer:AWSSDKPandas-Python38:2",
+    "me-south-1": "arn:aws:lambda:me-south-1:938046470361:layer:AWSSDKPandas-Python38:2",
+    "sa-east-1": "arn:aws:lambda:sa-east-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:5",
+    "us-east-1": "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:9",
+    "us-east-2": "arn:aws:lambda:us-east-2:336392948345:layer:AWSSDKPandas-Python38-Arm64:9",
+    "us-west-1": "arn:aws:lambda:us-west-1:336392948345:layer:AWSSDKPandas-Python38-Arm64:5",
+    "us-west-2": "arn:aws:lambda:us-west-2:336392948345:layer:AWSSDKPandas-Python38-Arm64:9",
 }
 
 
