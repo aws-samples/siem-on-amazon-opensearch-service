@@ -947,7 +947,8 @@ class ControlTowerIntegrationStack(MyStack):
             "XXXXXXXXX-XXXXXXXXXXXX")
         es_loader_iam_role = cdk.CfnParameter(
             self, 'EsLoaderServiceRole',
-            allowed_pattern=r'^arn:aws[0-9a-zA-Z:/-]*$',
+            allowed_pattern=(
+                r'^arn:aws[0-9a-zA-Z:/-]*LambdaEsLoaderServiceRole.*$'),
             default=es_ladder_iam_role_default,
             description=(
                 f"Specify Service Role ARN of lambda function "

@@ -396,8 +396,8 @@ class MyAesSiemStack(cdk.Stack):
             description=(
                 'Specify S3 log bucket names in the Log Archive account. '
                 'Comma separated list. '
-                '(e.g., aws-controltower-logs-123456789012-ap-northeast-1, '
-                'aws-controltower-s3-access-logs-123456789012-ap-northeast-1 )'
+                '(e.g., aws-controltower-logs-123456789012-us-east-1, '
+                'aws-controltower-s3-access-logs-123456789012-us-east-1 )'
             ),
             default='')
 
@@ -415,7 +415,7 @@ class MyAesSiemStack(cdk.Stack):
             allowed_pattern=r'^(arn:aws[0-9a-zA-Z:/_-]*|)$',
             description=(
                 'Specify SQS ARN for S3 log buckets in Log Archive Account. '
-                '(e.g., arn:aws:sqs:ap-northeast-1:12345678902:aes-siem-ct )'
+                '(e.g., arn:aws:sqs:us-east-1:123456789012:aes-siem-ct )'
             ),
             default='')
 
@@ -444,7 +444,7 @@ class MyAesSiemStack(cdk.Stack):
                              r'Lake-[0-9a-f-]*-Main-Queue|)$'),
             description=(
                 'Specify SQS ARN of Security Lake Subscriber. '
-                '(e.g., arn:aws:sqs:us-east-1:12345678902:AmazonSecurityLake'
+                '(e.g., arn:aws:sqs:us-east-1:123456789012:AmazonSecurityLake'
                 '-00001111-2222-3333-5555-666677778888-Main-Queue )'),
             default='')
 
