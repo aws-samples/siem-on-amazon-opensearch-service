@@ -12,6 +12,7 @@
 LOG_OUT="$HOME/auto_setup_on_cloudshell-$(date "+%Y%m%d_%H%M%S").log"
 exec 2> >(tee -a "${LOG_OUT}") 1>&2
 
+export JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION=1
 export BASEDIR="$HOME/siem-on-amazon-opensearch-service"
 export OLDDIR1="$HOME/siem-on-amazon-elasticsearch-service"
 export OLDDIR2="$HOME/siem-on-amazon-elasticsearch"
