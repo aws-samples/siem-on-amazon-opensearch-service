@@ -586,6 +586,14 @@ class MyAesSiemStack(cdk.Stack):
             )
         )
 
+        is_china_region = has_lambda_architectures_prop = cdk.CfnCondition(
+            self, "isChinaRegion",
+            expression=cdk.Fn.condition_or(
+                cdk.Fn.condition_equals(cdk.Aws.REGION, 'cn-north-1'),
+                cdk.Fn.condition_equals(cdk.Aws.REGION, 'cn-northwest-1'),
+            )
+        )
+
         has_lambda_architectures_prop = cdk.CfnCondition(
             self, "HasLambdaArchitecturesProp",
             expression=cdk.Fn.condition_not(
@@ -738,6 +746,7 @@ class MyAesSiemStack(cdk.Stack):
 
         cfn_conditions_dict = {
             'is_global_region': is_global_region,
+            'is_china_region': is_china_region,
             'has_lambda_architectures_prop': has_lambda_architectures_prop,
             'is_serverless': is_serverless,
             'is_managed_cluster': is_managed_cluster,
@@ -1064,6 +1073,7 @@ class MyAesSiemStack(cdk.Stack):
         )
         sg_vpc_aes_siem2.cfn_options.condition = is_in_vpc
 
+        # VPC Endpoint
         vpce_endpoint_sqs = aws_ec2.CfnVPCEndpoint(
             self, "VpcAesSiemSQSEndpoint8BFF7847", vpc_id='', subnet_ids=[],
             vpc_endpoint_type="Interface",
@@ -1076,6 +1086,14 @@ class MyAesSiemStack(cdk.Stack):
         vpce_endpoint_sqs.add_property_override(
             "SubnetIds", validated_resource.get_att('subnets').to_string())
         vpce_endpoint_sqs.cfn_options.condition = sqs_vpce_is_required
+        vpce_endpoint_sqs.add_property_override(
+            "ServiceName",
+            cdk.Fn.condition_if(
+                is_china_region.logical_id,
+                f"cn.com.amazonaws.{cdk.Aws.REGION}.sqs",
+                f"com.amazonaws.{cdk.Aws.REGION}.sqs",
+            )
+        )
 
         vpce_endpoint_ssm = aws_ec2.CfnVPCEndpoint(
             self, "VpcAesSiemSSMEndpoint", vpc_id='', subnet_ids=[],
@@ -1102,6 +1120,14 @@ class MyAesSiemStack(cdk.Stack):
         vpce_endpoint_sts.add_property_override(
             "SubnetIds", validated_resource.get_att('subnets').to_string())
         vpce_endpoint_sts.cfn_options.condition = sts_vpce_is_required
+        vpce_endpoint_sts.add_property_override(
+            "ServiceName",
+            cdk.Fn.condition_if(
+                is_china_region.logical_id,
+                f"cn.com.amazonaws.{cdk.Aws.REGION}.sts",
+                f"com.amazonaws.{cdk.Aws.REGION}.sts",
+            )
+        )
 
         vpce_endpoint_s3 = aws_ec2.CfnVPCEndpoint(
             self, "VpcAesSiemS3Endpoint003F70DF", vpc_id='',

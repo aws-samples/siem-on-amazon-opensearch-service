@@ -91,6 +91,7 @@ class ResourceValidator(object):
                         actions=[
                             "ec2:CreateNetworkInterface",
                             "ec2:DescribeNetworkInterfaces",
+                            "ec2:DescribeVpcEndpointServices",
                             "ec2:DeleteNetworkInterface",
                             "ec2:AssignPrivateIpAddresses",
                             "ec2:UnassignPrivateIpAddresses"

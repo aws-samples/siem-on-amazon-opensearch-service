@@ -760,6 +760,36 @@ def check_slr_aoss(vpc_id=None):
     return needs_slr
 
 
+def get_vpcid_subnets_by_vpcendpoints(subnets: list) -> (str, list):
+    if REGION.startswith('cn'):
+        url_prefix = 'cn.com'
+    else:
+        url_prefix = 'com'
+    service_names = [
+        f'{url_prefix}.amazonaws.{REGION}.sqs',
+        f'{url_prefix}.amazonaws.{REGION}.sts',
+        f'com.amazonaws.{REGION}.ssm',
+        f"com.amazonaws.{REGION}.s3"]
+    response = ec2_client.describe_vpc_endpoint_services(
+        ServiceNames=service_names)
+    azs = set()
+    for vpce in response['ServiceDetails']:
+        if len(azs) == 0:
+            azs = set(vpce['AvailabilityZones'])
+        if len(azs) > 0:
+            azs = azs & set(vpce['AvailabilityZones'])
+    azs = list(azs)
+    response = ec2_client.describe_subnets(
+        Filters=[{'Name': 'availability-zone', 'Values': azs}],
+        SubnetIds=subnets)
+    vpc_id = response['Subnets'][0]['VpcId']
+    subnets = set()
+    for subnet in response['Subnets']:
+        subnets.add(subnet['SubnetId'])
+    subnets = sorted(list(subnets))
+    return vpc_id, subnets
+
+
 @helper_validation.update
 @helper_validation.create
 def validate_resource(event, context):
@@ -802,10 +832,10 @@ def validate_resource(event, context):
         except Exception as err:
             raise Exception(f'VPC endpoint {VPCE_ID} is not found or '
                             f'something wrong. Invalid VPCE ID. {err}')
+
     if subnets:
         logger.debug('Check subnets')
-        response = ec2_client.describe_subnets(SubnetIds=subnets)
-        vpc_id = response['Subnets'][0]['VpcId']
+        vpc_id, subnets = get_vpcid_subnets_by_vpcendpoints(subnets)
 
         logger.debug('Check route tables')
         response = ec2_client.describe_route_tables(
