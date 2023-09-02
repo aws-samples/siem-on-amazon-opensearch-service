@@ -861,24 +861,21 @@ es-loader のログは JSON 形式で出力しているため、CloudWatch Logs 
 
 ### 1. 準備
 
-AWS CloudShell または Amazon Linux 2 を実行している Amazon Elastic Compute Cloud (Amazon EC2) インスタンスを使って CloudFormation テンプレートを作成します
+Amazon Linux 2023 を実行している Amazon Elastic Compute Cloud (Amazon EC2) インスタンスを使って CloudFormation テンプレートを作成します
 
 前提の環境)
 
-* AWS CloudShell または Amazon Linux 2 on Amazon EC2
+* Amazon Linux 2023 on Amazon EC2
   * "Development Tools"
-  * Python 3.8
-  * Python 3.8 libraries and header files
+  * Python 3 libraries and header files
+  * pip
   * Git
 
 上記がインストールされてない場合は以下を実行
 
 ```shell
-sudo yum groups mark install -y "Development Tools"
-sudo yum install -y amazon-linux-extras
-sudo amazon-linux-extras enable python3.8
-sudo yum install -y python38 python38-devel git jq
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y python3-devel python3-pip git jq tar
 ```
 
 ### 2. SIEM on OpenSearch Service の clone

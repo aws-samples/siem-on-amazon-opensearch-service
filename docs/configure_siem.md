@@ -851,20 +851,17 @@ You can skip this if you have already deployed SIEM on OpenSearch Service using 
 
 The following instance and tools need to be in place so that you can create a CloudFormation template:
 
-* AWS CloudShell or Amazon EC2 instance running Amazon Linux 2
+* Amazon EC2 instance running Amazon Linux 2023
   * "Development Tools"
-  * Python 3.8
-  * Python 3.8 libraries and header files
+  * Python 3 libraries and header files
+  * pip
   * Git
 
 Run the following commands if the above tools have not been installed yet:
 
 ```shell
-sudo yum groups mark install -y "Development Tools"
-sudo yum install -y amazon-linux-extras
-sudo amazon-linux-extras enable python3.8
-sudo yum install -y python38 python38-devel git jq
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y python3-devel python3-pip git jq tar
 ```
 
 ### 2. Cloning SIEM on OpenSearch Service

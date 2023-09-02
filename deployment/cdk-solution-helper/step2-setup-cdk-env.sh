@@ -8,8 +8,9 @@ source_dir="$source_template_dir/../source"
 cdk_version=$(grep aws-cdk-lib "${source_dir}/cdk/requirements.txt" | awk -F'==' '{print $2}')
 
 is_al2=$(grep -oi Karoo /etc/system-release 2> /dev/null)
-if [ -z "$is_al2" ]; then
-    echo "Not Amazon Linux 2."
+is_al2023=$(grep -oi "Amazon Linux release 2023" /etc/system-release 2> /dev/null)
+if [ -z "$is_al2023" ] && [ -z "$is_al2" ]; then
+    echo "neither Amazon Linux 2023 nor Amazon Linux 2."
     read -rp "Do you realy continue? (y/N): " yn
     case "$yn" in [yY]*) ;; *) echo "abort." ; exit ;; esac
 fi
@@ -25,13 +26,25 @@ if [[ "${AWS_EXECUTION_ENV}" = "CloudShell" ]]; then
   sudo npm install -g aws-cdk@"${cdk_version}"
 else
   echo "Install Node.js"
-  curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+  curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash
   # shellcheck disable=SC1090
   source ~/.nvm/nvm.sh
-  nvm install 16
-  nvm alias default 16
-  node -e "console.log('Running Node.js ' + process.version)"
-  nvm use 16
+  if [ -n "$is_al2" ]; then
+    nvm install 16
+    nvm alias default 16
+    node -e "console.log('Running Node.js ' + process.version)"
+    nvm use 16
+  elif [ -n "$is_al2023" ]; then
+    nvm install 20
+    nvm alias default 20
+    node -e "console.log('Running Node.js ' + process.version)"
+    nvm use 20
+  else
+    nvm install 18
+    nvm alias default 18
+    node -e "console.log('Running Node.js ' + process.version)"
+    nvm use 18
+  fi
   echo "Install CDK"
   echo "npm install -g aws-cdk@${cdk_version}"
   npm install -g aws-cdk@"${cdk_version}"

@@ -50,13 +50,25 @@
 * デプロイするサブネットは Private Subnet です
 * サブネットは 3つの異なる Availability Zone を選択してください。(実際にデプロイするのは 1 つの AZ へ 1 インスタンスのみです)
 * Amazon VPC の [**DNS ホスト名**] と [**DNS ホスト解決**] の 2 つとも有効にしてください
-* デプロイ時に `cdk.json` の作成をしますが、このファイルと自動生成される `cdk.context.json` を保存をしてください。SIEM on OpenSearch Service のデプロイで使用する CDK の再実行に必要です
+* デプロイ時に `cdk.json` の作成をしますが、このファイルと自動生成される `cdk.context.json` を AWS Systems Manager パラメーターストア等に保存をしてください。SIEM on OpenSearch Service のデプロイで使用する CDK の再実行に必要です
 
 ### 1. AWS CDK 実行環境の準備
 
-1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください
+1. Amazon Linux 2023 または Amazon Linux 2 を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください
 1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、インスタンスにアタッチします
-1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq、tar をインストールし、ソースコードを GitHub から取得します
+1. シェルにログインして、開発ツール、Python 3.8 or 3.9 と開発ファイル、git、jq、tar をインストールし、ソースコードを GitHub から取得します
+
+    Amazon Linux 2023 の場合
+
+    ```shell
+    export GIT_ROOT=$HOME
+    cd ${GIT_ROOT}
+    sudo dnf groupinstall -y "Development Tools"
+    sudo dnf install -y python3-devel python3-pip git jq tar
+    git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
+    ```
+
+    Amazon Linux 2 の場合
 
     ```shell
     export GIT_ROOT=$HOME
@@ -204,7 +216,6 @@ CloudFormation テンプレートと同じパラーメーターを指定して C
 | SecurityLakeRoleArn | Security Lake が作成するサブスクライバーの IAM Role の ARN を指定してください。(例:  `arn:aws:iam::123456789012:role/AmazonSecurityLake-00001111-2222-3333-5555-666677778888` ) |
 | SecurityLakeExternalId | Security Lake でサブスクライバー作成時に指定した external ID を指定してください。(例:  `externalid123` ) |
 
-
 文法) `--parameters オプション1=パラメータ1 --parameters オプション2=パラメータ2`
 複数のパラメーターがある場合は、--parametersを繰り返す
 
@@ -217,6 +228,28 @@ cdk deploy --no-rollback \
 ```
 
 約30分でデプロイが終わります。完了したら、[READMEに戻って](../README_ja.md)、「3. OpenSearch Dashboards の設定」にお進みください。
+
+### 7. cdk.json と cdk.context.json のバックアップ
+
+cdk.json と cdk.context.json のバックアップ をしてください。
+
+AWS Systems Manager パラメーターストアへバックアップする例
+
+```sh
+aws ssm put-parameter \
+  --overwrite \
+  --type String \
+  --name /siem/cdk/cdk.json \
+  --value file://cdk.json
+
+if [ -f cdk.context.json ]; then
+  aws ssm put-parameter \
+    --overwrite \
+    --type String \
+    --name /siem/cdk/cdk.json \
+    --value file://cdk.context.json
+fi
+```
 
 ## AWS CDK によるアップデート
 
@@ -240,6 +273,32 @@ git pull --rebase
 [5. AWS CDK によるインストールのオプション設定] 以降は **実行せず**、下記を実行
 
 インストール時に保存した `cdk.json` と `cdk.context.json` を `${GIT_ROOT}/siem-on-amazon-opensearch-service/source/cdk/` にリストア。`cdk.context.json` はない場合があります。
+
+AWS Systems Manager パラメーターストアからリストアする例
+
+```sh
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/cdk/
+if [ -s cdk.json ]; then
+  cp cdk.json cdk.json.`date "+%Y%m%d%H%M%S"`
+fi
+aws ssm get-parameter \
+  --name /siem/cdk/cdk.json \
+  --query "Parameter.Value" \
+  --output text > cdk.json
+
+if [ -s cdk.context.json ]; then
+  cp cdk.context.json cdk.context.json.`date "+%Y%m%d%H%M%S"`
+fi
+aws ssm get-parameter \
+  --name /siem/cdk/cdk.context.json \
+  --query "Parameter.Value" \
+  --output text > cdk.context.json.new 2> /dev/null
+if [ -s cdk.context.json.new ]; then
+  mv cdk.context.json.new cdk.context.json
+else
+  rm cdk.context.json.new
+fi
+```
 
 > **注) v2.8.0d 以下からアップデートする場合、CDK v1 から CDK v2 へ移行する必要があります。再度、cdk bootstrap を実行します**
 

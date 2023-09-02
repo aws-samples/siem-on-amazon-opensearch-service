@@ -86,7 +86,7 @@ function func_put_to_ssm_param () {
   cd "$BASEDIR/source/cdk" || exit
   put_obj=$1
   aws ssm put-parameter \
-    --name "/aes-siem/cdk/$put_obj" \
+    --name "/siem/cdk/$put_obj" \
     --overwrite \
     --region "$AWS_DEFAULT_REGION" \
     --value "$(cat "${put_obj}")" \
@@ -98,14 +98,23 @@ function func_get_from_param_store () {
   cd "$BASEDIR/source/cdk" || exit
   get_obj=$1
   aws ssm get-parameter \
-    --name "/aes-siem/cdk/$get_obj" \
+    --name "/siem/cdk/$get_obj" \
     --region "$AWS_DEFAULT_REGION" \
     --query "Parameter.Value" \
     --output text > "${get_obj}.ssm" 2> /dev/null
   if [ -s "${get_obj}.ssm" ]; then
     echo "GET $get_obj from SSM Parameter store"
   else
-    rm "${get_obj}.ssm"
+    aws ssm get-parameter \
+      --name "/aes-siem/cdk/$get_obj" \
+      --region "$AWS_DEFAULT_REGION" \
+      --query "Parameter.Value" \
+      --output text > "${get_obj}.ssm" 2> /dev/null
+    if [ -s "${get_obj}.ssm" ]; then
+      echo "GET $get_obj from SSM Parameter store"
+    else
+      rm "${get_obj}.ssm"
+    fi
   fi
 }
 
@@ -204,7 +213,7 @@ function func_ask_and_set_env {
     esac
   done;
   aws ssm put-parameter \
-    --name "/aes-siem/cdk/cdk.json" \
+    --name "/siem/cdk/cdk.json" \
     --region "$AWS_DEFAULT_REGION" \
     --value "$(cat cdk.json)" \
     --type String

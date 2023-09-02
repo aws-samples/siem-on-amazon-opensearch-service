@@ -54,9 +54,21 @@ Skip these steps if you want to send logs from your existing S3 bucket to SIEM o
 
 ### 1. Setting Up the AWS CDK Execution Environment
 
-1. Deploy an Amazon Elastic Compute Cloud (Amazon EC2) instance that runs Amazon Linux 2 (x86)
+1. Deploy an Amazon Elastic Compute Cloud (Amazon EC2) instance that runs Amazon Linux 2023 or Amazon Linux 2
 1. Create a role with Admin permissions in AWS Identity and Access Management (IAM) and attach it to the Amazon EC2 instance
-1. Log in to the shell; install the development tools, Python 3.8 and development files, git, jq and tar; and get the source code from GitHub
+1. Log in to the shell; install the development tools, Python 3.8 or 3.9 and development files, git, jq and tar; and get the source code from GitHub
+
+    For Amazon Linux 2023
+
+    ```shell
+    export GIT_ROOT=$HOME
+    cd ${GIT_ROOT}
+    sudo dnf groupinstall -y "Development Tools"
+    sudo dnf install -y python3-devel python3-pip git jq tar
+    git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
+    ```
+
+    For Amazon Linux 2
 
    ```shell
    export GIT_ROOT=$HOME
@@ -222,6 +234,28 @@ cdk deploy --no-rollback \
 ```
 
 The deployment takes about 30 minutes. When you're done, go back to README and proceed to “3. Configuring OpenSearch Dashboards.”
+
+### 7. Back up cdk.json and cdk.context.json
+
+Make a backup of cdk.json and cdk.context.json.
+
+Example of backing up to AWS Systems Manager Parameter Store
+
+```sh
+aws ssm put-parameter \
+  --overwrite \
+  --type String \
+  --name /siem/cdk/cdk.json \
+  --value file://cdk.json
+
+if [ -f cdk.context.json ]; then
+  aws ssm put-parameter \
+    --overwrite \
+    --type String \
+    --name /siem/cdk/cdk.json \
+    --value file://cdk.context.json
+fi
+```
 
 ## Updating SIEM with the AWS CDK
 
