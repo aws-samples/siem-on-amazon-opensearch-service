@@ -900,13 +900,14 @@ def validate_resource(event, context):
         ssm_client.put_parameter(Name=f'/siem/bucketpolicy/log/{param_name}',
                                  Value=policy, Type='String', Overwrite=True)
 
-    ssm_put_parameter('policy1', policy[:3000])
-    ssm_put_parameter('policy2', policy[3000:6000])
-    ssm_put_parameter('policy3', policy[6000:9008])
-    ssm_put_parameter('policy4', policy[9000:12000])
-    ssm_put_parameter('policy5', policy[12000:15000])
-    ssm_put_parameter('policy6', policy[15000:18000])
-    ssm_put_parameter('policy7', policy[18000:20480])
+    ssm_put_parameter('policy1', policy[:2560])
+    ssm_put_parameter('policy2', policy[2560:5120])
+    ssm_put_parameter('policy3', policy[5120:7680])
+    ssm_put_parameter('policy4', policy[7680:10240])
+    ssm_put_parameter('policy5', policy[10240:12800])
+    ssm_put_parameter('policy6', policy[12800:15360])
+    ssm_put_parameter('policy7', policy[15360:17920])
+    ssm_put_parameter('policy8', policy[17920:20480])
 
     # needs_slr_aos = check_slr_aos(vpc_id)
     # needs_slr_aoss = check_slr_aoss(vpc_id)
@@ -1188,7 +1189,7 @@ def custom_resource_delete(event, context):
     logger.info("Got Delete")
     try:
         response = ssm_client.delete_parameters(Names=[
-            f'/siem/bucketpolicy/log/policy{n}' for n in range(1, 8)])
+            f'/siem/bucketpolicy/log/policy{n}' for n in range(1, 9)])
         logger.info(response)
     except Exception:
         logger.exception("something wrong")

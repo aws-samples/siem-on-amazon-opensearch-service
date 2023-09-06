@@ -206,7 +206,7 @@ Below is the list of AWS resources created by the CloudFormation template. AWS I
 |Lambda function|aes-siem-BucketNotificationsHandler|For configuring invent notification for the S3 bucket that stores logs|
 |Lambda function|aes-siem-add-pandas-layer|For adding aws_sdk_pandas as Lambda layer to es-loader|
 |AWS Key Management Service<br>(AWS KMS) KMS key & Alias|aes-siem-key|For encrypting logs|
-|SSM Parameter Store|/siem/bucketpolicy/log/policy1-7|Temporarily used when keeping the s3 log Bucket Policy|
+|SSM Parameter Store|/siem/bucketpolicy/log/policy1-8|Temporarily used when keeping the s3 log Bucket Policy|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|A log is split into multiple parts if it has many lines to process. This is the queue to coordinate it|
 |Amazon SQS Queue|aes-siem-dlq|A dead-letter queue used when loading logs into OpenSearch Service fails|
 |CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|Triggered when total free space for the OpenSearch Service cluster remains less than 200MB for 30 minutes|

@@ -50,11 +50,11 @@ Skip these steps if you want to send logs from your existing S3 bucket to SIEM o
 * The subnet you deploy is a private subnet
 * Select three different Availability Zones for the subnet. (Only one instance is deployed per AZ)
 * In Amazon VPC, enable both [**DNS hostnames**] and [**DNS resolution**]
-* `cdk.json` and `cdk.context.json` are created during the deployment, and ensure to save this file. It will be required to rerun the CDK used for the deployment of SIEM on OpenSearch Service
+* `cdk.json` and `cdk.context.json` are created during the deployment, and ensure to backup these files in AWS Systems Manager Parameter Store or somewhere. It will be required to rerun the CDK used for the deployment of SIEM on OpenSearch Service
 
 ### 1. Setting Up the AWS CDK Execution Environment
 
-1. Deploy an Amazon Elastic Compute Cloud (Amazon EC2) instance that runs Amazon Linux 2023 or Amazon Linux 2
+1. Deploy an Amazon Elastic Compute Cloud (Amazon EC2) instance that runs Amazon Linux 2023 or Amazon Linux 2. The EC instance require at least 2 GB RAM
 1. Create a role with Admin permissions in AWS Identity and Access Management (IAM) and attach it to the Amazon EC2 instance
 1. Log in to the shell; install the development tools, Python 3.8 or 3.9 and development files, git, jq and tar; and get the source code from GitHub
 
@@ -119,7 +119,7 @@ From the root directory of the repository, navigate to the directory containing 
 
 ```bash
 cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
-cd source/cdk && cdk bootstrap
+cd source/cdk && cdk bootstrap $CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION
 ```
 
 If the execution fails with an error, verify that your Amazon EC2 instance has the appropriate permissions role assigned.
@@ -187,7 +187,7 @@ cdk context  --j
 Deploy the AWS CDK:
 
 ```bash
-cdk deploy --no-rollback
+cdk deploy
 ```
 
 You can specify the same parameters as for the CloudFormation template. The parameters can also be changed from the CloudFormation console after deployment with the CDK command. During the initial installation, you can deploy without any parameters.
@@ -229,7 +229,7 @@ If you have more than one parameter, repeat --parameters
 Example of deployment with parameters)
 
 ```bash
-cdk deploy --no-rollback \
+cdk deploy \
     --parameters AllowedSourceIpAddresses="10.0.0.0/8 192.168.0.1" \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
@@ -253,7 +253,7 @@ if [ -f cdk.context.json ]; then
   aws ssm put-parameter \
     --overwrite \
     --type String \
-    --name /siem/cdk/cdk.json \
+    --name /siem/cdk/cdk.context.json \
     --value file://cdk.context.json
 fi
 ```
@@ -276,6 +276,34 @@ Go back to the [**Deploying with the AWS CDK**] section and rerun [**2. Setting 
 
 Note that [5. Setting Installation Options with the AWS CDK] and the subsequent steps **do not need to be followed**. Instead, execute the commands below:
 
+Restore `cdk.json` and `cdk.context.json` saved during installation to `${GIT_ROOT}/siem-on-amazon-opensearch-service/source/cdk/`. There may be no `cdk.context.json`.
+
+Example of restoring from AWS Systems Manager Parameter Store
+
+```sh
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/cdk/
+if [ -s cdk.json ]; then
+  cp cdk.json cdk.json.`date "+%Y%m%d%H%M%S"`
+fi
+aws ssm get-parameter \
+  --name /siem/cdk/cdk.json \
+  --query "Parameter.Value" \
+  --output text > cdk.json
+
+if [ -s cdk.context.json ]; then
+  cp cdk.context.json cdk.context.json.`date "+%Y%m%d%H%M%S"`
+fi
+aws ssm get-parameter \
+  --name /siem/cdk/cdk.context.json \
+  --query "Parameter.Value" \
+  --output text > cdk.context.json.new 2> /dev/null
+if [ -s cdk.context.json.new ]; then
+  mv cdk.context.json.new cdk.context.json
+else
+  rm cdk.context.json.new
+fi
+```
+
 > **_Note_) When updating from v2.8.0d prior version, it is necessary to migrate from CDK v1 to CDK v2. Run cdk bootstrap again**
 
 ```sh
@@ -283,7 +311,7 @@ cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
 cd source/cdk
 # Also run `cdk bootstrap` if updating from v2.8.0d or prior version
 # cdk bootstrap
-cdk deploy --no-rollback
+cdk deploy
 ```
 
 Updated diffs will be displayed. Enter [**y**] to confirm. The update will be complete in a few minutes.

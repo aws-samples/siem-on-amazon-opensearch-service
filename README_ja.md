@@ -212,7 +212,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 |Lambda function|aes-siem-BucketNotificationsHandler|ログ用 S3 バケットのイベント通知を設定|
 |Lambda function|aes-siem-add-pandas-layer|es-loader にaws_sdk_pandas を Lambda レイヤーとして追加|
 |AWS Key Management Service<br>(AWS KMS) KMSキー & Alias|aes-siem-key|ログの暗号化に使用|
-|SSM Parameter Store|/siem/bucketpolicy/log/policy1-7|ログ用 S3 バケットの Bucket Policy の更新時に一時的に使用|
+|SSM Parameter Store|/siem/bucketpolicy/log/policy1-8|ログ用 S3 バケットの Bucket Policy の更新時に一時的に使用|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|処理するログ行数が多い時は分割。それを管理するキュー|
 |Amazon SQS Queue|aes-siem-dlq|OpenSearch Service のログ取り込み失敗用 Dead Letter Queue|
 |CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|OpenSearch Service クラスターの合計空き容量が 200MB 以下の状態が 30 分間継続した場合に発報|

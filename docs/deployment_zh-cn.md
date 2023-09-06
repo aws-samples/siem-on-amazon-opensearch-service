@@ -109,7 +109,7 @@ source ~/.bashrc
 
 ```bash
 cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
-cd source/cdk && cdk bootstrap
+cd source/cdk && cdk bootstrap $CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION
 ```
 
 如果执行失败并出现错误，请验证您的 Amazon EC2 实例是否已分配适当的权限角色。
@@ -177,7 +177,7 @@ cdk context  --j
 部署 AWS CDK:
 
 ```bash
-cdk deploy --no-rollback
+cdk deploy
 ```
 
 你可以指定同 CloudFormation 模板一样的参数。
@@ -195,7 +195,7 @@ cdk deploy --no-rollback
 部署参数示例)
 
 ```bash
-cdk deploy --no-rollback \
+cdk deploy \
     --parameters AllowedSourceIpAddresses="10.0.0.0/8 192.168.0.1" \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
@@ -211,7 +211,7 @@ cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
 cd source/cdk
 # Also run `cdk bootstrap` if updating from v2.8.0d or prior version
 # cdk bootstrap
-cdk deploy --no-rollback
+cdk deploy
 ```
 
 返回 [**Deploying with the AWS CDK**] 部分并重新运行 [**2. 设置环境变量**], [**3. 创建 AWS Lambda 部署包**] 和 [**4. 为 AWS Cloud Development Kit (AWS CDK)** 设置环境。]
@@ -222,7 +222,7 @@ cdk deploy --no-rollback
 cd ~/siem-on-amazon-opensearch-service/
 source .venv/bin/activate
 cd source/cdk
-cdk deploy --no-rollback
+cdk deploy
 ```
 
 将显示更新的差异。 输入 [**y**] 进行确认。 更新将在几分钟内完成。

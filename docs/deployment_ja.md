@@ -54,7 +54,7 @@
 
 ### 1. AWS CDK 実行環境の準備
 
-1. Amazon Linux 2023 または Amazon Linux 2 を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください
+1. Amazon Linux 2023 または Amazon Linux 2 を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください。インスタンスは 2 GB 以上のメモリが必要です
 1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、インスタンスにアタッチします
 1. シェルにログインして、開発ツール、Python 3.8 or 3.9 と開発ファイル、git、jq、tar をインストールし、ソースコードを GitHub から取得します
 
@@ -119,7 +119,7 @@ source ~/.bashrc
 
 ```bash
 cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
-cd source/cdk && cdk bootstrap
+cd source/cdk && cdk bootstrap $CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION
 ```
 
 エラーで実行が失敗した場合、Amazon EC2 インスタンスに Admin 権限のロールが割り当てられているかを確認してください。
@@ -223,7 +223,7 @@ CloudFormation テンプレートと同じパラーメーターを指定して C
 パラメーター付きでの実行例)
 
 ```bash
-cdk deploy --no-rollback \
+cdk deploy \
     --parameters AllowedSourceIpAddresses="10.0.0.0/8 192.168.0.1" \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
@@ -247,7 +247,7 @@ if [ -f cdk.context.json ]; then
   aws ssm put-parameter \
     --overwrite \
     --type String \
-    --name /siem/cdk/cdk.json \
+    --name /siem/cdk/cdk.context.json \
     --value file://cdk.context.json
 fi
 ```
@@ -308,7 +308,7 @@ cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
 cd source/cdk
 # v2.8.0d 以下からアップデートする場合、cdk bootstrap も実行
 # cdk bootstrap
-cdk deploy --no-rollback
+cdk deploy
 ```
 
 更新される差分が表示されるので確認して、[**y**] を入力。数分でアップデートは完了します。

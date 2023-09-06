@@ -573,7 +573,7 @@ class MyAesSiemStack(cdk.Stack):
         ######################################################################
         # Cloudformation Conditions
         ######################################################################
-        is_global_region = has_lambda_architectures_prop = cdk.CfnCondition(
+        is_global_region = cdk.CfnCondition(
             self, "isGlobalRegion",
             expression=cdk.Fn.condition_not(
                 cdk.Fn.condition_or(
@@ -585,7 +585,7 @@ class MyAesSiemStack(cdk.Stack):
             )
         )
 
-        is_china_region = has_lambda_architectures_prop = cdk.CfnCondition(
+        is_china_region = cdk.CfnCondition(
             self, "isChinaRegion",
             expression=cdk.Fn.condition_or(
                 cdk.Fn.condition_equals(cdk.Aws.REGION, 'cn-north-1'),
@@ -917,6 +917,8 @@ class MyAesSiemStack(cdk.Stack):
             get_parameter = cr.AwsCustomResource(
                 self, f's3bucket{param_name}',
                 function_name='aes-siem-aws-api-caller',
+                timeout=cdk.Duration.seconds(30),
+                install_latest_aws_sdk=False,
                 on_update=cr.AwsSdkCall(
                     service="SSM",
                     action="getParameter",
@@ -925,14 +927,13 @@ class MyAesSiemStack(cdk.Stack):
                         "Name": f'/siem/bucketpolicy/log/{param_name}',
                         "WithDecryption": False},
                     physical_resource_id=cr.PhysicalResourceId.of(
-                        f"CustomResource::{param_name}{__version__}"
+                        f"CustomResource::{param_name}-{__version__}-"
                         f"{log_bucket_policy_update.value_as_string}")
                 ),
                 policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
                     resources=[(f'arn:{PARTITION}:ssm:*:{cdk.Aws.ACCOUNT_ID}:'
                                 'parameter/siem/bucketpolicy/*')]
                 ),
-                install_latest_aws_sdk=True,
             )
             get_parameter.node.add_dependency(validated_resource)
             return get_parameter.get_response_field("Parameter.Value")
@@ -944,8 +945,9 @@ class MyAesSiemStack(cdk.Stack):
         pol5 = ssm_get_param(log_bucket_policy_update, "policy5")
         pol6 = ssm_get_param(log_bucket_policy_update, "policy6")
         pol7 = ssm_get_param(log_bucket_policy_update, "policy7")
+        pol8 = ssm_get_param(log_bucket_policy_update, "policy8")
         s3_log_bucket_policy = cdk.Fn.join(
-            '', [pol1, pol2, pol3, pol4, pol5, pol6, pol7])
+            '', [pol1, pol2, pol3, pol4, pol5, pol6, pol7, pol8])
 
         s3_log.policy.node.default_child.add_property_override(
             "PolicyDocument",

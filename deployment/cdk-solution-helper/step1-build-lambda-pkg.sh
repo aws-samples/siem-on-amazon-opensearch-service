@@ -36,7 +36,9 @@ function pip_zip_for_lambda () {
       rm "${lib_name}.zip"
     fi
     cd "${lib_name}" || exit
-    mv README.md README.md.org
+    if [ -f "README.md" ]; then
+        mv README.md README.md.org
+    fi
     echo "# cleanup installed libs in current dir"
     for dir in *.dist-info; do
         basename="${dir%-[0-9]*.dist-info}"
@@ -67,7 +69,9 @@ function pip_zip_for_lambda () {
     if [ -d aws_lambda_powertools ]; then
         mv THIRD-PARTY-LICENSES aws_lambda_powertools-*-info/
     fi
-    mv -f README.md.org README.md
+    if [ -f "README.md.org" ]; then
+        mv -f README.md.org README.md
+    fi
     if [ ! -e "${source_dir}/lambda/$1/LICENSE" ] ; then
         echo "cp -f $source_template_dir/../LICENSE $source_template_dir/../CODE_OF_CONDUCT.md $source_template_dir/../CONTRIBUTING.md ${source_dir}/lambda/$1/"
         cp -f "$source_template_dir/../LICENSE" "$source_template_dir/../CODE_OF_CONDUCT.md" "$source_template_dir/../CONTRIBUTING.md" "${source_dir}/lambda/$1/"
@@ -90,7 +94,9 @@ function pip_zip_for_lambda_ioc () {
       rm "${lib_name}.zip"
     fi
     cd "${lib_name}" || exit
-    mv README.md README.md.org
+    if [ -f "README.md" ]; then
+        mv README.md README.md.org
+    fi
     echo "# cleanup installed libs in current dir"
     for dir in *.dist-info; do
         basename="${dir%-[0-9]*.dist-info}"
@@ -117,8 +123,9 @@ function pip_zip_for_lambda_ioc () {
     rm -fr botocore/data/[a-z][a-z]*/*
     echo "rm -fr botocore/data/s3[a-z]*/*"
     rm -fr botocore/data/s3[a-z]*/*
-
-    mv -f README.md.org README.md
+    if [ -f "README.md.org" ]; then
+        mv -f README.md.org README.md
+    fi
     echo "cp -f $source_template_dir/../LICENSE $source_template_dir/../CODE_OF_CONDUCT.md $source_template_dir/../CONTRIBUTING.md ${source_dir}/lambda/$1/"
     cp -f "$source_template_dir/../LICENSE" "$source_template_dir/../CODE_OF_CONDUCT.md" "$source_template_dir/../CONTRIBUTING.md" "${source_dir}/lambda/$1/"
     echo "zip -r -9 ../$1.zip *"
