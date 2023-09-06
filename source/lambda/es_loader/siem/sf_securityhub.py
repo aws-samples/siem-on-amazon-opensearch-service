@@ -85,11 +85,11 @@ def get_values_from_asff_resources(resources):
             try:
                 instanceid = (resource['Details']['AwsEc2Volume']
                               ['Attachments'][0]['InstanceId'])
+                resource_dict['cloud'] = {'instance': {'id': instanceid}}
             except Exception:
                 # pass
                 # to ignore Rule-269212
                 None
-            resource_dict['cloud'] = {'instance': {'id': instanceid}}
         elif resource['Type'] == 'AwsIamRole':
             name = resource['Id'].split('/')[-1]
             resource_dict['user'] = {'name': name}
