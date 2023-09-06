@@ -50,11 +50,11 @@
 * デプロイするサブネットは Private Subnet です
 * サブネットは 3つの異なる Availability Zone を選択してください。(実際にデプロイするのは 1 つの AZ へ 1 インスタンスのみです)
 * Amazon VPC の [**DNS ホスト名**] と [**DNS ホスト解決**] の 2 つとも有効にしてください
-* デプロイ時に `cdk.json` の作成をしますが、このファイルと自動生成される `cdk.context.json` を保存をしてください。SIEM on OpenSearch Service のデプロイで使用する CDK の再実行に必要です
+* デプロイ時に `cdk.json` の作成をしますが、このファイルと自動生成される `cdk.context.json` を AWS Systems Manager パラメーターストア等に保存をしてください。SIEM on OpenSearch Service のデプロイで使用する CDK の再実行に必要です
 
 ### 1. AWS CDK 実行環境の準備
 
-1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください
+1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください。インスタンスは 2 GB 以上のメモリが必要です
 1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、インスタンスにアタッチします
 1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq、tar をインストールし、ソースコードを GitHub から取得します
 
@@ -107,7 +107,7 @@ source ~/.bashrc
 
 ```bash
 cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
-cd source/cdk && cdk bootstrap
+cd source/cdk && cdk bootstrap $CDK_DEFAULT_ACCOUNT/$AWS_DEFAULT_REGION
 ```
 
 エラーで実行が失敗した場合、Amazon EC2 インスタンスに Admin 権限のロールが割り当てられているかを確認してください。
@@ -191,10 +191,10 @@ CloudFormation テンプレートと同じパラーメーターを指定して C
 | IocDownloadInterval | IoC をダウンロードする間隔を分で指定。初期値は720分|
 | **Advanced Configuration - optional** ||
 | VpcEndpointId | OpenSearch managed cluster または OpenSearch Serverless の VPC Endpoint ID を指定してください。VPC Endpoint はデプロイ前に指定してください。もし指定した場合は、いくつかの Lambda 関数とリソースは VPC 内にデプロイされます|
-| CreateS3VpcEndpoint | 新しく S3 の VPC Endpoint を作成しますか？値は `true`(default) か `false`です。もし、すでに VPC があり、S3 の VPC Endpoint がある場合は、`false` を指定してください |
-| CreateSqsVpcEndpoint | 新しく SQS の VPC Endpoint を作成しますか？値は `true`(default) か `false`です。もし、すでに VPC があり、SQS の VPC Endpoint がある場合は、`false` を指定してください |
-| CreateSsmVpcEndpoint | 新しく Systems Manager の VPC Endpoint を作成しますか？値は `true`(default) か `false`です。もし、すでに VPC があり、Systems Manager の VPC Endpoint がある場合は、`false` を指定してください |
-| CreateStsVpcEndpoint | 新しく STS の VPC Endpoint を作成しますか？Control Tower または Security Lake との統合を選択した場合のみ STS VPC Endpoint は作成されます。値は `true`(default) か `false`です。もし、すでに VPC があり、STS の VPC Endpoint がある場合は、`false` を指定してください。 |
+| CreateS3VpcEndpoint | 新しく S3 の VPC Endpoint を作成しますか？値は `true`(初期値) か `false`です。もし、すでに VPC があり、S3 の VPC Endpoint がある場合は、`false` を指定してください |
+| CreateSqsVpcEndpoint | 新しく SQS の VPC Endpoint を作成しますか？値は `true`(初期値) か `false`です。もし、すでに VPC があり、SQS の VPC Endpoint がある場合は、`false` を指定してください |
+| CreateSsmVpcEndpoint | 新しく Systems Manager の VPC Endpoint を作成しますか？値は `true`(初期値) か `false`です。もし、すでに VPC があり、Systems Manager の VPC Endpoint がある場合は、`false` を指定してください |
+| CreateStsVpcEndpoint | 新しく STS の VPC Endpoint を作成しますか？Control Tower または Security Lake との統合を選択した場合のみ STS VPC Endpoint は作成されます。値は `true`(初期値) か `false`です。もし、すでに VPC があり、STS の VPC Endpoint がある場合は、`false` を指定してください。 |
 | **Control Tower Integration - optional** | [Amazon Security Lake との統合](securitylake_ja.md) |
 | ControlTowerLogBucketNameList | Log Archive アカウントにある S3 バケット名を指定してください。複数ある場合は、カンマ区切り入力してください. (例: `aws-controltower-logs-123456789012-ap-northeast-1, aws-controltower-s3-access-logs-123456789012-ap-northeast-1` )|
 | ControlTowerSqsForLogBuckets | Log Archive アカウントで作成した SQS の ARN を指定してください。(例:  `arn:aws:sqs:ap-northeast-1:12345678902:aes-siem-ct` )|
@@ -204,19 +204,40 @@ CloudFormation テンプレートと同じパラーメーターを指定して C
 | SecurityLakeRoleArn | Security Lake が作成するサブスクライバーの IAM Role の ARN を指定してください。(例:  `arn:aws:iam::123456789012:role/AmazonSecurityLake-00001111-2222-3333-5555-666677778888` ) |
 | SecurityLakeExternalId | Security Lake でサブスクライバー作成時に指定した external ID を指定してください。(例:  `externalid123` ) |
 
-
 文法) `--parameters オプション1=パラメータ1 --parameters オプション2=パラメータ2`
 複数のパラメーターがある場合は、--parametersを繰り返す
 
 パラメーター付きでの実行例)
 
 ```bash
-cdk deploy --no-rollback \
+cdk deploy \
     --parameters AllowedSourceIpAddresses="10.0.0.0/8 192.168.0.1" \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
 
 約30分でデプロイが終わります。完了したら、[READMEに戻って](../README_ja.md)、「3. OpenSearch Dashboards の設定」にお進みください。
+
+### 7. cdk.json と cdk.context.json のバックアップ
+
+cdk.json と cdk.context.json のバックアップ をしてください。
+
+AWS Systems Manager パラメーターストアへバックアップする例
+
+```sh
+aws ssm put-parameter \
+  --overwrite \
+  --type String \
+  --name /siem/cdk/cdk.json \
+  --value file://cdk.json
+
+if [ -f cdk.context.json ]; then
+  aws ssm put-parameter \
+    --overwrite \
+    --type String \
+    --name /siem/cdk/cdk.context.json \
+    --value file://cdk.context.json
+fi
+```
 
 ## AWS CDK によるアップデート
 
@@ -241,6 +262,32 @@ git pull --rebase
 
 インストール時に保存した `cdk.json` と `cdk.context.json` を `${GIT_ROOT}/siem-on-amazon-opensearch-service/source/cdk/` にリストア。`cdk.context.json` はない場合があります。
 
+AWS Systems Manager パラメーターストアからリストアする例
+
+```sh
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/cdk/
+if [ -s cdk.json ]; then
+  cp cdk.json cdk.json.`date "+%Y%m%d%H%M%S"`
+fi
+aws ssm get-parameter \
+  --name /siem/cdk/cdk.json \
+  --query "Parameter.Value" \
+  --output text > cdk.json
+
+if [ -s cdk.context.json ]; then
+  cp cdk.context.json cdk.context.json.`date "+%Y%m%d%H%M%S"`
+fi
+aws ssm get-parameter \
+  --name /siem/cdk/cdk.context.json \
+  --query "Parameter.Value" \
+  --output text > cdk.context.json.new 2> /dev/null
+if [ -s cdk.context.json.new ]; then
+  mv cdk.context.json.new cdk.context.json
+else
+  rm cdk.context.json.new
+fi
+```
+
 > **注) v2.8.0d 以下からアップデートする場合、CDK v1 から CDK v2 へ移行する必要があります。再度、cdk bootstrap を実行します**
 
 ```sh
@@ -248,7 +295,7 @@ cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/ && source .venv/bin/activate
 cd source/cdk
 # v2.8.0d 以下からアップデートする場合、cdk bootstrap も実行
 # cdk bootstrap
-cdk deploy --no-rollback
+cdk deploy
 ```
 
 更新される差分が表示されるので確認して、[**y**] を入力。数分でアップデートは完了します。
