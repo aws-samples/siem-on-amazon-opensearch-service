@@ -8,6 +8,7 @@
 * [IoC による脅威情報の付与](#ioc-による脅威情報の付与)
 * [ログ取り込みの除外設定](#ログ取り込みの除外設定)
 * [OpenSearch Service の設定変更](#opensearch-service-の設定変更)
+* [Multi-AZ with Standby の設定](#multi-az-with-standby-の設定)
 * [AWS サービス以外のログの取り込み](#aws-サービス以外のログの取り込み)
 * [他の S3 バケットからニアリアルタイムの取り込み](#他の-s3-バケットからニアリアルタイムの取り込み)
 * [S3 バケットに保存された過去データの取り込み](#s3-バケットに保存された過去データの取り込み)
@@ -407,6 +408,88 @@ POST _template/log-aws-cloudtrail_mine
   }
 }
 ```
+
+## Multi-AZ with Standby の設定
+
+Multi-AZ with Standby は、99.99% の可用性、プロダクションワークロードでの一貫したパフォーマンス、シンプルなドメイン設定と管理とを実現した、Amazon OpenSearch Service ドメインのデプロイオプションです。詳細は、公式ドキュメントの [Amazon OpenSearch Service でのマルチ AZ ドメインの設定](https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/managedomains-multiaz.html) をご参照ください
+
+以下の手順で Multi-AZ with Standby に変更できます。
+
+1. OpenSearch Dashbords の DevTools で index のレプリカ数を 2 に変更。すでに全てのインデックスでデータコピー (プライマリノードとレプリカの合計) を 3 の倍数している場合、実行は不要です。
+
+    ```http
+    PUT log*,metrics*/_settings
+    {
+        "index" : {
+            "number_of_replicas" : 2
+        }
+    }
+    ```
+
+1. デフォルト設定の変更 ( SIEM のバージョンが v2.10.1 以下の場合に実施)
+
+    いくつかの index はレプリカ数を 1 に固定しています。検証チェックのエラーを回避するために、自動でレプリカ数を 2 に拡張する設定にします。3 つのクエリがあるので、一つずつ実行して下さい
+
+    ```http
+    PUT _index_template/alert-history-indices_aws
+    {
+        "index_patterns": [".opendistro-alerting-alert-history-*"],
+        "priority": 0,
+        "template": {
+            "settings": {
+                "index.number_of_shards": 1,
+                "index.auto_expand_replicas": "1-2"
+            }
+        },
+        "_meta": {"description": "Provided by AWS. Do not edit"},
+        "version": 3
+    }
+
+
+    PUT _index_template/ism-history-indices_aws
+    {
+        "index_patterns": [".opendistro-ism-managed-index-history-*"],
+        "priority": 0,
+        "template": {
+            "settings": {
+                "index.number_of_shards": 1,
+                "index.auto_expand_replicas": "1-2"
+            }
+        },
+        "_meta": {"description": "Provided by AWS. Do not edit"},
+        "version": 3
+    }
+
+
+    PUT _index_template/default-opendistro-indices_aws
+    {
+        "index_patterns": [
+            ".opendistro-alerting-alerts",
+            ".opendistro-alerting-config",
+            ".opendistro-ism-config",
+            ".opendistro-job-scheduler-lock"
+        ],
+        "priority": 0,
+        "template": {
+            "settings": {
+                "index.number_of_shards": 1,
+                "index.auto_expand_replicas": "1-2"
+            }
+        },
+        "_meta": {"description": "Provided by AWS. Do not edit"},
+        "version": 3
+    }
+
+    ```
+
+1. AWS マネジメントコンソールから OpenSeaerch ドメインの設定をします
+    1. [**スタンバイが有効のドメイン**] を選択
+    1. 他の設定は環境に合わせて適切な項目を選択
+    1. [**変更の保存**] を選択して設定を更新
+    * ドライラン分析で [検証エラーでドライラン分析が完了しました。] となった場合で、具体的なエラーがリストされていない場合は、[**ドライラン分析**] のチェックを外して再度実行してください
+1. 数十分〜数時間で設定が完了します。完了後に、アベイラビリティゾーンが [スタンバイが有効な 3-AZ] となっていることを確認してください
+
+以上で設定は完了です
 
 ## AWS サービス以外のログの取り込み
 

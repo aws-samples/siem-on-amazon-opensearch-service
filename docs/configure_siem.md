@@ -8,6 +8,7 @@
 * [Threat Information Enrichment by IoC](#threat-information-enrichment-by-ioc)
 * [Adding an exclusion to log loading](#adding-an-exclusion-to-log-loading)
 * [Changing OpenSearch Service configuration settings](#changing-opensearch-service-configuration-settings)
+* [Changing to Multi-AZ with Standby](#changing-to-multi-az-with-standby)
 * [Loading Non-AWS services logs](#loading-non-aws-services-logs)
 * [Near-real-time loading from other S3 buckets](#near-real-time-loading-from-other-s3-buckets)
 * [Loading past data stored in the S3 bucket](#loading-past-data-stored-in-the-s3-bucket)
@@ -392,6 +393,88 @@ POST _template/log-aws-cloudtrail_mine
   }
 }
 ```
+
+## Changing to Multi-AZ with Standby
+
+Multi-AZ with Standby is a deployment option for Amazon OpenSearch Service domains that offers 99.99% availability, consistent performance for production workloads, and simplified domain configuration and management. For details, please refer to the official document [Configuring a multi-AZ domain in Amazon OpenSearch Service](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/managedomains-multiaz.html).
+
+You can change to Multi-AZ with Standby by following the steps below.
+
+1. Change the number of replicas of index to 2 in DevTools of OpenSearch Dashboards. If you have a multiple of three copies of data (including both primary nodes and replicas) for each index in your domain, skip this step.
+
+    ```http
+    PUT log*,metrics*/_settings
+    {
+        "index" : {
+            "number_of_replicas" : 2
+        }
+    }
+    ```
+
+1. Change default settings (performed when SIEM version is v2.10.1 or lower)
+
+    Some indices have a fixed one replica in the settings. Set the replica to automatically expand to 2 replicas to avoid validation check errors. There are three queries, so execute them one by one.
+
+    ```http
+    PUT _index_template/alert-history-indices_aws
+    {
+        "index_patterns": [".opendistro-alerting-alert-history-*"],
+        "priority": 0,
+        "template": {
+            "settings": {
+                "index.number_of_shards": 1,
+                "index.auto_expand_replicas": "1-2"
+            }
+        },
+        "_meta": {"description": "Provided by AWS. Do not edit"},
+        "version": 3
+    }
+
+
+    PUT _index_template/ism-history-indices_aws
+    {
+        "index_patterns": [".opendistro-ism-managed-index-history-*"],
+        "priority": 0,
+        "template": {
+            "settings": {
+                "index.number_of_shards": 1,
+                "index.auto_expand_replicas": "1-2"
+            }
+        },
+        "_meta": {"description": "Provided by AWS. Do not edit"},
+        "version": 3
+    }
+
+
+    PUT _index_template/default-opendistro-indices_aws
+    {
+        "index_patterns": [
+            ".opendistro-alerting-alerts",
+            ".opendistro-alerting-config",
+            ".opendistro-ism-config",
+            ".opendistro-job-scheduler-lock"
+        ],
+        "priority": 0,
+        "template": {
+            "settings": {
+                "index.number_of_shards": 1,
+                "index.auto_expand_replicas": "1-2"
+            }
+        },
+        "_meta": {"description": "Provided by AWS. Do not edit"},
+        "version": 3
+    }
+
+    ```
+
+1. Configure OpenSearch domain from AWS Management Console
+    1. Select [**Domain with standby**]
+    1. For other settings, select appropriate items according to your environment.
+    1. Select [**Dry Run**] to update settings
+    * Dry run analysis completes with mesage, "Dry run analysis completed with validation errors.", and no specific error is listed, uncheck [**Dry Run Analysis**] and try again.
+1. Settings can be completed in several minutes to several hours. After completion, make sure the Availability Zone(s) is [3-AZ with standby]
+
+The configurations are now complete.
 
 ## Loading non-AWS services logs
 
