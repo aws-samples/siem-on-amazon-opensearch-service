@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.1'
+__version__ = '2.10.1a'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -81,55 +81,55 @@ class ResourceValidator(object):
         #    "Runtime", cdk.Fn.condition_if(
         #        self.is_global_region.logical_id, 'python3.10', 'python3.9'))
 
-        lambda_resource_validator.role.attach_inline_policy(
-            aws_iam.Policy(
-                self.scope, 'aes-siem-policy-for-vpc-validation',
-                policy_name='aes-siem-policy-for-vpc-validation',
-                statements=[
-                    aws_iam.PolicyStatement(
-                        # for vpc access
-                        actions=[
-                            "ec2:CreateNetworkInterface",
-                            "ec2:DescribeNetworkInterfaces",
-                            "ec2:DeleteNetworkInterface",
-                            "ec2:AssignPrivateIpAddresses",
-                            "ec2:UnassignPrivateIpAddresses"
-                        ],
-                        resources=["*"]
-                    ),
-                    aws_iam.PolicyStatement(
-                        # for vpc validation
-                        actions=[
-                            "aoss:BatchGetCollection",
-                            "aoss:BatchGetVpcEndpoint",
-                            "ec2:DescribeRouteTables",
-                            "ec2:DescribeSubnets",
-                            "ec2:DescribeVpcEndpoints",
-                            "ec2:DescribeVpcs",
-                            "es:DescribeVpcEndpoints",
-                            "iam:GetRole"
-                        ],
-                        resources=["*"]
-                    ),
-                    aws_iam.PolicyStatement(
-                        sid='ToGetBucektPolicy',
-                        actions=[
-                            "s3:GetBucketPolicy",
-                        ],
-                        resources=[(f'arn:{self.PARTITION}:s3:::'
-                                    f'{self.s3bucket_name_log}')]
-                    ),
-                    aws_iam.PolicyStatement(
-                        sid='ToUploadPolicy',
-                        actions=[
-                            "s3:PutObject",
-                        ],
-                        resources=[(f'arn:{self.PARTITION}:s3:::'
-                                    f'{self.s3bucket_name_snapshot}/*')]
-                    )
-                ]
-            )
+        validator_inline_policy = aws_iam.Policy(
+            self.scope, 'aes-siem-policy-for-vpc-validation',
+            policy_name='aes-siem-policy-for-vpc-validation',
+            statements=[
+                aws_iam.PolicyStatement(
+                    # for vpc access
+                    actions=[
+                        "ec2:CreateNetworkInterface",
+                        "ec2:DescribeNetworkInterfaces",
+                        "ec2:DeleteNetworkInterface",
+                        "ec2:AssignPrivateIpAddresses",
+                        "ec2:UnassignPrivateIpAddresses"
+                    ],
+                    resources=["*"]
+                ),
+                aws_iam.PolicyStatement(
+                    # for vpc validation
+                    actions=[
+                        "aoss:BatchGetCollection",
+                        "aoss:BatchGetVpcEndpoint",
+                        "ec2:DescribeRouteTables",
+                        "ec2:DescribeSubnets",
+                        "ec2:DescribeVpcEndpoints",
+                        "ec2:DescribeVpcs",
+                        "es:DescribeVpcEndpoints",
+                        "iam:GetRole",
+                    ],
+                    resources=["*"]
+                ),
+                aws_iam.PolicyStatement(
+                    sid='ToGetBucektPolicy',
+                    actions=[
+                        "s3:GetBucketPolicy",
+                    ],
+                    resources=[(f'arn:{self.PARTITION}:s3:::'
+                                f'{self.s3bucket_name_log}')]
+                ),
+                aws_iam.PolicyStatement(
+                    sid='ToUploadPolicy',
+                    actions=[
+                        "s3:PutObject",
+                    ],
+                    resources=[(f'arn:{self.PARTITION}:s3:::'
+                                f'{self.s3bucket_name_snapshot}/*')]
+                )
+            ]
         )
+        lambda_resource_validator.role.attach_inline_policy(
+            validator_inline_policy)
 
         validated_resource = aws_cloudformation.CfnCustomResource(
             self.scope, 'ExecCustomResourceValidator',
@@ -141,6 +141,10 @@ class ResourceValidator(object):
         validated_resource.add_override(
             'Properties.DeploymentTarget',
             self.deployment_target.value_as_string)
+        validated_resource.add_dependency(
+            lambda_resource_validator.role.node.default_child)
+        validated_resource.add_dependency(
+            validator_inline_policy.node.default_child)
         # validated_resource.add_override(
         #    'Properties.BucketPolicyUpdate',
         #    self.log_bucket_policy_update.value_as_string)
