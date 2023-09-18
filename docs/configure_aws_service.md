@@ -36,7 +36,7 @@ On this page, we’ll walk you through how to load logs from each AWS service in
     * [Amazon OpenSearch Service](#Amazon-OpenSearch-Service)
     * [Amazon Managed Streaming for Apache Kafka (Amazon MSK)](#Amazon-MSK)
 1. [Compute](#8-Compute)
-    * [EC2 Instance (Amazon Linux 2)](#EC2-Instance-Amazon-Linux-2)
+    * [EC2 Instance (Amazon Linux 2/2023)](#ec2-instance-amazon-linux-22023)
     * [EC2 Instance (Microsoft Windows Server 2012/2016/2019)](#EC2-Instance-Microsoft-Windows-Server-201220162019)
 1. [Containers](#9-Containers)
     * [FireLens for Amazon ECS](#FireLens-for-Amazon-ECS)
@@ -622,7 +622,7 @@ To export OpenSearch audit logs to CloudWatch Logs, see Developer Guide [Monitor
 
 ## 8. Compute
 
-### EC2 Instance (Amazon Linux 2)
+### EC2 Instance (Amazon Linux 2/2023)
 
 ![Amazon Linux 2 to S3](images/al2-to-s3.jpg)
 
@@ -634,15 +634,127 @@ The initial value of s3_key: `[Ll]inux.?[Ss]ecure` (specified in the Firehose ou
 
 Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose. Region information is not contained in the logs, so you can include it in your S3 key to capture it. There are two ways to load secure logs : loading logs as OS system logs and then classifying them as secure logs; or loading logs as secure logs from the beginning. The former method determines secure logs by the process name, so choose the latter to ensure all secure logs are fully loaded. The latter, on the other hand, requires you to deploy Firehose for each log destination.
 
-Here’s an outline of the steps:
+The following are examples of sending logs to the S3 log bucket from Amazon Linux.
 
-1. Install CloudWatch Agent in the EC2 instance deployed as Amazon Linux 2
+1. Create an IAM role and attach it to an EC2 instance
+    The role needs to have permissions to get and put configurations from AWS Systems Service Parameter Store and transfer logs to CloudWatch Logs.
+
+    The permissions:
+    * logs:CreateLogStream
+    * logs:CreateLogGroup
+    * logs:PutLogEvents
+    * ssm:GetParameter
+    * ssm:PutParameter
+    * ssm:UpdateInstanceInformation
+
+1. Install CloudWatch Agent on EC2 instances deployed with Amazon Linux 2023 (AL2023) or Amazon Linux 2 (AL2). Install rsyslog additionally for AL2023.
+
+    ```sh
+    # Amazon Linux 2023
+    sudo dnf install -y amazon-cloudwatch-agent rsyslog
+    ```
+
+    ```sh
+    # Amazon Linux 2
+    sudo yum install -y amazon-cloudwatch-agent
+    ```
+
+    For information, see the official documentations: [Installing the CloudWatch agent](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/install-CloudWatch-Agent-on-EC2-Instance.html)
+
+1. Create a configuration file for CloudWatch Agent
+    The steps are an example configuration to forward logs to CloudWatch Logs. Please change the input values ​​as appropriate, including settings for Cloud Watch Metrics, etc. Save your configuration in AWS Systems Manager Parameter Store. Subsequent EC2 instances use configuration files saved in Parameter Store, so this step is not necessary.
+
+    ```sh
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-config-wizard
+    ```
+
+    ```text
+    (snip)
+
+    Do you want to monitor any log files?
+    1. yes
+    2. no
+    default choice: [1]:
+    [RETURN]
+
+    Log file path:
+    /var/log/messages[RETURN]
+
+    Log group name:
+    default choice: [messages]
+    /ec2/linux/messages[RETURN]
+
+    Log stream name:
+    default choice: [{instance_id}]
+    [RETURN]
+
+    Log Group Retention in days
+    default choice: [1]:
+    [RETURN]
+
+    Do you want to specify any additional log files to monitor?
+    1. yes
+    2. no
+    default choice: [1]:
+    [RETURN]
+
+    Log file path:
+    /var/log/secure[RETURN]
+
+    Log group name:
+    default choice: [messages]
+    /ec2/linux/secure[RETURN]
+
+    Log stream name:
+    default choice: [{instance_id}]
+    [RETURN]
+
+    Log Group Retention in days
+    default choice: [1]:
+    [RETURN]
+
+    Do you want to specify any additional log files to monitor?
+    1. yes
+    2. no
+    default choice: [1]:
+    2[RETURN]
+
+    Do you want to store the config in the SSM parameter store?
+    1. yes
+    2. no
+    default choice: [1]:
+    [RETURN]
+
+    What parameter store name do you want to use to store your config? (Use 'AmazonCloudWatch-' prefix if you use our managed AWS policy)
+    default choice: [AmazonCloudWatch-linux]
+    [RETURN]
+
+    (snip)
+    ```
+
+    For more information, see [Create the CloudWatch agent configuration file](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/create-cloudwatch-agent-configuration-file.html)
 1. Forward logs to CloudWatch Logs
-1. Output logs to Firehose using a CloudWatch Logs subscription
-1. Choose the S3 bucket as the destination for Firehose output
-1. Destination S3 bucket
-   * Prefix to output logs as OS logs: [**AWSLogs/123456789012/EC2/Linux/[region]/**]
-   * Prefix to output logs as secure Log: [**AWSLogs/123456789012/EC2/Linux/Secure/[ region]/**]
+
+    Use configuration files saved in parameter store
+
+    ```sh
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c ssm:AmazonCloudWatch-linux
+    sudo systemctl start amazon-cloudwatch-agent
+    sudo systemctl enable amazon-cloudwatch-agent
+    # When the second time deployment,
+    # sudo systemctl restart amazon-cloudwatch-agent
+    ```
+
+1. Output logs to Firehose using a CloudWatch Logs subscription and choose the S3 bucket as the destination for Firehose output
+
+    | No | CloudFormation | Description |
+    |----------|----------------|---------------|
+    | 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.1/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.1/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+    | 2 |[![linux](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-linux&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.1/log-exporter/siem-log-exporter-linux-cwl.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.1/log-exporter/siem-log-exporter-linux-cwl.template) | This template creates two Firehose,set up CloudWatch Logs subscription filters to deliver CloudWatch Logs to the Firehose. The firehose exports linux logs to S3 bucket.|
+
+    Destination S3 bucket:
+    * [**AWSLogs/123456789012/EC2/Linux/System/[region]/**]
+    * [**AWSLogs/123456789012/EC2/Linux/Secure/[region]/**]
       * Replace 123456789012 with your AWS account ID
 
 ### EC2 Instance (Microsoft Windows Server 2012/2016/2019)

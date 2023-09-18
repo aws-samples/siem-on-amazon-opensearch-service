@@ -20,6 +20,7 @@ from deployment_samples.deployment_samples_stack import (
     DeploymentSamplesStack,
     EventBridgeEventsExporterStack,
     FirehoseExporterStack,
+    LinuxCWLogsExporterStack,
     TrustedAdvisorLogExporterStack,
     WorkSpacesLogExporterStack,
 )
@@ -56,6 +57,10 @@ cloudhsm_logging = CloudHsmCWLogsExporterStack(
     app, "siem-log-exporter-cloudhsm-cwl",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - CloudHSM'))
+linux_logging = LinuxCWLogsExporterStack(
+    app, "siem-log-exporter-linux-cwl",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - Linux'))
 clientvpn_logging = ClientVpnLogExporterStack(
     app, "siem-log-exporter-clientvpn",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '

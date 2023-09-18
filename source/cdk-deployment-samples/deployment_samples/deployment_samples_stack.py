@@ -777,6 +777,135 @@ class CloudHsmCWLogsExporterStack(MyStack):
         )
 
 
+class LinuxCWLogsExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
+        role_name_cwl_to_kdf = cdk.Fn.import_value(
+            'siem-cwl-to-kdf-role-name-v2')
+        role_name_kdf_to_s3 = cdk.Fn.import_value(
+            'siem-kdf-to-s3-role-name-v2')
+
+        kdf_linux_system_logs_name = cdk.CfnParameter(
+            self, 'FirehoseNameForLinuxSystemLogs',
+            description=('Define new Kinesis Data Firehose Name '
+                         'for Linux system logs'),
+            default='siem-linux-system-cwl-to-s3')
+        kdf_linux_secure_logs_name = cdk.CfnParameter(
+            self, 'FirehoseNameForLinuxSecureLogs',
+            description=('Define new Kinesis Data Firehose Name '
+                         'for Linux secure logs'),
+            default='siem-linux-secure-cwl-to-s3')
+        kdf_buffer_size = cdk.CfnParameter(
+            self, 'KdfBufferSize', type='Number',
+            description='Enter a buffer size between 64 - 128 (MiB)',
+            default=64, min_value=64, max_value=128)
+        kdf_buffer_interval = cdk.CfnParameter(
+            self, 'KdfBufferInterval', type='Number',
+            description='Enter a buffer interval between 60 - 900 (seconds.)',
+            default=60, min_value=60, max_value=900)
+        cwl_linux_system_logs_name = cdk.CfnParameter(
+            self, 'CwlNameForLinuxSystemLogs',
+            description=('Specify CloudWatch Logs group name for '
+                         'system logs such as /var/log/messages. '
+                         'This field can be left blank'),
+            default='/ec2/linux/messages')
+        cwl_linux_secure_logs_name = cdk.CfnParameter(
+            self, 'CwlNameForLinuxSecureLogs',
+            description=('Specify CloudWatch Logs group name for '
+                         'secure logs such as /var/log/seure. '
+                         'This field can be left blank'),
+            default='/ec2/linux/secure')
+
+        self.template_options.metadata = {
+            'AWS::CloudFormation::Interface': {
+                'ParameterGroups': [
+                    {'Label': {'default': 'CloudWatch Logs'},
+                     'Parameters': [cwl_linux_system_logs_name.logical_id,
+                                    cwl_linux_secure_logs_name.logical_id]},
+                    {'Label': {'default': 'Amazon Kinesis Data Firehose'},
+                     'Parameters': [kdf_linux_system_logs_name.logical_id,
+                                    kdf_linux_secure_logs_name.logical_id,
+                                    kdf_buffer_size.logical_id,
+                                    kdf_buffer_interval.logical_id]}
+                ]
+            }
+        }
+
+        has_system_logs = cdk.CfnCondition(
+            self, "hasSystemLogs",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_equals(
+                    cwl_linux_system_logs_name.value_as_string, '')
+            )
+        )
+
+        has_secure_logs = cdk.CfnCondition(
+            self, "hasSecureLogs",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_equals(
+                    cwl_linux_secure_logs_name.value_as_string, '')
+            )
+        )
+
+        kdf_linux_system_logs_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "KdfLinuxSystemLogs",
+            delivery_stream_name=kdf_linux_system_logs_name.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
+                error_output_prefix="ErrorLogs/Linux/System",
+                prefix=(f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/EC2/Linux/System/'
+                        f'{cdk.Aws.REGION}/'),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}'),
+            )
+        )
+        kdf_linux_system_logs_to_s3.cfn_options.condition = has_system_logs
+
+        kdf_linux_secure_logs_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "KdfLinuxSecureLogs",
+            delivery_stream_name=kdf_linux_secure_logs_name.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
+                error_output_prefix="ErrorLogs/Linux/Secure",
+                prefix=(f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/EC2/Linux/Secure/'
+                        f'{cdk.Aws.REGION}/'),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}'),
+            )
+        )
+        kdf_linux_secure_logs_to_s3.cfn_options.condition = has_secure_logs
+
+        subscription_of_system_logs = aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscriptionLinuxSystem',
+            destination_arn=kdf_linux_system_logs_to_s3.attr_arn,
+            filter_pattern='',
+            log_group_name=cwl_linux_system_logs_name.value_as_string,
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}')
+        )
+        subscription_of_system_logs.cfn_options.condition = has_system_logs
+
+        subscription_of_secure_logs = aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscriptionLinuxSecure',
+            destination_arn=kdf_linux_secure_logs_to_s3.attr_arn,
+            filter_pattern='',
+            log_group_name=cwl_linux_secure_logs_name.value_as_string,
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}')
+        )
+        subscription_of_secure_logs.cfn_options.condition = has_secure_logs
+
+
 class ClientVpnLogExporterStack(MyStack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -851,8 +980,9 @@ class CoreLogExporterStack(MyStack):
         log_bucket_name = cdk.CfnParameter(
             self, 'siemLogBucketName',
             description=('Define S3 Bucket name which store logs to load SIEM.'
-                         ' Replace 111111111111 to your AWS account'),
-            default='aes-siem-111111111111-log')
+                         ' Replace [111111111111] to your AWS account'),
+            allowed_pattern=r'^[0-9a-z\[\].-]+$',
+            default='aes-siem-[111111111111]-log')
         role_name_cwl_to_kdf = cdk.CfnParameter(
             self, 'roleNameCwlToKdf',
             description=('Define IAM role name for CloudWatch Logs '
