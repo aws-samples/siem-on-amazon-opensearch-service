@@ -1,0 +1,162 @@
+Description: "SIEM on Amazon OpenSearch Service v2.10.2-beta.2: log exporter - Linux"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: CloudWatch Logs
+        Parameters:
+          - CwlNameForLinuxSystemLogs
+          - CwlNameForLinuxSecureLogs
+      - Label:
+          default: Amazon Kinesis Data Firehose
+        Parameters:
+          - FirehoseNameForLinuxSystemLogs
+          - FirehoseNameForLinuxSecureLogs
+          - KdfBufferSize
+          - KdfBufferInterval
+Parameters:
+  FirehoseNameForLinuxSystemLogs:
+    Type: String
+    Default: siem-linux-system-cwl-to-s3
+    Description: Define new Kinesis Data Firehose Name for Linux system logs
+  FirehoseNameForLinuxSecureLogs:
+    Type: String
+    Default: siem-linux-secure-cwl-to-s3
+    Description: Define new Kinesis Data Firehose Name for Linux secure logs
+  KdfBufferSize:
+    Type: Number
+    Default: 64
+    Description: Enter a buffer size between 64 - 128 (MiB)
+    MaxValue: 128
+    MinValue: 64
+  KdfBufferInterval:
+    Type: Number
+    Default: 60
+    Description: Enter a buffer interval between 60 - 900 (seconds.)
+    MaxValue: 900
+    MinValue: 60
+  CwlNameForLinuxSystemLogs:
+    Type: String
+    Default: /ec2/linux/messages
+    Description: Specify CloudWatch Logs group name for system logs such as /var/log/messages. This field can be left blank
+  CwlNameForLinuxSecureLogs:
+    Type: String
+    Default: /ec2/linux/secure
+    Description: Specify CloudWatch Logs group name for secure logs such as /var/log/seure. This field can be left blank
+Conditions:
+  hasSystemLogs:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: CwlNameForLinuxSystemLogs
+          - ""
+  hasSecureLogs:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: CwlNameForLinuxSecureLogs
+          - ""
+Resources:
+  KdfLinuxSystemLogs:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: FirehoseNameForLinuxSystemLogs
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name-v2
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: ErrorLogs/Linux/System
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/
+              - Ref: AWS::AccountId
+              - /EC2/Linux/System/
+              - Ref: AWS::Region
+              - /
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
+    Condition: hasSystemLogs
+  KdfLinuxSecureLogs:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: FirehoseNameForLinuxSecureLogs
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name-v2
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: ErrorLogs/Linux/Secure
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/
+              - Ref: AWS::AccountId
+              - /EC2/Linux/Secure/
+              - Ref: AWS::Region
+              - /
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
+    Condition: hasSecureLogs
+  KinesisSubscriptionLinuxSystem:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::GetAtt:
+          - KdfLinuxSystemLogs
+          - Arn
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwlNameForLinuxSystemLogs
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-us-gov:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+    Condition: hasSystemLogs
+  KinesisSubscriptionLinuxSecure:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::GetAtt:
+          - KdfLinuxSecureLogs
+          - Arn
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwlNameForLinuxSecureLogs
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-us-gov:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+    Condition: hasSecureLogs
+

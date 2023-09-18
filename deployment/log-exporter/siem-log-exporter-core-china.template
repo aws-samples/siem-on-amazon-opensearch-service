@@ -1,9 +1,10 @@
-Description: "SIEM on Amazon OpenSearch Service v2.10.2-beta.1: log exporter - core resource"
+Description: "SIEM on Amazon OpenSearch Service v2.10.2-beta.2: log exporter - core resource"
 Parameters:
   siemLogBucketName:
     Type: String
-    Default: aes-siem-111111111111-log
-    Description: Define S3 Bucket name which store logs to load SIEM. Replace 111111111111 to your AWS account
+    Default: aes-siem-[111111111111]-log
+    AllowedPattern: ^[0-9a-z\[\].-]+$
+    Description: Define S3 Bucket name which store logs to load SIEM. Replace [111111111111] to your AWS account
   roleNameCwlToKdf:
     Type: String
     Default: siem-role-cwl-to-firehose

@@ -1,0 +1,239 @@
+Description: "SIEM on Amazon OpenSearch Service v2.10.2-beta.2: log exporter - Apache"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Web Site Name
+        Parameters:
+          - WebSiteName
+      - Label:
+          default: CloudWatch Logs
+        Parameters:
+          - CwlApacheAccessName
+          - CwlApacheErrorName
+          - CwlApacheSslAccessName
+          - CwlApacheSslErrorName
+      - Label:
+          default: Amazon Kinesis Data Firehose
+        Parameters:
+          - KdfApacheAccessName
+          - KdfApacheErrorName
+          - KdfBufferSize
+          - KdfBufferInterval
+Parameters:
+  WebSiteName:
+    Type: String
+    Default: localsite
+    AllowedPattern: ^[0-9a-zA-Z._-]+$
+    Description: Define your site name. e.g. www.example.com
+  KdfApacheAccessName:
+    Type: String
+    Default: siem-apache-access-cwl-to-s3
+    Description: Define new Kinesis Data Firehose Name to deliver Apache Access CloudWatch Logs
+  KdfApacheErrorName:
+    Type: String
+    Default: siem-apache-error-cwl-to-s3
+    Description: Define new Kinesis Data Firehose Name to deliver Apache Error CloudWatch Logs
+  KdfBufferSize:
+    Type: Number
+    Default: 64
+    Description: Enter a buffer size between 64 - 128 (MiB)
+    MaxValue: 128
+    MinValue: 64
+  KdfBufferInterval:
+    Type: Number
+    Default: 60
+    Description: Enter a buffer interval between 60 - 900 (seconds.)
+    MaxValue: 900
+    MinValue: 60
+  CwlApacheAccessName:
+    Type: String
+    Default: /ec2/apache/access_log
+    Description: Specify CloudWatch Logs group name for access log. This field can be left blank
+  CwlApacheErrorName:
+    Type: String
+    Default: /ec2/apache/error_log
+    Description: Specify CloudWatch Logs group name for error log. This field can be left blank
+  CwlApacheSslAccessName:
+    Type: String
+    Default: /ec2/apache/ssl_access_log
+    Description: Specify CloudWatch Logs group name for SSL access log. This field can be left blank
+  CwlApacheSslErrorName:
+    Type: String
+    Default: /ec2/apache/ssl_error_log
+    Description: Specify CloudWatch Logs group name for SSL error log. This field can be left blank
+Conditions:
+  hasAccessLog:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: CwlApacheAccessName
+          - ""
+  hasErrorLog:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: CwlApacheErrorName
+          - ""
+  hasSslAccessLog:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: CwlApacheSslAccessName
+          - ""
+  hasSslErrorLog:
+    Fn::Not:
+      - Fn::Equals:
+          - Ref: CwlApacheSslErrorName
+          - ""
+  needsKdfAccess:
+    Fn::Or:
+      - Condition: hasAccessLog
+      - Condition: hasSslAccessLog
+  needsKdfError:
+    Fn::Or:
+      - Condition: hasErrorLog
+      - Condition: hasSslErrorLog
+Resources:
+  KdfApacheAccess:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: KdfApacheAccessName
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-cn:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name-v2
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: ErrorLogs/Apache/
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/aws-account-id=
+              - Ref: AWS::AccountId
+              - /service=apache-access/web-site-name=
+              - Ref: WebSiteName
+              - /aws-region=
+              - Ref: AWS::Region
+              - /year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-cn:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
+    Condition: needsKdfAccess
+  KdfApacheError:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: KdfApacheErrorName
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-cn:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name-v2
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: ErrorLogs/
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/aws-account-id=
+              - Ref: AWS::AccountId
+              - /service=apache-error/web-site-name=
+              - Ref: WebSiteName
+              - /aws-region=
+              - Ref: AWS::Region
+              - /year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-cn:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
+    Condition: needsKdfError
+  KinesisSubscriptionAccess:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::GetAtt:
+          - KdfApacheAccess
+          - Arn
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwlApacheAccessName
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-cn:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+    Condition: hasAccessLog
+  KinesisSubscriptionError:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::GetAtt:
+          - KdfApacheError
+          - Arn
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwlApacheErrorName
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-cn:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+    Condition: hasErrorLog
+  KinesisSubscriptionSslAccess:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::GetAtt:
+          - KdfApacheAccess
+          - Arn
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwlApacheSslAccessName
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-cn:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+    Condition: hasSslAccessLog
+  KinesisSubscriptionSslError:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::GetAtt:
+          - KdfApacheError
+          - Arn
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwlApacheSslErrorName
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-cn:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+    Condition: hasSslErrorLog
+

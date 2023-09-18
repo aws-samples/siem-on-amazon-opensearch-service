@@ -1,4 +1,4 @@
-Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1
+Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -136,22 +136,22 @@ Mappings:
       LambdaArch: arm64
     ap-south-2:
       ElbV2AccountId: '999999999999'
-      LambdaArch: x86_64
+      LambdaArch: arm64
     ap-southeast-4:
       ElbV2AccountId: '999999999999'
-      LambdaArch: x86_64
+      LambdaArch: arm64
     eu-central-2:
       ElbV2AccountId: '999999999999'
-      LambdaArch: x86_64
+      LambdaArch: arm64
     eu-south-2:
       ElbV2AccountId: '999999999999'
-      LambdaArch: x86_64
+      LambdaArch: arm64
     il-central-1:
       ElbV2AccountId: '999999999999'
-      LambdaArch: x86_64
+      LambdaArch: arm64
     me-central-1:
       ElbV2AccountId: '999999999999'
-      LambdaArch: x86_64
+      LambdaArch: arm64
 Parameters:
   DeploymentTarget:
     Type: String
@@ -307,25 +307,9 @@ Conditions:
       - !Ref 'AWS::Region'
       - cn-northwest-1
   HasLambdaArchitecturesProp: !Not
-    - !Or
-      - !Equals
-        - !Ref 'AWS::Region'
-        - ap-south-2
-      - !Equals
-        - !Ref 'AWS::Region'
-        - ap-southeast-4
-      - !Equals
-        - !Ref 'AWS::Region'
-        - eu-central-2
-      - !Equals
-        - !Ref 'AWS::Region'
-        - eu-south-2
-      - !Equals
-        - !Ref 'AWS::Region'
-        - il-central-1
-      - !Equals
-        - !Ref 'AWS::Region'
-        - me-central-1
+    - !Equals
+      - !Ref 'AWS::Region'
+      - ap-dummy-99
   IsServerless: !Equals
     - !Ref 'DeploymentTarget'
     - opensearch_serverless
@@ -438,7 +422,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / resource validator for deployment
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / resource validator for deployment
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -458,10 +442,10 @@ Resources:
       Timeout: 30
     DependsOn:
       - LambdaResourceValidatorServiceRole8BE4D6B0
-  LambdaResourceValidatorCurrentVersion1C9DB5C136344883beb86b939c1df35fcd08144c:
+  LambdaResourceValidatorCurrentVersion1C9DB5C127f40f99c2a43cdcd766a63b8cf8744d:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaResourceValidatorE0EF57CE'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -512,7 +496,7 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaResourceValidatorE0EF57CE.Arn'
-      ConfigVersion: 2.10.2-beta.1
+      ConfigVersion: 2.10.2-beta.2
       vpce: !Ref 'VpcEndpointId'
       DeploymentTarget: !Ref 'DeploymentTarget'
       BucketPolicyUpdate: !Ref 'LogBucketPolicyUpdate'
@@ -665,7 +649,7 @@ Resources:
       Bucket: !Ref 'S3BucketForLog20898FE4'
       PolicyDocument: !If
         - KeepLogBucketPolicy
-        - !Sub '${s3bucketpolicy15FD9DEDA.Parameter.Value}${s3bucketpolicy21E45697B.Parameter.Value}${s3bucketpolicy3A1928812.Parameter.Value}${s3bucketpolicy416563D71.Parameter.Value}${s3bucketpolicy50CFAB8F6.Parameter.Value}${s3bucketpolicy6CDE0535D.Parameter.Value}${s3bucketpolicy7DA6B2438.Parameter.Value}'
+        - !Sub '${s3bucketpolicy15FD9DEDA.Parameter.Value}${s3bucketpolicy21E45697B.Parameter.Value}${s3bucketpolicy3A1928812.Parameter.Value}${s3bucketpolicy416563D71.Parameter.Value}${s3bucketpolicy50CFAB8F6.Parameter.Value}${s3bucketpolicy6CDE0535D.Parameter.Value}${s3bucketpolicy7DA6B2438.Parameter.Value}${s3bucketpolicy8D93B955E.Parameter.Value}'
         - Statement:
             - Action: s3:*
               Condition:
@@ -769,9 +753,9 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy1","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy12.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy1","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy12.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      InstallLatestAwsSdk: true
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy1","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy1-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy1","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy1-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
       - s3bucketpolicy1CustomResourcePolicyFF310180
@@ -811,18 +795,19 @@ Resources:
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/aws_api_caller.zip'
       FunctionName: aes-siem-aws-api-caller
       Handler: index.handler
+      MemorySize: 256
       Role: !GetAtt 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2.Arn'
       Runtime: nodejs18.x
-      Timeout: 120
+      Timeout: 30
     DependsOn:
       - AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2
   s3bucketpolicy21E45697B:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy2","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy22.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy2","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy22.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      InstallLatestAwsSdk: true
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy2","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy2-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy2","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy2-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
       - s3bucketpolicy2CustomResourcePolicyFE3F6536
@@ -846,9 +831,9 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy3","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy32.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy3","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy32.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      InstallLatestAwsSdk: true
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy3","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy3-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy3","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy3-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
       - s3bucketpolicy3CustomResourcePolicyE5E99D27
@@ -872,9 +857,9 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy4","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy42.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy4","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy42.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      InstallLatestAwsSdk: true
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy4","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy4-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy4","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy4-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
       - s3bucketpolicy4CustomResourcePolicy96788499
@@ -898,9 +883,9 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy5","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy52.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy5","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy52.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      InstallLatestAwsSdk: true
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy5","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy5-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy5","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy5-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
       - s3bucketpolicy5CustomResourcePolicy730B91F1
@@ -924,9 +909,9 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy6","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy62.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy6","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy62.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      InstallLatestAwsSdk: true
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy6","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy6-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy6","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy6-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
       - s3bucketpolicy6CustomResourcePolicyFF335DCB
@@ -950,9 +935,9 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy7","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy72.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy7","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy72.10.2-beta.1${LogBucketPolicyUpdate}"}}'
-      InstallLatestAwsSdk: true
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy7","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy7-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy7","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy7-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
       - s3bucketpolicy7CustomResourcePolicy21A26A03
@@ -968,6 +953,32 @@ Resources:
             Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
         Version: '2012-10-17'
       PolicyName: s3bucketpolicy7CustomResourcePolicy21A26A03
+      Roles:
+        - !Ref 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2'
+    DependsOn:
+      - ExecCustomResourceValidator
+  s3bucketpolicy8D93B955E:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy8","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy8-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy8","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy8-2.10.2-beta.2-${LogBucketPolicyUpdate}"}}'
+      InstallLatestAwsSdk: false
+    DependsOn:
+      - ExecCustomResourceValidator
+      - s3bucketpolicy8CustomResourcePolicyB90BE56A
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  s3bucketpolicy8CustomResourcePolicyB90BE56A:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: ssm:GetParameter
+            Effect: Allow
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/siem/bucketpolicy/*'
+        Version: '2012-10-17'
+      PolicyName: s3bucketpolicy8CustomResourcePolicyB90BE56A
       Roles:
         - !Ref 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2'
     DependsOn:
@@ -1307,7 +1318,7 @@ Resources:
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip'
       DeadLetterConfig:
         TargetArn: !GetAtt 'AesSiemDlq1CD8439D.Arn'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / es-loader
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / es-loader
       Environment:
         Variables:
           AOSS_TYPE: !GetAtt 'AesSiemDomainDeployedR2.aoss_type'
@@ -1340,10 +1351,10 @@ Resources:
     DependsOn:
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
-  LambdaEsLoaderCurrentVersion9DFE69555d1ed9bc48594496166d793ed69f51db:
+  LambdaEsLoaderCurrentVersion9DFE6955e196e55fa0925b1b05159ada1f5d715b:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1427,7 +1438,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/add_pandas_layer.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / add-pandas-layer
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / add-pandas-layer
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1441,10 +1452,10 @@ Resources:
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-  LambdaAddPandasLayerCurrentVersion52D07543b66600b97d8079e96018bb37d3117006:
+  LambdaAddPandasLayerCurrentVersion52D075434f56ea6a63febd3858e82f7c52da3f4b:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaAddPandasLayer8F3F6957'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1452,11 +1463,11 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaAddPandasLayer8F3F6957.Arn'
-      ConfigVersion: 2.10.2-beta.1
+      ConfigVersion: 2.10.2-beta.2
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-      - LambdaEsLoaderCurrentVersion9DFE69555d1ed9bc48594496166d793ed69f51db
+      - LambdaEsLoaderCurrentVersion9DFE6955e196e55fa0925b1b05159ada1f5d715b
       - LambdaEsLoader4B1E2DD9
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
@@ -1502,7 +1513,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader_stopper.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / es-loader-stopper
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / es-loader-stopper
       Environment:
         Variables:
           AES_SIEM_ALERT_TOPIC_ARN: !Ref 'SnsTopic2C1570A4'
@@ -1518,10 +1529,10 @@ Resources:
     DependsOn:
       - LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
       - LambdaEsLoaderStopperServiceRole83AABC1A
-  LambdaEsLoaderStopperCurrentVersion312AA8507864b79fe4035f613498f577d11752de:
+  LambdaEsLoaderStopperCurrentVersion312AA8504fbb3fac27bc3c9ecce4da8c9b2a6afa:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaEsLoaderStopper35C1D57B'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1586,7 +1597,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/index_metrics_exporter.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / index-metrics-exporter
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / index-metrics-exporter
       Environment:
         Variables:
           COLLECTION_NAME: !Ref 'DomainOrCollectionName'
@@ -1609,10 +1620,10 @@ Resources:
     DependsOn:
       - LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
       - LambdaMetricsExporterServiceRoleDDE0BD95
-  LambdaMetricsExporterCurrentVersion79B0413Fb1c0667f4cb58cb25dc78a9f4ecee76f:
+  LambdaMetricsExporterCurrentVersion79B0413Fe4cfa0246f46841ceda84b8edf3b7604:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaMetricsExporter2737F589'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1680,7 +1691,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/geoip_downloader.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / geoip-downloader
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / geoip-downloader
       Environment:
         Variables:
           license_key: !Ref 'GeoLite2LicenseKey'
@@ -1695,10 +1706,10 @@ Resources:
     DependsOn:
       - LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65
       - LambdaGeoipDownloaderServiceRoleE37FB908
-  LambdaGeoipDownloaderCurrentVersion7F1CD34F3f45969639f065549bcfedf2f6cdf5b4:
+  LambdaGeoipDownloaderCurrentVersion7F1CD34F04b46a03187dbe3fbb719a3bea27e759:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaGeoipDownloaderA5EFF97E'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1775,7 +1786,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / ioc-plan
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / ioc-plan
       Environment:
         Variables:
           ABUSE_CH: !Ref 'EnableAbuseCh'
@@ -1793,10 +1804,10 @@ Resources:
     DependsOn:
       - LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE
       - LambdaIocPlanServiceRole6CDE7C5D
-  LambdaIocPlanCurrentVersion1BAA7B4C4b6cee7489ea7501fc42989c6c252c87:
+  LambdaIocPlanCurrentVersion1BAA7B4Ca382be9e5de956d5464511a094995ed6:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaIocPlan6E369BFB'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1854,7 +1865,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / ioc-download
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / ioc-download
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1869,10 +1880,10 @@ Resources:
     DependsOn:
       - LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942
       - LambdaIocDownloadServiceRoleEB9001C6
-  LambdaIocDownloadCurrentVersion48773E6B5de4d16dbc6fb428274ac040e5b95160:
+  LambdaIocDownloadCurrentVersion48773E6Bc5b94979e3030b2b45cae7a39e253b5e:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaIocDownload5519716E'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1925,7 +1936,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / ioc-createdb
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / ioc-createdb
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1939,10 +1950,10 @@ Resources:
     DependsOn:
       - LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4
       - LambdaIocCreatedbServiceRole555565C0
-  LambdaIocCreatedbCurrentVersionD9D04E9C52d3184160f81534f6e4391c02345454:
+  LambdaIocCreatedbCurrentVersionD9D04E9C6b612a8efa045d0e6fb90df42dc853b7:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaIocCreatedb04F35777'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -2194,7 +2205,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / opensearch domain deployment
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / opensearch domain deployment
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -2215,10 +2226,10 @@ Resources:
     DependsOn:
       - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaDeployAESCurrentVersion047915F10b11c218ec34b350ca9c38c3df0a4b0e:
+  LambdaDeployAESCurrentVersion047915F1e78374343448195ffc701bf3a1f17e63:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaDeployAES636B5079'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -2226,7 +2237,7 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaDeployAES636B5079.Arn'
-      ConfigVersion: 2.10.2-beta.1
+      ConfigVersion: 2.10.2-beta.2
       Target: !Ref 'DeploymentTarget'
       Name: !Ref 'DomainOrCollectionName'
       vpce: !Ref 'VpcEndpointId'
@@ -2246,7 +2257,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.1 / opensearch configuration
+      Description: SIEM on Amazon OpenSearch Service v2.10.2-beta.2 / opensearch configuration
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -2274,10 +2285,10 @@ Resources:
     DependsOn:
       - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaConfigureAESCurrentVersion65114768aed854f1f4209d2e13b5292dbf700ad1:
+  LambdaConfigureAESCurrentVersion65114768c8a59f57297ff85da8bd5572b7789bb9:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.2-beta.1
+      Description: 2.10.2-beta.2
       FunctionName: !Ref 'LambdaConfigureAESA0471961'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -2285,7 +2296,7 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaConfigureAESA0471961.Arn'
-      ConfigVersion: 2.10.2-beta.1
+      ConfigVersion: 2.10.2-beta.2
       Target: !Ref 'DeploymentTarget'
       Name: !Ref 'DomainOrCollectionName'
     DependsOn:
