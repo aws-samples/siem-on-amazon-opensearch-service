@@ -39,6 +39,7 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
 1. [コンピューティング](#8-コンピューティング)
     * [EC2 インスタンス (Amazon Linux 2/2023)](#ec2-インスタンス-amazon-linux-22023)
     * [EC2 インスタンス (Microsoft Windows Server 2012/2016/2019)](#EC2-インスタンス-Microsoft-Windows-Server-201220162019)
+    * [Apache Web Server on Amazon Linux](#apache-web-server-on-amazon-linux)
 1. [コンテナ](#9-コンテナ)
     * [Amazon ECS 対応 FireLens](#Amazon-ECS-対応-FireLens)
 1. [エンドユーザーコンピューティング](#10-エンドユーザーコンピューティング)
@@ -802,6 +803,7 @@ s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
 ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先の S3 バケットのプレフィックスに指定してください。リージョン情報はログに含まれていないので、S3 キーに含めることで取得することができます。OS のシステムログとして取り込んだ後にSecure ログとして分類する方法と、最初から Secure ログとして取り込む方法の2種類があります。前者はプロセス名から判断するので、確実に Secure ログを Secure ログとして取り込むためには後者を選択してください。一方で後者はログの出力先毎に Firehose をデプロイする必要があります。
 
 1. IAM ロールを作成して EC2 インスタンスにアタッチします
+
     EC2 インスタンスからパラメーターストアに設定ファイルの読み書きをして、CloudWatch Logs にログを転送するために、IAM ロールを作成して EC2 インスタンスにアタッチします
 
     必要な権限:
@@ -826,6 +828,7 @@ s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
     参考: [CloudWatch エージェントのインストール](https://docs.aws.amazon.com/ja_jp/AmazonCloudWatch/latest/monitoring/install-CloudWatch-Agent-on-EC2-Instance.html)
 
 1. CloudWatch Agent の設定ファイルを作成します
+
     手順は、CloudWatch Logs にログを転送する設定例です。入力値は、Cloud Watch Metrics 等の設定も含めて適宜変更してください。設定は AWS Systems Manager パラメーターストアに保存します。2 台目以降の EC2 インスタンスはパラメーターストアに保存された設定ファイルを利用するので、このステップは不要です。
 
     ```sh
@@ -907,7 +910,7 @@ s3_key の初期値: `[Ll]inux.?[Ss]ecure` (Firehose の出力パスに指定)
     sudo systemctl start amazon-cloudwatch-agent
     sudo systemctl enable amazon-cloudwatch-agent
     # 設定が 2 回目以降は
-    # sudo systemctl restart amazon-cloudwatch-agent
+    sudo systemctl restart amazon-cloudwatch-agent
     ```
 
 1. CloudWatch Logs のサブスクリプションで Firehose に出力し、Firehose の出力先に S3 バケットを選択します
@@ -944,6 +947,120 @@ s3_key の初期値: `/[Ww]indows.*[Ee]vent` (Firehose の出力パスに指定)
         * Firehose を作成してから S3 バケットに出力します。
         * 出力するプレフィックス: [**AWSLogs/123456789012/EC/Windows/Event/[region]/**]
             * 123456789012 は ご利用の AWS アカウント ID に置換してください
+
+### Apache Web Server on Amazon Linux
+
+![Amazon Linux 2 to S3](images/al2-to-s3.jpg)
+
+Amazon Linxu 2023 または Amazon Linxu2 にインストールした Apache の Common Log Format (CLF)、Combined Log Format (combined)、combinedio のログを取り込むことができます。
+
+Apache access log
+s3_key の初期値: `[Aa]pache.*[Aa]ccess/`  (Firehose の出力パスに指定)
+
+Apache error log
+s3_key の初期値: `[Aa]pache.*[Ee]rror/`  (Firehose の出力パスに指定)
+
+ログ出力は Kinesis Data Firehose 経由となり、標準の保存パスがないので上記の s3_key を Kinesis Data Firehose の出力先の S3 バケットのプレフィックスに指定してください。リージョン情報はログに含まれていないので、S3 キーに含めることで取得することができます。
+
+EC2 インスタンスから S3 バケットにログを出力する設定例です。複数の Web サイト (例: blog.example.net, shop.example.com 等) のログを集約する場合は、Web サイト毎に CloudFormaiton を実行して、異なったリソース名の CloudWatch Logs、Kinesis Firehose を作成してください
+
+1. IAM ロールを作成して EC2 インスタンスにアタッチします
+
+    [EC2 インスタンス (Amazon Linux 2/2023)](#ec2-インスタンス-amazon-linux-22023) を参照してください
+
+1. Apache Web Server をインストールしてください
+
+    Amazon CloudFront や Elastic Load Balancer (ELB) を経由している場合は、Apache の設定ファイルを変更することで、CloudFront や ELB ではなく、実際の送信元アドレスを記録して、分析することができます
+
+1. CloudWatch Agent の設定ファイルを作成します
+
+    手順は、CloudWatch Logs にログを転送する設定例です。入力値は、Cloud Watch Metrics 等の設定も含めて適宜変更してください。設定は AWS Systems Manager パラメーターストアに保存します。2 台目以降の EC2 インスタンスはパラメーターストアに保存された設定ファイルを利用するので、このステップは不要です。Linux の OS のログも転送する場合は、[EC2 インスタンス (Amazon Linux 2/2023)](#ec2-インスタンス-amazon-linux-22023) を参照して組み合わせてください
+
+    ```sh
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-config-wizard
+    ```
+
+    ```text
+    (前半は省略)
+
+    Do you want to monitor any log files?
+    1. yes
+    2. no
+    default choice: [1]:
+    [改行]
+
+    Log file path:
+    /var/log/httpd/access_log[改行]
+
+    Log group name:
+    default choice: [messages]
+    /ec2/Apache/access_log[改行]
+
+    Log stream name:
+    default choice: [{instance_id}]
+    [改行]
+
+    Log Group Retention in days
+    default choice: [1]:
+    [改行]
+    ```
+
+    以下の通り、必要なログを設定してください。
+
+    | Log file path | Log group name |
+    |---------------|----------------|
+    | /var/log/httpd/access_log     | /ec2/apache/access_log     |
+    | /var/log/httpd/error_log      | /ec2/apache/error_log      |
+    | /var/log/httpd/ssl_access_log | /ec2/apache/ssl_access_log |
+    | /var/log/httpd/ssl_error_log  | /ec2/apache/ssl_error_log  |
+
+    ```text
+    Do you want to specify any additional log files to monitor?
+    1. yes
+    2. no
+    default choice: [1]:
+    2[改行]
+
+    Do you want to store the config in the SSM parameter store?
+    1. yes
+    2. no
+    default choice: [1]:
+    [改行]
+
+    What parameter store name do you want to use to store your config? (Use 'AmazonCloudWatch-' prefix if you use our managed AWS policy)
+    default choice: [AmazonCloudWatch-linux]
+    AmazonCloudWatch-apache[改行]
+
+    (省略)
+    ```
+
+    参考: [CloudWatch エージェント設定ファイルを作成する](https://docs.aws.amazon.com/ja_jp/AmazonCloudWatch/latest/monitoring/create-cloudwatch-agent-configuration-file.html)
+
+1. CloudWatch Logs にログを転送します
+
+    パラメーターストアに保存された設定ファイルを利用します
+
+    ```sh
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c ssm:AmazonCloudWatch-apache
+    sudo systemctl start amazon-cloudwatch-agent
+    sudo systemctl enable amazon-cloudwatch-agent
+    # 設定が 2 回目以降は
+    sudo systemctl restart amazon-cloudwatch-agent
+    ```
+
+1. CloudWatch Logs のサブスクリプションで Firehose に出力し、Firehose の出力先に S3 バケットを選択します
+
+    | No | CloudFormation | 説明 |
+    |----------|----------------|---------------|
+    | 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.1/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.1/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+    | 2 |[![apache](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-apache&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.1/log-exporter/siem-log-exporter-apache-cwl.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.1/log-exporter/siem-log-exporter-apache-cwl.template) | 2つの Firehose を作成。CloudWatch Logs subscription filters を設定して CloudWatch Logs を Firehose に配信し、Firehose 経由で S3 バケットに Apache のログを出力します。|
+
+    S3 バケットの出力先:
+    * [ **AWSLogs/aws-account-id=123456789012/service=apache-access/web-site-name=[sitename]/aws-region=[region]/** ]
+    * [ **AWSLogs/aws-account-id=123456789012/service=apache-error/web-site-name=[sitename]/aws-region=[region]/** ]
+        * 123456789012 は ご利用の AWS アカウント ID に置換されます
+
+以上で設定完了です。
 
 ## 9. コンテナ
 

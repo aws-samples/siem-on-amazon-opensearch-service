@@ -906,6 +906,209 @@ class LinuxCWLogsExporterStack(MyStack):
         subscription_of_secure_logs.cfn_options.condition = has_secure_logs
 
 
+class ApacheCWLogsExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
+        role_name_cwl_to_kdf = cdk.Fn.import_value(
+            'siem-cwl-to-kdf-role-name-v2')
+        role_name_kdf_to_s3 = cdk.Fn.import_value(
+            'siem-kdf-to-s3-role-name-v2')
+
+        web_site_name = cdk.CfnParameter(
+            self, 'WebSiteName',
+            description=('Define your site name. e.g. www.example.com'),
+            allowed_pattern=r'^[0-9a-zA-Z._-]+$',
+            default='localsite')
+        kdf_apache_access_name = cdk.CfnParameter(
+            self, 'KdfApacheAccessName',
+            description=('Define new Kinesis Data Firehose Name '
+                         'to deliver Apache Access CloudWatch Logs'),
+            default='siem-apache-access-cwl-to-s3')
+        kdf_apache_error_name = cdk.CfnParameter(
+            self, 'KdfApacheErrorName',
+            description=('Define new Kinesis Data Firehose Name '
+                         'to deliver Apache Error CloudWatch Logs'),
+            default='siem-apache-error-cwl-to-s3')
+        kdf_buffer_size = cdk.CfnParameter(
+            self, 'KdfBufferSize', type='Number',
+            description='Enter a buffer size between 64 - 128 (MiB)',
+            default=64, min_value=64, max_value=128)
+        kdf_buffer_interval = cdk.CfnParameter(
+            self, 'KdfBufferInterval', type='Number',
+            description='Enter a buffer interval between 60 - 900 (seconds.)',
+            default=60, min_value=60, max_value=900)
+        cwl_apache_access_name = cdk.CfnParameter(
+            self, 'CwlApacheAccessName',
+            description=('Specify CloudWatch Logs group name for '
+                         'access log. '
+                         'This field can be left blank'),
+            default='/ec2/apache/access_log')
+        cwl_apache_error_name = cdk.CfnParameter(
+            self, 'CwlApacheErrorName',
+            description=('Specify CloudWatch Logs group name for '
+                         'error log. '
+                         'This field can be left blank'),
+            default='/ec2/apache/error_log')
+        cwl_apache_ssl_access_name = cdk.CfnParameter(
+            self, 'CwlApacheSslAccessName',
+            description=('Specify CloudWatch Logs group name for '
+                         'SSL access log. '
+                         'This field can be left blank'),
+            default='/ec2/apache/ssl_access_log')
+        cwl_apache_ssl_error_name = cdk.CfnParameter(
+            self, 'CwlApacheSslErrorName',
+            description=('Specify CloudWatch Logs group name for '
+                         'SSL error log. '
+                         'This field can be left blank'),
+            default='/ec2/apache/ssl_error_log')
+
+        self.template_options.metadata = {
+            'AWS::CloudFormation::Interface': {
+                'ParameterGroups': [
+                    {'Label': {'default': 'Web Site Name'},
+                     'Parameters': [web_site_name.logical_id]},
+                    {'Label': {'default': 'CloudWatch Logs'},
+                     'Parameters': [cwl_apache_access_name.logical_id,
+                                    cwl_apache_error_name.logical_id,
+                                    cwl_apache_ssl_access_name.logical_id,
+                                    cwl_apache_ssl_error_name.logical_id]},
+                    {'Label': {'default': 'Amazon Kinesis Data Firehose'},
+                     'Parameters': [kdf_apache_access_name.logical_id,
+                                    kdf_apache_error_name.logical_id,
+                                    kdf_buffer_size.logical_id,
+                                    kdf_buffer_interval.logical_id]}
+                ]
+            }
+        }
+
+        has_access_log = cdk.CfnCondition(
+            self, "hasAccessLog",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_equals(
+                    cwl_apache_access_name.value_as_string, '')
+            )
+        )
+        has_error_log = cdk.CfnCondition(
+            self, "hasErrorLog",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_equals(
+                    cwl_apache_error_name.value_as_string, '')
+            )
+        )
+        has_ssl_access_log = cdk.CfnCondition(
+            self, "hasSslAccessLog",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_equals(
+                    cwl_apache_ssl_access_name.value_as_string, '')
+            )
+        )
+        has_ssl_error_log = cdk.CfnCondition(
+            self, "hasSslErrorLog",
+            expression=cdk.Fn.condition_not(
+                cdk.Fn.condition_equals(
+                    cwl_apache_ssl_error_name.value_as_string, '')
+            )
+        )
+
+        needs_kdf_access = cdk.CfnCondition(
+            self, "needsKdfAccess",
+            expression=cdk.Fn.condition_or(
+                has_access_log,
+                has_ssl_access_log
+            )
+        )
+        needs_kdf_error = cdk.CfnCondition(
+            self, "needsKdfError",
+            expression=cdk.Fn.condition_or(
+                has_error_log,
+                has_ssl_error_log
+            )
+        )
+
+        kdf_apache_access_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "KdfApacheAccess",
+            delivery_stream_name=kdf_apache_access_name.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
+                error_output_prefix="ErrorLogs/Apache/",
+                prefix=(f'AWSLogs/aws-account-id={cdk.Aws.ACCOUNT_ID}'
+                        '/service=apache-access'
+                        f'/web-site-name={web_site_name.value_as_string}'
+                        f'/aws-region={cdk.Aws.REGION}'
+                        r'/year=!{timestamp:yyyy}/month=!{timestamp:MM}'
+                        r'/day=!{timestamp:dd}/'),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}'),
+            )
+        )
+        kdf_apache_access_to_s3.cfn_options.condition = needs_kdf_access
+
+        kdf_apache_error_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "KdfApacheError",
+            delivery_stream_name=kdf_apache_error_name.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
+                error_output_prefix="ErrorLogs/",
+                prefix=(f'AWSLogs/aws-account-id={cdk.Aws.ACCOUNT_ID}'
+                        '/service=apache-error'
+                        f'/web-site-name={web_site_name.value_as_string}'
+                        f'/aws-region={cdk.Aws.REGION}'
+                        r'/year=!{timestamp:yyyy}/month=!{timestamp:MM}'
+                        r'/day=!{timestamp:dd}/'),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}'),
+            )
+        )
+        kdf_apache_error_to_s3.cfn_options.condition = needs_kdf_error
+
+        sub_access_log = aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscriptionAccess',
+            destination_arn=kdf_apache_access_to_s3.attr_arn,
+            log_group_name=cwl_apache_access_name.value_as_string,
+            filter_pattern='',
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}')
+        )
+        sub_access_log.cfn_options.condition = has_access_log
+        sub_error_log = aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscriptionError',
+            destination_arn=kdf_apache_error_to_s3.attr_arn,
+            log_group_name=cwl_apache_error_name.value_as_string,
+            filter_pattern='',
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}')
+        )
+        sub_error_log.cfn_options.condition = has_error_log
+        sub_ssl_access_log = aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscriptionSslAccess',
+            destination_arn=kdf_apache_access_to_s3.attr_arn,
+            log_group_name=cwl_apache_ssl_access_name.value_as_string,
+            filter_pattern='',
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}')
+        )
+        sub_ssl_access_log.cfn_options.condition = has_ssl_access_log
+        sub_ssl_error_log = aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscriptionSslError',
+            destination_arn=kdf_apache_error_to_s3.attr_arn,
+            log_group_name=cwl_apache_ssl_error_name.value_as_string,
+            filter_pattern='',
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}')
+        )
+        sub_ssl_error_log.cfn_options.condition = has_ssl_error_log
+
+
 class ClientVpnLogExporterStack(MyStack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)

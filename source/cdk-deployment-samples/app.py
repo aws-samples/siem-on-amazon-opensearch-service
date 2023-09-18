@@ -12,6 +12,7 @@ import aws_cdk as cdk
 
 from deployment_samples.deployment_samples_stack import (
     ADLogExporterStack,
+    ApacheCWLogsExporterStack,
     ClientVpnLogExporterStack,
     CloudHsmCWLogsExporterStack,
     ControlTowerIntegrationStack,
@@ -61,6 +62,10 @@ linux_logging = LinuxCWLogsExporterStack(
     app, "siem-log-exporter-linux-cwl",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - Linux'))
+apache_logging = ApacheCWLogsExporterStack(
+    app, "siem-log-exporter-apache-cwl",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - Apache'))
 clientvpn_logging = ClientVpnLogExporterStack(
     app, "siem-log-exporter-clientvpn",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
