@@ -317,6 +317,19 @@ class MyAesSiemStack(cdk.Stack):
                          " and input the key. "
                          "The license is a string of 16 or 40 digits"))
 
+        trusted_proxy_list = cdk.CfnParameter(
+            self, 'TrustedProxyIpList',
+            allowed_pattern=r'(|[0-9a-fA-F./\s:,]*)',
+            default='127.0.0.1/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16',
+            description=("(Optional) "
+                         "Specify IP addresses or network addresses of "
+                         "trusted Elastic Load Balancing (ELB)/ "
+                         "Contents Delivery Service (CDN)/ Proxy server "
+                         "other than Amazon CloudFront and AWS Global "
+                         "Accelerator. Once entered, this SIEM solution will "
+                         "perform an X-Forwarded-For analysis of web access "
+                         "logs and select the client's IP address."))
+
         reserved_concurrency = cdk.CfnParameter(
             self, 'ReservedConcurrency', default=10, type='Number',
             description=('Input lambda reserved concurrency for es-loader. '
@@ -463,6 +476,7 @@ class MyAesSiemStack(cdk.Stack):
                                     reserved_concurrency.logical_id]},
                     {'Label': {'default': 'Log Enrichment - optional'},
                      'Parameters': [geoip_license_key.logical_id,
+                                    trusted_proxy_list.logical_id,
                                     otx_api_key.logical_id,
                                     enable_tor.logical_id,
                                     enable_abuse_ch.logical_id,
@@ -498,6 +512,7 @@ class MyAesSiemStack(cdk.Stack):
             'allow_source_address': allow_source_address,
             'sns_email': sns_email,
             'geoip_license_key': geoip_license_key,
+            'trusted_proxy_list': trusted_proxy_list,
             'reserved_concurrency': reserved_concurrency,
             'otx_api_key': otx_api_key,
             'enable_tor': enable_tor,
@@ -601,12 +616,7 @@ class MyAesSiemStack(cdk.Stack):
             expression=cdk.Fn.condition_not(
                 cdk.Fn.condition_or(
                     cdk.Fn.condition_equals(cdk.Aws.REGION, 'ap-dummy-99'),
-                    #cdk.Fn.condition_equals(cdk.Aws.REGION, 'ap-south-2'),
-                    #cdk.Fn.condition_equals(cdk.Aws.REGION, 'ap-southeast-4'),
-                    #cdk.Fn.condition_equals(cdk.Aws.REGION, 'eu-central-2'),
-                    #cdk.Fn.condition_equals(cdk.Aws.REGION, 'eu-south-2'),
-                    #cdk.Fn.condition_equals(cdk.Aws.REGION, 'il-central-1'),
-                    #cdk.Fn.condition_equals(cdk.Aws.REGION, 'me-central-1'),
+                    # cdk.Fn.condition_equals(cdk.Aws.REGION, 'il-central-1'),
                 )
             )
         )
@@ -641,9 +651,13 @@ class MyAesSiemStack(cdk.Stack):
 
         has_geoip_license = cdk.CfnCondition(
             self, "HasGeoipLicense",
-            expression=cdk.Fn.condition_not(
-                cdk.Fn.condition_equals(
-                    geoip_license_key.value_as_string, '')
+            expression=cdk.Fn.condition_or(
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        geoip_license_key.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        trusted_proxy_list.value_as_string, '')),
             )
         )
 

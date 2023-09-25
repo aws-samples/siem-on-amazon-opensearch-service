@@ -491,12 +491,13 @@ class LogParser:
     フィールドのECSへの統一、最後にJSON化、する
     """
     def __init__(self, logfile, logconfig, sf_module, geodb_instance,
-                 ioc_instance):
+                 ioc_instance, xff_instance):
         self.logfile = logfile
         self.logconfig = logconfig
         self.sf_module = sf_module
         self.geodb_instance = geodb_instance
         self.ioc_instance = ioc_instance
+        self.xff_instance = xff_instance
 
         self.logtype = logfile.logtype
         self.s3key = logfile.s3key
@@ -860,6 +861,25 @@ class LogParser:
 
     def enrich(self):
         enrich_dict = {}
+
+        # select client ip from X-Forwarded-For
+        clientip_xff = self.logconfig['clientip_xff']
+        if len(clientip_xff) == 2 and self.xff_instance.is_enabled:
+            key_clientip = clientip_xff[0]
+            key_xff = clientip_xff[1]
+
+            xff = utils.value_from_nesteddict_by_dottedkey(
+                self.__logdata_dict, key_xff)
+            if xff and len(xff) > 0:
+                sourceip = utils.value_from_nesteddict_by_dottedkey(
+                    self.__logdata_dict, key_clientip)
+                clientip = self.xff_instance.select_clientip_from_xff(
+                    sourceip, xff)
+                if clientip and (sourceip != clientip):
+                    temp_dict = utils.put_value_into_nesteddict(
+                        key_clientip, clientip)
+                    self.__logdata_dict = utils.merge_dicts(
+                        self.__logdata_dict, temp_dict)
 
         # geoip
         geoip_list = self.logconfig['geoip'].split()

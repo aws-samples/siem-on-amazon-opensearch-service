@@ -31,6 +31,7 @@ class Enrichment(object):
         self.same_lambda_func_version = same_lambda_func_version
 
         self.geoip_license_key = cfn_parameters_dict['geoip_license_key']
+        self.trusted_proxy_list = cfn_parameters_dict['trusted_proxy_list']
         self.ioc_download_interval = (
             cfn_parameters_dict['ioc_download_interval'])
         self.enable_tor = cfn_parameters_dict['enable_tor']
@@ -60,6 +61,7 @@ class Enrichment(object):
             environment={
                 's3bucket_name': self.s3bucket_name_geo,
                 'license_key': self.geoip_license_key.value_as_string,
+                'TRUSTED_PROXY_LIST': self.trusted_proxy_list.value_as_string,
             },
             current_version_options=aws_lambda.VersionOptions(
                 removal_policy=cdk.RemovalPolicy.RETAIN,

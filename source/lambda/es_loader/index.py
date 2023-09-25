@@ -23,7 +23,7 @@ from aws_lambda_powertools.metrics import MetricUnit
 from opensearchpy import AuthenticationException, AuthorizationException
 
 import siem
-from siem import geodb, ioc, utils
+from siem import geodb, ioc, utils, xff
 
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
 logger.info(f'version: {__version__}')
@@ -142,7 +142,8 @@ def create_logconfig(logtype):
                 'ignore_header_line_number']
     type_bool = ['via_cwl', 'via_firelens', 'ignore_container_stderr',
                  'timestamp_nano']
-    type_list = ['base.tags', 'container.image.tag', 'dns.answers',
+    type_list = ['base.tags', 'clientip_xff', 'container.image.tag',
+                 'dns.answers',
                  'dns.header_flags', 'dns.resolved_ip', 'dns.type',
                  'ecs', 'static_ecs',
                  'event.category', 'event.type', 'file.attributes',
@@ -212,7 +213,8 @@ def get_es_entries(logfile):
     sf_module = utils.load_sf_module(logfile, logconfig, user_libs_list)
 
     logparser = siem.LogParser(
-        logfile, logconfig, sf_module, geodb_instance, ioc_instance)
+        logfile, logconfig, sf_module, geodb_instance, ioc_instance,
+        xff_instance)
     for lograw, logdata, logmeta in logfile:
         logparser(lograw, logdata, logmeta)
         if logparser.is_ignored:
@@ -455,6 +457,7 @@ security_lake_s3_client = utils.get_s3_client_for_crosss_account(
 
 geodb_instance = geodb.GeoDB(s3_session_config)
 ioc_instance = ioc.DB(s3_session_config)
+xff_instance = xff.DB(s3_session_config)
 utils.show_local_dir()
 
 
