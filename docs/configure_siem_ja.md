@@ -275,24 +275,27 @@ CloudTrail で、{'userIdentity': {'invokedBy': '*.amazonaws.com'}} と一致し
 
 複数のパラメータをそれぞれ設定することで、それら複数条件の OR として除外処理をします。`expression` の値は以下の例のように [JMESPath](https://github.com/jmespath/jmespath.py) に準拠した条件式を文字列で設定します (詳細は [JMESPath ドキュメント](https://jmespath.org/specification.html)を参照ください)。
 
-
 AND 条件
-```
+
+```ini
 field1==`value1` && field2==`value2`
 ```
 
 OR 条件
-```
+
+```ini
 field1==`value1` || field2==`value2`
 ```
 
 NOT 条件
-```
+
+```ini
 !(field1==`value1`)
 ```
 
 組み合わせた条件
-```
+
+```ini
 (field1==`value1` || field2==`value2`) && field3==`value3`
 ```
 
@@ -495,8 +498,8 @@ Multi-AZ with Standby は、99.99% の可用性、プロダクションワーク
 
 AWS 以外のログをログ用 S3 バケットにエクスポートすることで SIEM on OpenSearch Service に取り込むことができます。S3 へのエクスポートは Logstash や Fluentd のプラグインを使う方法があります。
 
-対応ファイル形式: JSON、CSV、テキスト、複数行テキスト、CEF、Parquet
-対応圧縮形式: gzip、bzip2、zip、無圧縮
+* 対応ファイル形式: JSON、CSV、テキスト、複数行テキスト、CEF、Parquet
+* 対応圧縮形式: gzip、bzip2、zip、無圧縮
 
 設定の基本的な流れを、Apache HTTP Server のログを例にして説明します
 

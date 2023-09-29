@@ -6,45 +6,45 @@ On this page, we’ll walk you through how to load logs from each AWS service in
 
 ## Table of contents
 
-1. [Common Configurations](#1-Common-Configurations)
-1. [Security, Identity, & Compliance](#2-Security-Identity--Compliance)
-    * [Amazon GuardDuty](#Amazon-GuardDuty)
-    * [Amazon Inspector](#Amazon-Inspector)
-    * [AWS CloudHSM](#AWS-CloudHSM)
-    * [AWS Directory Service](#AWS-Directory-Service)
-    * [AWS WAF](#AWS-WAF)
-    * [AWS Security Hub](#AWS-Security-Hub)
-    * [AWS Network Firewall](#AWS-Network-Firewall)
-1. [Management & Governance](#3-Management--Governance)
-    * [AWS CloudTrail](#AWS-CloudTrail)
-    * [AWS Config](#AWS-Config)
-    * [AWS Trusted Advisor](#AWS-Trusted-Advisor)
-1. [Networking & Content Delivery](#4-Networking--Content-Delivery)
-    * [Amazon CloudFront](#Amazon-CloudFront)
-    * [Route 53 Resolver VPC DNS Query Logging](#Route-53-Resolver-VPC-DNS-Query-Logging)
-    * [Amazon Virtual Private Cloud (Amazon VPC) Flow Logs](#Amazon-VPC-Flow-Logs)
-    * [AWS Transit Gateway](#AWS-Transit-Gateway)
-    * [Elastic Load Balancing (ELB)](#Elastic-Load-Balancing-ELB)
-1. [Storage](#5-Storage)
-    * [Amazon FSx for Windows File Server audit log](#Amazon-FSx-for-Windows-File-Server-audit-log)
-    * [Amazon Simple Storage Service (Amazon S3) access logs](#Amazon-S3-access-logs)
-1. [Database](#6-Database)
-    * [RDS (Aurora MySQL / MySQL / MariaDB)](#RDS-Aurora-MySQL--MySQL--MariaDB-Experimental-Support)
-    * [RDS (Aurora PostgreSQL / PostgreSQL)](#RDS-Aurora-PostgreSQL--PostgreSQL-Experimental-Support)
-    * [Amazon ElastiCache for Redis](#Amazon-ElastiCache-for-Redis)
-1. [Analytics](#7-Analytics)
-    * [Amazon OpenSearch Service](#Amazon-OpenSearch-Service)
-    * [Amazon Managed Streaming for Apache Kafka (Amazon MSK)](#Amazon-MSK)
-1. [Compute](#8-Compute)
+1. [Common Configurations](#1-common-configurations)
+1. [Security, Identity, & Compliance](#2-security-identity--compliance)
+    * [Amazon GuardDuty](#amazon-guardduty)
+    * [Amazon Inspector](#amazon-inspector)
+    * [AWS CloudHSM](#aws-cloudhsm)
+    * [AWS Directory Service](#aws-directory-service)
+    * [AWS WAF](#aws-waf)
+    * [AWS Security Hub](#aws-security-hub)
+    * [AWS Network Firewall](#aws-network-firewall)
+1. [Management & Governance](#3-management--governance)
+    * [AWS CloudTrail](#aws-cloudtrail)
+    * [AWS Config](#aws-config)
+    * [AWS Trusted Advisor](#aws-trusted-advisor)
+1. [Networking & Content Delivery](#4-networking--content-delivery)
+    * [Amazon CloudFront](#amazon-cloudfront)
+    * [Route 53 Resolver VPC DNS Query Logging](#route-53-resolver-vpc-dns-query-logging)
+    * [Amazon Virtual Private Cloud (Amazon VPC) Flow Logs](#amazon-vpc-flow-logs)
+    * [AWS Transit Gateway](#aws-transit-gateway)
+    * [Elastic Load Balancing (ELB)](#elastic-load-balancing-elb)
+1. [Storage](#5-storage)
+    * [Amazon FSx for Windows File Server audit log](#amazon-fsx-for-windows-file-server-audit-log)
+    * [Amazon Simple Storage Service (Amazon S3) access logs](#amazon-s3-access-logs)
+1. [Database](#6-database)
+    * [RDS (Aurora MySQL / MySQL / MariaDB)](#rds-aurora-mysql--mysql--mariadb-experimental-support)
+    * [RDS (Aurora PostgreSQL / PostgreSQL)](#rds-aurora-postgresql--postgresql-experimental-support)
+    * [Amazon ElastiCache for Redis](#amazon-elasticache-for-redis)
+1. [Analytics](#7-analytics)
+    * [Amazon OpenSearch Service](#amazon-opensearch-service)
+    * [Amazon Managed Streaming for Apache Kafka (Amazon MSK)](#amazon-msk)
+1. [Compute](#8-compute)
     * [EC2 Instance (Amazon Linux 2/2023)](#ec2-instance-amazon-linux-22023)
-    * [EC2 Instance (Microsoft Windows Server 2012/2016/2019)](#EC2-Instance-Microsoft-Windows-Server-201220162019)
+    * [EC2 Instance (Microsoft Windows Server 2012/2016/2019)](#ec2-instance-microsoft-windows-server-201220162019)
     * [Apache Web Server on Amazon Linux](#apache-web-server-on-amazon-linux)
-1. [Containers](#9-Containers)
-    * [FireLens for Amazon ECS](#FireLens-for-Amazon-ECS)
-1. [End User Computing](#10End-User-Computing)
-    * [Amazon WorkSpaces](#Amazon-WorkSpaces)
-1. [Multiple regions / multiple accounts](#11-Multiple-regions--multiple-accounts)
-1. [Loading logs from an existing S3 bucket](#12-Loading-logs-from-an-existing-S3-bucket)
+1. [Containers](#9-containers)
+    * [FireLens for Amazon ECS](#firelens-for-amazon-ecs)
+1. [End User Computing](#10-end-user-computing)
+    * [Amazon WorkSpaces](#amazon-workspaces)
+1. [Multiple regions / multiple accounts](#11-multiple-regions--multiple-accounts)
+1. [Loading logs from an existing S3 bucket](#12-loading-logs-from-an-existing-s3-bucket)
 
 ## 1. Common Configurations
 
@@ -70,13 +70,13 @@ The initial value of s3_key: `GuardDuty` (part of the default output path)
 1. Scroll to [Findings export options] panel
 1. Frequency for updated findings: Choose [**Update CWE and S3 every 15 minutes**] and then choose [**Save**] (recommended)
 1. Choose [**Configure now**] for S3 bucket and enter the following parameters:
-   * Check [**Existing bucket  In your account**]
-   * Choose a bucket: Choose [**aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * Log file prefix: Leave blank
-   * KMS encryption: Check [**Choose key from your account**]
-   * Key alias: Choose [**aes-siem-key**]
-   * Choose [**Save**]
+    * Check [**Existing bucket  In your account**]
+    * Choose a bucket: Choose [**aes-siem-123456789012-log**]
+        * Replace 123456789012 with your AWS account ID
+    * Log file prefix: Leave blank
+    * KMS encryption: Check [**Choose key from your account**]
+    * Key alias: Choose [**aes-siem-key**]
+    * Choose [**Save**]
 
 Configuration is now complete. Choose [**Generate sample findings**] on the same settings screen to verify that loading into SIEM on OpenSearch Service has been successfully set up.
 
@@ -114,8 +114,8 @@ The initial value of s3_key : `/DirectoryService/MicrosoftAD/` (specified in the
 
 1. Navigate to the [Directory Service Console](https://console.aws.amazon.com/directoryservicev2/home?) and forward log to CloudWatch Logs.
 1. Configure with CloudFormation
-    * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.10.2-beta.2/deployment/log-exporter/siem-log-exporter-core.template)
-    * [siem-log-exporter-ad.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.10.2-beta.2/deployment/log-exporter/siem-log-exporter-ad.template)
+     * [siem-log-exporter-core.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.10.2-beta.2/deployment/log-exporter/siem-log-exporter-core.template)
+     * [siem-log-exporter-ad.template](https://raw.githubusercontent.com/aws-samples/siem-on-amazon-opensearch-service/v2.10.2-beta.2/deployment/log-exporter/siem-log-exporter-ad.template)
 
 ### AWS WAF
 
@@ -142,26 +142,26 @@ First, deploy Kinesis Data Firehose
 1. Navigate to [](https://console.aws.amazon.com/kinesis/home?)the Amazon Kinesis console and select the **region where AWS WAF was deployed**
 1. Choose [**Delivery streams**] from the left pane => [**Create delivery stream**]
 1. On the [New delivery stream] screen, enter the following parameters:
-   * Delivery stream name: Enter [**aws-waf-logs-XXXX(any name)**]
-   * Source: Check [**Direct PUT or other sources**]
-   * Choose [**Next**]
+    * Delivery stream name: Enter [**aws-waf-logs-XXXX(any name)**]
+    * Source: Check [**Direct PUT or other sources**]
+    * Choose [**Next**]
 1. On the [Process records] screen, choose the following parameters:
-   * Data transformation: [**Disabled**]
-   * Record format conversion: [**Disabled**]
-   * Choose [**Next**]
+    * Data transformation: [**Disabled**]
+    * Record format conversion: [**Disabled**]
+    * Choose [**Next**]
 1. On the [Choose a destination] screen, choose/enter the following parameters:
-   * Destination: [**Amazon S3**]
-   * S3 bucket: [**aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * S3 prefix: Enter [**AWSLogs/123456789012/WAF/region/**]
-   * S3 error prefix: Enter [**AWSLogs/123456789012/WAF/region/error/**]
-      * Replace 123456789012 with your AWS account and ap-northeast-1 with your region. If the resource to which you attach WAF is CloudFront, set the region to **global**
+    * Destination: [**Amazon S3**]
+    * S3 bucket: [**aes-siem-123456789012-log**]
+        * Replace 123456789012 with your AWS account ID
+    * S3 prefix: Enter [**AWSLogs/123456789012/WAF/region/**]
+    * S3 error prefix: Enter [**AWSLogs/123456789012/WAF/region/error/**]
+        * Replace 123456789012 with your AWS account and ap-northeast-1 with your region. If the resource to which you attach WAF is CloudFront, set the region to **global**
 1. On the [Configure settings] screen, enter the following parameters:
-   * Buffer size: Enter [**any number**]
-   * Buffer interval: Enter [**any number**]
-   * S3 compression: [**GZIP**]
-   * Leave the following parameters as default
-   * Choose [**Next**]
+    * Buffer size: Enter [**any number**]
+    * Buffer interval: Enter [**any number**]
+    * S3 compression: [**GZIP**]
+    * Leave the following parameters as default
+    * Choose [**Next**]
 1. Choose [**Create delivery stream**]
 
 #### II. Logging Configuration for AWS WAF
@@ -206,26 +206,26 @@ Configuring Kinesis Data Firehose
 1. Choose [**Delivery streams**] from the left pane
 1. Choose [**Create delivery stream**] at the top left of the screen
 1. On the [New delivery stream] screen, enter the following parameters:
-   * Delivery stream name: Enter [**aes-siem-firehose-securityhub**]
-   * Source: Check [**Direct PUT or other sources**]
-   * [Enable server-side encryption for source records in delivery stream] is optional
-   * Choose [**Next**]
+    * Delivery stream name: Enter [**aes-siem-firehose-securityhub**]
+    * Source: Check [**Direct PUT or other sources**]
+    * [Enable server-side encryption for source records in delivery stream] is optional
+    * Choose [**Next**]
 1. On the [Process records] screen, choose the following parameters:
-   * Data transformation: [**Disabled**]
-   * Record format conversion: [**Disabled**]
-   * Choose [**Next**]
+    * Data transformation: [**Disabled**]
+    * Record format conversion: [**Disabled**]
+    * Choose [**Next**]
 1. On the [Choose a destination] screen, choose/enter the following parameters:
-   * Destination: [**Amazon S3**]
-   * S3 bucket: [**aes-siem-123456789012-log**]
-   * S3 prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/**]
-   * S3 error prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/error/**]
+    * Destination: [**Amazon S3**]
+    * S3 bucket: [**aes-siem-123456789012-log**]
+    * S3 prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/**]
+    * S3 error prefix: Enter [**AWSLogs/123456789012/SecurityHub/[region]/error/**]
       * Replace 123456789012 with your AWS account and [region] with your region.
 1. On the [Configure settings] screen, enter the following parameters:
-   * Buffer size: Enter [**any number**]
-   * Buffer interval: Enter [**any number**]
-   * S3 compression: [**GZIP**]
-   * Leave the following parameters as default
-   * Choose [**Next**]
+    * Buffer size: Enter [**any number**]
+    * Buffer interval: Enter [**any number**]
+    * S3 compression: [**GZIP**]
+    * Leave the following parameters as default
+    * Choose [**Next**]
 1. Choose [**Create delivery stream**] to complete deployment of Kinesis Data Firehose
 
 Configuring EventBridge
@@ -233,17 +233,17 @@ Configuring EventBridge
 1. Navigate to the [EventBridge console](https://console.aws.amazon.com/events/home?)
 1. Choose [**Rules**] from the left pane => [**Create rule**]
 1. Enter the following parameters on the [Create rule] screen:
-   * Name: aes-siem-securityhub-to-firehose
-   * Define pattern: Choose Event pattern
-   * Event matching pattern: Pre-defined pattern by service
-   * Service provider: AWS
-   * Service Name: Security Hub
-   * Event Type: Security Hub Findings - Imported
-   * No change required for the “Select event bus” pane
-   * Target: Firehose delivery stream
-   * Stream: aes-siem-firehose-securityhub
-   * Choose any value for the rest
-   * Choose [**Create**] to complete the configuration
+    * Name: aes-siem-securityhub-to-firehose
+    * Define pattern: Choose Event pattern
+    * Event matching pattern: Pre-defined pattern by service
+    * Service provider: AWS
+    * Service Name: Security Hub
+    * Event Type: Security Hub Findings - Imported
+    * No change required for the “Select event bus” pane
+    * Target: Firehose delivery stream
+    * Stream: aes-siem-firehose-securityhub
+    * Choose any value for the rest
+    * Choose [**Create**] to complete the configuration
 
 ### AWS Network Firewall
 
@@ -267,27 +267,27 @@ Follow the steps below to output CloudTrail logs to the S3 bucket:
 1. Navigate to [the CloudTrail console](https://console.aws.amazon.com/cloudtrail/home?)
 1. Select [**Trails**] from the left pane => Choose [**Create trail**] at the top right.
 1. Enter the following parameters on the [Choose trail attributes] screen.
-   * Trail name: [**aes-siem-trail**]
-   * Enable for all accounts in my organization: any (Skip this step if the field is grayed out and you are unable to check the box)
-   * Storage location: Check [**Use existing S3 bucket**]
-   * Select [**aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * Log file SSE-KMS encryption: Recommended to check [**Enabled**]
-   * AWS KMS customer managed CMK: Check [**Existing**]
-   * AWS KMS alias: Choose [**aes-siem-key**]
-   * Log file validation: Recommended to check [**Enable**]
-   * SNS notification delivery: Don’t check Enabled
-   * CloudWatch Logs: Don’t check Enabled
-   * Tags: any
+    * Trail name: [**aes-siem-trail**]
+    * Enable for all accounts in my organization: any (Skip this step if the field is grayed out and you are unable to check the box)
+    * Storage location: Check [**Use existing S3 bucket**]
+    * Select [**aes-siem-123456789012-log**]
+        * Replace 123456789012 with your AWS account ID
+    * Log file SSE-KMS encryption: Recommended to check [**Enabled**]
+    * AWS KMS customer managed CMK: Check [**Existing**]
+    * AWS KMS alias: Choose [**aes-siem-key**]
+    * Log file validation: Recommended to check [**Enable**]
+    * SNS notification delivery: Don’t check Enabled
+    * CloudWatch Logs: Don’t check Enabled
+    * Tags: any
 1. Choose [**Next**]
 1. On the [Choose log events] screen, enter the following parameters:
-   * Event type
-      * Management events: [**checked**]
-      * Data events: any
-      * Insights events: any
-   * Management events
-      * API activity: Check both [Read] and [Write]
-      * Exclude AWS KMS events: any
+    * Event type
+        * Management events: [**checked**]
+        * Data events: any
+        * Insights events: any
+    * Management events
+        * API activity: Check both [Read] and [Write]
+        * Exclude AWS KMS events: any
 1. Choose [**Next**]
 1. Choose [**Create trail**]
 
@@ -350,13 +350,13 @@ The log type is determined by the default output file name using regular express
 1. Choose the [**Distribution ID**] for which you want to load logs
 1. Choose [**Edit**] which is next to [Standard logs] title
 1. Enter the following parameters in the [Edit standard logs] window that pops up
-   * Set Standard logs to [**Enabled**]
-   * S3 bucket: [**aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * S3 bucket prefix: [**AWSLogs/123456789012/CloudFront/global/distribution ID/standard/**]
-      * Replace “123456789012” with your AWS account ID, and "distribution ID" with your CloudFront distribution ID
-   * Cookie logging: [**Yes**]
-   * Choose [**Update**] to complete the configuration
+    * Set Standard logs to [**Enabled**]
+    * S3 bucket: [**aes-siem-123456789012-log**]
+        * Replace 123456789012 with your AWS account ID
+    * S3 bucket prefix: [**AWSLogs/123456789012/CloudFront/global/distribution ID/standard/**]
+        * Replace “123456789012” with your AWS account ID, and "distribution ID" with your CloudFront distribution ID
+    * Cookie logging: [**Yes**]
+    * Choose [**Update**] to complete the configuration
 
 #### II. CloudFront real-time logs
 
@@ -380,32 +380,32 @@ Configuring Kinesis Data Stream and Kinesis Data Firehose:
 1. Navigate to [the Amazon Kinesis console](https://console.aws.amazon.com/kinesis/home?region=us-east-1) in **N.Virginia region**
 1. Choose [**Data streams**] from the left pane => [**Create a data stream**]
 1. Enter the following parameters on the [Create a data stream] screen
-   * Data stream name: Enter [**any name**]
-   * Number of open shards: Enter [**any number of shards**]
-   * Choose [**Create data stream**]
+    * Data stream name: Enter [**any name**]
+    * Number of open shards: Enter [**any number of shards**]
+    * Choose [**Create data stream**]
 1. Now you’re ready to configure Kinesis Data Firehose. Wait until the status of the created data stream becomes [active] and then choose [**Process with delivery stream**] from the [Consumers] pane at the bottom of the screen.
 1. On the [New delivery stream] screen, enter the following parameters:
-   * Delivery stream name: Enter [**any name**]
-   * Source: Check [**Kinesis Data Stream**]
-   * Kinesis data stream: Choose the [**Kinesis data stream created in the previous step**]
-   * Choose [**Next**]
+    * Delivery stream name: Enter [**any name**]
+    * Source: Check [**Kinesis Data Stream**]
+    * Kinesis data stream: Choose the [**Kinesis data stream created in the previous step**]
+    * Choose [**Next**]
 1. On the [Process records] screen, choose the following parameters:
-   * Data transformation: [**Disabled**]
-   * Record format conversion: [**Disabled**]
-   * Choose [**Next**]
+    * Data transformation: [**Disabled**]
+    * Record format conversion: [**Disabled**]
+    * Choose [**Next**]
 1. On the [Choose a destination] screen, choose/enter the following parameters:
-   * Destination: [**Amazon S3**]
-   * S3 bucket: [**aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * S3 prefix: [**AWSLogs/123456789012/CloudFront/global/distribution ID/realtime/**]
-      * Replace 123456789012 with your AWS account ID
-   * S3 error prefix: [**AWSLogs/123456789012/CloudFront/global/distribution ID/realtime/error/**]
+    * Destination: [**Amazon S3**]
+    * S3 bucket: [**aes-siem-123456789012-log**]
+        * Replace 123456789012 with your AWS account ID
+    * S3 prefix: [**AWSLogs/123456789012/CloudFront/global/distribution ID/realtime/**]
+        * Replace 123456789012 with your AWS account ID
+    * S3 error prefix: [**AWSLogs/123456789012/CloudFront/global/distribution ID/realtime/error/**]
 1. On the [Configure settings] screen, enter the following parameters:
-   * Buffer size: Enter [**any number**]
-   * Buffer interval: Enter [**any number**]
-   * S3 compression: [**GZIP**]
-   * Leave the following parameters as default
-   * Choose [**Next**]
+    * Buffer size: Enter [**any number**]
+    * Buffer interval: Enter [**any number**]
+    * S3 compression: [**GZIP**]
+    * Leave the following parameters as default
+    * Choose [**Next**]
 1. Choose [**Create delivery stream**]
 
 Configuring Amazon CloudFront:
@@ -414,15 +414,15 @@ Configuring Amazon CloudFront:
 1. Choose [**Logs**] from the left pane => Choose [**Real-time log configurations**] tab
 1. Choose [**Create configuration**] on the right side of the screen
 1. Enter the following parameters on the [Create real-time log configuration] screen
-   * Name: Enter [**any name**]
-   * Sampling rate: [**100**]
-      * Importing all logs into SIEM on OpenSearch Service
-   * Fields: [**Check all fields**]
-      * All are checked by default
-   * Endpoint: Choose the [**Kinesis data stream created two steps previously**]
-   * IAM role: Choose [**Create new service role CloudFrontRealtimeLogConfiguRole-XXXXXXXXXXXX**]
-   * Distribution: Choose [**the target distribution**]
-   * Cache behavior(s): Choose [**Default(*)**]
+    * Name: Enter [**any name**]
+    * Sampling rate: [**100**]
+        * Importing all logs into SIEM on OpenSearch Service
+    * Fields: [**Check all fields**]
+        * All are checked by default
+    * Endpoint: Choose the [**Kinesis data stream created two steps previously**]
+    * IAM role: Choose [**Create new service role CloudFrontRealtimeLogConfiguRole-XXXXXXXXXXXX**]
+    * Distribution: Choose [**the target distribution**]
+    * Cache behavior(s): Choose [**Default(*)**]
 1. Choose [**Create configuration**] to complete the configuration
 
 ### Route 53 Resolver VPC DNS Query Logging
@@ -434,11 +434,11 @@ The initial value of s3_key: `vpcdnsquerylogs` (part of the default output path)
 1. Navigtate to the [Route 53 Resolver console](https://console.aws.amazon.com/route53resolver/home?)
 1. Choose [**Query logging**] from the left pane
 1. Enter the following parameters on the [Configure query logging] screen
-   * Name: Enter [**any name**]
-   * Destination for query logs: Choose [**S3 bucket**]
-   * Amazon S3 bucket: Choose [**aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * VPCs to log queries for: [**Add any VPC**]
+    * Name: Enter [**any name**]
+    * Destination for query logs: Choose [**S3 bucket**]
+    * Amazon S3 bucket: Choose [**aes-siem-123456789012-log**]
+        * Replace 123456789012 with your AWS account ID
+    * VPCs to log queries for: [**Add any VPC**]
 1. Choose [**Configure query logging**] to complete the configuration
 
 ### Amazon VPC Flow Logs
@@ -454,14 +454,14 @@ Follow the steps below to output VPC flow logs to the S3 bucket:
 1. Choose [**VPC**] or [**Subnet**] from the left pane => Check the box of the resource to load
 1. Choose the [**Flow logs**] tab at the bottom of the screen => Choose [ **Create flow log**]
 1. Enter the following parameters on the Create flow log screen
-   * Name: any name
-   * Filter: any, but [**All**] is recommended
-   * Maximum aggregation interval: any, but setting this to 1 minute will increase the log volume
-   * Destination: Check [**Send to an S3 bucket**]
-   * S3 bucket ARN: [**arn:aws:s3:::aes-siem-123456789012-log**]
-      * Replace 123456789012 with your AWS account ID
-   * Log record format: Check [**AWS default format**] or check "Custom format" and select "Log format".
-   * Tags: any
+    * Name: any name
+    * Filter: any, but [**All**] is recommended
+    * Maximum aggregation interval: any, but setting this to 1 minute will increase the log volume
+    * Destination: Check [**Send to an S3 bucket**]
+    * S3 bucket ARN: [**arn:aws:s3:::aes-siem-123456789012-log**]
+        * Replace 123456789012 with your AWS account ID
+    * Log record format: Check [**AWS default format**] or check "Custom format" and select "Log format".
+    * Tags: any
 1. Choose [**Create flow log**]
 
 ### AWS Transit Gateway
@@ -508,19 +508,19 @@ The initial value of s3_key is determined by the default output path and file na
 1. Navigate to the [Amazon EC2 console](https://console.aws.amazon.com/ec2/home?)
 1. Choose [**Load balancers**] from the left pane => [**Check the box**] of the target load balancer to collect logs from
 1. Choose [Description ] tab => Enter the following parameters for ALB/NLB/CLB:
-   * For ALB/NLB: Choose [**Edit attributes**]
-      * Access logs: Check [**Enable**]
-      * S3 location: Enter [**aes-siem-123456789012-log**]
-         * Replace 123456789012 with your AWS account ID
-      * Create this location for me: unchecked
-      * Choose [**Save**]
-   * For CLB: Choose [**Configure Access Logs**]
-      * Enable access logs: [**checked**]
-      * Interval: Choose [**5 minutes or 60 minutes**]
-      * S3 location: Enter [**aes-siem-123456789012-log**]
-         * Replace 123456789012 with your AWS account ID
-      * Create this location for me: unchecked
-      * Choose [**Save**] to complete the configuration
+    * For ALB/NLB: Choose [**Edit attributes**]
+        * Access logs: Check [**Enable**]
+        * S3 location: Enter [**aes-siem-123456789012-log**]
+            * Replace 123456789012 with your AWS account ID
+        * Create this location for me: unchecked
+        * Choose [**Save**]
+    * For CLB: Choose [**Configure Access Logs**]
+        * Enable access logs: [**checked**]
+        * Interval: Choose [**5 minutes or 60 minutes**]
+        * S3 location: Enter [**aes-siem-123456789012-log**]
+            * Replace 123456789012 with your AWS account ID
+        * Create this location for me: unchecked
+        * Choose [**Save**] to complete the configuration
 
 ## 5. Storage
 
@@ -549,12 +549,12 @@ The initial value of s3_key: `s3accesslog` (there is no standard save path, so s
 1. Navigate to the [Amazon S3 console](https://console.aws.amazon.com/s3/home?)
 1. From the bucket list, choose the S3 bucket you want to collect logs from.
 1. Choose [**Properties**] tab => [**Server access logging**]
-   1. Check Enable logging
-   1. Choose target bucket: aes-siem-123456789012-log
-      * Replace 123456789012 with your AWS account ID
-   1. Target prefix: [**AWSLogs/AWS account ID/s3accesslog/region/bucket name/** ]
-      * It’s important to have [s3accesslog] in the path
-   1. Choose [**Save**]
+    1. Check Enable logging
+    1. Choose target bucket: aes-siem-123456789012-log
+        * Replace 123456789012 with your AWS account ID
+    1. Target prefix: [**AWSLogs/AWS account ID/s3accesslog/region/bucket name/** ]
+        * It’s important to have [s3accesslog] in the path
+    1. Choose [**Save**]
 
 ## 6. Database
 
@@ -759,7 +759,7 @@ The following are examples of sending logs to the S3 log bucket from Amazon Linu
     Destination S3 bucket:
     * [**AWSLogs/123456789012/EC2/Linux/System/[region]/**]
     * [**AWSLogs/123456789012/EC2/Linux/Secure/[region]/**]
-      * Replace 123456789012 with your AWS account ID
+        * Replace 123456789012 with your AWS account ID
 
 ### EC2 Instance (Microsoft Windows Server 2012/2016/2019)
 
@@ -893,7 +893,7 @@ If you want to collect all logs from multiple websites (e.g. blog.example.net, s
     Destination S3 bucket:
     * [ **AWSLogs/aws-account-id=123456789012/service=apache-access/web-site-name=[sitename]/aws-region=[region]/** ]
     * [ **AWSLogs/aws-account-id=123456789012/service=apache-error/web-site-name=[sitename]/aws-region=[region]/** ]
-      * Replace 123456789012 with your AWS account ID
+        * Replace 123456789012 with your AWS account ID
 
 ## 9. Containers
 
