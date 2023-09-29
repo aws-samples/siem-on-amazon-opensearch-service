@@ -7,7 +7,9 @@ __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
+import ipaddress
 import re
+import urllib.parse
 
 from siem import utils
 
@@ -30,8 +32,9 @@ def extract_instance_id(logdata, web_dict):
 
 
 def transform(logdata):
-    web_dict = {'event': {}, 'url': {}}
+    web_dict = {'event': {}, 'related': {}, 'url': {}}
     web_dict = extract_instance_id(logdata, web_dict)
+    related_ip = set([logdata['source']['ip']])
 
     # service.name
     m = RE_SERVICE_NAME.search(logdata['@log_s3key'])
@@ -67,12 +70,22 @@ def transform(logdata):
             web_dict['url']['port'] = path_temp_list[1]
             request_path = ''
 
+    # urldecode
+    if '%' in request_path:
+        try:
+            request_path = urllib.parse.unquote(request_path, errors='strict')
+        except Exception:
+            request_path = request_path
+    # url.fragment
+    temp_path_list = request_path.rsplit('#', 1)
+    if len(temp_path_list) == 2:
+        web_dict['url']['fragment'] = temp_path_list[1]
+        request_path = temp_path_list[0]
     # url.path, url.query
-    request_path_list1 = request_path.split('?', 1)
-    web_dict['url']['path'] = request_path_list1[0]
-    if len(request_path_list1) == 2:
-        web_dict['url']['query'] = request_path_list1[1]
-
+    temp_path_list = request_path.split('?', 1)
+    web_dict['url']['path'] = temp_path_list[0]
+    if len(temp_path_list) == 2:
+        web_dict['url']['query'] = temp_path_list[1]
     # url.extension
     filename = web_dict['url']['path'].split('/')[-1]
     if not filename.startswith('.') and '.' in filename:
@@ -101,6 +114,25 @@ def transform(logdata):
     else:
         web_dict['event']['outcome'] = 'unknown'
 
+    # http.request.header.x_forwarded_for
+    if logdata.get('xff'):
+        xff = logdata['xff']
+        remote_ip_list = []
+        for ip_raw in xff.split(','):
+            ip_raw = ip_raw.strip()
+            try:
+                ipaddress.ip_address(ip_raw.strip())
+                remote_ip_list.append(ip_raw)
+            except Exception:
+                continue
+        if len(remote_ip_list):
+            web_dict['http'] = {
+                'request': {'header': {'x_forwarded_for': remote_ip_list}}}
+            related_ip.update(remote_ip_list)
+
+    # related.ip
+    web_dict['related']['ip'] = sorted(list(related_ip))
+
     del logdata['authuser']
     del logdata['datetime']
     del logdata['ident']
@@ -115,6 +147,7 @@ def transform(logdata):
     del logdata['response_bytes']
     del logdata['response_status']
     del logdata['useragent']
+    del logdata['xff']
 
     if web_dict:
         logdata = utils.merge_dicts(logdata, web_dict)
