@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.10.2-rc.1: log exporter - Apache"
+Description: "SIEM on Amazon OpenSearch Service v2.10.2-rc.1: log exporter - Nginx"
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -9,15 +9,15 @@ Metadata:
       - Label:
           default: CloudWatch Logs
         Parameters:
-          - CwlApacheAccessName
-          - CwlApacheErrorName
-          - CwlApacheSslAccessName
-          - CwlApacheSslErrorName
+          - CwlNginxAccessName
+          - CwlNginxErrorName
+          - CwlNginxSslAccessName
+          - CwlNginxSslErrorName
       - Label:
           default: Amazon Kinesis Data Firehose
         Parameters:
-          - KdfApacheAccessName
-          - KdfApacheErrorName
+          - KdfNginxAccessName
+          - KdfNginxErrorName
           - KdfBufferSize
           - KdfBufferInterval
 Parameters:
@@ -26,14 +26,14 @@ Parameters:
     Default: localsite
     AllowedPattern: ^[0-9a-zA-Z._-]+$
     Description: Define your site name. e.g. www.example.com
-  KdfApacheAccessName:
+  KdfNginxAccessName:
     Type: String
-    Default: siem-apache-access-cwl-to-s3
-    Description: Define new Kinesis Data Firehose Name to deliver Apache Access CloudWatch Logs
-  KdfApacheErrorName:
+    Default: siem-nginx-access-cwl-to-s3
+    Description: Define new Kinesis Data Firehose Name to deliver Nginx Access CloudWatch Logs
+  KdfNginxErrorName:
     Type: String
-    Default: siem-apache-error-cwl-to-s3
-    Description: Define new Kinesis Data Firehose Name to deliver Apache Error CloudWatch Logs
+    Default: siem-nginx-error-cwl-to-s3
+    Description: Define new Kinesis Data Firehose Name to deliver Nginx Error CloudWatch Logs
   KdfBufferSize:
     Type: Number
     Default: 64
@@ -46,42 +46,42 @@ Parameters:
     Description: Enter a buffer interval between 60 - 900 (seconds.)
     MaxValue: 900
     MinValue: 60
-  CwlApacheAccessName:
+  CwlNginxAccessName:
     Type: String
-    Default: /ec2/apache/access_log
+    Default: /ec2/nginx/access.log
     Description: Specify CloudWatch Logs group name for access log. This field can be left blank
-  CwlApacheErrorName:
+  CwlNginxErrorName:
     Type: String
-    Default: /ec2/apache/error_log
+    Default: /ec2/nginx/error.log
     Description: Specify CloudWatch Logs group name for error log. This field can be left blank
-  CwlApacheSslAccessName:
+  CwlNginxSslAccessName:
     Type: String
-    Default: /ec2/apache/ssl_access_log
+    Default: /ec2/nginx/ssl_access.log
     Description: Specify CloudWatch Logs group name for SSL access log. This field can be left blank
-  CwlApacheSslErrorName:
+  CwlNginxSslErrorName:
     Type: String
-    Default: /ec2/apache/ssl_error_log
+    Default: /ec2/nginx/ssl_error.log
     Description: Specify CloudWatch Logs group name for SSL error log. This field can be left blank
 Conditions:
   hasAccessLog:
     Fn::Not:
       - Fn::Equals:
-          - Ref: CwlApacheAccessName
+          - Ref: CwlNginxAccessName
           - ""
   hasErrorLog:
     Fn::Not:
       - Fn::Equals:
-          - Ref: CwlApacheErrorName
+          - Ref: CwlNginxErrorName
           - ""
   hasSslAccessLog:
     Fn::Not:
       - Fn::Equals:
-          - Ref: CwlApacheSslAccessName
+          - Ref: CwlNginxSslAccessName
           - ""
   hasSslErrorLog:
     Fn::Not:
       - Fn::Equals:
-          - Ref: CwlApacheSslErrorName
+          - Ref: CwlNginxSslErrorName
           - ""
   needsKdfAccess:
     Fn::Or:
@@ -92,11 +92,11 @@ Conditions:
       - Condition: hasErrorLog
       - Condition: hasSslErrorLog
 Resources:
-  KdfApacheAccess:
+  KdfNginxAccess:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
       DeliveryStreamName:
-        Ref: KdfApacheAccessName
+        Ref: KdfNginxAccessName
       ExtendedS3DestinationConfiguration:
         BucketARN:
           Fn::Join:
@@ -109,13 +109,13 @@ Resources:
           SizeInMBs:
             Ref: KdfBufferSize
         CompressionFormat: UNCOMPRESSED
-        ErrorOutputPrefix: ErrorLogs/Apache/
+        ErrorOutputPrefix: ErrorLogs/Nginx/
         Prefix:
           Fn::Join:
             - ""
             - - AWSLogs/aws-account-id=
               - Ref: AWS::AccountId
-              - /service=apache-access/web-site-name=
+              - /service=nginx-access/web-site-name=
               - Ref: WebSiteName
               - /aws-region=
               - Ref: AWS::Region
@@ -128,11 +128,11 @@ Resources:
               - :role/service-role/
               - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
     Condition: needsKdfAccess
-  KdfApacheError:
+  KdfNginxError:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
       DeliveryStreamName:
-        Ref: KdfApacheErrorName
+        Ref: KdfNginxErrorName
       ExtendedS3DestinationConfiguration:
         BucketARN:
           Fn::Join:
@@ -151,7 +151,7 @@ Resources:
             - ""
             - - AWSLogs/aws-account-id=
               - Ref: AWS::AccountId
-              - /service=apache-error/web-site-name=
+              - /service=nginx-error/web-site-name=
               - Ref: WebSiteName
               - /aws-region=
               - Ref: AWS::Region
@@ -169,11 +169,11 @@ Resources:
     Properties:
       DestinationArn:
         Fn::GetAtt:
-          - KdfApacheAccess
+          - KdfNginxAccess
           - Arn
       FilterPattern: ""
       LogGroupName:
-        Ref: CwlApacheAccessName
+        Ref: CwlNginxAccessName
       RoleArn:
         Fn::Join:
           - ""
@@ -187,11 +187,11 @@ Resources:
     Properties:
       DestinationArn:
         Fn::GetAtt:
-          - KdfApacheError
+          - KdfNginxError
           - Arn
       FilterPattern: ""
       LogGroupName:
-        Ref: CwlApacheErrorName
+        Ref: CwlNginxErrorName
       RoleArn:
         Fn::Join:
           - ""
@@ -205,11 +205,11 @@ Resources:
     Properties:
       DestinationArn:
         Fn::GetAtt:
-          - KdfApacheAccess
+          - KdfNginxAccess
           - Arn
       FilterPattern: ""
       LogGroupName:
-        Ref: CwlApacheSslAccessName
+        Ref: CwlNginxSslAccessName
       RoleArn:
         Fn::Join:
           - ""
@@ -223,11 +223,11 @@ Resources:
     Properties:
       DestinationArn:
         Fn::GetAtt:
-          - KdfApacheError
+          - KdfNginxError
           - Arn
       FilterPattern: ""
       LogGroupName:
-        Ref: CwlApacheSslErrorName
+        Ref: CwlNginxSslErrorName
       RoleArn:
         Fn::Join:
           - ""
