@@ -13,16 +13,13 @@ from siem import utils
 
 # REGEXP
 RE_SERVICE_NAME = re.compile(r'/web-site-name=([^/]*?)/')
-RE_REFERER = re.compile(r'referer:\s*(http[^ ]*)')
 RE_MESSAGE = re.compile(
     r'client: (?P<client_ip>[0-9a-f.:]+), server: (-|(?P<server>[^ ]*?))'
-    r'(?:, request: \"((?P<request_method>[A-Z]+?) (?P<request_path>\/.+?) '
-    r'HTTP/(?P<request_version>[^ ]*)|(?P<request_raw>.*?))\")?'
+    r'(?:, request: \"((?P<request_method>[^ ]+) (?P<request_path>[^ ]+) '
+    r'HTTP/(?P<request_version>[^ ]+)|(?P<request_raw>.*?))\")?'
     r'(?:, upstream: \"(?P<upstream>.+?)\")?'
     r'(?:, host: \"(?P<host>[^ ]+?)\")?'
     r'(?:, referrer: \"(?P<referrer>[^ ]+?)\")?$')
-
-# grep server /var/log/nginx/error.log |grep client | awk -F'\*[0-9]+ ' '{print $2}
 
 
 def extract_instance_id(logdata, web_dict):
@@ -35,12 +32,12 @@ def extract_instance_id(logdata, web_dict):
         else:
             hosts = instanceid
         web_dict['cloud'] = {'instance': {'id': instanceid}}
-        web_dict['related'] = {'hosts': hosts}
+        web_dict['related']['hosts'] = hosts
     return web_dict
 
 
 def transform(logdata):
-    web_dict = {'event': {}, 'url': {}}
+    web_dict = {'event': {}, 'related': {}, 'url': {}}
     web_dict = extract_instance_id(logdata, web_dict)
 
     # service.name
@@ -53,40 +50,48 @@ def transform(logdata):
         m = RE_MESSAGE.search(logdata['message'])
         if m:
             web_dict['http'] = {'request': {}}
-
             client_ip = m.groupdict().get('client_ip')
-            server = m.groupdict().get('server')
+            # server = m.groupdict().get('server')
             request_method = m.groupdict().get('request_method')
             request_path = m.groupdict().get('request_path')
             request_version = m.groupdict().get('request_version')
             request_raw = m.groupdict().get('request_raw')
-            upstream = m.groupdict().get('upstream')
+            # upstream = m.groupdict().get('upstream')
             host = m.groupdict().get('host')
             referrer = m.groupdict().get('referrer')
 
+            # url.domain, url.port
+            if host:
+                host_split = host.split(':')
+                if len(host_split) == 1:
+                    web_dict['url']['domain'] = host_split[0]
+                elif len(host_split) == 2:
+                    # ipv4 or domain
+                    web_dict['domain'] = host_split[0]
+                    web_dict['port'] = host_split[1]
+
+            # http.version, http.request.method
+            # url.original, url.domain, url.port
+            # url.path, url.extension, url.query, url.fragment
+            http, url = utils.extract_url_http_fields_from_http_request(
+                request_method, request_path, request_version, request_raw)
+
+            web_dict['http'] = http
+            web_dict['url'] = {**web_dict['url'], **url}
+            # python 3.9 or later
+            # web_dict['http'] |= http
+            # web_dict['url'] |= url
+
+            # source.ip, source.address
             if client_ip:
                 web_dict['source'] = {'ip': client_ip, 'address': client_ip}
-            # http.request.method
-            if request_method:
-                web_dict['http']['request']['method'] = request_method
-            # http.version
-            if request_version:
-                web_dict['http']['version'] = request_version
-            # url.original
-            if request_raw:
-                web_dict['url']['original'] = request_raw
-            # url.domain
-            if host:
-                web_dict['url']['domain'] = host
+
             # http.request.referer
             if referrer:
                 web_dict['http']['request']['referrer'] = referrer
 
-            #related.ip
-            #server,
-            #related.host
-            #web_dict['related'] = {'ip': client_ip}
-
+            # related.ip
+            web_dict['related']['ip'] = client_ip
 
     # url.schema
     log_group = logdata.get('@log_group')

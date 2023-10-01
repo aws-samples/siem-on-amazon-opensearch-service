@@ -26,12 +26,12 @@ def extract_instance_id(logdata, web_dict):
         else:
             hosts = instanceid
         web_dict['cloud'] = {'instance': {'id': instanceid}}
-        web_dict['related'] = {'hosts': hosts}
+        web_dict['related']['hosts'] = hosts
     return web_dict
 
 
 def transform(logdata):
-    web_dict = {'event': {}, 'url': {}}
+    web_dict = {'event': {}, 'related': {}, 'url': {}}
     web_dict = extract_instance_id(logdata, web_dict)
 
     # service.name

@@ -661,7 +661,7 @@ def get_saved_objects(dist_name, cookies, auth=None):
 
 def backup_content_to_s3(dir_name, content_type, content_name, content):
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-    file_name = f'{content_name}-{content_type}-{now_str}.json'
+    file_name = f'{content_name}-{content_type}-{now_str}.ndjson'
     if content and isinstance(content, bytes):
         with open(f'/tmp/{file_name}', 'wb') as raw_file:
             raw_file.write(content)

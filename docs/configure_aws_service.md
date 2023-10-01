@@ -39,6 +39,7 @@ On this page, we’ll walk you through how to load logs from each AWS service in
     * [EC2 Instance (Amazon Linux 2/2023)](#ec2-instance-amazon-linux-22023)
     * [EC2 Instance (Microsoft Windows Server 2012/2016/2019)](#ec2-instance-microsoft-windows-server-201220162019)
     * [Apache Web Server on Amazon Linux](#apache-web-server-on-amazon-linux)
+    * [Nginx Web Server on Amazon Linux](#nginx-web-server-on-amazon-linux)
 1. [Containers](#9-containers)
     * [FireLens for Amazon ECS](#firelens-for-amazon-ecs)
 1. [End User Computing](#10-end-user-computing)
@@ -627,11 +628,10 @@ To export OpenSearch audit logs to CloudWatch Logs, see Developer Guide [Monitor
 
 ![Amazon Linux 2 to S3](images/al2-to-s3.jpg)
 
-OS system logs -
-The initial value of s3_key: `/[Ll]inux/` (specified in the Firehose output path)
-
-Secure logs -
-The initial value of s3_key: `[Ll]inux.?[Ss]ecure` (specified in the Firehose output path)
+* OS system logs
+  * The initial value of s3_key: `/[Ll]inux/` (specified in the Firehose output path)
+* Secure logs
+  * The initial value of s3_key: `[Ll]inux.?[Ss]ecure` (specified in the Firehose output path)
 
 Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose. Region information is not contained in the logs, so you can include it in your S3 key to capture it. There are two ways to load secure logs : loading logs as OS system logs and then classifying them as secure logs; or loading logs as secure logs from the beginning. The former method determines secure logs by the process name, so choose the latter to ensure all secure logs are fully loaded. The latter, on the other hand, requires you to deploy Firehose for each log destination.
 
@@ -781,15 +781,14 @@ Here’s an outline of the steps:
 
 ### Apache Web Server on Amazon Linux
 
+You can import Apache logs that format is Common Log Format (CLF), Combined Log Format (combined), combinedio, and X-Forwarded-For added at the **beginning** installed on Amazon Linux 2023 or Amazon Linux 2.
+
 ![Amazon Linux 2 to S3](images/al2-to-s3.jpg)
 
-You can import logs of Apache Common Log Format (CLF), Combined Log Format (combined), and combinedio installed on Amazon Linxu 2023 or Amazon Linxu2.
-
-Apache access log
-The initial value of s3_key: `[Aa]pache.*[Aa]ccess/` (specified in the Firehose output path)
-
-Apache error log
-The initial value of s3_key: `[Aa]pache.*[Ee]rror/` (specified in the Firehose output path)
+* Apache access log
+  * The initial value of s3_key: `[Aa]pache.*[Aa]ccess/` (specified in the Firehose output path)
+* Apache error log
+  * The initial value of s3_key: `[Aa]pache.*[Ee]rror/` (specified in the Firehose output path)
 
 Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose. Region information is not contained in the logs, so you can include it in your S3 key to capture it.
 
@@ -803,7 +802,9 @@ If you want to collect all logs from multiple websites (e.g. blog.example.net, s
 
 1. Install Apache Web Server
 
-    If you are going through Amazon CloudFront or Elastic Load Balancer (ELB), you can change the Apache configuration file to record and analyze the actual source address instead of CloudFront or ELB
+    If you are going through Amazon CloudFront or Elastic Load Balancer (ELB), it is recommended to change the Apache configuration file to rewrite the client IP address to the actual client IP address instead of the IP address of CloudFront or ELB. Alternatively, by adding X-Forwarde-For at the **beginning** of access_log, SIEM solutions can extract the actual client IP address instead of the IP address of CloudFront or ELB.
+
+    For more information, see [How do I capture client IP addresses in the web server logs behind an ELB?](https://repost.aws/knowledge-center/elb-capture-client-ip-addresses)
 
 1. Create a configuration file for CloudWatch Agent
 
@@ -829,7 +830,7 @@ If you want to collect all logs from multiple websites (e.g. blog.example.net, s
 
     Log group name:
     default choice: [messages]
-    /ec2/Apache/access_log[RETRUN]
+    /ec2/apache/access_log[RETRUN]
 
     Log stream name:
     default choice: [{instance_id}]
@@ -893,6 +894,180 @@ If you want to collect all logs from multiple websites (e.g. blog.example.net, s
     Destination S3 bucket:
     * [ **AWSLogs/aws-account-id=123456789012/service=apache-access/web-site-name=[sitename]/aws-region=[region]/** ]
     * [ **AWSLogs/aws-account-id=123456789012/service=apache-error/web-site-name=[sitename]/aws-region=[region]/** ]
+        * Replace 123456789012 with your AWS account ID
+
+### Nginx Web Server on Amazon Linux
+
+You can import Nginx logs that format is Combined Log Format (combined) and X-Forwarded-For added at the **end** installed on Amazon Linux 2023 or Amazon Linux 2.
+
+![Amazon Linux 2 to S3](images/al2-to-s3.jpg)
+
+* Nginx access log
+  * The initial value of s3_key: `[Nn]ginx.*[Aa]ccess/` (specified in the Firehose output path)
+* Nginx error log
+  * The initial value of s3_key: `[Nn]ginx.*[Ee]rror/` (specified in the Firehose output path)
+
+Log output is sent via Kinesis Data Firehose, and since there is no standard save path, use the above s3_key as the prefix of the destination S3 bucket for Kinesis Data Firehose. Region information is not contained in the logs, so you can include it in your S3 key to capture it.
+
+The following are examples of sending logs to the S3 log bucket from Amazon Linux.
+
+If you want to collect all logs from multiple websites (e.g. blog.example.net, shop.example.com, etc.), execute CloudFormaiton template for each website to create CloudWatch Logs and Kinesis Firehose with different resource names.
+
+1. Create an IAM role and attach it to an EC2 instance
+
+    See [EC2 Instance (Amazon Linux 2/2023)](#ec2-instance-amazon-linux-22023)
+
+1. Install Nginx Web Server
+
+    If you are going through Amazon CloudFront or Elastic Load Balancer (ELB), it is recommended to change the Nginx configuration file to rewrite the client IP address to the actual client IP address instead of the IP address of CloudFront or ELB. Alternatively, by adding X-Forwarde-For at the **end** of access.log, SIEM solutions can extract the actual client IP address instead of the IP address of CloudFront or ELB.
+
+    For more information, see [How do I capture client IP addresses in the web server logs behind an ELB?](https://repost.aws/knowledge-center/elb-capture-client-ip-addresses)
+
+    If you are using Nginx as an HTTPS server, it is recommend separating the HTTPS logs from access.log and error.log and saving them as ssl_access.log and ssl_access.log. Internally, the SIEM processes access.log and error.log as HTTP logs, and ssl_access.log and ssl_access.log as HTTPS logs.
+
+    Example of configuration to separate
+
+    ```conf
+    server {
+        listen 443 ssl;
+
+        access_log /var/log/nginx/ssl_access.log main;
+        error_log  /var/log/nginx/ssl_error.log;
+
+        ssl_certificate     /etc/nginx/ssl/server.crt;
+        ssl_certificate_key /etc/nginx/ssl/server.key;
+    }
+    ```
+
+1. Create a configuration file for CloudWatch Agent
+
+    The steps are an example configuration to forward logs to CloudWatch Logs. Please change the input values ​​as appropriate, including settings for Cloud Watch Metrics, etc. Save your configuration in AWS Systems Manager Parameter Store. Subsequent EC2 instances use configuration files saved in Parameter Store, so this step is not necessary.
+
+    If you also want to transfer Linux OS logs, please refer to [EC2 Instance (Amazon Linux 2/2023)](#ec2-instance-amazon-linux-22023) and combine them.
+
+    ```sh
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-config-wizard
+    ```
+
+    ```text
+    (snip)
+
+    Do you want to monitor any log files?
+    1. yes
+    2. no
+    default choice: [1]:
+    [RETRUN]
+
+    Log file path:
+    /var/log/nginx/access.log[RETRUN]
+
+    Log group name:
+    default choice: [messages]
+    /ec2/nginx/access.log[RETRUN]
+
+    Log stream name:
+    default choice: [{instance_id}]
+    [RETRUN]
+
+    Log Group Retention in days
+    default choice: [1]:
+    [RETRUN]
+    ```
+
+    Set the necessary logs as follows.
+
+    | Log file path | Log group name |
+    |---------------|----------------|
+    | /var/log/nginx/access_log     | /ec2/nginx/access_log     |
+    | /var/log/nginx/error_log      | /ec2/nginx/error_log      |
+    | /var/log/nginx/ssl_access_log | /ec2/nginx/ssl_access_log |
+    | /var/log/nginx/ssl_error_log  | /ec2/nginx/ssl_error_log  |
+
+    ```text
+    Do you want to specify any additional log files to monitor?
+    1. yes
+    2. no
+    default choice: [1]:
+    2[RETRUN]
+
+    Do you want to store the config in the SSM parameter store?
+    1. yes
+    2. no
+    default choice: [1]:
+    [RETRUN]
+
+    What parameter store name do you want to use to store your config? (Use 'AmazonCloudWatch-' prefix if you use our managed AWS policy)
+    default choice: [AmazonCloudWatch-linux]
+    AmazonCloudWatch-nginx[RETRUN]
+
+    (snip)
+    ```
+
+    For more information, see [Create the CloudWatch agent configuration file](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/create-cloudwatch-agent-configuration-file.html)
+
+    error.log is a multi-line log. Specify multi-line setting in the CloudWatch Agent configuration file
+
+    AWS Systems Manager Parameter Store: `AmazonCloudWatch-nginx`
+
+    ```json
+    {
+        (snip)
+        "logs": {
+            "logs_collected": {
+                "files": {
+                    "collect_list": [
+                        (snip)
+                        {
+                            "file_path": "/var/log/nginx/access.log",
+                            "log_group_name": "/ec2/nginx/access.log",
+                            "log_stream_name": "{instance_id}",
+                            "retention_in_days": -1
+                        },
+                        {
+                            "file_path": "/var/log/nginx/error.log",
+                            "log_group_name": "/ec2/nginx/error.log",
+                            "log_stream_name": "{instance_id}",
+                            "timestamp_format": "%Y/%m/%d %H:%M:%S",
+                            "multi_line_start_pattern": "{timestamp_format}",
+                            "retention_in_days": -1
+                        },
+                        {
+                            "file_path": "/var/log/nginx/ssl_error.log",
+                            "log_group_name": "/ec2/nginx/ssl_error.log",
+                            "log_stream_name": "{instance_id}",
+                            "timestamp_format": "%Y/%m/%d %H:%M:%S",
+                            "multi_line_start_pattern": "{timestamp_format}",
+                            "retention_in_days": -1
+                        }
+                    ]
+                }
+            }
+        }
+    }
+    ```
+
+1. Forward logs to CloudWatch Logs
+
+    Use configuration files saved in parameter store
+
+    ```sh
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c ssm:AmazonCloudWatch-nginx
+    sudo systemctl start amazon-cloudwatch-agent
+    sudo systemctl enable amazon-cloudwatch-agent
+    # When the second time deployment,
+    sudo systemctl restart amazon-cloudwatch-agent
+    ```
+
+1. Output logs to Firehose using a CloudWatch Logs subscription and choose the S3 bucket as the destination for Firehose output
+
+    | No | CloudFormation | Description |
+    |----------|----------------|---------------|
+    | 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.2/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.2/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+    | 2 |[![nginx](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-nginx&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.2/log-exporter/siem-log-exporter-nginx-cwl.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2-beta.2/log-exporter/siem-log-exporter-nginx-cwl.template) | This template creates two Firehose,set up CloudWatch Logs subscription filters to deliver CloudWatch Logs to the Firehose. The firehose exports nginx logs to S3 bucket.|
+
+    Destination S3 bucket:
+    * [ **AWSLogs/aws-account-id=123456789012/service=nginx-access/web-site-name=[sitename]/aws-region=[region]/** ]
+    * [ **AWSLogs/aws-account-id=123456789012/service=nginx-error/web-site-name=[sitename]/aws-region=[region]/** ]
         * Replace 123456789012 with your AWS account ID
 
 ## 9. Containers
