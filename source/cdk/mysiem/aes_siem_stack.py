@@ -1553,6 +1553,7 @@ class MyAesSiemStack(cdk.Stack):
         s3_geo.add_lifecycle_rule(
             enabled=True,
             expiration=cdk.Duration.days(8),
+            noncurrent_version_expiration=cdk.Duration.days(8),
             id="delete-ioc-temp-files",
             prefix='IOC/tmp/'
         )

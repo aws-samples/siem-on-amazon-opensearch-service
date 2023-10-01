@@ -741,6 +741,7 @@ class CloudWatchDashboardSiem(object):
             query_string=r"""fields @timestamp, @message
                 | filter @message =~ /^\[ERROR]/
                 | filter @message not like /No active exception to reraise/
+                | filter @message not like /unknown file format/
                 # exclude raise without Exception
                 | sort @timestamp desc
                 | limit 100""")

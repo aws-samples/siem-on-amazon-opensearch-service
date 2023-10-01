@@ -82,8 +82,10 @@ function pip_zip_for_lambda () {
       echo "rm -r ../\"$1\".zip"
       rm -r ../"$1".zip
     fi
-    echo "rm ${source_dir}/lambda/$1/LICENSE ${source_dir}/lambda/$1/CODE_OF_CONDUCT.md ${source_dir}/lambda/$1/CONTRIBUTING.md"
-    rm "${source_dir}/lambda/$1/LICENSE" "${source_dir}/lambda/$1/CODE_OF_CONDUCT.md" "${source_dir}/lambda/$1/CONTRIBUTING.md"
+    if [ -f "CONTRIBUTING.md" ]; then
+        echo "rm ${source_dir}/lambda/$1/LICENSE ${source_dir}/lambda/$1/CODE_OF_CONDUCT.md ${source_dir}/lambda/$1/CONTRIBUTING.md"
+        rm "${source_dir}/lambda/$1/LICENSE" "${source_dir}/lambda/$1/CODE_OF_CONDUCT.md" "${source_dir}/lambda/$1/CONTRIBUTING.md"
+    fi
     cd ..
 }
 
