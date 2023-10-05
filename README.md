@@ -53,6 +53,8 @@ SIEM on OpenSearch Service can load and correlate the following log types.
 |Compute|Windows Server 2012/2016/2019<br>via CloudWatch Logs|System event log<br>Security event log|
 |Containers|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
 |End User Computing|Amazon WorkSpaces|Event log<br>Inventory|
+|Open Source Software|Apache Web Server|access log(CLF, combined, combinedio with XFF)<br>error log|
+|Open Source Software|NGINX Web Server|access log(combined with XFF)<br>error log|
 
 Experimental Support: We may change field type, normalization and something in the future.
 

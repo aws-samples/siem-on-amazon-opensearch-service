@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.2-rc.1'
+__version__ = '2.10.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -10,7 +10,6 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 import aws_cdk as cdk
 import boto3
 from aws_cdk import (
-    custom_resources as cr,
     aws_ec2,
     aws_events,
     aws_events_targets,
@@ -22,8 +21,9 @@ from aws_cdk import (
     aws_s3_notifications,
     aws_sns,
     aws_sqs,
-    region_info,
 )
+from aws_cdk import custom_resources as cr
+from aws_cdk import region_info
 from constructs import Construct
 
 from .aos_deployment import AosDeployment

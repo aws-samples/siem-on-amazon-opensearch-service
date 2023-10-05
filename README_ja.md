@@ -55,6 +55,8 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 |コンピューティング|Windows Server 2012/2016/2019<br>via CloudWatch Logs|System event log<br>Security event log|
 |コンテナ|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
 |エンドユーザーコンピューティング|Amazon WorkSpaces|Event log<br>Inventory|
+|オープンソースソフトウェア|Apache Web Server|access log(CLF, combined, combinedio with XFF)<br>error log|
+|オープンソースソフトウェア|NGINX Web Server|access log(combined with XFF)<br>error log|
 
 Experimental Support はログフィールドの正規化等を大きく変更する可能性があります
 

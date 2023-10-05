@@ -42,6 +42,8 @@ SIEM on OpenSearch Service 能够加载并关联以下日志类型。
 |Compute|Windows Servver 2012/2016/2019<br>通过 CloudWatch Logs|System event log<br>Security event log|
 |Containers|Amazon Elastic Container Service (Amazon ECS)<br>通过 FireLens|仅框架|
 |End User Computing|Amazon WorkSpaces|Event log<br>Inventory|
+|Open Source Software|Apache Web Server|access log(CLF, combined, combinedio with XFF)<br>error log|
+|Open Source Software|NGINX Web Server|access log(combined with XFF)<br>error log|
 
 我们以后有机会修改 **Database (试验中)** 日志存放内容来优化功能。
 
