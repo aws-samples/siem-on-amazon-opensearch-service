@@ -12,6 +12,7 @@
 LOG_OUT="$HOME/auto_setup_on_cloudshell-$(date "+%Y%m%d_%H%M%S").log"
 exec 2> >(tee -a "${LOG_OUT}") 1>&2
 
+export JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION=1
 export BASEDIR="$HOME/siem-on-amazon-opensearch-service"
 export OLDDIR1="$HOME/siem-on-amazon-elasticsearch-service"
 export OLDDIR2="$HOME/siem-on-amazon-elasticsearch"
@@ -86,7 +87,7 @@ function func_put_to_ssm_param () {
   cd "$BASEDIR/source/cdk" || exit
   put_obj=$1
   aws ssm put-parameter \
-    --name "/aes-siem/cdk/$put_obj" \
+    --name "/siem/cdk/$put_obj" \
     --overwrite \
     --region "$AWS_DEFAULT_REGION" \
     --value "$(cat "${put_obj}")" \
@@ -98,14 +99,31 @@ function func_get_from_param_store () {
   cd "$BASEDIR/source/cdk" || exit
   get_obj=$1
   aws ssm get-parameter \
-    --name "/aes-siem/cdk/$get_obj" \
+    --name "/siem/cdk/$get_obj" \
     --region "$AWS_DEFAULT_REGION" \
     --query "Parameter.Value" \
     --output text > "${get_obj}.ssm" 2> /dev/null
   if [ -s "${get_obj}.ssm" ]; then
-    echo "GET $get_obj from SSM Parameter store"
+    echo "GOT $get_obj from SSM Parameter store"
   else
-    rm "${get_obj}.ssm"
+    aws ssm get-parameter \
+      --name "/aes-siem/cdk/$get_obj" \
+      --region "$AWS_DEFAULT_REGION" \
+      --query "Parameter.Value" \
+      --output text > "${get_obj}.ssm" 2> /dev/null
+    if [ -s "${get_obj}.ssm" ]; then
+      echo "GOT $get_obj from SSM Parameter store. "
+      aws ssm put-parameter \
+        --name "/siem/cdk/$get_obj" \
+        --overwrite \
+        --region "$AWS_DEFAULT_REGION" \
+        --value "file://${get_obj}.ssm" \
+        --type String
+      aws ssm delete-parameter --name "/aes-siem/cdk/$get_obj"
+      echo "Changed parameter store name"
+    else
+      rm "${get_obj}.ssm"
+    fi
   fi
 }
 
@@ -204,7 +222,8 @@ function func_ask_and_set_env {
     esac
   done;
   aws ssm put-parameter \
-    --name "/aes-siem/cdk/cdk.json" \
+    --name "/siem/cdk/cdk.json" \
+    --overwrite \
     --region "$AWS_DEFAULT_REGION" \
     --value "$(cat cdk.json)" \
     --type String
@@ -398,7 +417,7 @@ echo "################################################"
 echo "# Next Procedure"
 echo "################################################"
 echo "1. Go to Systems Manager / Parameter Store in selected region"
-echo "   https://console.aws.amazon.com/systems-manager/parameters/aes-siem/cdk/cdk.json/"
+echo "   https://console.aws.amazon.com/systems-manager/parameters/siem/cdk/cdk.json/"
 echo "2. Check and Edit cdk.json file in Parameter Store"
 echo "   If you want to update SIEM without changes, please just return "
 echo "   see more details https://github.com/aws-samples/siem-on-amazon-opensearch-service/blob/main/docs/deployment.md"

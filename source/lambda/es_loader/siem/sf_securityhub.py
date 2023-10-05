@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.1'
+__version__ = '2.10.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -85,11 +85,11 @@ def get_values_from_asff_resources(resources):
             try:
                 instanceid = (resource['Details']['AwsEc2Volume']
                               ['Attachments'][0]['InstanceId'])
+                resource_dict['cloud'] = {'instance': {'id': instanceid}}
             except Exception:
                 # pass
                 # to ignore Rule-269212
                 None
-            resource_dict['cloud'] = {'instance': {'id': instanceid}}
         elif resource['Type'] == 'AwsIamRole':
             name = resource['Id'].split('/')[-1]
             resource_dict['user'] = {'name': name}

@@ -6,6 +6,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.2] - 2023-10-05
+### Added
+- Added support for Amazon OpenSearch 2.9 #409
+- Added support for NGINX Web Server #408
+- Added enrichment feature for source IP address with X-Forwarded-For #407
+- Added support for Apache Web Server #405
+- Added support for Multi-AZ with Standby #403
+- Added logs exporter for EC2 instance Linux log #404
+- Added documents about SAML federation of Control Tower for OpenSearch Dashboards #393
+- Added Amazon Linux 2023 to CDK deployment platform #387
+- Added CDK/CloudFormation parameter to keep or override Log bucket policy #372
+
+### Changed
+- Lambda instruction set architectures from x86 to Arm64 in 6 additional regions #400
+- Updated AWS SDK for pandas from 3.1.0 to v3.3.0 #399
+- Enhanced validation for control tower integration #396
+
+### Deprecated
+- Amazon Linux 2 for CDK deployment platform
+
+### Fixed
+- Fixed dependency issue with ExecCustomResourceValidator during deployment #406
+- es_loader Error: sf_securityhub.py UnboundLocalError instanceid bug #405
+- Fixed an issue where VPC Endpoint could not be created in China region.#398
+
 ## [2.10.1] - 2023-08-07
 ### Added
 - Added STS VPC Endpoint for Control Tower/Security Lake integration when using VPC #391

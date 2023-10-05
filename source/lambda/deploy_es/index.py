@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.1'
+__version__ = '2.10.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -43,6 +43,7 @@ iam_client = boto3.client('iam')
 s3_client = boto3.resource('s3')
 ec2_client = boto3.client('ec2')
 opensearch_client = boto3.client('opensearch')
+ssm_client = boto3.client('ssm')
 try:
     serverless_client = boto3.client('opensearchserverless')
 except Exception as err:
@@ -157,7 +158,7 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': AOS_DOMAIN,
-    'EngineVersion': 'OpenSearch_2.7',
+    'EngineVersion': 'OpenSearch_2.9',
     'ClusterConfig': {
         'InstanceType': 't3.medium.search',
         'InstanceCount': 1,
@@ -660,7 +661,7 @@ def get_saved_objects(dist_name, cookies, auth=None):
 
 def backup_content_to_s3(dir_name, content_type, content_name, content):
     now_str = datetime.now().strftime('%Y%m%d_%H%M%S')
-    file_name = f'{content_name}-{content_type}-{now_str}.json'
+    file_name = f'{content_name}-{content_type}-{now_str}.ndjson'
     if content and isinstance(content, bytes):
         with open(f'/tmp/{file_name}', 'wb') as raw_file:
             raw_file.write(content)
@@ -760,6 +761,36 @@ def check_slr_aoss(vpc_id=None):
     return needs_slr
 
 
+def get_vpcid_subnets_by_vpcendpoints(subnets: list) -> (str, list):
+    if REGION.startswith('cn'):
+        url_prefix = 'cn.com'
+    else:
+        url_prefix = 'com'
+    service_names = [
+        f'{url_prefix}.amazonaws.{REGION}.sqs',
+        f'{url_prefix}.amazonaws.{REGION}.sts',
+        f'com.amazonaws.{REGION}.ssm',
+        f"com.amazonaws.{REGION}.s3"]
+    response = ec2_client.describe_vpc_endpoint_services(
+        ServiceNames=service_names)
+    azs = set()
+    for vpce in response['ServiceDetails']:
+        if len(azs) == 0:
+            azs = set(vpce['AvailabilityZones'])
+        if len(azs) > 0:
+            azs = azs & set(vpce['AvailabilityZones'])
+    azs = list(azs)
+    response = ec2_client.describe_subnets(
+        Filters=[{'Name': 'availability-zone', 'Values': azs}],
+        SubnetIds=subnets)
+    vpc_id = response['Subnets'][0]['VpcId']
+    subnets = set()
+    for subnet in response['Subnets']:
+        subnets.add(subnet['SubnetId'])
+    subnets = sorted(list(subnets))
+    return vpc_id, subnets
+
+
 @helper_validation.update
 @helper_validation.create
 def validate_resource(event, context):
@@ -802,10 +833,10 @@ def validate_resource(event, context):
         except Exception as err:
             raise Exception(f'VPC endpoint {VPCE_ID} is not found or '
                             f'something wrong. Invalid VPCE ID. {err}')
+
     if subnets:
         logger.debug('Check subnets')
-        response = ec2_client.describe_subnets(SubnetIds=subnets)
-        vpc_id = response['Subnets'][0]['VpcId']
+        vpc_id, subnets = get_vpcid_subnets_by_vpcendpoints(subnets)
 
         logger.debug('Check route tables')
         response = ec2_client.describe_route_tables(
@@ -863,6 +894,21 @@ def validate_resource(event, context):
                   '"Condition":{{"Bool":{{"aws:SecureTransport":"false"}}}}}}]'
                   '}}'.format(bucket_arn))
 
+    def ssm_put_parameter(param_name, policy):
+        if not policy:
+            policy = ' '
+        ssm_client.put_parameter(Name=f'/siem/bucketpolicy/log/{param_name}',
+                                 Value=policy, Type='String', Overwrite=True)
+
+    ssm_put_parameter('policy1', policy[:2560])
+    ssm_put_parameter('policy2', policy[2560:5120])
+    ssm_put_parameter('policy3', policy[5120:7680])
+    ssm_put_parameter('policy4', policy[7680:10240])
+    ssm_put_parameter('policy5', policy[10240:12800])
+    ssm_put_parameter('policy6', policy[12800:15360])
+    ssm_put_parameter('policy7', policy[15360:17920])
+    ssm_put_parameter('policy8', policy[17920:20480])
+
     # needs_slr_aos = check_slr_aos(vpc_id)
     # needs_slr_aoss = check_slr_aoss(vpc_id)
 
@@ -875,7 +921,6 @@ def validate_resource(event, context):
         helper_validation.Data['cidr_block1'] = cidr_block[1]
         helper_validation.Data['cidr_block2'] = cidr_block[2]
         helper_validation.Data['cidr_block3'] = cidr_block[3]
-        # helper_validation.Data['s3_log_bucket_policy'] = policy
         # helper_validation.Data['needs_slr_aos'] = needs_slr_aos
         # helper_validation.Data['needs_slr_aoss'] = needs_slr_aoss
         logger.debug(helper_validation.Data)
@@ -1134,10 +1179,20 @@ def aes_config_create_update(event, context):
         return physicalResourceId
 
 
-@helper_validation.delete
 @helper_config.delete
-def custom_resource_delete(event, context):
+def aes_config_delete(event, context):
     logger.info("Got Delete. Nothing to delete")
+
+
+@helper_validation.delete
+def custom_resource_delete(event, context):
+    logger.info("Got Delete")
+    try:
+        response = ssm_client.delete_parameters(Names=[
+            f'/siem/bucketpolicy/log/policy{n}' for n in range(1, 9)])
+        logger.info(response)
+    except Exception:
+        logger.exception("something wrong")
 
 
 if __name__ == '__main__':

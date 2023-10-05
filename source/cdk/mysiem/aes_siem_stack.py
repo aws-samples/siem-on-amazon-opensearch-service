@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.1'
+__version__ = '2.10.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -21,8 +21,9 @@ from aws_cdk import (
     aws_s3_notifications,
     aws_sns,
     aws_sqs,
-    region_info,
 )
+from aws_cdk import custom_resources as cr
+from aws_cdk import region_info
 from constructs import Construct
 
 from .aos_deployment import AosDeployment
@@ -246,12 +247,15 @@ class MyAesSiemStack(cdk.Stack):
             # Lambda Arch
             if region in ('af-south-1', 'ap-east-1',
                           'ap-northeast-1', 'ap-northeast-2', 'ap-northeast-3',
-                          'ap-south-1',
+                          'ap-south-1', 'ap-south-2',
                           'ap-southeast-1', 'ap-southeast-2', 'ap-southeast-3',
+                          'ap-southeast-4',
                           'ca-central-1',
-                          'eu-central-1', 'eu-north-1', 'eu-south-1',
+                          'eu-central-1', 'eu-north-1', 'eu-central-2',
+                          'eu-south-1', 'eu-south-2',
                           'eu-west-1', 'eu-west-2', 'eu-west-3',
-                          'me-south-1', 'sa-east-1',
+                          'il-central-1',
+                          'me-central-1', 'me-south-1', 'sa-east-1',
                           'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2'):
                 region_dict[region]['LambdaArch'] = arm
             else:
@@ -313,6 +317,19 @@ class MyAesSiemStack(cdk.Stack):
                          " and input the key. "
                          "The license is a string of 16 or 40 digits"))
 
+        trusted_proxy_list = cdk.CfnParameter(
+            self, 'TrustedProxyIpList',
+            allowed_pattern=r'(|[0-9a-fA-F./\s:,]*)',
+            default='127.0.0.1/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16',
+            description=("(Optional) "
+                         "Specify IP addresses or network addresses of "
+                         "trusted Elastic Load Balancing (ELB)/ "
+                         "Contents Delivery Service (CDN)/ Proxy server "
+                         "other than Amazon CloudFront and AWS Global "
+                         "Accelerator. Once entered, this SIEM solution will "
+                         "perform an X-Forwarded-For analysis of web access "
+                         "logs and select the client's IP address."))
+
         reserved_concurrency = cdk.CfnParameter(
             self, 'ReservedConcurrency', default=10, type='Number',
             description=('Input lambda reserved concurrency for es-loader. '
@@ -348,7 +365,6 @@ class MyAesSiemStack(cdk.Stack):
                          'max is 10080 minutes ( = 7 days ).'),
             min_value=30, max_value=10080, default=720)
 
-        """
         log_bucket_policy_update = cdk.CfnParameter(
             self, 'LogBucketPolicyUpdate',
             allowed_values=['update_and_override', 'keep'],
@@ -357,9 +373,8 @@ class MyAesSiemStack(cdk.Stack):
                 ' of the Log bucket. Be sure to select "update_and_override" '
                 'for the first deployment. If you select "update_and_override"'
                 ' when updating, you need to create and manage the bucket '
-                'policy for writing logs to your S3 Log bucket by your self'),
+                'policy for writing logs to your S3 Log bucket by yourself'),
             default='update_and_override')
-        """
 
         create_sqs_vpce = cdk.CfnParameter(
             self, 'CreateSqsVpcEndpoint', allowed_values=['true', 'false'],
@@ -396,8 +411,8 @@ class MyAesSiemStack(cdk.Stack):
             description=(
                 'Specify S3 log bucket names in the Log Archive account. '
                 'Comma separated list. '
-                '(e.g., aws-controltower-logs-123456789012-ap-northeast-1, '
-                'aws-controltower-s3-access-logs-123456789012-ap-northeast-1 )'
+                '(e.g., aws-controltower-logs-123456789012-us-east-1, '
+                'aws-controltower-s3-access-logs-123456789012-us-east-1 )'
             ),
             default='')
 
@@ -415,7 +430,7 @@ class MyAesSiemStack(cdk.Stack):
             allowed_pattern=r'^(arn:aws[0-9a-zA-Z:/_-]*|)$',
             description=(
                 'Specify SQS ARN for S3 log buckets in Log Archive Account. '
-                '(e.g., arn:aws:sqs:ap-northeast-1:12345678902:aes-siem-ct )'
+                '(e.g., arn:aws:sqs:us-east-1:123456789012:aes-siem-ct )'
             ),
             default='')
 
@@ -444,7 +459,7 @@ class MyAesSiemStack(cdk.Stack):
                              r'Lake-[0-9a-f-]*-Main-Queue|)$'),
             description=(
                 'Specify SQS ARN of Security Lake Subscriber. '
-                '(e.g., arn:aws:sqs:us-east-1:12345678902:AmazonSecurityLake'
+                '(e.g., arn:aws:sqs:us-east-1:123456789012:AmazonSecurityLake'
                 '-00001111-2222-3333-5555-666677778888-Main-Queue )'),
             default='')
 
@@ -461,14 +476,15 @@ class MyAesSiemStack(cdk.Stack):
                                     reserved_concurrency.logical_id]},
                     {'Label': {'default': 'Log Enrichment - optional'},
                      'Parameters': [geoip_license_key.logical_id,
+                                    trusted_proxy_list.logical_id,
                                     otx_api_key.logical_id,
                                     enable_tor.logical_id,
                                     enable_abuse_ch.logical_id,
                                     ioc_download_interval.logical_id]},
                     {'Label': {'default': ('Advanced Configuration '
                                            '- optional')},
-                     # 'Parameters': [log_bucket_policy_update.logical_id,
-                     'Parameters': [vpce_id.logical_id,
+                     'Parameters': [log_bucket_policy_update.logical_id,
+                                    vpce_id.logical_id,
                                     create_s3_vpce.logical_id,
                                     create_sqs_vpce.logical_id,
                                     create_ssm_vpce.logical_id,
@@ -496,12 +512,13 @@ class MyAesSiemStack(cdk.Stack):
             'allow_source_address': allow_source_address,
             'sns_email': sns_email,
             'geoip_license_key': geoip_license_key,
+            'trusted_proxy_list': trusted_proxy_list,
             'reserved_concurrency': reserved_concurrency,
             'otx_api_key': otx_api_key,
             'enable_tor': enable_tor,
             'enable_abuse_ch': enable_abuse_ch,
             'ioc_download_interval': ioc_download_interval,
-            # 'log_bucket_policy_update': log_bucket_policy_update,
+            'log_bucket_policy_update': log_bucket_policy_update,
             'create_sqs_vpce': create_sqs_vpce,
             'create_ssm_vpce': create_ssm_vpce,
             'create_sts_vpce': create_sts_vpce,
@@ -574,7 +591,7 @@ class MyAesSiemStack(cdk.Stack):
         ######################################################################
         # Cloudformation Conditions
         ######################################################################
-        is_global_region = has_lambda_architectures_prop = cdk.CfnCondition(
+        is_global_region = cdk.CfnCondition(
             self, "isGlobalRegion",
             expression=cdk.Fn.condition_not(
                 cdk.Fn.condition_or(
@@ -586,16 +603,20 @@ class MyAesSiemStack(cdk.Stack):
             )
         )
 
+        is_china_region = cdk.CfnCondition(
+            self, "isChinaRegion",
+            expression=cdk.Fn.condition_or(
+                cdk.Fn.condition_equals(cdk.Aws.REGION, 'cn-north-1'),
+                cdk.Fn.condition_equals(cdk.Aws.REGION, 'cn-northwest-1'),
+            )
+        )
+
         has_lambda_architectures_prop = cdk.CfnCondition(
             self, "HasLambdaArchitecturesProp",
             expression=cdk.Fn.condition_not(
                 cdk.Fn.condition_or(
-                    cdk.Fn.condition_equals(cdk.Aws.REGION, 'ap-south-2'),
-                    cdk.Fn.condition_equals(cdk.Aws.REGION, 'ap-southeast-4'),
-                    cdk.Fn.condition_equals(cdk.Aws.REGION, 'eu-central-2'),
-                    cdk.Fn.condition_equals(cdk.Aws.REGION, 'eu-south-2'),
-                    cdk.Fn.condition_equals(cdk.Aws.REGION, 'il-central-1'),
-                    cdk.Fn.condition_equals(cdk.Aws.REGION, 'me-central-1'),
+                    cdk.Fn.condition_equals(cdk.Aws.REGION, 'ap-dummy-99'),
+                    # cdk.Fn.condition_equals(cdk.Aws.REGION, 'il-central-1'),
                 )
             )
         )
@@ -630,9 +651,13 @@ class MyAesSiemStack(cdk.Stack):
 
         has_geoip_license = cdk.CfnCondition(
             self, "HasGeoipLicense",
-            expression=cdk.Fn.condition_not(
-                cdk.Fn.condition_equals(
-                    geoip_license_key.value_as_string, '')
+            expression=cdk.Fn.condition_or(
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        geoip_license_key.value_as_string, '')),
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        trusted_proxy_list.value_as_string, '')),
             )
         )
 
@@ -657,14 +682,12 @@ class MyAesSiemStack(cdk.Stack):
             )
         )
 
-        """
         keep_log_bucket_policy = cdk.CfnCondition(
             self, "KeepLogBucketPolicy",
             expression=cdk.Fn.condition_equals(
                 log_bucket_policy_update.value_as_string,
                 'keep')
         )
-        """
 
         sqs_vpce_is_required = cdk.CfnCondition(
             self, "SqsVpceIsRequired",
@@ -738,6 +761,7 @@ class MyAesSiemStack(cdk.Stack):
 
         cfn_conditions_dict = {
             'is_global_region': is_global_region,
+            'is_china_region': is_china_region,
             'has_lambda_architectures_prop': has_lambda_architectures_prop,
             'is_serverless': is_serverless,
             'is_managed_cluster': is_managed_cluster,
@@ -746,7 +770,7 @@ class MyAesSiemStack(cdk.Stack):
             'has_geoip_license': has_geoip_license,
             'enable_ioc': enable_ioc,
             'has_sns_email': has_sns_email,
-            # 'keep_log_bucket_policy': keep_log_bucket_policy,
+            'keep_log_bucket_policy': keep_log_bucket_policy,
             'sqs_vpce_is_required': sqs_vpce_is_required,
             'ssm_vpce_is_required': ssm_vpce_is_required,
             'sts_vpce_is_required': sts_vpce_is_required,
@@ -906,16 +930,51 @@ class MyAesSiemStack(cdk.Stack):
         )
         s3_log.node.add_dependency(validated_resource)
 
-        """
+        # restore current s3 bucket policy
+        def ssm_get_param(log_bucket_policy_update, param_name):
+            get_parameter = cr.AwsCustomResource(
+                self, f's3bucket{param_name}',
+                function_name='aes-siem-aws-api-caller',
+                timeout=cdk.Duration.seconds(30),
+                install_latest_aws_sdk=False,
+                on_update=cr.AwsSdkCall(
+                    service="SSM",
+                    action="getParameter",
+                    output_paths=["Parameter.Value"],
+                    parameters={
+                        "Name": f'/siem/bucketpolicy/log/{param_name}',
+                        "WithDecryption": False},
+                    physical_resource_id=cr.PhysicalResourceId.of(
+                        f"CustomResource::{param_name}-{__version__}-"
+                        f"{log_bucket_policy_update.value_as_string}")
+                ),
+                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
+                    resources=[(f'arn:{PARTITION}:ssm:*:{cdk.Aws.ACCOUNT_ID}:'
+                                'parameter/siem/bucketpolicy/*')]
+                ),
+            )
+            get_parameter.node.add_dependency(validated_resource)
+            return get_parameter.get_response_field("Parameter.Value")
+
+        pol1 = ssm_get_param(log_bucket_policy_update, "policy1")
+        pol2 = ssm_get_param(log_bucket_policy_update, "policy2")
+        pol3 = ssm_get_param(log_bucket_policy_update, "policy3")
+        pol4 = ssm_get_param(log_bucket_policy_update, "policy4")
+        pol5 = ssm_get_param(log_bucket_policy_update, "policy5")
+        pol6 = ssm_get_param(log_bucket_policy_update, "policy6")
+        pol7 = ssm_get_param(log_bucket_policy_update, "policy7")
+        pol8 = ssm_get_param(log_bucket_policy_update, "policy8")
+        s3_log_bucket_policy = cdk.Fn.join(
+            '', [pol1, pol2, pol3, pol4, pol5, pol6, pol7, pol8])
+
         s3_log.policy.node.default_child.add_property_override(
             "PolicyDocument",
             cdk.Fn.condition_if(
                 keep_log_bucket_policy.logical_id,
-                validated_resource.get_att('s3_log_bucket_policy').to_string(),
+                s3_log_bucket_policy,
                 s3_log.policy.document
             )
         )
-        """
 
         # create s3 bucket for aes snapshot
         s3_snapshot = aws_s3.Bucket(
@@ -1064,6 +1123,7 @@ class MyAesSiemStack(cdk.Stack):
         )
         sg_vpc_aes_siem2.cfn_options.condition = is_in_vpc
 
+        # VPC Endpoint
         vpce_endpoint_sqs = aws_ec2.CfnVPCEndpoint(
             self, "VpcAesSiemSQSEndpoint8BFF7847", vpc_id='', subnet_ids=[],
             vpc_endpoint_type="Interface",
@@ -1076,6 +1136,14 @@ class MyAesSiemStack(cdk.Stack):
         vpce_endpoint_sqs.add_property_override(
             "SubnetIds", validated_resource.get_att('subnets').to_string())
         vpce_endpoint_sqs.cfn_options.condition = sqs_vpce_is_required
+        vpce_endpoint_sqs.add_property_override(
+            "ServiceName",
+            cdk.Fn.condition_if(
+                is_china_region.logical_id,
+                f"cn.com.amazonaws.{cdk.Aws.REGION}.sqs",
+                f"com.amazonaws.{cdk.Aws.REGION}.sqs",
+            )
+        )
 
         vpce_endpoint_ssm = aws_ec2.CfnVPCEndpoint(
             self, "VpcAesSiemSSMEndpoint", vpc_id='', subnet_ids=[],
@@ -1102,6 +1170,14 @@ class MyAesSiemStack(cdk.Stack):
         vpce_endpoint_sts.add_property_override(
             "SubnetIds", validated_resource.get_att('subnets').to_string())
         vpce_endpoint_sts.cfn_options.condition = sts_vpce_is_required
+        vpce_endpoint_sts.add_property_override(
+            "ServiceName",
+            cdk.Fn.condition_if(
+                is_china_region.logical_id,
+                f"cn.com.amazonaws.{cdk.Aws.REGION}.sts",
+                f"com.amazonaws.{cdk.Aws.REGION}.sts",
+            )
+        )
 
         vpce_endpoint_s3 = aws_ec2.CfnVPCEndpoint(
             self, "VpcAesSiemS3Endpoint003F70DF", vpc_id='',
@@ -1477,6 +1553,7 @@ class MyAesSiemStack(cdk.Stack):
         s3_geo.add_lifecycle_rule(
             enabled=True,
             expiration=cdk.Duration.days(8),
+            noncurrent_version_expiration=cdk.Duration.days(8),
             id="delete-ioc-temp-files",
             prefix='IOC/tmp/'
         )

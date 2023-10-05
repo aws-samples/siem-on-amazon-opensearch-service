@@ -42,6 +42,8 @@ SIEM on OpenSearch Service 能够加载并关联以下日志类型。
 |Compute|Windows Servver 2012/2016/2019<br>通过 CloudWatch Logs|System event log<br>Security event log|
 |Containers|Amazon Elastic Container Service (Amazon ECS)<br>通过 FireLens|仅框架|
 |End User Computing|Amazon WorkSpaces|Event log<br>Inventory|
+|Open Source Software|Apache Web Server|access log(CLF, combined, combinedio with XFF)<br>error log|
+|Open Source Software|NGINX Web Server|access log(combined with XFF)<br>error log|
 
 我们以后有机会修改 **Database (试验中)** 日志存放内容来优化功能。
 
@@ -164,7 +166,7 @@ SIEM on OpenSearch Service大概需要30分钟来完成部署。随后即可着�
 1. 导航至 [OpenSearch Service控制台](https://console.amazonaws.cn/esv3/home?)
 1. 选定域: [**aes-siem**]
 1. 选择 [**Actions**] 图标，而后在下拉清单中选择 [**Upgrade domain**]
-1. 在 "Version to upgrade to"部分，选择 [**OpenSearch 2.7**] 后选择[**Submit**]
+1. 在 "Version to upgrade to"部分，选择 [**OpenSearch 2.9**] 后选择[**Submit**]
 
 如果您选择使用CloudFormation进行初始设置，请继续执行下一步。如果您使用AWS CDK进行初设置，请参阅[高级部署](docs/deployment.md)中的 “使用AWS CDK更新SIEM” 部分。
 

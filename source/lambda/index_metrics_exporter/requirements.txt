@@ -1,2 +1,2 @@
 requests==2.31.0
-opensearch-py==2.3.0
+opensearch-py==2.3.1

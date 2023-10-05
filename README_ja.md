@@ -55,6 +55,8 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 |コンピューティング|Windows Server 2012/2016/2019<br>via CloudWatch Logs|System event log<br>Security event log|
 |コンテナ|Amazon Elastic Container Service (Amazon ECS)<br>via FireLens|Framework only|
 |エンドユーザーコンピューティング|Amazon WorkSpaces|Event log<br>Inventory|
+|オープンソースソフトウェア|Apache Web Server|access log(CLF, combined, combinedio with XFF)<br>error log|
+|オープンソースソフトウェア|NGINX Web Server|access log(combined with XFF)<br>error log|
 
 Experimental Support はログフィールドの正規化等を大きく変更する可能性があります
 
@@ -121,20 +123,20 @@ AWS の各サービスのログを S3 バケットへの出力する方法は、
 
 ## SIEM のアップデート
 
-SIEM on OpenSearch Service または SIEM on Amazon ES を新しいバージョンにアップデートする時は、OpenSearch / Elasticsearch のドメインをアップグレードしてから、初期インストールと同じ方法 (CloudFormation or AWS CDK) でアップデートしてください。SIEM の変更履歴は [こちら](CHANGELOG.md) から確認できます。
+SIEM on OpenSearch Service を新しいバージョンにアップデートする時は、OpenSearch / Elasticsearch のドメインをアップグレードしてから、初期インストールと同じ方法 (CloudFormation or AWS CDK) でアップデートしてください。SIEM の変更履歴は [こちら](CHANGELOG.md) から確認できます。
 
 > **注) Global tenant の 設定やダッシュボード等は自動で上書きされるのでご注意ください。アップデート前に使用していた設定ファイルやダッシュボード等は S3 バケットの aes-siem-[AWS_Account]-snapshot/saved_objects/ にバックアップされるので、元の設定にする場合は手動でリストアしてください。**
 
-> **注) S3 バケットポリシー、KMS の キーポリシーは、IAM ポリシー等は、CDK/CloudFormation で自動生成されています。手動で変更は非推奨ですが、変更している場合は上書きされるので、それぞれをバックアップをしてからアップデート後に差分を更新して下さい。**
+> **注) S3 バケットポリシー、KMS の キーポリシー、IAM ポリシー等は、CDK/CloudFormation で自動生成されています。手動で変更は非推奨ですが、変更している場合は上書きされるので、それぞれをバックアップをしてからアップデート後に差分を更新して下さい。または、CDK/CloudFormation のアップデート時に、パラメーターの LogBucketPolicyUpdate を `keep` とすることで現在のバケットポリシーが維持されます**
 
 ### OpenSearch Service のドメインのアップグレード
 
-OpenSearch Service を OpenSearch の 2.7/2.5/2.3/1.3/1.2/1.1/1.0 または Elasticsearch の 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.1 以上を前提にしています。推奨バージョンは OpenSearch 2.7 の「互換性モードを有効化」です。
+OpenSearch Service を OpenSearch 1.0 - 2.9 または Elasticsearch 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.1 以上を前提にしています。推奨バージョンは OpenSearch 2.9 の「互換性モードを有効化」です。
 
 1. [OpenSearch Service コンソール](https://console.aws.amazon.com/es/home?) に移動
 1. [**aes-siem**] ドメインを選択
 1. [**アクション**] アイコンを選択して、プルダウンリストから [**ドメインのアップグレード**] を選択
-1. アップグレード先のバージョンで [**OpenSearch 2.5**] (推奨)、[**OpenSearch 2.3/1.3/1.2/1.1/1.0**] または [**Elasticsearch 7.10**] を選択
+1. アップグレード先のバージョンで [**OpenSearch 2.9**] (推奨)、[**OpenSearch 1.0 - 2.7**] または [**Elasticsearch 7.10**] を選択
 1. OpenSearch の場合は、「互換性モードを有効化」にチェックを入れる (推奨)
 1. [**送信**] を選択
 
@@ -199,6 +201,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 |S3 bucket|aes-siem-[AWS_Account]-snapshot|OpenSearch Service の手動スナップショット取得|
 |S3 bucket|aes-siem-[AWS_Account]-geo|ダウンロードした GeoIP を保存|
 |Step Functions|aes-siem-ioc-state-machine|IoC のダウンロードと Database の作成|
+|Lambda function|aes-siem-aws-api-caller|CDK/CloudFormation から AWS API の呼び出ししに利用|
 |Lambda function|aes-siem-ioc-plan|IoC をダウンロードするための map を作成|
 |Lambda function|aes-siem-ioc-createdb|IoC をダウンロード|
 |Lambda function|aes-siem-ioc-download|IoC の Database を作成|
@@ -211,6 +214,7 @@ CloudFormation テンプレートで作成される AWS リソースは以下の
 |Lambda function|aes-siem-BucketNotificationsHandler|ログ用 S3 バケットのイベント通知を設定|
 |Lambda function|aes-siem-add-pandas-layer|es-loader にaws_sdk_pandas を Lambda レイヤーとして追加|
 |AWS Key Management Service<br>(AWS KMS) KMSキー & Alias|aes-siem-key|ログの暗号化に使用|
+|SSM Parameter Store|/siem/bucketpolicy/log/policy1-8|ログ用 S3 バケットの Bucket Policy の更新時に一時的に使用|
 |Amazon SQS Queue|aes-siem-sqs-splitted-logs|処理するログ行数が多い時は分割。それを管理するキュー|
 |Amazon SQS Queue|aes-siem-dlq|OpenSearch Service のログ取り込み失敗用 Dead Letter Queue|
 |CloudWatch alarms|aes-siem-TotalFreeStorageSpaceRemainsLowAlarm|OpenSearch Service クラスターの合計空き容量が 200MB 以下の状態が 30 分間継続した場合に発報|

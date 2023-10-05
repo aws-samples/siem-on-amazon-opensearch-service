@@ -54,9 +54,21 @@
 
 ### 1. AWS CDK 実行環境の準備
 
-1. Amazon Linux 2 (x86) を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください。インスタンスは 2 GB 以上のメモリが必要です
+1. Amazon Linux 2023 または Amazon Linux 2 を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください。インスタンスは 2 GB 以上のメモリが必要です
 1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、インスタンスにアタッチします
-1. シェルにログインして、開発ツール、Python 3.8 と開発ファイル、git、jq、tar をインストールし、ソースコードを GitHub から取得します
+1. シェルにログインして、開発ツール、Python 3.8 or 3.9 と開発ファイル、git、jq、tar をインストールし、ソースコードを GitHub から取得します
+
+    Amazon Linux 2023 の場合
+
+    ```shell
+    export GIT_ROOT=$HOME
+    cd ${GIT_ROOT}
+    sudo dnf groupinstall -y "Development Tools"
+    sudo dnf install -y python3-devel python3-pip git jq tar
+    git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
+    ```
+
+    Amazon Linux 2 の場合
 
     ```shell
     export GIT_ROOT=$HOME
@@ -190,6 +202,7 @@ CloudFormation テンプレートと同じパラーメーターを指定して C
 | EnableAbuseCh | Abuse.ch から IoC をダウンロードするかどうか。値は `true` か `false`(初期値)||
 | IocDownloadInterval | IoC をダウンロードする間隔を分で指定。初期値は720分|
 | **Advanced Configuration - optional** ||
+| LogBucketPolicyUpdate | Log バケットのポリシーについて、`update_and_override`(初期値) または `keep` を選択してください。最初のデプロイ時には `update_and_override` を選んでください。更新時に `update_and_override` を選んだ場合は、ログを取り込むためのバケットポリシーはご自身で作成・管理をしてください |
 | VpcEndpointId | OpenSearch managed cluster または OpenSearch Serverless の VPC Endpoint ID を指定してください。VPC Endpoint はデプロイ前に指定してください。もし指定した場合は、いくつかの Lambda 関数とリソースは VPC 内にデプロイされます|
 | CreateS3VpcEndpoint | 新しく S3 の VPC Endpoint を作成しますか？値は `true`(初期値) か `false`です。もし、すでに VPC があり、S3 の VPC Endpoint がある場合は、`false` を指定してください |
 | CreateSqsVpcEndpoint | 新しく SQS の VPC Endpoint を作成しますか？値は `true`(初期値) か `false`です。もし、すでに VPC があり、SQS の VPC Endpoint がある場合は、`false` を指定してください |

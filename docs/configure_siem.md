@@ -262,22 +262,26 @@ This parameter name must be prefixed with `/siem/log-filter/<log_type>/`. The lo
 In addition, by setting multiple parameters respectively, exclusion processing is performed as an OR of those multiple conditions. For the value of `expression`, set a conditional expression conforming to [JMESPath](https://github.com/jmespath/jmespath.py) as in the example below (for details, see the [JMESPath document](https://jmespath.org/specification.html).
 
 AND condition
-```
+
+```ini
 field1==`value1` && field2==`value2`
 ```
 
 OR condition
-```
+
+```ini
 field1==`value1` || field2==`value2`
 ```
 
 NOT condition
-```
+
+```ini
 !(field1==`value1`)
 ```
 
 Combined condition
-```
+
+```ini
 (field1==`value1` || field2==`value2`) && field3==`value3`
 ```
 
@@ -480,8 +484,8 @@ The configurations are now complete.
 
 You can load non-AWS services logs into SIEM on OpenSearch Service by exporting logs to the S3 bucket that stores logs. You can export logs to S3 using Logstash or Fluentd plug-ins.
 
-Supported file formats: JSON, CSV, Text, Multiline Text, CEF, Parquet
-Supported compression formats: gzip, bzip2, zip, no compression
+* Supported file formats: JSON, CSV, Text, Multiline Text, CEF, Parquet
+* Supported compression formats: gzip, bzip2, zip, no compression
 
 Here is the basic configuration flow for Apache HTTP server logs:
 
@@ -548,7 +552,7 @@ Here is the basic configuration flow for Apache HTTP server logs:
 
 For more information on configuration items, see aws.ini in es-loader (Lambda function).
 
-If this definition file is not enough to process your logic, you can also add custom logic using a Python script. For example, you can add logic to extract OS or platform information from user-agent. The file name should be sf_logtype.py. In this example, it's named sf_apache.py. If the log type contains - (dash), replace it with _ (underscore). Example) Log type: cloudfront-realtime => File name: sf_cloudfront_realtime.py
+If this definition file is not enough to process your logic, you can also add custom logic using a Python script. For example, you can add logic to extract OS or platform information from user-agent. The file name should be sf_logtype.py. In this example, it's named sf_apache.py. If the log type contains `-` (dash), replace it with `_` (underscore). Example) Log type: cloudfront-realtime => File name: sf_cloudfront_realtime.py
 
 Save this file in es-loader's siem directory or in the Lambda layer’s siem directory.
 
@@ -934,20 +938,17 @@ You can skip this if you have already deployed SIEM on OpenSearch Service using 
 
 The following instance and tools need to be in place so that you can create a CloudFormation template:
 
-* AWS CloudShell or Amazon EC2 instance running Amazon Linux 2
+* Amazon EC2 instance running Amazon Linux 2023
   * "Development Tools"
-  * Python 3.8
-  * Python 3.8 libraries and header files
+  * Python 3 libraries and header files
+  * pip
   * Git
 
 Run the following commands if the above tools have not been installed yet:
 
 ```shell
-sudo yum groups mark install -y "Development Tools"
-sudo yum install -y amazon-linux-extras
-sudo amazon-linux-extras enable python3.8
-sudo yum install -y python38 python38-devel git jq
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y python3-devel python3-pip git jq tar
 ```
 
 ### 2. Cloning SIEM on OpenSearch Service

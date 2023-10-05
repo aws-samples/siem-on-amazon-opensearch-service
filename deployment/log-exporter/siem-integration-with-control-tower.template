@@ -1,9 +1,9 @@
-Description: "SIEM on Amazon OpenSearch Service v2.10.1: Control Tower Integration"
+Description: "SIEM on Amazon OpenSearch Service v2.10.2: Control Tower Integration"
 Parameters:
   EsLoaderServiceRole:
     Type: String
     Default: arn:aws:iam::123456789012:role/aes-siem-LambdaEsLoaderServiceRoleXXXXXXXXX-XXXXXXXXXXXX
-    AllowedPattern: ^arn:aws[0-9a-zA-Z:/-]*$
+    AllowedPattern: ^arn:aws[0-9a-zA-Z:/-]*LambdaEsLoaderServiceRole.*$
     Description: Specify Service Role ARN of lambda function aes-siem-es-loader in SIEM Account. (e.g., arn:aws:iam::123456789012:role/aes-siem-LambdaEsLoaderServiceRoleXXXXXXXXX-XXXXXXXXXXXX )
 Resources:
   AesSiemCtDlqF1D4C848:

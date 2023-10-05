@@ -54,9 +54,21 @@ Skip these steps if you want to send logs from your existing S3 bucket to SIEM o
 
 ### 1. Setting Up the AWS CDK Execution Environment
 
-1. Deploy an Amazon Elastic Compute Cloud (Amazon EC2) instance that runs Amazon Linux 2 (x86). The EC instance require at least 2 GB RAM
+1. Deploy an Amazon Elastic Compute Cloud (Amazon EC2) instance that runs Amazon Linux 2023 or Amazon Linux 2. The EC instance require at least 2 GB RAM
 1. Create a role with Admin permissions in AWS Identity and Access Management (IAM) and attach it to the Amazon EC2 instance
-1. Log in to the shell; install the development tools, Python 3.8 and development files, git, jq and tar; and get the source code from GitHub
+1. Log in to the shell; install the development tools, Python 3.8 or 3.9 and development files, git, jq and tar; and get the source code from GitHub
+
+    For Amazon Linux 2023
+
+    ```shell
+    export GIT_ROOT=$HOME
+    cd ${GIT_ROOT}
+    sudo dnf groupinstall -y "Development Tools"
+    sudo dnf install -y python3-devel python3-pip git jq tar
+    git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
+    ```
+
+    For Amazon Linux 2
 
    ```shell
    export GIT_ROOT=$HOME
@@ -196,6 +208,7 @@ You can specify the same parameters as for the CloudFormation template. The para
 | EnableAbuseCh| Would you like to download IoC from abuse.ch? Value is `true` or `false`(default)|
 | IocDownloadInterval| Specify interval in minute to download IoC, default is 720 minutes|
 | **Advanced Configuration - optional** ||
+| LogBucketPolicyUpdate | Select `update_and_override`(default) or `keep` for the current policy of the Log bucket. Be sure to select `update_and_override` for the first deployment. If you select `update_and_override` when updating, you need to create and manage the bucket policy for writing logs to your S3 Log bucket by yourself |
 | VpcEndpointId | Specify VPC Endpoint for OpenSearch managed cluster or OpenSearch Serverless. This should be manually created before deployment. If you specify VPC Endpoint, a few lambda functions and other resources will be deployed into VPC |
 | CreateS3VpcEndpoint | Create new S3 VPC Endpoint with SIEM solution. Value is `true`(default) or `false`. If you use existing VPC and already have S3 VPC Endpoint, select `false` |
 | CreateSqsVpcEndpoint | Create new SQS VPC Endpoint with SIEM solution. Value is `true`(default) or `false`. If you use existing VPC and already have SQS VPC Endpoint, select `false` |

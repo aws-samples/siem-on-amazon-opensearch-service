@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.1'
+__version__ = '2.10.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -15,6 +15,7 @@ import json
 import os
 import re
 import sys
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
@@ -107,6 +108,7 @@ MONTH_TO_INT = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
 NOW = datetime.now(timezone.utc)
 TD_OFFSET12 = timedelta(hours=12)
 TIMEZONE_UTC = timezone(timedelta(hours=0))
+RE_NOT_FRAGMENT_STR = re.compile(r'[&(){}@_;<>\s]')
 
 
 @lru_cache(maxsize=1024)
@@ -199,6 +201,104 @@ def validate_ip(value, ecs_key):
             return None
     else:
         return value
+
+
+@lru_cache(maxsize=100000)
+def extract_url_http_fields_from_http_request(
+        request_method: str, request_path: str, request_version: str,
+        request_raw: str) -> (dict, dict):
+    http = {}
+    url = {}
+
+    # http.version
+    if request_version:
+        http['version'] = request_version
+    # http.request.method
+    if request_method:
+        http['request'] = {'method': request_method}
+
+    # url.original
+    if request_raw:
+        url['original'] = request_raw
+    elif request_method and request_path and request_version:
+        url['original'] = request_path
+
+    if request_path is None:
+        request_path = ''
+    if request_path.startswith('/'):
+        pass
+    elif (request_path.startswith('http://')
+            or request_path.startswith('https://')):
+        try:
+            req_path_list = request_path.split('/', 3)
+            domain_org = req_path_list[2]
+            request_path = '/' + req_path_list[-1]
+            domain_org_split = domain_org.split(':')
+            if len(domain_org_split) == 1:
+                # no port
+                url['domain'] = domain_org_split[0]
+            elif len(domain_org_split) == 2:
+                # ipv4 or domain with port
+                url['domain'] = domain_org_split[0]
+                url['port'] = domain_org_split[1]
+        except Exception:
+            pass
+    elif request_method and request_method.lower() == 'connect':
+        path_temp_list = request_path.split(':')
+        if len(path_temp_list) == 2:
+            url['domain'] = path_temp_list[0]
+            url['port'] = path_temp_list[1]
+            request_path = ''
+
+    # urldecode
+    if '%' in request_path:
+        try:
+            request_path_new = urllib.parse.unquote(
+                request_path, errors='strict')
+            request_path = request_path_new
+            if '%' in request_path:
+                # For double url encode
+                request_path_new = urllib.parse.unquote(
+                    request_path, errors='strict')
+                request_path = request_path_new
+        except Exception:
+            request_path = request_path
+
+    # url.fragment
+    temp_path_list = request_path.rsplit('#')
+    if len(temp_path_list) == 2:
+        if RE_NOT_FRAGMENT_STR.search(temp_path_list[1]):
+            pass
+        else:
+            url['fragment'] = temp_path_list[1]
+            request_path = temp_path_list[0]
+
+    # url.path, url.query
+    temp_path_list = request_path.split('?', 1)
+    url['path'] = temp_path_list[0]
+    if len(temp_path_list) == 2:
+        url['query'] = temp_path_list[1]
+    # url.extension
+    filename = url['path'].split('/')[-1]
+    filename_split = filename.split('.')
+    if len(filename_split) > 1:
+        if '\\' not in filename_split[-1]:
+            url['extension'] = filename_split[-1]
+
+    return http, url
+
+
+@lru_cache(maxsize=100000)
+def parse_xff(xff: str) -> list:
+    xff_ip_list = []
+    for ip_raw in xff.split(','):
+        ip_raw = ip_raw.strip()
+        try:
+            ipaddress.ip_address(ip_raw.strip())
+            xff_ip_list.append(ip_raw)
+        except Exception:
+            continue
+    return xff_ip_list
 
 
 #############################################################################

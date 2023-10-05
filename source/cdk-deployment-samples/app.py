@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.1'
+__version__ = '2.10.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -12,6 +12,7 @@ import aws_cdk as cdk
 
 from deployment_samples.deployment_samples_stack import (
     ADLogExporterStack,
+    ApacheCWLogsExporterStack,
     ClientVpnLogExporterStack,
     CloudHsmCWLogsExporterStack,
     ControlTowerIntegrationStack,
@@ -20,6 +21,8 @@ from deployment_samples.deployment_samples_stack import (
     DeploymentSamplesStack,
     EventBridgeEventsExporterStack,
     FirehoseExporterStack,
+    LinuxCWLogsExporterStack,
+    NginxCWLogsExporterStack,
     TrustedAdvisorLogExporterStack,
     WorkSpacesLogExporterStack,
 )
@@ -56,6 +59,18 @@ cloudhsm_logging = CloudHsmCWLogsExporterStack(
     app, "siem-log-exporter-cloudhsm-cwl",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - CloudHSM'))
+linux_logging = LinuxCWLogsExporterStack(
+    app, "siem-log-exporter-linux-cwl",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - Linux'))
+apache_logging = ApacheCWLogsExporterStack(
+    app, "siem-log-exporter-apache-cwl",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - Apache'))
+nginx_logging = NginxCWLogsExporterStack(
+    app, "siem-log-exporter-nginx-cwl",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - Nginx'))
 clientvpn_logging = ClientVpnLogExporterStack(
     app, "siem-log-exporter-clientvpn",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '

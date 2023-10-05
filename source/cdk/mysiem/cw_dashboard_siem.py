@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.1'
+__version__ = '2.10.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -741,6 +741,7 @@ class CloudWatchDashboardSiem(object):
             query_string=r"""fields @timestamp, @message
                 | filter @message =~ /^\[ERROR]/
                 | filter @message not like /No active exception to reraise/
+                | filter @message not like /unknown file format/
                 # exclude raise without Exception
                 | sort @timestamp desc
                 | limit 100""")

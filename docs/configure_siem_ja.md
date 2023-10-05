@@ -275,24 +275,27 @@ CloudTrail で、{'userIdentity': {'invokedBy': '*.amazonaws.com'}} と一致し
 
 複数のパラメータをそれぞれ設定することで、それら複数条件の OR として除外処理をします。`expression` の値は以下の例のように [JMESPath](https://github.com/jmespath/jmespath.py) に準拠した条件式を文字列で設定します (詳細は [JMESPath ドキュメント](https://jmespath.org/specification.html)を参照ください)。
 
-
 AND 条件
-```
+
+```ini
 field1==`value1` && field2==`value2`
 ```
 
 OR 条件
-```
+
+```ini
 field1==`value1` || field2==`value2`
 ```
 
 NOT 条件
-```
+
+```ini
 !(field1==`value1`)
 ```
 
 組み合わせた条件
-```
+
+```ini
 (field1==`value1` || field2==`value2`) && field3==`value3`
 ```
 
@@ -495,8 +498,8 @@ Multi-AZ with Standby は、99.99% の可用性、プロダクションワーク
 
 AWS 以外のログをログ用 S3 バケットにエクスポートすることで SIEM on OpenSearch Service に取り込むことができます。S3 へのエクスポートは Logstash や Fluentd のプラグインを使う方法があります。
 
-対応ファイル形式: JSON、CSV、テキスト、複数行テキスト、CEF、Parquet
-対応圧縮形式: gzip、bzip2、zip、無圧縮
+* 対応ファイル形式: JSON、CSV、テキスト、複数行テキスト、CEF、Parquet
+* 対応圧縮形式: gzip、bzip2、zip、無圧縮
 
 設定の基本的な流れを、Apache HTTP Server のログを例にして説明します
 
@@ -944,24 +947,21 @@ es-loader のログは JSON 形式で出力しているため、CloudWatch Logs 
 
 ### 1. 準備
 
-AWS CloudShell または Amazon Linux 2 を実行している Amazon Elastic Compute Cloud (Amazon EC2) インスタンスを使って CloudFormation テンプレートを作成します
+Amazon Linux 2023 を実行している Amazon Elastic Compute Cloud (Amazon EC2) インスタンスを使って CloudFormation テンプレートを作成します
 
 前提の環境)
 
-* AWS CloudShell または Amazon Linux 2 on Amazon EC2
+* Amazon Linux 2023 on Amazon EC2
   * "Development Tools"
-  * Python 3.8
-  * Python 3.8 libraries and header files
+  * Python 3 libraries and header files
+  * pip
   * Git
 
 上記がインストールされてない場合は以下を実行
 
 ```shell
-sudo yum groups mark install -y "Development Tools"
-sudo yum install -y amazon-linux-extras
-sudo amazon-linux-extras enable python3.8
-sudo yum install -y python38 python38-devel git jq
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y python3-devel python3-pip git jq tar
 ```
 
 ### 2. SIEM on OpenSearch Service の clone
