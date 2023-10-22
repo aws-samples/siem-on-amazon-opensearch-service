@@ -29,7 +29,7 @@ On this page, we’ll walk you through how to load logs from each AWS service in
     * [Amazon FSx for Windows File Server audit log](#amazon-fsx-for-windows-file-server-audit-log)
     * [Amazon Simple Storage Service (Amazon S3) access logs](#amazon-s3-access-logs)
 1. [Database](#6-database)
-    * [RDS (Aurora MySQL / MySQL / MariaDB)](#rds-aurora-mysql--mysql--mariadb-experimental-support)
+    * [RDS (Aurora MySQL / MySQL / MariaDB)](#rds-aurora-mysql--mysql--mariadb)
     * [RDS (Aurora PostgreSQL / PostgreSQL)](#rds-aurora-postgresql--postgresql-experimental-support)
     * [Amazon ElastiCache for Redis](#amazon-elasticache-for-redis)
 1. [Analytics](#7-analytics)
@@ -559,21 +559,52 @@ The initial value of s3_key: `s3accesslog` (there is no standard save path, so s
 
 ## 6. Database
 
-### RDS (Aurora MySQL / MySQL / MariaDB) (Experimental Support)
+### RDS (Aurora MySQL / MySQL / MariaDB)
 
 ![MySQL to S3](images/mysql-to-s3.jpg)
 
-* Error log
-* Slow query log
-* General log
+You can publish the following logs to Cloud Watch Logs and load them into the OpenSearch Service.
+
 * Audit log
+* Error log
+* General log
+* Slow query log
 
 The initial value of s3_key (specified in the Firehose output path)
 
-* Error log: `(MySQL|mysql|MariaDB|mariadb).*(error)`
-* Slow query log: `(MySQL|mysql|MariaDB|mariadb).*(slowquery)`
-* General log: `(MySQL|mysql|MariaDB|mariadb).*(general)`
 * Audit log: `(MySQL|mysql|MariaDB|mariadb).*(audit)`
+* Error log: `(MySQL|mysql|MariaDB|mariadb).*(error)`
+* General log: `(MySQL|mysql|MariaDB|mariadb).*(general)`
+* Slow query log: `(MySQL|mysql|MariaDB|mariadb).*(slowquery)`
+
+#### Configurations for RDS (Aurora MySQL / MySQL / MariaDB)
+
+Please refer to the following documentation to publish logs to CloudWatch
+
+* [How do I publish logs for Amazon RDS or Aurora for MySQL instances to CloudWatch?](https://aws.amazon.com/premiumsupport/knowledge-center/rds-aurora-mysql-logs-cloudwatch/)
+* [How can I enable audit logging for an Amazon RDS MySQL or MariaDB instance and publish the logs to CloudWatch?](https://aws.amazon.com/premiumsupport/knowledge-center/advanced-audit-rds-mysql-cloudwatch/)
+
+#### Configurations for CloudWatch Logs subscription filter and Firehose (Aurora MySQL / MySQL / MariaDB)
+
+The CloudFormation templates below creates a Firehose for each log type and export the logs to an S3 bucket using the CloudWatch Logs subscription filter.
+
+| No | CloudFormation | Description |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2a/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2a/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+| 2 |[![mysql](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-rds-mysql&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2a/log-exporter/siem-log-exporter-rds-mysql-cwl.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2a/log-exporter/siem-log-exporter-rds-mysql-cwl.template) | This template creates a Firehose for each type of log, set up CloudWatch Logs subscription filters to deliver CloudWatch Logs to the Firehose. The firehose exports RDS logs to S3 bucket.|
+
+Destination S3 bucket:
+
+* **AWSLogs/123456789012/RDS/MySQL/[region]/[logtype]/**
+  * Replace 123456789012 with your AWS account ID
+
+If you have multiple database instances and want to reuse an already created Firehose, enter `use_existing` in **CreateFirehose** and `name of an existing Firehose` in **FirehoseName** in the second template.
+
+> **_Note:_** If you configure the settings manually, please do not set compression when exporting the logs to the S3 bucket. When receiving logs from CloudWatch Logs, it has already been compressed with gzip, so it will be double compressed and cannot be processed properly
+
+Reference:
+
+* [Using subscription filters - Example 3: Subscription filters with Amazon Kinesis Data Firehose](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/SubscriptionFilters.html#FirehoseExample)
 
 #### Reference (Aurora MySQL / MySQL / MariaDB)
 
@@ -581,8 +612,6 @@ The initial value of s3_key (specified in the Firehose output path)
 * [RDS User Guide / MySQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MySQL.html)
 * [RDS User Guide / MariaDB database log files](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MariaDB.html)
 * [Using advanced auditing with an Amazon Aurora MySQL DB cluster](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Auditing.html#AuroraMySQL.Auditing.Logs)
-* [How do I publish logs for Amazon RDS or Aurora for MySQL instances to CloudWatch?](https://aws.amazon.com/premiumsupport/knowledge-center/rds-aurora-mysql-logs-cloudwatch/)
-* [How can I enable audit logging for an Amazon RDS MySQL or MariaDB instance and publish the logs to CloudWatch?](https://aws.amazon.com/premiumsupport/knowledge-center/advanced-audit-rds-mysql-cloudwatch/)
 
 ### RDS (Aurora PostgreSQL / PostgreSQL) (Experimental Support)
 

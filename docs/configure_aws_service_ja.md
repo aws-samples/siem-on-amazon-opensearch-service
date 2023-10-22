@@ -30,7 +30,7 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
     * [Amazon FSx for Windows File Server audit log](#amazon-fsx-for-windows-file-server-audit-log)
     * [Amazon Simple Storage Service (Amazon S3) access log](#amazon-s3-access-log)
 1. [データベース](#6-データベース)
-    * [RDS (Aurora MySQL互換 / MySQL / MariaDB)](#rds-aurora-mysql互換--mysql--mariadb-experimental-support)
+    * [RDS (Aurora MySQL互換 / MySQL / MariaDB)](#rds-aurora-mysql互換--mysql--mariadb)
     * [RDS (Aurora PostgreSQL互換 / PostgreSQL)](#rds-aurora-postgresql互換--postgresql-experimental-support)
     * [Amazon ElastiCache for Redis](#amazon-elasticache-for-redis)
 1. [分析](#7-分析)
@@ -603,23 +603,23 @@ s3_key の初期値: `/20\d{2}-[01]\d-\d{2}-\d{2}-\d{2}-\d{2}-[0-9A-Z]{16}$$` (s
 
 ## 6. データベース
 
-### RDS (Aurora MySQL互換 / MySQL / MariaDB) (Experimental Support)
+### RDS (Aurora MySQL互換 / MySQL / MariaDB)
 
 ![MySQL to S3](images/mysql-to-s3.jpg)
 
 以下のログを Cloud Watch Logs に出力して、SIEM に取り込みます。
 
-* エラーログ (Error log)
-* スロークエリログ (Slow query log)
-* 一般ログ (General log)
 * 監査ログ (Audit log)
+* エラーログ (Error log)
+* 一般ログ (General log)
+* スロークエリログ (Slow query log)
 
 s3_key の初期値は以下です。Firehose の出力パスに指定してください。
 
-* エラーログ: `(MySQL|mysql|MariaDB|mariadb).*(error)`
-* スロークエリログ: `(MySQL|mysql|MariaDB|mariadb).*(slowquery)`
-* 一般ログ: `(MySQL|mysql|MariaDB|mariadb).*(general)`
 * 監査ログ: `(MySQL|mysql|MariaDB|mariadb).*(audit)`
+* エラーログ: `(MySQL|mysql|MariaDB|mariadb).*(error)`
+* 一般ログ: `(MySQL|mysql|MariaDB|mariadb).*(general)`
+* スロークエリログ: `(MySQL|mysql|MariaDB|mariadb).*(slowquery)`
 
 監査ログを Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/123456789012/RDS/mysql/audit/ap-northeast-1`
 
@@ -672,19 +672,38 @@ s3_key の初期値は以下です。Firehose の出力パスに指定してく�
     1. 画面左のメニューで、[データベース] を選択します
     1. ログデータを出力する MariaDB / MySQL のインスタンス、または Aurora MySQL DB クラスターを選択します
     1. [**変更**] を選択します
-    1. [追加設定] セクションから DB パラメーターグループと オプショングループに上記で作成したグループをそれぞれを選択します
+    1. [追加設定] セクションから DB パラメーターグループと オプショングループに上記で作成したグループをそれぞれ選択します
     1. [ログのエクスポート] セクションで、CloudWatch Logs に公開するログを選択します
         * 監査ログ、エラーログ、全般ログ、スロークエリログ
     1. 画面右下の[続行] を選択
     1. すぐに適用を選択してから、[**DBインスタンスを変更**] を選択
 
+参考サイト:
+
+* [Amazon RDS または Aurora for MySQL インスタンスのログを CloudWatch に公開するにはどうすれば良いですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/rds-aurora-mysql-logs-cloudwatch/)
+* [Amazon RDS MySQL または MariaDB インスタンスの監査ログを有効にして、そのログを CloudWatch に公開する方法を教えてください。](https://aws.amazon.com/jp/premiumsupport/knowledge-center/advanced-audit-rds-mysql-cloudwatch/)
+
 #### CloudWatch Logs サブスクリプションフィルタ および Firehoseの 設定 (Aurora MySQL互換 / MySQL / MariaDB)
 
-ログ種類毎に CloudWatch Logs に出力されます。各種類毎に Firehose を作成して、CloudWatch Logs サブスクリプションフィルタ でS3に出力してください。
+以下の CloudFormation テンプレートは、ログの種類毎に Firehose を作成して、CloudWatch Logs サブスクリプションフィルタ で S3 バケットにログを出力します。
 
-設定手順は、こちらのサイトを参考に設定してください。[CloudWatch Logs サブスクリプションフィルタの使用-例 3: Amazon Kinesis Data Firehose のサブスクリプションフィルタ](https://docs.aws.amazon.com/ja_jp/AmazonCloudWatch/latest/logs/SubscriptionFilters.html#FirehoseExample)
+| No | CloudFormation | 説明 |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2a/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2a/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+| 2 |[![mysql](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-rds-mysql&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2a/log-exporter/siem-log-exporter-rds-mysql-cwl.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.2a/log-exporter/siem-log-exporter-rds-mysql-cwl.template) | ログの種類毎に Firehose を作成。CloudWatch Logs subscription filters を設定して CloudWatch Logs を Firehose に配信し、Firehose 経由で S3 バケットに RDS のログを出力します。|
 
-※※ **S3 バケットへの出力時に、圧縮設定はしないで下さい。** CloudWatch Logsから受信する場合はすでに gzip 圧縮されているので二重圧縮となり適切に処理ができません ※※
+S3 バケットの出力先:
+
+* **AWSLogs/123456789012/RDS/MySQL/[region]/[logtype]/**
+  * 123456789012 は ご利用の AWS アカウント ID に置換されます
+
+データベースインスタンスが複数あり作成済みの Firehose を再利用する場合は、2 のテンプレートで **CreateFirehose** に `use_existing` を **FirehoseName** に `すでにある Firehose の名前` を入力してださい。
+
+※※ 手動で設定をする場合は、**S3 バケットへの出力時に、圧縮設定はしないで下さい。** CloudWatch Logsから受信する場合はすでに gzip 圧縮されているので二重圧縮となり適切に処理ができません ※※
+
+参考サイト：
+
+* [CloudWatch Logs サブスクリプションフィルタの使用-例 3: Amazon Kinesis Data Firehose のサブスクリプションフィルタ](https://docs.aws.amazon.com/ja_jp/AmazonCloudWatch/latest/logs/SubscriptionFilters.html#FirehoseExample)
 
 #### 参考サイト (Aurora MySQL互換 / MySQL / MariaDB)
 
@@ -692,8 +711,6 @@ s3_key の初期値は以下です。Firehose の出力パスに指定してく�
 * [RDS ユーザーガイド MySQL データベースログファイル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MySQL.html)
 * [RDS ユーザーガイド MariaDB データベースのログファイル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MariaDB.html)
 * [Amazon Aurora MySQL DB クラスターでの高度な監査の使用](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Auditing.html#AuroraMySQL.Auditing.Logs)
-* [Amazon RDS または Aurora for MySQL インスタンスのログを CloudWatch に公開するにはどうすれば良いですか?](https://aws.amazon.com/jp/premiumsupport/knowledge-center/rds-aurora-mysql-logs-cloudwatch/)
-* [Amazon RDS MySQL または MariaDB インスタンスの監査ログを有効にして、そのログを CloudWatch に公開する方法を教えてください。](https://aws.amazon.com/jp/premiumsupport/knowledge-center/advanced-audit-rds-mysql-cloudwatch/)
 
 ### RDS (Aurora PostgreSQL互換 / PostgreSQL) (Experimental Support)
 
