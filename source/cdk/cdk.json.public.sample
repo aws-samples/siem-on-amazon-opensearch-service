@@ -20,11 +20,16 @@
       "management_id": "111111111111",
       "member_ids": ["222222222222", "333333333333"]
     },
-    "no_organizations": {
-      "aws_accounts": []
+    "organizations": {
+      "org_id": "",
+      "management_id": "",
+      "member_ids": ["", ""]
     },
     "no_organizations_example": {
       "aws_accounts": ["888888888888", "999999999999"]
+    },
+    "no_organizations": {
+      "aws_accounts": []
     },
     "additional_s3_buckets": [],
     "additional_s3_buckets_sample": ["bucket-log-name", "this-is-not-arn"],

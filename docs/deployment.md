@@ -70,16 +70,18 @@ Skip these steps if you want to send logs from your existing S3 bucket to SIEM o
 
     For Amazon Linux 2
 
-   ```shell
-   export GIT_ROOT=$HOME
-   cd ${GIT_ROOT}
-   sudo yum groups mark install -y "Development Tools"
-   sudo yum install -y amazon-linux-extras
-   sudo amazon-linux-extras enable python3.8
-   sudo yum install -y python38 python38-devel git jq tar
-   sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
-   git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
-   ```
+    > **_Note:_** With this solution, deployment with CDK on Amazon Linux 2 is deprecated
+
+    ```shell
+    export GIT_ROOT=$HOME
+    cd ${GIT_ROOT}
+    sudo yum groups mark install -y "Development Tools"
+    sudo yum install -y amazon-linux-extras
+    sudo amazon-linux-extras enable python3.8
+    sudo yum install -y python38 python38-devel git jq tar
+    sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+    git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
+    ```
 
 ### 2. Setting Environment Variables
 
