@@ -235,7 +235,7 @@ function func_validate_json () {
   file_obj=$1
   while true; do
     echo ""
-    read -r -p 'Have you modified cdk.json? [Y(=continue) / n(=exit)]: ' ANSWER
+    read -r -p 'Have you finished editing the cdk.json? [Y(=continue) / n(=exit)]: ' ANSWER
     case $ANSWER in
       [Nn]* )
         echo exit. bye;

@@ -70,6 +70,8 @@
 
     Amazon Linux 2 の場合
 
+    > **_Note:_** このソリューションでは、Amazon Linux 2 での CDK によるデプロイは deprecated です。Amazon Linux 2023 をお使いください。
+
     ```shell
     export GIT_ROOT=$HOME
     cd ${GIT_ROOT}

@@ -68,8 +68,10 @@ def download_geodb():
                 if status == 401:
                     break
             put_to_s3(filename)
+        return 200
     except Exception as e:
         print(e)
+        return 400
 
 
 def initialize_trusted_proxy_db():
@@ -300,7 +302,7 @@ def lambda_handler(event, context):
         print('Skip. There is no valid maxmind license')
         status = 401
     else:
-        download_geodb()
+        status = download_geodb()
 
     if status == 200:
         response = {'status': 'geodb files were downloaded'}
