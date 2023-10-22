@@ -1,5 +1,5 @@
 requests==2.31.0
-opensearch-py==2.3.1
+opensearch-py==2.3.2
 geoip2==4.7.0
 aws-lambda-powertools==1.31.1
 xmltodict==0.13.0
