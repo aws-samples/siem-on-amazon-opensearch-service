@@ -522,7 +522,7 @@ Here is the basic configuration flow for Apache HTTP server logs:
 1. Specify timestamp to tell SIEM on OpenSearch Service the time at which the event occurred. Define the [date format](https://docs.python.org/ja/3/library/datetime.html#strftime-and-strptime-format-codes) as well if it is not compliant with the ISO 8601 format
 
    ```ini
-   timestamp = datetime
+   timestamp_key = datetime
    timestamp_format = %d/%b/%Y:%H:%M:%S %z
    ```
 

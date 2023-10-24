@@ -252,7 +252,7 @@ POST _template/log-aws-cloudtrai_mine
 1. 指定时间戳以通知 SIEM on  OpenSearch Service 事件发生的时间。 如果 [日期格式](https://docs.python.org/ja/3/library/datetime.html#strftime-and-strptime-format-codes) 不符合 ISO 8601 格式，请按照如下的方式自定义
 
    ```ini
-   timestamp = datetime
+   timestamp_key = datetime
    timestamp_format = %d/%b/%Y:%H:%M:%S %z
    ```
 
