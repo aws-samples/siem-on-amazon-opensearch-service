@@ -536,7 +536,7 @@ AWS 以外のログをログ用 S3 バケットにエクスポートすること
 1. イベントの発生日時を SIEM on OpenSearch Service に伝えるためにtimestamp を指定する。フォーマットが iso8601 以外なら [Dateフォーマット](https://docs.python.org/ja/3/library/datetime.html#strftime-and-strptime-format-codes) も定義
 
     ```ini
-    timestamp = datetime
+    timestamp_key = datetime
     timestamp_format = %d/%b/%Y:%H:%M:%S %z
     ```
 
