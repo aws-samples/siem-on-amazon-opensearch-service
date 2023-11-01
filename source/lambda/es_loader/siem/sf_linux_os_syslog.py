@@ -13,13 +13,13 @@ from siem import utils
 
 # REGEXP
 RE_LIST_SSHD = [
-    re.compile(r'(?P<action>Accepted|Failed|failure|Invalid user|invalid user)\s.*?((publickey|password|none) for )?(invalid user )?(?P<user>\S+)(\s+from.*?(?P<source_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}))?(\s+port\s+(?P<source_port>\S+))?'),
+    re.compile(r'(?P<action>Accepted|Failed|failure|Invalid user|invalid user)\s.*?((publickey|password|none) for )?(invalid user )?(?P<user>\S+)(\s+from.*?(?P<source_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}))?(\s+port\s+(?P<source_port>\d+))?'),
     re.compile(r'^(?P<action>(Disconnected|Received disconnect)) from (?P<source_ip>[^ ]*) port (?P<source_port>\d+)'),
     re.compile(r'^(?P<action>error): AuthorizedKeysCommand \S+ (?P<user>\S+) (SHA|RSA)'),
     re.compile(r'^pam_unix(\S+): (?P<action>session closed) for user (?P<user>\S+)'),
     re.compile(r'^pam_unix(\S+): (?P<action>session opened) for user \S+ by (?P<user>\S*)\('),
-    re.compile(r'^(?P<action>Connection (reset|closed))\s+by\s+(?P<source_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+port\s+(?P<source_port>\S+)'),
-    re.compile(r'.+\s+(from|with)\s+(?P<source_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+port\s+(?P<source_port>\S+)'),
+    re.compile(r'^(?P<action>Connection (reset|closed))\s+by\s+(?P<source_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+port\s+(?P<source_port>\d+)'),
+    re.compile(r'.+\s+(from|with)\s+(?P<source_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+port\s+(?P<source_port>\d+)'),
     re.compile(r'^(?P<action>reverse mapping checking).*\[(?P<source_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\]'),
     re.compile(r'\s(?P<source_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s'),
 ]
