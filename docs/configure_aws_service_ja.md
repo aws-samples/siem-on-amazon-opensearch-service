@@ -31,7 +31,7 @@ SIEM on Amazon OpenSearch Service に AWS の各サービスのログを取り�
     * [Amazon Simple Storage Service (Amazon S3) access log](#amazon-s3-access-log)
 1. [データベース](#6-データベース)
     * [RDS (Aurora MySQL互換 / MySQL / MariaDB)](#rds-aurora-mysql互換--mysql--mariadb)
-    * [RDS (Aurora PostgreSQL互換 / PostgreSQL)](#rds-aurora-postgresql互換--postgresql-experimental-support)
+    * [RDS (Aurora PostgreSQL互換 / PostgreSQL)](#rds-aurora-postgresql互換--postgresql)
     * [Amazon ElastiCache for Redis](#amazon-elasticache-for-redis)
 1. [分析](#7-分析)
     * [Amazon OpenSearch Service](#amazon-opensearch-service)
@@ -712,13 +712,13 @@ S3 バケットの出力先:
 * [RDS ユーザーガイド MariaDB データベースのログファイル](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MariaDB.html)
 * [Amazon Aurora MySQL DB クラスターでの高度な監査の使用](https://docs.aws.amazon.com/ja_jp/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Auditing.html#AuroraMySQL.Auditing.Logs)
 
-### RDS (Aurora PostgreSQL互換 / PostgreSQL) (Experimental Support)
+### RDS (Aurora PostgreSQL互換 / PostgreSQL)
 
 ![PostgreSQL to S3](images/postgresql-to-s3.jpg)
 
 s3_key の初期値: `Postgre` or `postgre` (Firehose の出力パスに指定)
 
-Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/123456789012/RDS/postgresql/ap-northeast-1`
+Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/123456789012/RDS/PostgreSql/ap-northeast-1/postgresql/`
 
 #### RDS (Aurora PostgreSQL互換 / PostgreSQL) の設定
 
@@ -740,11 +740,10 @@ Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/12
         |log_statement|ddl|実行時間に関わらず、DDL (CREATE や DROP 等) をログに記録する|None|
         |log_statement_stats|1 (有効化)|Statementに関する統計情報を出力|0,無効化|
         |log_lock_waits|1 (有効化)|デッドロックのタイムアウトよりロックに時間を要した場合、ログメッセージを生成|0,無効化|
-        |log_checkpoints|1 (有効化)|チェックポイントを記録。パラメーターがなければ設定不要|0,無効化|
         |log_connections|1 (有効化)|クライアント認証の成功終了などのサーバへの接続試行を出力|0,無効化|
         |log_disconnections|1 (有効化)|セッション終了時にセッション時間を出力|0,無効化|
 
-        * ※その他のパラメーターの変更は、正常にログの取り込みやダッシュボードの表示ができない可能性があります
+        * ※その他のパラメーターの変更は、SIEM ソリューションが事前に定義したログの正規表現とマッチせず、正常にログの取り込みやダッシュボードの表示ができない可能性があります
     1. [**変更の保存**] を選択
 1. データーベースにパラメータを適用します。
     1. 画面左メニューの [**データベース**] => 対象の Aurora のクラスター、または RDS インスタンスを選択し、[**変更**]を選択します
@@ -755,11 +754,25 @@ Firehose で指定するの S3 出力先のプレフィックス例: `AWSLogs/12
 
 #### CloudWatch Logs サブスクリプションフィルタ および Firehoseの 設定 (Aurora PostgreSQL互換 / PostgreSQL)
 
-ログ種類毎に CloudWatch Logs に出力されます。各種類毎に Firehose を作成して、CloudWatch Logs サブスクリプションフィルタ でS3に出力してください。
+以下の CloudFormation テンプレートは、posgresql ログ用に Firehose を作成して、CloudWatch Logs サブスクリプションフィルタ で S3 バケットにログを出力します。
 
-設定手順は、こちらのサイトを参考に設定してください。[CloudWatch Logs サブスクリプションフィルタの使用-例 3: Amazon Kinesis Data Firehose のサブスクリプションフィルタ](https://docs.aws.amazon.com/ja_jp/AmazonCloudWatch/latest/logs/SubscriptionFilters.html#FirehoseExample)
+| No | CloudFormation | 説明 |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.3-beta.1/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.3-beta.1/log-exporter/siem-log-exporter-core.template) | 基本設定の CloudFormation。ログ転送先の S3 バケット名の取得や IAM ロールを作成します。他の AWS サービス設定で共通に使用します |
+| 2 |[![postgresql](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-rds-postgresql&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.3-beta.1/log-exporter/siem-log-exporter-rds-postgresql-cwl.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.3-beta.1/log-exporter/siem-log-exporter-rds-postgresql-cwl.template) | ログの種類毎に Firehose を作成。CloudWatch Logs subscription filters を設定して CloudWatch Logs を Firehose に配信し、Firehose 経由で S3 バケットに RDS のログを出力します。|
 
-※※ **S3 バケットへの出力時に、圧縮設定はしないで下さい。** CloudWatch Logsから受信する場合はすでに gzip 圧縮されているので二重圧縮となり適切に処理ができません ※※
+S3 バケットの出力先:
+
+* **AWSLogs/123456789012/RDS/PostgreSQL/[region]/postgresql/**
+  * 123456789012 は ご利用の AWS アカウント ID に置換されます
+
+データベースインスタンスが複数あり作成済みの Firehose を再利用する場合は、2 のテンプレートで **CreateFirehose** に `use_existing` を **FirehoseName** に `すでにある Firehose の名前` を入力してださい。
+
+※※ 手動で設定をする場合は、**S3 バケットへの出力時に、圧縮設定はしないで下さい。** CloudWatch Logsから受信する場合はすでに gzip 圧縮されているので二重圧縮となり適切に処理ができません ※※
+
+参考サイト：
+
+* [CloudWatch Logs サブスクリプションフィルタの使用-例 3: Amazon Kinesis Data Firehose のサブスクリプションフィルタ](https://docs.aws.amazon.com/ja_jp/AmazonCloudWatch/latest/logs/SubscriptionFilters.html#FirehoseExample)
 
 #### 参考サイト (Aurora PostgreSQL互換 / PostgreSQL)
 

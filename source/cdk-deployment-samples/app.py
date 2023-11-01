@@ -24,6 +24,7 @@ from deployment_samples.deployment_samples_stack import (
     LinuxCWLogsExporterStack,
     NginxCWLogsExporterStack,
     RDSMySQLCWLogsExporterStack,
+    RDSPostgreSQLCWLogsExporterStack,
     TrustedAdvisorLogExporterStack,
     WorkSpacesLogExporterStack,
 )
@@ -72,10 +73,14 @@ nginx_logging = NginxCWLogsExporterStack(
     app, "siem-log-exporter-nginx-cwl",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - Nginx'))
-rds_mysq_logging = RDSMySQLCWLogsExporterStack(
+rds_mysql_logging = RDSMySQLCWLogsExporterStack(
     app, "siem-log-exporter-rds-mysql-cwl",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - RDS Aurora MySQL/MariaDB/MySQL'))
+rds_postgresql_logging = RDSPostgreSQLCWLogsExporterStack(
+    app, "siem-log-exporter-rds-postgresql-cwl",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - RDS Aurora PostgreSQL/PostgreSQL'))
 clientvpn_logging = ClientVpnLogExporterStack(
     app, "siem-log-exporter-clientvpn",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '

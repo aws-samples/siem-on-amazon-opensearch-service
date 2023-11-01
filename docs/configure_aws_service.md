@@ -30,7 +30,7 @@ On this page, we’ll walk you through how to load logs from each AWS service in
     * [Amazon Simple Storage Service (Amazon S3) access logs](#amazon-s3-access-logs)
 1. [Database](#6-database)
     * [RDS (Aurora MySQL / MySQL / MariaDB)](#rds-aurora-mysql--mysql--mariadb)
-    * [RDS (Aurora PostgreSQL / PostgreSQL)](#rds-aurora-postgresql--postgresql-experimental-support)
+    * [RDS (Aurora PostgreSQL / PostgreSQL)](#rds-aurora-postgresql--postgresql)
     * [Amazon ElastiCache for Redis](#amazon-elasticache-for-redis)
 1. [Analytics](#7-analytics)
     * [Amazon OpenSearch Service](#amazon-opensearch-service)
@@ -613,17 +613,53 @@ Reference:
 * [RDS User Guide / MariaDB database log files](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.MariaDB.html)
 * [Using advanced auditing with an Amazon Aurora MySQL DB cluster](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraMySQL.Auditing.html#AuroraMySQL.Auditing.Logs)
 
-### RDS (Aurora PostgreSQL / PostgreSQL) (Experimental Support)
+### RDS (Aurora PostgreSQL / PostgreSQL)
 
 ![PostgreSQL to S3](images/postgresql-to-s3.jpg)
 
 The initial value of s3_key : `Postgre` or `postgre` (specified in the Firehose output path)
 
-#### Reference (Aurora PostgreSQL / PostgreSQL)
+#### Configurations for RDS (Aurora PostgreSQL / PostgreSQL)
+
+Please refer to the following documentation to publish logs to CloudWatch
 
 * [Aurora User Guide / PostgreSQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/USER_LogAccess.Concepts.PostgreSQL.html)
 * [RDS User Guide / PostgreSQL database log files](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.PostgreSQL.html)
 * [How do I enable query logging using Amazon RDS for PostgreSQL?](https://aws.amazon.com/premiumsupport/knowledge-center/rds-postgresql-query-logging/)
+
+    | Parameter | value | Description | Default |
+    |-----------|-------|----|------------------|
+    |log_min_duration_statement|10000|(ms) Any SQL statement that runs at least for the specified amount of time or longer gets logged. |-1 (disabled) |
+    |log_statement|ddl|Sets the type of statements logged.| None |
+    |log_statement_stats|1 (enabled)|Writes cumulative performance statistics to the server log.|0 (disabled)|
+    |log_lock_waits|1 (enabled)|Logs long lock waits. By default, this parameter isn't set.|0 (disabled)|
+    |log_connections|1 (enabled)|Logs each successful connection.|0 (disabled)|
+    |log_disconnections|1 (enabled)|Logs the end of each session and its duration.|0 (disabled)|
+
+#### Configurations for CloudWatch Logs subscription filter and Firehose (Aurora PostgreSQL / PostgreSQL)
+
+The CloudFormation templates below creates a Firehose for each log type and export the logs to an S3 bucket using the CloudWatch Logs subscription filter.
+
+| No | CloudFormation | Description |
+|----------|----------------|---------------|
+| 1 |[![core resource](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/template?stackName=log-exporter-core-resource&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.3-beta.1/log-exporter/siem-log-exporter-core.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.3-beta.1/log-exporter/siem-log-exporter-core.template) | CloudFormation for core resource. This template gets the S3 bucket name of the log forwarding destination and creates IAM roles. Commonly used in other AWS service settings. |
+| 2 |[![postgresql](./images/cloudformation-launch-stack-button.png)](https://console.aws.amazon.com/cloudformation/home#/stacks/new?stackName=log-exporter-rds-postgresql&templateURL=https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.3-beta.1/log-exporter/siem-log-exporter-rds-postgresql-cwl.template) [link](https://aes-siem.s3.ap-northeast-1.amazonaws.com/siem-on-amazon-opensearch-service/v2.10.3-beta.1/log-exporter/siem-log-exporter-rds-postgresql-cwl.template) | This template creates a Firehose for each type of log, set up CloudWatch Logs subscription filters to deliver CloudWatch Logs to the Firehose. The firehose exports RDS logs to S3 bucket.|
+
+Destination S3 bucket:
+
+* **AWSLogs/123456789012/RDS/PostgreSQL/[region]/postgresql/**
+  * Replace 123456789012 with your AWS account ID
+
+If you have multiple database instances and want to reuse an already created Firehose, enter `use_existing` in **CreateFirehose** and `name of an existing Firehose` in **FirehoseName** in the second template.
+
+> **_Note:_** If you configure the settings manually, please do not set compression when exporting the logs to the S3 bucket. When receiving logs from CloudWatch Logs, it has already been compressed with gzip, so it will be double compressed and cannot be processed properly
+
+Reference:
+
+* [Using subscription filters - Example 3: Subscription filters with Amazon Kinesis Data Firehose](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/SubscriptionFilters.html#FirehoseExample)
+
+#### Reference (Aurora PostgreSQL / PostgreSQL)
+
 * [Configuring and authoring Kibana dashboards](https://aws.amazon.com/blogs/database/configuring-and-authoring-kibana-dashboards/)
 * [How can I track failed attempts to log in to my Amazon RDS DB instance that's running PostgreSQL?](https://aws.amazon.com/premiumsupport/knowledge-center/track-failed-login-rds-postgresql/)
 

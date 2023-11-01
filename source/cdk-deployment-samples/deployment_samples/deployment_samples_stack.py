@@ -852,7 +852,7 @@ class RDSMySQLCWLogsExporterStack(MyStack):
         kdf_name_of_mysql_slowquery_log = cdk.CfnParameter(
             self, 'FirehoseNameForMySqlSlowQuery',
             description=('Define Kinesis Data Firehose Name for '
-                         'RDS (Aurora MySQL / MySQL / MariaDB) audit log. '
+                         'RDS (Aurora MySQL / MySQL / MariaDB) slowquery log. '
                          'e.g.) siem-rds-mysql-slowquery-log-cwl-to-s3'),
             default='siem-rds-mysql-slowquery-log-cwl-to-s3')
 
@@ -1029,6 +1029,16 @@ class RDSMySQLCWLogsExporterStack(MyStack):
                       f'{role_name_cwl_to_kdf}'))
         subscription_of_audit_logs.cfn_options.condition = (
             use_subscription_filter_for_mysql_audit)
+        subscription_of_audit_logs.add_property_override(
+            "DestinationArn",
+            cdk.Fn.condition_if(
+                create_kdf_for_mysql_audit.logical_id,
+                kdf_mysql_audit_log_to_s3.attr_arn,
+                (f'arn:{PARTITION}:firehose:{cdk.Aws.REGION}:'
+                 f'{cdk.Aws.ACCOUNT_ID}:deliverystream/'
+                 f'{kdf_name_of_mysql_audit_log.value_as_string}')
+            ),
+        )
 
         subscription_of_error_logs = aws_logs.CfnSubscriptionFilter(
             self, 'KinesisSubscriptionMySQLError',
@@ -1042,6 +1052,16 @@ class RDSMySQLCWLogsExporterStack(MyStack):
                       f'{role_name_cwl_to_kdf}'))
         subscription_of_error_logs.cfn_options.condition = (
             use_subscription_filter_for_mysql_error)
+        subscription_of_error_logs.add_property_override(
+            "DestinationArn",
+            cdk.Fn.condition_if(
+                create_kdf_for_mysql_error.logical_id,
+                kdf_mysql_error_log_to_s3.attr_arn,
+                (f'arn:{PARTITION}:firehose:{cdk.Aws.REGION}:'
+                 f'{cdk.Aws.ACCOUNT_ID}:deliverystream/'
+                 f'{kdf_name_of_mysql_error_log.value_as_string}')
+            ),
+        )
 
         subscription_of_general_logs = aws_logs.CfnSubscriptionFilter(
             self, 'KinesisSubscriptionMySQLGeneral',
@@ -1055,6 +1075,16 @@ class RDSMySQLCWLogsExporterStack(MyStack):
                       f'{role_name_cwl_to_kdf}'))
         subscription_of_general_logs.cfn_options.condition = (
             use_subscription_filter_for_mysql_general)
+        subscription_of_general_logs.add_property_override(
+            "DestinationArn",
+            cdk.Fn.condition_if(
+                create_kdf_for_mysql_general.logical_id,
+                kdf_mysql_general_log_to_s3.attr_arn,
+                (f'arn:{PARTITION}:firehose:{cdk.Aws.REGION}:'
+                 f'{cdk.Aws.ACCOUNT_ID}:deliverystream/'
+                 f'{kdf_name_of_mysql_general_log.value_as_string}')
+            ),
+        )
 
         subscription_of_slowquery_logs = aws_logs.CfnSubscriptionFilter(
             self, 'KinesisSubscriptionMySQLSlowQuery',
@@ -1068,6 +1098,212 @@ class RDSMySQLCWLogsExporterStack(MyStack):
                       f'{role_name_cwl_to_kdf}'))
         subscription_of_slowquery_logs.cfn_options.condition = (
             use_subscription_filter_for_mysql_slowquery)
+        subscription_of_slowquery_logs.add_property_override(
+            "DestinationArn",
+            cdk.Fn.condition_if(
+                create_kdf_for_mysql_slowquery.logical_id,
+                kdf_mysql_slowquery_log_to_s3.attr_arn,
+                (f'arn:{PARTITION}:firehose:{cdk.Aws.REGION}:'
+                 f'{cdk.Aws.ACCOUNT_ID}:deliverystream/'
+                 f'{kdf_name_of_mysql_slowquery_log.value_as_string}')
+            ),
+        )
+
+
+class RDSPostgreSQLCWLogsExporterStack(MyStack):
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        log_bucket_name = cdk.Fn.import_value('sime-log-bucket-name-v2')
+        role_name_cwl_to_kdf = cdk.Fn.import_value(
+            'siem-cwl-to-kdf-role-name-v2')
+        role_name_kdf_to_s3 = cdk.Fn.import_value(
+            'siem-kdf-to-s3-role-name-v2')
+
+        cw_log_group_name_of_postgresql_log = cdk.CfnParameter(
+            self, 'CwLogGroupNameOfPostgreSQLLog',
+            description=('Specify CloudWatch Logs group name of '
+                         'RDS PostgreSQL general log. '
+                         'e.g.) /aws/rds/instance/db-instance-name/postgresql'
+                         ' . If you would not like to the log to SIEM, '
+                         'leave it blank.'),)
+        """
+        cw_log_group_name_of_postgresql_upgrade_log = cdk.CfnParameter(
+            self, 'CwLogGroupNameOfPostgreSQLUpgradeLog',
+            description=('Specify CloudWatch Logs group name of '
+                         'RDS PostgreSQL upgrade log. '
+                         'e.g.) /aws/rds/instance/db-instance-name/upgrade . '
+                         'If you would not like to the log to SIEM, '
+                         'leave it blank.'),)
+        """
+
+        create_firehose = cdk.CfnParameter(
+            self, 'CreateFirehose',
+            description=('Would you like to create Kinesis Data Firehose for '
+                         'SIEM solution and RDS?'),
+            allowed_values=['create_a_new_one', 'use_existing'],
+            default='create_a_new_one')
+        kdf_buffer_size = cdk.CfnParameter(
+            self, 'KdfBufferSize', type='Number',
+            description='Enter a buffer size between 64 - 128 (MiB)',
+            default=64, min_value=64, max_value=128)
+        kdf_buffer_interval = cdk.CfnParameter(
+            self, 'KdfBufferInterval', type='Number',
+            description='Enter a buffer interval between 60 - 900 (seconds.)',
+            default=60, min_value=60, max_value=900)
+
+        kdf_name_of_postgresql_log = cdk.CfnParameter(
+            self, 'FirehoseNameForPostgreSql',
+            description=('Define Kinesis Data Firehose Name for '
+                         'RDS (Aurora PostgreSQL / PostgreSQL) postgresql log.'
+                         ' e.g.) siem-rds-postgresql-log-cwl-to-s3'),
+            default='siem-rds-postgresql-log-cwl-to-s3')
+        """
+        kdf_name_of_postgresql_upgrade_log = cdk.CfnParameter(
+            self, 'FirehoseNameForPostgreSqlUpgrade',
+            description=('Define Kinesis Data Firehose Name for '
+                         'RDS (Aurora PostgreSQL / PostgreSQL) upgrade log. '
+                         'e.g.) siem-rds-postgresql-upgrade-log-cwl-to-s3'),
+            default='siem-rds-postgresql-upgrade-log-cwl-to-s3')
+        """
+
+        self.template_options.metadata = {
+            'AWS::CloudFormation::Interface': {
+                'ParameterGroups': [
+                    {'Label': {'default': 'CloudWatch Logs'},
+                     'Parameters': [
+                        cw_log_group_name_of_postgresql_log.logical_id,
+                        # cw_log_group_name_of_postgresql_upgrade_log.logical_id
+                    ]},
+                    {'Label': {'default': 'Amazon Kinesis Data Firehose conf'},
+                     'Parameters': [create_firehose.logical_id,
+                                    kdf_buffer_size.logical_id,
+                                    kdf_buffer_interval.logical_id,]},
+                    {'Label': {'default': 'Amazon Kinesis Data Firehose Name'},
+                     'Parameters': [
+                         kdf_name_of_postgresql_log.logical_id,
+                         # kdf_name_of_postgresql_upgrade_log.logical_id
+                    ]},
+                ]
+            }
+        }
+
+        # conditions
+        kdf_is_required = cdk.CfnCondition(
+            self, "KdfIsRequired",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_equals(
+                    create_firehose.value_as_string, 'create_a_new_one')))
+
+        create_kdf_for_postgresql = cdk.CfnCondition(
+            self, "CreateKdfForPostgreSQL",
+            expression=cdk.Fn.condition_and(
+                kdf_is_required,
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        kdf_name_of_postgresql_log.value_as_string, ''))))
+        """
+        create_kdf_for_postgresql_upgrade = cdk.CfnCondition(
+            self, "CreateKdfForPostgreSQLUpgrade",
+            expression=cdk.Fn.condition_and(
+                kdf_is_required,
+                cdk.Fn.condition_not(
+                    cdk.Fn.condition_equals(
+                        kdf_name_of_postgresql_upgrade_log.value_as_string, ''))))
+        """
+
+        use_subscription_filter_for_postgresql = cdk.CfnCondition(
+            self, "SubscribeCwlOfPostgreSQL",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_not(cdk.Fn.condition_equals(
+                    kdf_name_of_postgresql_log.value_as_string, '')),
+                cdk.Fn.condition_not(cdk.Fn.condition_equals(
+                    cw_log_group_name_of_postgresql_log.value_as_string,
+                    ''))))
+        """
+        use_subscription_filter_for_postgresql_upgrade = cdk.CfnCondition(
+            self, "SubscribeCwlOfPostgreSQLUpgrade",
+            expression=cdk.Fn.condition_and(
+                cdk.Fn.condition_not(cdk.Fn.condition_equals(
+                    kdf_name_of_postgresql_upgrade_log.value_as_string, '')),
+                cdk.Fn.condition_not(cdk.Fn.condition_equals(
+                    cw_log_group_name_of_postgresql_upgrade_log.value_as_string,
+                    ''))))
+        """
+
+        # resource
+        # ## KDF
+        kdf_postgresql_log_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "KdfRDSPostgreSQL",
+            delivery_stream_name=kdf_name_of_postgresql_log.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
+                error_output_prefix="ErrorLogs/RDS/PostgreSQL/postgresql/",
+                prefix=(f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/RDS/PostgreSQL/'
+                        f'postgresql/{cdk.Aws.REGION}/'),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}')))
+        kdf_postgresql_log_to_s3.cfn_options.condition = (
+            create_kdf_for_postgresql)
+
+        """
+        kdf_postgresql_upgrade_log_to_s3 = aws_kinesisfirehose.CfnDeliveryStream(
+            self, "KdfRDSPostgreSQLUpgrade",
+            delivery_stream_name=kdf_name_of_postgresql_upgrade_log.value_as_string,
+            extended_s3_destination_configuration=CDS.ExtendedS3DestinationConfigurationProperty(
+                bucket_arn=f'arn:{PARTITION}:s3:::{log_bucket_name}',
+                error_output_prefix="ErrorLogs/RDS/PostgreSQL/upgrade/",
+                prefix=(f'AWSLogs/{cdk.Aws.ACCOUNT_ID}/RDS/PostgreSQL/upgrade/'
+                        f'{cdk.Aws.REGION}/'),
+                buffering_hints=CDS.BufferingHintsProperty(
+                    interval_in_seconds=kdf_buffer_interval.value_as_number,
+                    size_in_m_bs=kdf_buffer_size.value_as_number),
+                compression_format='UNCOMPRESSED',
+                role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                          f'service-role/{role_name_kdf_to_s3}')))
+        kdf_postgresql_upgrade_log_to_s3.cfn_options.condition = (
+            create_kdf_for_postgresql_upgrade)
+        """
+
+        # ##  CWL subscription fileter
+        subscription_of_logs = aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscriptionPostgreSQL',
+            destination_arn='dummy',
+            filter_pattern='',
+            log_group_name=(
+                cw_log_group_name_of_postgresql_log.value_as_string),
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}'))
+        subscription_of_logs.cfn_options.condition = (
+            use_subscription_filter_for_postgresql)
+        subscription_of_logs.add_property_override(
+            "DestinationArn",
+            cdk.Fn.condition_if(
+                create_kdf_for_postgresql.logical_id,
+                kdf_postgresql_log_to_s3.attr_arn,
+                (f'arn:{PARTITION}:firehose:{cdk.Aws.REGION}:'
+                 f'{cdk.Aws.ACCOUNT_ID}:deliverystream/'
+                 f'{kdf_name_of_postgresql_log.value_as_string}')
+            ),
+        )
+        """
+        subscription_of_upgrade_logs = aws_logs.CfnSubscriptionFilter(
+            self, 'KinesisSubscriptionPostgreSQLUpgrade',
+            destination_arn=(f'arn:{PARTITION}:firehose:{cdk.Aws.REGION}:'
+                             f'{cdk.Aws.ACCOUNT_ID}:deliverystream/'
+                             f'{kdf_name_of_postgresql_upgrade_log.value_as_string}'),
+            filter_pattern='',
+            log_group_name=(
+                cw_log_group_name_of_postgresql_upgrade_log.value_as_string),
+            role_arn=(f'arn:{PARTITION}:iam::{cdk.Aws.ACCOUNT_ID}:role/'
+                      f'{role_name_cwl_to_kdf}'))
+        subscription_of_upgrade_logs.cfn_options.condition = (
+            use_subscription_filter_for_postgresql_upgrade)
+        """
 
 
 class LinuxCWLogsExporterStack(MyStack):
