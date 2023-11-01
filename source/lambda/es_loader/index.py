@@ -501,11 +501,15 @@ utils.show_local_dir()
 
 @observability_decorator_switcher
 def lambda_handler(event, context):
-    main(event, context)
-    return {'EventResponse': None}
+    batch_item_failures = main(event, context)
+    if batch_item_failures:
+        return {"batchItemFailures": batch_item_failures}
+    else:
+        return None
 
 
 def main(event, context):
+    batch_item_failures = []
     if 'Records' in event:
         event_source = event['Records'][0].get('eventSource')
         error_code = event['Records'][0].get(
@@ -521,14 +525,18 @@ def main(event, context):
         elif event_source == 'aws:sqs':
             # s3 notification from SQS
             for record in event['Records']:
-                recs = json.loads(record['body'])
-                if 'Records' in recs:
-                    # Control Tower
-                    for record in recs['Records']:
-                        process_record(record)
-                else:
-                    # from sqs-splitted-log, Security Lake(via EventBridge)
-                    process_record(recs)
+                try:
+                    recs = json.loads(record['body'])
+                    if 'Records' in recs:
+                        # Control Tower
+                        for record in recs['Records']:
+                            process_record(record)
+                    else:
+                        # from sqs-splitted-log, Security Lake(via EventBridge)
+                        process_record(recs)
+                except Exception:
+                    batch_item_failures.append(
+                        {"itemIdentifier": record['messageId']})
         elif event['Records'][0].get('EventSource') == 'aws:sns':
             # s3 notification from SNS
             for record in event['Records']:
@@ -544,6 +552,7 @@ def main(event, context):
         # s3 notification from EventBridge
         record = {'s3': event['detail']}
         process_record(record)
+    return batch_item_failures
 
 
 def process_record(record):

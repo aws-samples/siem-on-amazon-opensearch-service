@@ -1762,6 +1762,7 @@ class MyAesSiemStack(cdk.Stack):
             self, "EventSourceMappingForCT",
             target=lambda_es_loader,
             event_source_arn=ct_log_sqs.value_as_string,
+            report_batch_item_failures=True,
         )
         source_mapping_for_ct.node.default_child.cfn_options.condition = (
             is_control_tower_access)
@@ -1799,6 +1800,7 @@ class MyAesSiemStack(cdk.Stack):
             self, "EventSourceMappingForCT2",
             target=lambda_es_loader,
             event_source_arn=sl_log_sqs.value_as_string,
+            report_batch_item_failures=True,
         )
         source_mapping_for_ct2.node.default_child.cfn_options.condition = (
             is_security_lake_access)
