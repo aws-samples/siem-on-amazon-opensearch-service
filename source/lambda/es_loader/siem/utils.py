@@ -25,6 +25,7 @@ import jmespath
 import requests
 from aws_lambda_powertools import Logger
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
+from dateutil import parser
 
 try:
     import numpy as np
@@ -420,10 +421,8 @@ def convert_syslog_to_datetime(timestr, TZ):
 
 @lru_cache(maxsize=1024)
 def convert_iso8601_to_datetime(timestr, TZ, timestamp_key):
-    timestr = timestr.replace('+0000', '')
-    # Python datetime.fromisoformat can't parser +0000 format.
     try:
-        dt = datetime.fromisoformat(timestr)
+        dt = parser.isoparse(timestr)
     except ValueError:
         return None
         # msg = (f'You set {timestamp_key} field as ISO8601 format. '
