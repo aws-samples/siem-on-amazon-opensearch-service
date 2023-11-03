@@ -1,0 +1,395 @@
+Description: "SIEM on Amazon OpenSearch Service v2.10.3-beta.2: log exporter - RDS Aurora MySQL/MariaDB/MySQL"
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: CloudWatch Logs
+        Parameters:
+          - CwLogGroupNameOfMySQLAuditLog
+          - CwLogGroupNameOfMySQLErrorLog
+          - CwLogGroupNameOfMySQLGeneralLog
+          - CwLogGroupNameOfMySQLSlowQueryLog
+      - Label:
+          default: Amazon Kinesis Data Firehose conf
+        Parameters:
+          - CreateFirehose
+          - KdfBufferSize
+          - KdfBufferInterval
+      - Label:
+          default: Amazon Kinesis Data Firehose Name
+        Parameters:
+          - FirehoseNameForMySqlAudit
+          - FirehoseNameForMySqlError
+          - FirehoseNameForMySqlGeneral
+          - FirehoseNameForMySqlSlowQuery
+Parameters:
+  CwLogGroupNameOfMySQLAuditLog:
+    Type: String
+    Description: Specify CloudWatch Logs group name of RDS MySQL audit log. e.g.) /aws/rds/instance/wordpress-db/audit . If you would not like to the log to SIEM, leave it blank.
+  CwLogGroupNameOfMySQLErrorLog:
+    Type: String
+    Description: Specify CloudWatch Logs group name of RDS MySQL error log. e.g.) /aws/rds/instance/wordpress-db/error . If you would not like to the log to SIEM, leave it blank.
+  CwLogGroupNameOfMySQLGeneralLog:
+    Type: String
+    Description: Specify CloudWatch Logs group name of RDS MySQL general log. e.g.) /aws/rds/instance/wordpress-db/general . If you would not like to the log to SIEM, leave it blank.
+  CwLogGroupNameOfMySQLSlowQueryLog:
+    Type: String
+    Description: Specify CloudWatch Logs group name of RDS MySQL slowquery log. e.g.) /aws/rds/instance/wordpress-db/slowquery . If you would not like to the log to SIEM, leave it blank.
+  CreateFirehose:
+    Type: String
+    Default: create_a_new_one
+    AllowedValues:
+      - create_a_new_one
+      - use_existing
+    Description: Would you like to create Kinesis Data Firehose for SIEM solution and RDS?
+  KdfBufferSize:
+    Type: Number
+    Default: 64
+    Description: Enter a buffer size between 64 - 128 (MiB)
+    MaxValue: 128
+    MinValue: 64
+  KdfBufferInterval:
+    Type: Number
+    Default: 60
+    Description: Enter a buffer interval between 60 - 900 (seconds.)
+    MaxValue: 900
+    MinValue: 60
+  FirehoseNameForMySqlAudit:
+    Type: String
+    Default: siem-rds-mysql-audit-log-cwl-to-s3
+    Description: Define Kinesis Data Firehose Name for RDS (Aurora MySQL / MySQL / MariaDB) audit log. e.g.) siem-rds-mysql-audit-log-cwl-to-s3
+  FirehoseNameForMySqlError:
+    Type: String
+    Default: siem-rds-mysql-error-log-cwl-to-s3
+    Description: Define Kinesis Data Firehose Name for RDS (Aurora MySQL / MySQL / MariaDB) error log. e.g.) siem-rds-mysql-error-log-cwl-to-s3
+  FirehoseNameForMySqlGeneral:
+    Type: String
+    Default: siem-rds-mysql-general-log-cwl-to-s3
+    Description: Define Kinesis Data Firehose Name for RDS (Aurora MySQL / MySQL / MariaDB) general log. e.g.) siem-rds-mysql-general-log-cwl-to-s3
+  FirehoseNameForMySqlSlowQuery:
+    Type: String
+    Default: siem-rds-mysql-slowquery-log-cwl-to-s3
+    Description: Define Kinesis Data Firehose Name for RDS (Aurora MySQL / MySQL / MariaDB) slowquery log. e.g.) siem-rds-mysql-slowquery-log-cwl-to-s3
+Conditions:
+  KdfIsRequired:
+    Fn::Equals:
+      - Ref: CreateFirehose
+      - create_a_new_one
+  CreateKdfForMySQLAudit:
+    Fn::And:
+      - Condition: KdfIsRequired
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: FirehoseNameForMySqlAudit
+              - ""
+  CreateKdfForMySQLError:
+    Fn::And:
+      - Condition: KdfIsRequired
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: FirehoseNameForMySqlError
+              - ""
+  CreateKdfForMySQLGeneral:
+    Fn::And:
+      - Condition: KdfIsRequired
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: FirehoseNameForMySqlGeneral
+              - ""
+  CreateKdfForMySQLSlowQuery:
+    Fn::And:
+      - Condition: KdfIsRequired
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: FirehoseNameForMySqlSlowQuery
+              - ""
+  SubscribeCwlOfMySQLAudit:
+    Fn::And:
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: FirehoseNameForMySqlAudit
+              - ""
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: CwLogGroupNameOfMySQLAuditLog
+              - ""
+  SubscribeCwlOfMySQLError:
+    Fn::And:
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: FirehoseNameForMySqlError
+              - ""
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: CwLogGroupNameOfMySQLErrorLog
+              - ""
+  SubscribeCwlOfMySQLGeneral:
+    Fn::And:
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: FirehoseNameForMySqlGeneral
+              - ""
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: CwLogGroupNameOfMySQLGeneralLog
+              - ""
+  SubscribeCwlOfMySQLSlowQuery:
+    Fn::And:
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: FirehoseNameForMySqlSlowQuery
+              - ""
+      - Fn::Not:
+          - Fn::Equals:
+              - Ref: CwLogGroupNameOfMySQLSlowQueryLog
+              - ""
+Resources:
+  KdfRDSMySQLAudit:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: FirehoseNameForMySqlAudit
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name-v2
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: ErrorLogs/RDS/MySQL/audit/
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/
+              - Ref: AWS::AccountId
+              - /RDS/MySQL/audit/
+              - Ref: AWS::Region
+              - /
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
+    Condition: CreateKdfForMySQLAudit
+  KdfRDSMySQLError:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: FirehoseNameForMySqlError
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name-v2
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: ErrorLogs/RDS/MySQL/error/
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/
+              - Ref: AWS::AccountId
+              - /RDS/MySQL/error/
+              - Ref: AWS::Region
+              - /
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
+    Condition: CreateKdfForMySQLError
+  KdfRDSMySQLGeneral:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: FirehoseNameForMySqlGeneral
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name-v2
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: ErrorLogs/RDS/MySQL/general/
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/
+              - Ref: AWS::AccountId
+              - /RDS/MySQL/general/
+              - Ref: AWS::Region
+              - /
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
+    Condition: CreateKdfForMySQLGeneral
+  KdfRDSMySQLSlowQuery:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName:
+        Ref: FirehoseNameForMySqlSlowQuery
+      ExtendedS3DestinationConfiguration:
+        BucketARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:s3:::"
+              - Fn::ImportValue: sime-log-bucket-name-v2
+        BufferingHints:
+          IntervalInSeconds:
+            Ref: KdfBufferInterval
+          SizeInMBs:
+            Ref: KdfBufferSize
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: ErrorLogs/RDS/MySQL/slowquery/
+        Prefix:
+          Fn::Join:
+            - ""
+            - - AWSLogs/
+              - Ref: AWS::AccountId
+              - /RDS/MySQL/slowquery/
+              - Ref: AWS::Region
+              - /
+        RoleARN:
+          Fn::Join:
+            - ""
+            - - "arn:aws-us-gov:iam::"
+              - Ref: AWS::AccountId
+              - :role/service-role/
+              - Fn::ImportValue: siem-kdf-to-s3-role-name-v2
+    Condition: CreateKdfForMySQLSlowQuery
+  KinesisSubscriptionMySQLAudit:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::If:
+          - CreateKdfForMySQLAudit
+          - Fn::GetAtt:
+              - KdfRDSMySQLAudit
+              - Arn
+          - Fn::Join:
+              - ""
+              - - "arn:aws-us-gov:firehose:"
+                - Ref: AWS::Region
+                - ":"
+                - Ref: AWS::AccountId
+                - :deliverystream/
+                - Ref: FirehoseNameForMySqlAudit
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwLogGroupNameOfMySQLAuditLog
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-us-gov:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+    Condition: SubscribeCwlOfMySQLAudit
+  KinesisSubscriptionMySQLError:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::If:
+          - CreateKdfForMySQLError
+          - Fn::GetAtt:
+              - KdfRDSMySQLError
+              - Arn
+          - Fn::Join:
+              - ""
+              - - "arn:aws-us-gov:firehose:"
+                - Ref: AWS::Region
+                - ":"
+                - Ref: AWS::AccountId
+                - :deliverystream/
+                - Ref: FirehoseNameForMySqlError
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwLogGroupNameOfMySQLErrorLog
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-us-gov:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+    Condition: SubscribeCwlOfMySQLError
+  KinesisSubscriptionMySQLGeneral:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::If:
+          - CreateKdfForMySQLGeneral
+          - Fn::GetAtt:
+              - KdfRDSMySQLGeneral
+              - Arn
+          - Fn::Join:
+              - ""
+              - - "arn:aws-us-gov:firehose:"
+                - Ref: AWS::Region
+                - ":"
+                - Ref: AWS::AccountId
+                - :deliverystream/
+                - Ref: FirehoseNameForMySqlGeneral
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwLogGroupNameOfMySQLGeneralLog
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-us-gov:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+    Condition: SubscribeCwlOfMySQLGeneral
+  KinesisSubscriptionMySQLSlowQuery:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      DestinationArn:
+        Fn::If:
+          - CreateKdfForMySQLSlowQuery
+          - Fn::GetAtt:
+              - KdfRDSMySQLSlowQuery
+              - Arn
+          - Fn::Join:
+              - ""
+              - - "arn:aws-us-gov:firehose:"
+                - Ref: AWS::Region
+                - ":"
+                - Ref: AWS::AccountId
+                - :deliverystream/
+                - Ref: FirehoseNameForMySqlSlowQuery
+      FilterPattern: ""
+      LogGroupName:
+        Ref: CwLogGroupNameOfMySQLSlowQueryLog
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws-us-gov:iam::"
+            - Ref: AWS::AccountId
+            - :role/
+            - Fn::ImportValue: siem-cwl-to-kdf-role-name-v2
+    Condition: SubscribeCwlOfMySQLSlowQuery
+

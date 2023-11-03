@@ -47,7 +47,7 @@ SIEM on OpenSearch Service は以下のログを取り込むことができま�
 |ネットワーキングとコンテンツ配信|AWS Client VPN|connection log|
 |ストレージ|Amazon FSx for Windows File Server|audit log|
 |ストレージ|Amazon Simple Storage Service (Amazon S3)|access log|
-|データベース|Amazon Relational Database Service (Amazon RDS)<br>(**Experimental Support**)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
+|データベース|Amazon Relational Database Service (Amazon RDS)|Amazon Aurora(MySQL)<br>Amazon Aurora(PostgreSQL)<br>Amazon RDS for MariaDB<br>Amazon RDS for MySQL<br>Amazon RDS for PostgreSQL|
 |データベース|Amazon ElastiCache|ElastiCache for Redis SLOWLOG|
 |分析|Amazon OpenSearch Service|Audit logs|
 |分析|Amazon Managed Streaming for Apache Kafka (Amazon MSK)|Broker log|

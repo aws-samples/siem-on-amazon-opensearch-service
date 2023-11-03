@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.2a'
+__version__ = '2.10.3-beta.2'
 __license__ = 'MIT-0'
 __author__ = 'Ryotaro Tsuzuki'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'

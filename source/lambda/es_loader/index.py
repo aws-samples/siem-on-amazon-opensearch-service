@@ -3,12 +3,13 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.2a'
+__version__ = '2.10.3-beta.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import json
+import logging
 import os
 import re
 import sys
@@ -20,11 +21,13 @@ from functools import lru_cache, wraps
 import boto3
 from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
-from opensearchpy import AuthenticationException, AuthorizationException
+from opensearchpy import (AuthenticationException, AuthorizationException,
+                          RequestError)
 
 import siem
 from siem import geodb, ioc, utils, xff
 
+logging.getLogger('opensearch').setLevel(logging.ERROR)
 logger = Logger(stream=sys.stdout, log_record_order=["level", "message"])
 logger.info(f'version: {__version__}')
 logger.info(f'boto3: {boto3.__version__}')
@@ -199,6 +202,39 @@ def create_logconfig(logtype):
         logconfig['exclusion_conditions'] = exclusion_conditions[logtype]
 
     return logconfig
+
+
+def check_and_create_aliases_if_needed(es_conn):
+    auto_rotation_list = []
+    aliases_dict = {}
+    for logtype in logtype_s3key_dict.keys():
+        if get_value_from_etl_config(logtype, 'index_rotation') == 'auto':
+            alias = get_value_from_etl_config(logtype, 'index_name')
+            auto_rotation_list.append({'logtype': logtype, 'alias': alias})
+    if auto_rotation_list:
+        logger.info('Creating aliases')
+        res = es_conn.cat.aliases(format="json")
+        for item in res:
+            aliases_dict[item['alias']] = item
+        for alias_auto in auto_rotation_list:
+            alias = alias_auto['alias']
+            if alias not in aliases_dict:
+                res = None
+                logger.info(f"alias {alias} is being created")
+                try:
+                    res = es_conn.transport.perform_request(
+                        "PUT", f"/{alias}-000001",
+                        headers={"Content-Type": "application/json"},
+                        body={"aliases": {alias: {"is_write_index": True}}})
+                except RequestError as e:
+                    if e.error == 'resource_already_exists_exception':
+                        pass
+                    else:
+                        logger.exception(e.info)
+                except Exception as e:
+                    logger.exception(e.info)
+            else:
+                logger.debug(f"alias {alias} already exists")
 
 
 def get_es_entries(logfile):
@@ -420,6 +456,8 @@ user_libs_list = utils.find_user_custom_libs()
 etl_config = utils.get_etl_config()
 utils.load_modules_on_memory(etl_config, user_libs_list)
 logtype_s3key_dict = utils.create_logtype_s3key_dict(etl_config)
+if SERVICE == 'es':
+    check_and_create_aliases_if_needed(es_conn)
 exclusion_conditions = utils.get_exclusion_conditions()
 
 builtin_log_exclusion_patterns: dict = (
@@ -463,11 +501,15 @@ utils.show_local_dir()
 
 @observability_decorator_switcher
 def lambda_handler(event, context):
-    main(event, context)
-    return {'EventResponse': None}
+    batch_item_failures = main(event, context)
+    if batch_item_failures:
+        return {"batchItemFailures": batch_item_failures}
+    else:
+        return None
 
 
 def main(event, context):
+    batch_item_failures = []
     if 'Records' in event:
         event_source = event['Records'][0].get('eventSource')
         error_code = event['Records'][0].get(
@@ -483,14 +525,18 @@ def main(event, context):
         elif event_source == 'aws:sqs':
             # s3 notification from SQS
             for record in event['Records']:
-                recs = json.loads(record['body'])
-                if 'Records' in recs:
-                    # Control Tower
-                    for record in recs['Records']:
-                        process_record(record)
-                else:
-                    # from sqs-splitted-log, Security Lake(via EventBridge)
-                    process_record(recs)
+                try:
+                    recs = json.loads(record['body'])
+                    if 'Records' in recs:
+                        # Control Tower
+                        for record in recs['Records']:
+                            process_record(record)
+                    else:
+                        # from sqs-splitted-log, Security Lake(via EventBridge)
+                        process_record(recs)
+                except Exception:
+                    batch_item_failures.append(
+                        {"itemIdentifier": record['messageId']})
         elif event['Records'][0].get('EventSource') == 'aws:sns':
             # s3 notification from SNS
             for record in event['Records']:
@@ -506,6 +552,7 @@ def main(event, context):
         # s3 notification from EventBridge
         record = {'s3': event['detail']}
         process_record(record)
+    return batch_item_failures
 
 
 def process_record(record):

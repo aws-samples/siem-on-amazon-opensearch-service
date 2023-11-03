@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.2a'
+__version__ = '2.10.3-beta.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -23,6 +23,8 @@ from deployment_samples.deployment_samples_stack import (
     FirehoseExporterStack,
     LinuxCWLogsExporterStack,
     NginxCWLogsExporterStack,
+    RDSMySQLCWLogsExporterStack,
+    RDSPostgreSQLCWLogsExporterStack,
     TrustedAdvisorLogExporterStack,
     WorkSpacesLogExporterStack,
 )
@@ -71,6 +73,14 @@ nginx_logging = NginxCWLogsExporterStack(
     app, "siem-log-exporter-nginx-cwl",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
                  'log exporter - Nginx'))
+rds_mysql_logging = RDSMySQLCWLogsExporterStack(
+    app, "siem-log-exporter-rds-mysql-cwl",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - RDS Aurora MySQL/MariaDB/MySQL'))
+rds_postgresql_logging = RDSPostgreSQLCWLogsExporterStack(
+    app, "siem-log-exporter-rds-postgresql-cwl",
+    description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '
+                 'log exporter - RDS Aurora PostgreSQL/PostgreSQL'))
 clientvpn_logging = ClientVpnLogExporterStack(
     app, "siem-log-exporter-clientvpn",
     description=(f'SIEM on Amazon OpenSearch Service v{__version__}: '

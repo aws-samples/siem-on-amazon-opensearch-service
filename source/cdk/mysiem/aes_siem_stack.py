@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.2a'
+__version__ = '2.10.3-beta.2'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -1762,6 +1762,7 @@ class MyAesSiemStack(cdk.Stack):
             self, "EventSourceMappingForCT",
             target=lambda_es_loader,
             event_source_arn=ct_log_sqs.value_as_string,
+            report_batch_item_failures=True,
         )
         source_mapping_for_ct.node.default_child.cfn_options.condition = (
             is_control_tower_access)
@@ -1799,6 +1800,7 @@ class MyAesSiemStack(cdk.Stack):
             self, "EventSourceMappingForCT2",
             target=lambda_es_loader,
             event_source_arn=sl_log_sqs.value_as_string,
+            report_batch_item_failures=True,
         )
         source_mapping_for_ct2.node.default_child.cfn_options.condition = (
             is_security_lake_access)
