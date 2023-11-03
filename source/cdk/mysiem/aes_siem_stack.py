@@ -1219,7 +1219,7 @@ class MyAesSiemStack(cdk.Stack):
             self, 'LambdaEsLoader',
             function_name=function_name,
             description=f'{SOLUTION_NAME} / es-loader',
-            runtime=aws_lambda.Runtime.PYTHON_3_8,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset('../lambda/es_loader'),
             handler='index.lambda_handler',
             memory_size=2048,

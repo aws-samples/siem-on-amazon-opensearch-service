@@ -45,7 +45,7 @@ class ResourceValidator(object):
             function_name=function_name,
             description=(f'{self.SOLUTION_NAME} / resource validator '
                          'for deployment'),
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.resource_validator_handler',
             memory_size=128,

@@ -17,6 +17,9 @@ export BASEDIR="$HOME/siem-on-amazon-opensearch-service"
 export OLDDIR1="$HOME/siem-on-amazon-elasticsearch-service"
 export OLDDIR2="$HOME/siem-on-amazon-elasticsearch"
 
+is_al2=$(grep -oi Karoo /etc/system-release 2> /dev/null)
+is_al2023=$(grep -oi "Amazon Linux release 2023" /etc/system-release 2> /dev/null)
+
 function func_check_freespace() {
   if [ -d "$BASEDIR" ];then
     find "$BASEDIR" -name "*.zip" -print0 | xargs --null rm -f
@@ -304,25 +307,32 @@ echo "func_check_freespace"
 func_check_freespace
 
 echo "### 1. Setting Up the AWS CDK Execution Environment ###"
-echo 'sudo yum groups mark install -y "Development Tools"'
-sudo yum groups mark install -y "Development Tools" > /dev/null
-echo -e "Done\n"
+if [ -n "$is_al2" ]; then
+  echo 'sudo yum groups mark install -y "Development Tools"'
+  sudo yum groups mark install -y "Development Tools" > /dev/null
+  echo -e "Done\n"
 
-echo "sudo yum install -y amazon-linux-extras"
-sudo yum install -y amazon-linux-extras > /dev/null
-echo -e "Done\n"
+  echo "sudo yum install -y amazon-linux-extras"
+  sudo yum install -y amazon-linux-extras > /dev/null
+  echo -e "Done\n"
 
-echo "sudo amazon-linux-extras enable python3.8"
-sudo amazon-linux-extras enable python3.8 > /dev/null
-echo -e "Done\n"
+  echo "sudo amazon-linux-extras enable python3.8"
+  sudo amazon-linux-extras enable python3.8 > /dev/null
+  echo -e "Done\n"
 
-echo "sudo yum install -y python38 python38-devel git jq"
-sudo yum install -y python38 python38-devel git jq > /dev/null
-echo -e "Done\n"
+  echo "sudo yum install -y python38 python38-devel git jq"
+  sudo yum install -y python38 python38-devel git jq > /dev/null
+  echo -e "Done\n"
 
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
-if [ ! -f /usr/bin/pip3 ]; then
-  sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.8 1
+  sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
+elif [ -n "$is_al2023" ]; then
+  echo 'sudo dnf groupinstall -y "Development Tools"'
+  #sudo dnf groupinstall -y "Development Tools" > /dev/null
+  echo -e "Done\n"
+
+  echo 'sudo dnf install -y python3.11 python3.11-devel python3.11-pip git jq tar'
+  sudo dnf install -y python3.11 python3.11-devel python3.11-pip git jq tar > /dev/null
+  echo -e "Done\n"
 fi
 
 if [ -d "$BASEDIR" ]; then
@@ -392,11 +402,11 @@ echo -e "Done\n"
 echo "### 4. Setting Up the Environment for AWS Cloud Development Kit (AWS CDK) ###"
 echo "./step2-setup-cdk-env.sh"
 date
-chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh> /dev/null
+chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh > /dev/null
 # shellcheck disable=SC1090
 if [[ "${AWS_EXECUTION_ENV}" != "CloudShell" ]]; then
   source ~/.bashrc
-  nvm use lts/*
+  nvm use 18 2>/dev/null || nvm use 20 2>/dev/null || nvm use 16 2>/dev/null || nvm use system
   echo -e "Done\n"
 fi
 find "$HOME" -name '.cache' -print0 | xargs --null rm -fr

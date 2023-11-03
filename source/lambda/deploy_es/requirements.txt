@@ -1,7 +1,8 @@
 crhelper==2.0.11
 requests==2.31.0
 opensearch-py==2.3.2
-urllib3==1.26.18
 
-boto3==1.26.90
-botocore==1.29.90
+# to fix dependency and conflicts
+botocore==1.29.76
+boto3==1.26.76
+urllib3>=1.26

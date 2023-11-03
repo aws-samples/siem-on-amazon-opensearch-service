@@ -2,26 +2,46 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
+shopt -s expand_aliases
+
+pip_ver="23.3.1"
+
 repo_root="${PWD}/../.."
 source_template_dir="${PWD}/.."
 source_dir="$source_template_dir/../source"
 
-if ! (python3 -m pip > /dev/null 2>&1); then
-    echo "No pip3. Install python3."
-    echo "exist!"
-    exit
+# create virtual venv
+cd "$repo_root" || exit
+
+if [ -f "/usr/bin/python3.11" ]; then
+  alias python3='/usr/bin/python3.11'
+elif [ -f "/usr/bin/python3.10" ]; then
+  alias python3='/usr/bin/python3.10'
+elif [ -f "/usr/bin/python3.9" ]; then
+  alias python3='/usr/bin/python3.9'
+elif [ -f "/usr/bin/python3.8" ]; then
+  alias python3='/usr/bin/python3.8'
 fi
 
-# create virtual env
-cd "$repo_root" || exit
+local_version=$(python3 --version)
+venv_version=$(.venv/bin/python --version 2>/dev/null)
+echo "python local version: $local_version"
+echo "python venv version: $venv_version"
+
+if [ -n "$venv_version" ] && [ "$local_version" != "$venv_version" ]; then
+  echo "delete .venv to install newer version"
+  rm -fr .venv
+fi
+
 if [ ! -d .venv ]; then
   echo "create .venv"
   echo "python3 -m venv .venv"
   python3 -m venv .venv
 fi
+unalias python3 2>/dev/null
 # shellcheck disable=SC1091
 source .venv/bin/activate
-python3 -m pip install wheel pip==22.3.1
+python3 -m pip install wheel pip=="${pip_ver}"
 
 echo "------------------------------------------------------------------------"
 echo "[Packing] pip and zip source folder"

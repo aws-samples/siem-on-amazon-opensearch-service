@@ -598,7 +598,7 @@ class WorkSpacesLogExporterStack(MyStack):
         # Lambda Functions to get workspaces inventory
         lambda_func = aws_lambda.Function(
             self, 'lambdaGetWorkspacesInventory',
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.InlineCode(LAMBDA_GET_WORKSPACES_INVENTORY),
             function_name='siem-get-workspaces-inventory',
             description='SIEM: get workspaces inventory',

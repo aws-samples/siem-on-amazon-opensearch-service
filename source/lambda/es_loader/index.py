@@ -34,6 +34,12 @@ logger.info(f'boto3: {boto3.__version__}')
 warnings.filterwarnings("ignore", "No metrics to publish*")
 metrics = Metrics()
 
+if sys.version_info.major == 3 and sys.version_info.minor < 11:
+    msg = f"You are using Python {sys.version}. Please update to Python 3.11"
+    logger.error(msg)
+    time.sleep(30)
+    sys.exit(0)
+
 SQS_SPLITTED_LOGS_URL = None
 if 'SQS_SPLITTED_LOGS_URL' in os.environ:
     SQS_SPLITTED_LOGS_URL = os.environ['SQS_SPLITTED_LOGS_URL']

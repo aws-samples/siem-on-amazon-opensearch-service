@@ -25,7 +25,6 @@ import jmespath
 import requests
 from aws_lambda_powertools import Logger
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
-from dateutil import parser
 
 try:
     import numpy as np
@@ -307,12 +306,6 @@ def parse_xff(xff: str) -> list:
 #############################################################################
 def get_timestr_from_logdata_dict(logdata_dict, timestamp_key, has_nanotime):
     timestr = value_from_nesteddict_by_dottedkey(logdata_dict, timestamp_key)
-    # 末尾がZはPythonでは対応していないのでカットしてTZを付与
-    try:
-        timestr = timestr.replace('Z', '+00:00')
-    except AttributeError:
-        # int such as epoch
-        pass
     if has_nanotime:
         m = RE_WITH_NANOSECONDS.match(timestr)
         if m and m.group(3):
@@ -323,7 +316,7 @@ def get_timestr_from_logdata_dict(logdata_dict, timestamp_key, has_nanotime):
 
 def convert_timestr_to_datetime_wrapper(timestr, timestamp_key,
                                         timestamp_format, TZ):
-    if type(timestamp_format) == list:
+    if type(timestamp_format) is list:
         timestamp_format_list = timestamp_format
     else:
         timestamp_format_list = [timestamp_format, ]
@@ -422,7 +415,7 @@ def convert_syslog_to_datetime(timestr, TZ):
 @lru_cache(maxsize=1024)
 def convert_iso8601_to_datetime(timestr, TZ, timestamp_key):
     try:
-        dt = parser.isoparse(timestr)
+        dt = datetime.fromisoformat(timestr)
     except ValueError:
         return None
         # msg = (f'You set {timestamp_key} field as ISO8601 format. '

@@ -167,7 +167,7 @@ Resources:
         Fn::GetAtt:
           - getWorkspacesInventoryRoleC66252C0
           - Arn
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 600
     DependsOn:
       - getWorkspacesInventoryRoleC66252C0

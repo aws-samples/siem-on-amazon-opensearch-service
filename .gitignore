@@ -69,6 +69,7 @@ dashboard.serverless.zip
 # working files
 .lambda38/
 .lambda39/
+.lambda311/
 .DS_Store
 temp/
 work/
