@@ -43,4 +43,12 @@ You can set a new password with AWS Management Console.
 1. Type [**aesadmin**] to [Master usernames] and [**any password**] to [Master password]/[Confirm master password]
 1. Select [**Submit**] at the bottom right of the screen
 
+## How can I configure the OpenSearch SIEM solution to ingest logs from a custom S3 bucket?
+The OpenSearch SIEM solution is designed to ingest logs from the default S3 bucket locations. However, it is possible to configure it to ingest from other custom S3 buckets as well.
+1. Identify the Lambda function responsible for loading logs from S3 to Elasticsearch - This is usually called [aes-siem-es-loader](https://github.com/aws-samples/siem-on-amazon-opensearch-service/tree/main?tab=readme-ov-file#aes-siem-es-loader)
+2. Update the [S3 bucket policy to allow the Lambda execution role to access the custom bucket(s).](https://github.com/aws-samples/siem-on-amazon-opensearch-service/blob/main/docs/configure_siem.md#near-real-time-loading-from-other-s3-buckets)
+3. Configure [S3 Event Notifications on the custom bucket(s) to trigger the Lambda function on new log files](https://github.com/aws-samples/siem-on-amazon-opensearch-service/blob/main/docs/configure_siem.md#amazon-s3-event-notifications).
+4. Deploy the Lambda code changes. New logs in the custom buckets should now be ingested into OpenSearch.
+5. Verify in the OpenSearch management console or Kibana that the custom logs are being indexed as expected.
+
 [Back to README](../README.md)
