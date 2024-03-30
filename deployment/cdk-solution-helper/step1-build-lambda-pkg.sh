@@ -138,8 +138,8 @@ function pip_zip_for_lambda_ioc () {
     find . \( -name '*\.h' -o -name '*\.c' -o -name '*\.so' \) -print0 | xargs -0 rm -fr
     rm -f .DS_Store
     echo "# delete python libraries which are already installed in lambda environment"
-    echo "rm -fr future* urllib3* dateutil* python_dateutil* s3transfer* six* jmespath*"
-    rm -fr future* urllib3* dateutil* python_dateutil* s3transfer* six* jmespath*
+    echo "rm -fr future* urllib3* dateutil* python_dateutil* six* jmespath*"
+    rm -fr future* urllib3* dateutil* python_dateutil* six* jmespath*
     echo "# Delete unused lib"
     echo "rm -fr botocore/data/[a-z][a-z]*/*"
     rm -fr botocore/data/[a-z][a-z]*/*
