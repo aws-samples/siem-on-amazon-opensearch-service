@@ -1,2 +1,2 @@
 boto3
-aws-cdk-lib==2.102.0
+aws-cdk-lib==2.134.0
