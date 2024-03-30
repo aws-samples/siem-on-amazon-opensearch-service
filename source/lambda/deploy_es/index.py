@@ -158,7 +158,7 @@ access_policies_json = json.dumps(access_policies)
 
 config_domain = {
     'DomainName': AOS_DOMAIN,
-    'EngineVersion': 'OpenSearch_2.9',
+    'EngineVersion': 'OpenSearch_2.11',
     'ClusterConfig': {
         'InstanceType': 't3.medium.search',
         'InstanceCount': 1,
