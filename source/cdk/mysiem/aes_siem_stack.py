@@ -233,7 +233,8 @@ class MyAesSiemStack(cdk.Stack):
         elb_id_temp = region_info.FactName.ELBV2_ACCOUNT
         elb_map_temp = region_info.RegionInfo.region_map(elb_id_temp)
         no_alb_log_account_list = [
-            'ap-south-2', 'ap-southeast-4', 'eu-central-2', 'eu-south-2',
+            'ap-south-2', 'ap-southeast-4', 'ca-west-1',
+            'eu-central-2', 'eu-south-2',
             'il-central-1', 'me-central-1']
         for acct in no_alb_log_account_list:
             elb_map_temp[acct] = '999999999999'
@@ -250,7 +251,7 @@ class MyAesSiemStack(cdk.Stack):
                           'ap-south-1', 'ap-south-2',
                           'ap-southeast-1', 'ap-southeast-2', 'ap-southeast-3',
                           'ap-southeast-4',
-                          'ca-central-1',
+                          'ca-central-1', 'ca-west-1',
                           'eu-central-1', 'eu-north-1', 'eu-central-2',
                           'eu-south-1', 'eu-south-2',
                           'eu-west-1', 'eu-west-2', 'eu-west-3',
