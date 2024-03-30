@@ -6,6 +6,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.2b] - 2024-03-30
+### Added
+- Added support for Amazon OpenSearch 2.11 #432
+- Supports AWS ca-west-1/Canada (Calgary) Region #441
+
+### Fixed
+- Fixed a bug in the botocore dependencies for the Lambda function that creates the IOC DB #440
+
+### Security
+- Updated AWS SDK for pandas from 3.4.1 to v3.7.1 #442
+
 ## [2.10.2a] - 2023-10-07
 ### Fixed
 - Fixed regex error in ssl_cipher field of alb log #415
