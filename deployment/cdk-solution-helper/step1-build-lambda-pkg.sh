@@ -4,7 +4,7 @@
 
 shopt -s expand_aliases
 
-pip_ver="23.3.1"
+pip_ver="24.0"
 
 repo_root="${PWD}/../.."
 source_template_dir="${PWD}/.."
@@ -13,7 +13,9 @@ source_dir="$source_template_dir/../source"
 # create virtual venv
 cd "$repo_root" || exit
 
-if [ -f "/usr/bin/python3.11" ]; then
+if python3 --version |grep '3.11' >/dev/null 2>&1; then
+  :
+elif [ -f "/usr/bin/python3.11" ]; then
   alias python3='/usr/bin/python3.11'
 elif [ -f "/usr/bin/python3.10" ]; then
   alias python3='/usr/bin/python3.10'
@@ -21,6 +23,8 @@ elif [ -f "/usr/bin/python3.9" ]; then
   alias python3='/usr/bin/python3.9'
 elif [ -f "/usr/bin/python3.8" ]; then
   alias python3='/usr/bin/python3.8'
+else
+  :
 fi
 
 local_version=$(python3 --version)
@@ -41,7 +45,7 @@ fi
 unalias python3 2>/dev/null
 # shellcheck disable=SC1091
 source .venv/bin/activate
-python3 -m pip install wheel pip=="${pip_ver}"
+python3 -m pip install wheel pip=="${pip_ver}" --disable-pip-version-check --no-python-version-warning
 
 echo "------------------------------------------------------------------------"
 echo "[Packing] pip and zip source folder"
@@ -71,7 +75,7 @@ function pip_zip_for_lambda () {
         rm -fr "${dir}" "${basename}" "${basename}".py
     done
     if [ -e requirements.txt ]; then
-        python3 -m pip install -t . -r requirements.txt -U
+        python3 -m pip install -t . -r requirements.txt -U --disable-pip-version-check
     fi
 
     find . -name __pycache__ -print0 | xargs -0 rm -fr
@@ -131,7 +135,7 @@ function pip_zip_for_lambda_ioc () {
         rm -fr "${dir}" "${basename}" "${basename}".py
     done
     if [ -e requirements.txt ]; then
-        python3 -m pip install -t . -r requirements.txt -U
+        python3 -m pip install -t . -r requirements.txt -U --disable-pip-version-check
     fi
 
     find . -name __pycache__ -print0 | xargs -0 rm -fr

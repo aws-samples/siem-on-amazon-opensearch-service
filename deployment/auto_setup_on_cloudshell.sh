@@ -402,7 +402,7 @@ echo -e "Done\n"
 echo "### 4. Setting Up the Environment for AWS Cloud Development Kit (AWS CDK) ###"
 echo "./step2-setup-cdk-env.sh"
 date
-chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh > /dev/null
+chmod +x ./step2-setup-cdk-env.sh && ./step2-setup-cdk-env.sh
 # shellcheck disable=SC1090
 if [[ "${AWS_EXECUTION_ENV}" != "CloudShell" ]]; then
   source ~/.bashrc

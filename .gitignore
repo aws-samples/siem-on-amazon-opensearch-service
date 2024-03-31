@@ -33,6 +33,8 @@ opensearchpy
 past*
 python_dateutil-2.8.1*
 requests*
+s3transfer*
+setuptools*
 typing_extensions*
 ua_parser*
 urllib3*
@@ -84,9 +86,13 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+.python-version
 .Python
+_distutils_hack
+distutils-precedence.pth
 build/
 develop-eggs/
+pkg_resources/
 dist/
 downloads/
 eggs/

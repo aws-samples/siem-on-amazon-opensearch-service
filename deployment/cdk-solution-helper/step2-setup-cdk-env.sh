@@ -4,7 +4,7 @@
 
 shopt -s expand_aliases
 
-pip_ver="23.3.1"
+pip_ver="24.0"
 
 repo_root="${PWD}/../.."
 source_template_dir="$PWD/../"
@@ -19,37 +19,55 @@ if [ -z "$is_al2023" ] && [ -z "$is_al2" ]; then
     case "$yn" in [yY]*) ;; *) echo "abort." ; exit ;; esac
 fi
 
-# CDK
+# Node.js
+echo "AWS_EXECUTION_ENV is ${AWS_EXECUTION_ENV}"
+echo -e ""
 if [[ "${AWS_EXECUTION_ENV}" = "CloudShell" ]]; then
-  sudo npm install -g aws-cdk@"${cdk_version}"
+  echo "This environment is CloudShell"
+  echo "Skip Node.js installation"
 else
-  echo "Install Node.js"
-  # shellcheck disable=SC1090
-  nvm -v 2>/dev/null || curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.5/install.sh | bash && source ~/.nvm/nvm.sh
-
   MAJOR_VER=$(node -v 2>/dev/null | cut -f 2 -d v | cut -f 1 -d ".")
-  if [ -n "$is_al2" ] && [ "$MAJOR_VER" != "16" ]; then
-    echo "Start installing Node 16 on Amazon Linux 2"
-    nvm install 16
-    nvm alias default 16
-    nvm use 16
-  elif [ -n "$is_al2023" ] && [ "$MAJOR_VER" != "18" ]; then
-    echo "Start installing Node 18 on Amazon Linux 2023"
-    nvm install 18
-    nvm alias default 18
-    nvm use 18
-  elif [[ -n "$is_al2" && "$MAJOR_VER" == "16" ]] \
+  if [[ -n "$is_al2" && "$MAJOR_VER" == "16" ]] \
       || [[ -n "$is_al2023" && "$MAJOR_VER" == "18" ]] \
       || [ "$MAJOR_VER" == "18" ] || [ "$MAJOR_VER" == "20" ]; then
-    echo "No new installation"
+    echo "Installed Node.js version is $MAJOR_VER "
+    echo "Skip Node.js installation"
   else
-    echo "Start installing Node 18"
-    nvm install 18
-    nvm alias default 18
-    nvm use 18
+    echo "Install Node.js"
+    # shellcheck disable=SC1090
+    nvm -v 2>/dev/null || curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && source ~/.nvm/nvm.sh
+    MAJOR_VER=$(node -v 2>/dev/null | cut -f 2 -d v | cut -f 1 -d ".")
+
+    if [ -n "$is_al2" ] && [ "$MAJOR_VER" != "16" ]; then
+      echo "Start installing Node 16 on Amazon Linux 2"
+      nvm install 16
+      nvm alias default 16
+      nvm use 16
+    elif [ -n "$is_al2023" ] && [ "$MAJOR_VER" != "18" ]; then
+      echo "Start installing Node 18 on Amazon Linux 2023"
+      nvm install 18
+      nvm alias default 18
+      nvm use 18
+    else
+      echo "Start installing Node 18"
+      nvm install 18
+      nvm alias default 18
+      nvm use 18
+    fi
+    echo "nvm alias"
+    nvm alias
   fi
-  node -e "console.log('Running Node.js ' + process.version)"
-  echo "Install CDK"
+fi
+
+node -e "console.log('Running Node.js: ' + process.version)"
+echo -e ""
+
+# CDK
+echo "Install CDK"
+if [[ "${AWS_EXECUTION_ENV}" = "CloudShell" ]]; then
+  echo "npm install aws-cdk@${cdk_version}"
+  npm install aws-cdk@"${cdk_version}"
+else
   echo "npm install -g aws-cdk@${cdk_version}"
   npm install -g aws-cdk@"${cdk_version}"
 fi
@@ -57,7 +75,9 @@ fi
 # create virtual venv
 cd "$repo_root" || exit
 
-if [ -f "/usr/bin/python3.11" ]; then
+if python3 --version |grep '3.11' >/dev/null 2>&1; then
+  :
+elif [ -f "/usr/bin/python3.11" ]; then
   alias python3='/usr/bin/python3.11'
 elif [ -f "/usr/bin/python3.10" ]; then
   alias python3='/usr/bin/python3.10'
@@ -65,7 +85,10 @@ elif [ -f "/usr/bin/python3.9" ]; then
   alias python3='/usr/bin/python3.9'
 elif [ -f "/usr/bin/python3.8" ]; then
   alias python3='/usr/bin/python3.8'
+else
+  :
 fi
+
 local_version=$(python3 --version)
 venv_version=$(.venv/bin/python --version 2>/dev/null)
 echo "python local version: $local_version"
@@ -82,11 +105,11 @@ fi
 unalias python3 2>/dev/null
 # shellcheck disable=SC1091
 source .venv/bin/activate
-python3 -m pip install wheel pip=="$pip_ver"
+python3 -m pip install wheel pip=="$pip_ver" --disable-pip-version-check --no-python-version-warning
 
 # shellcheck disable=SC1091
-echo "python3 -m pip install -r ${source_dir}/cdk/requirements.txt"
-python3 -m pip install -r "${source_dir}/cdk/requirements.txt"
+echo "python3 -m pip install -r ${source_dir}/cdk/requirements.txt --disable-pip-version-check --no-python-version-warning"
+python3 -m pip install -r "${source_dir}/cdk/requirements.txt" --disable-pip-version-check --no-python-version-warning
 
 # Delete CDK v1
 cd "${source_dir}/cdk" || exit
