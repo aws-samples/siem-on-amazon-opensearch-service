@@ -1750,7 +1750,7 @@ class MyAesSiemStack(cdk.Stack):
                         "sqs:DeleteMessage",
                         "sqs:GetQueueAttributes"
                     ],
-                    resources=[(f'arn:aws:sqs:*:{cfn_ct_aws_account}:*')],
+                    resources=[(f'arn:{PARTITION}:sqs:*:{cfn_ct_aws_account}:*')],
                 )
             ]
         )
@@ -1787,7 +1787,7 @@ class MyAesSiemStack(cdk.Stack):
                         "sqs:DeleteMessage",
                         "sqs:GetQueueAttributes"
                     ],
-                    resources=[(f'arn:aws:sqs:*:{cfn_sl_aws_account}:*')],
+                    resources=[(f'arn:{PARTITION}:sqs:*:{cfn_sl_aws_account}:*')],
                 )
             ]
         )
