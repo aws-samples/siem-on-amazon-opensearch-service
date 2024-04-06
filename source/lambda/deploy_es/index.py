@@ -962,11 +962,16 @@ def aes_domain_poll_create(event, context):
         response = opensearch_client.describe_domain(DomainName=AOS_DOMAIN)
         logger.debug('Processing domain creation')
         logger.debug(json.dumps(response, default=json_serial))
-        is_processing = response['DomainStatus']['Processing']
-        if is_processing:
-            return None
 
-        logger.info('OpenSearch Service domain is created')
+        domain_processing_status = (
+            response['DomainStatus']['DomainProcessingStatus'])
+        logger.debug('DomainStatus.DomainProcessingStatus: '
+                     f'{domain_processing_status}')
+        if domain_processing_status != 'Active':
+            logger.info('OpenSearch Service domain creation is in progress')
+            return None
+        else:
+            logger.info('OpenSearch Service domain has just been created')
 
         userdb_enabled = (response['DomainStatus']['AdvancedSecurityOptions']
                           ['InternalUserDatabaseEnabled'])
