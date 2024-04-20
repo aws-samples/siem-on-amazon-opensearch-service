@@ -769,16 +769,20 @@ You can batch load logs stored in the S3 bucket into OpenSearch Service. Normall
 
 #### Setting up the execution environment for the script (es-loader)
 
-1. Provision an Amazon EC2 instance with an Amazon Linux 2 AMI in a VPC that can communicate with OpenSearch Service
+1. Provision an Amazon EC2 instance with an Amazon Linux 2023 AMI in a VPC that can communicate with OpenSearch Service
 1. Allow HTTP communication from Amazon Linux to GitHub and PyPI websites on the Internet
 1. Attach IAM role [**aes-siem-es-loader-for-ec2**] to EC2
-1. Connect to the Amazon Linux terminal and follow the steps in [README](../README.md) --> [2. Creating CloudFormation Templates] --> [2-1. Preparation] and [2-2. Cloning SIEM on OpenSearch Service]
+1. Connect to the Amazon Linux terminal and follow the steps in [1. Prerequisites](#1-prerequisites) and [2. Cloning SIEM on OpenSearch Service](#2-cloning-siem-on-opensearch-service) from the [Creating a CloudFormation template](#creating-a-cloudformation-template) section on this page
 1. Install Python modules using the commands below:
 
    ```python
-   cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
-   pip3 install -r requirements.txt -U -t .
-   pip3 install pandas -U
+   export GIT_ROOT=$HOME
+   cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/lambda/es_loader/
+   python3.11 -m pip install -r requirements.txt -U -t .
+   python3.11 -m pip install awswrangler -U
+
+   ln -sf /usr/bin/python3.11 ${GIT_ROOT}/siem-on-amazon-opensearch-service/python3
+   PATH=${GIT_ROOT}/siem-on-amazon-opensearch-service/:$PATH
    ```
 
 #### Setting environment variables
@@ -790,26 +794,43 @@ You can batch load logs stored in the S3 bucket into OpenSearch Service. Normall
 1. Paste the environment variables into the Amazon Linux terminal on the EC2 instance. Change the values to suit your environment
 
    ```sh
+   export AWS_DEFAULT_REGION=ap-northeast-1
    export ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
    export GEOIP_BUCKET=aes-siem-123456789012-geo
    ```
+
+1. If you are ingesting logs from an Amazon Security Lake S3 bucket, navigate to the aes-siem-es-loader function and take a note of the following three environment variable names and values
+    SECURITY_LAKE_EXTERNAL_ID
+    SECURITY_LAKE_ROLE_ARN
+    SECURITY_LAKE_ROLE_SESSION_NAME
+
+1. Paste the environment variables into the Amazon Linux terminal on the EC2 instance. Change the values to suit your environment
+
+    ```sh
+    export SECURITY_LAKE_EXTERNAL_ID=XXXXXXXX
+    export SECURITY_LAKE_ROLE_ARN=arn:aws:iam::888888888888:role/AmazonSecurityLake-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+    export SECURITY_LAKE_ROLE_SESSION_NAME=aes-siem-es-loader
+    ```
 
 ### Loading logs from the S3 bucket using an object list
 
 1. Change directory to es_loader
 
    ```sh
-   cd
-   cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
+   cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/lambda/es_loader/
    ```
 
 1. Create an object list (s3-list.txt) from the S3 bucket.
+
+    Example of creating an object list from an S3 bucket within the SIEM account:
 
    ```sh
    export AWS_ACCOUNT=123456789012   # Replace this with your AWS account
    export LOG_BUCKET=aes-siem-${AWS_ACCOUNT}-log
    aws s3 ls ${LOG_BUCKET} --recursive > s3-list.txt
    ```
+
+    If you're ingesting logs from an Amazon Security Lake S3 bucket, create the object list using an account with appropriate permissions, and then copy it to the SIEM account.
 
 1. If necessary, create a limited list of what you want to load
 
@@ -868,8 +889,8 @@ You can load messages from SQS's dead letter queue for SIEM (aes-siem-dlq). (The
 
    ```sh
    export AWS_DEFAULT_REGION=ap-northeast-1
-   cd
-   cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
+   export GIT_ROOT=$HOME
+   cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/lambda/es_loader/
    ./index.py -q aes-siem-dlq
    ```
 
@@ -940,15 +961,17 @@ The following instance and tools need to be in place so that you can create a Cl
 
 * Amazon EC2 instance running Amazon Linux 2023
   * "Development Tools"
-  * Python 3 libraries and header files
+  * Python 3.11, libraries and header files
   * pip
   * Git
 
 Run the following commands if the above tools have not been installed yet:
 
 ```shell
+export GIT_ROOT=$HOME
+cd ${GIT_ROOT}
 sudo dnf groupinstall -y "Development Tools"
-sudo dnf install -y python3-devel python3-pip git jq tar
+sudo dnf install -y python3.11 python3.11-devel python3.11-pip git jq tar
 ```
 
 ### 2. Cloning SIEM on OpenSearch Service
@@ -956,7 +979,7 @@ sudo dnf install -y python3-devel python3-pip git jq tar
 Clone SIEM on OpenSearch Service from our GitHub repository:
 
 ```shell
-cd
+cd ${GIT_ROOT}
 git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
 ```
 
@@ -972,7 +995,7 @@ export AWS_REGION=<AWS_REGION> # Region where the distribution is deployed
 ### 4. Packaging AWS Lambda functions and creating a template
 
 ```shell
-cd ~/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
 chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
 chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
 ```

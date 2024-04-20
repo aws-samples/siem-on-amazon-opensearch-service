@@ -629,7 +629,7 @@ if __name__ == '__main__':
         args = parser.parse_args()
         if args.s3bucket:
             if not args.s3list:
-                print('You neee to provide s3 object list with -l')
+                print('You need to provide s3 object list with -l')
                 sys.exit('Exit')
         return args
 
