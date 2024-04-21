@@ -63,8 +63,7 @@
     ```shell
     export GIT_ROOT=$HOME
     cd ${GIT_ROOT}
-    sudo dnf groupinstall -y "Development Tools"
-    sudo dnf install -y python3-devel python3-pip git jq tar
+    sudo dnf install -y python3.11 python3.11-devel python3.11-pip git jq tar
     git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
     ```
 
@@ -75,7 +74,6 @@
     ```shell
     export GIT_ROOT=$HOME
     cd ${GIT_ROOT}
-    sudo yum groups mark install -y "Development Tools"
     sudo yum install -y amazon-linux-extras
     sudo amazon-linux-extras enable python3.8
     sudo yum install -y python38 python38-devel git jq tar
@@ -96,6 +94,7 @@ SIEM on OpenSearch Service で使用する AWS Lambda 関数は 3rd Party のラ
 
 ```shell
 cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
+deactive 2>/dev/null
 chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh
 ```
 

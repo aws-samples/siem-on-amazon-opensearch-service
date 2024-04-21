@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.2b'
+__version__ = '2.10.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -45,7 +45,7 @@ class ResourceValidator(object):
             function_name=function_name,
             description=(f'{self.SOLUTION_NAME} / resource validator '
                          'for deployment'),
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset('../lambda/deploy_es'),
             handler='index.resource_validator_handler',
             memory_size=128,

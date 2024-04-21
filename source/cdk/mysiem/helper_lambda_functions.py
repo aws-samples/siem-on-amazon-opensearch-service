@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.2b'
+__version__ = '2.10.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -82,7 +82,7 @@ class HelperLambdaFunctions(object):
             self.scope, 'LambdaAddPandasLayer',
             function_name=function_name,
             description=f'{self.SOLUTION_NAME} / add-pandas-layer',
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset('../lambda/add_pandas_layer'),
             handler='lambda_function.lambda_handler',
             memory_size=128,
@@ -133,7 +133,7 @@ class HelperLambdaFunctions(object):
             self.scope, 'LambdaEsLoaderStopper',
             function_name=function_name,
             description=f'{self.SOLUTION_NAME} / es-loader-stopper',
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset('../lambda/es_loader_stopper'),
             handler='index.lambda_handler',
             memory_size=128,
@@ -227,7 +227,7 @@ class HelperLambdaFunctions(object):
             self.scope, 'LambdaMetricsExporter',
             function_name=function_name,
             description=f'{self.SOLUTION_NAME} / index-metrics-exporter',
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset(
                 '../lambda/index_metrics_exporter'),
             handler='index.lambda_handler',

@@ -782,16 +782,20 @@ S3 バケットに保存されているログをバッチで OpenSearch Service 
 
 #### スクリプト(es-loader)実行環境の準備
 
-1. OpenSearch Service へ通信ができる VPC 内に Amazon Linux 2 で EC2 インスタンスをプロビジョニング
+1. OpenSearch Service へ通信ができる VPC 内に Amazon Linux 2023 で EC2 インスタンスをプロビジョニング
 1. Amazon Linux からインターネット上の GitHub と PyPI サイト へ HTTP 通信を許可
 1. EC2 に IAM ロールの [**aes-siem-es-loader-for-ec2**] をアタッチ
-1. Amazon Linux のターミナルに接続して、[README](../README_ja.md) の説明にある [2. CloudFormation テンプレートの作成] の [2-1. 準備] と [2-2. SIEM on OpenSearch Service の clone] の手順を実施
+1. Amazon Linux のターミナルに接続して、このページにある [CloudFormation テンプレートの作成](#cloudformation-テンプレートの作成) の [1. 準備](#1-準備) と [2. SIEM on OpenSearch Service の clone](#2-siem-on-opensearch-service-の-clone) の手順を実施
 1. 下記のコマンドで Python のモジュールをインストールします
 
     ```python
-    cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
-    pip3 install -r requirements.txt -U -t .
-    pip3 install pandas -U
+    export GIT_ROOT=$HOME
+    cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/lambda/es_loader/
+    python3.11 -m pip install -r requirements.txt -U -t .
+    python3.11 -m pip install awswrangler -U
+
+    ln -sf /usr/bin/python3.11 ${GIT_ROOT}/siem-on-amazon-opensearch-service/python3
+    PATH=${GIT_ROOT}/siem-on-amazon-opensearch-service/:$PATH
     ```
 
 #### 環境変数の設定
@@ -803,8 +807,22 @@ S3 バケットに保存されているログをバッチで OpenSearch Service 
 1. 環境変数を EC2 インスタンスの Amazon Linux のターミナルに貼り付けます。値は環境に合わせて変更してください
 
     ```sh
+    export AWS_DEFAULT_REGION=ap-northeast-1
     export ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
     export GEOIP_BUCKET=aes-siem-123456789012-geo
+    ```
+
+1. Amazon Security Lake の S3 バケットからログを取り込む場合は、aes-siem-es-loader 関数に移動して以下の 3 つの環境変数名と値をメモします
+    * SECURITY_LAKE_EXTERNAL_ID
+    * SECURITY_LAKE_ROLE_ARN
+    * SECURITY_LAKE_ROLE_SESSION_NAME
+
+1. 環境変数を EC2 インスタンスの Amazon Linux のターミナルに貼り付けます。値は環境に合わせて変更してください
+
+    ```sh
+    export SECURITY_LAKE_EXTERNAL_ID=XXXXXXXX
+    export SECURITY_LAKE_ROLE_ARN=arn:aws:iam::888888888888:role/AmazonSecurityLake-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+    export SECURITY_LAKE_ROLE_SESSION_NAME=aes-siem-es-loader
     ```
 
 ### S3 バケットのオブジェクトリストからの取り込み
@@ -812,17 +830,20 @@ S3 バケットに保存されているログをバッチで OpenSearch Service 
 1. es-loaderのディレクトリに移動します
 
     ```sh
-    cd
-    cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
+    cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/lambda/es_loader/
     ```
 
 1. S3 バケットからオブジェクトリスト (s3-list.txt) を作成します。
+
+    SIEM のアカウント内のバケットから S3 バケットのオブジェクトリストを作成する例
 
     ```sh
     export AWS_ACCOUNT=123456789012   # お使いのAWSアカウントに置換してください
     export LOG_BUCKET=aes-siem-${AWS_ACCOUNT}-log
     aws s3 ls ${LOG_BUCKET} --recursive > s3-list.txt
     ```
+
+    Security Lake の S3 バケットのログを取り込む場合は、適切な権限のあるアカウントでオブジェクトリストを作成して、SIEM のアカウントにコピーしてください。
 
 1. 必要に応じて、取り込む対象を限定したリストを作成します
 
@@ -879,8 +900,8 @@ SQS の SIEM 用のデッドレターキュー (DLQ; aes-siem-dlq) からメッ�
 
     ```sh
     export AWS_DEFAULT_REGION=ap-northeast-1
-    cd
-    cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
+    export GIT_ROOT=$HOME
+    cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/lambda/es_loader/
     ./index.py -q aes-siem-dlq
     ```
 
@@ -953,15 +974,17 @@ Amazon Linux 2023 を実行している Amazon Elastic Compute Cloud (Amazon EC2
 
 * Amazon Linux 2023 on Amazon EC2
   * "Development Tools"
-  * Python 3 libraries and header files
+  * Python 3.11, libraries and header files
   * pip
   * Git
 
 上記がインストールされてない場合は以下を実行
 
 ```shell
+export GIT_ROOT=$HOME
+cd ${GIT_ROOT}
 sudo dnf groupinstall -y "Development Tools"
-sudo dnf install -y python3-devel python3-pip git jq tar
+sudo dnf install -y python3.11 python3.11-devel python3.11-pip git jq tar
 ```
 
 ### 2. SIEM on OpenSearch Service の clone
@@ -969,7 +992,7 @@ sudo dnf install -y python3-devel python3-pip git jq tar
 GitHub レポジトリからコードを clone します
 
 ```shell
-cd
+cd ${GIT_ROOT}
 git clone https://github.com/aws-samples/siem-on-amazon-opensearch-service.git
 ```
 
@@ -985,7 +1008,7 @@ export AWS_REGION=<AWS_REGION> # region where the distributable is deployed
 ### 4. AWS Lambda 関数のパッケージングとテンプレートの作成
 
 ```shell
-cd ~/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
+cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/deployment/cdk-solution-helper/
 chmod +x ./step1-build-lambda-pkg.sh && ./step1-build-lambda-pkg.sh && cd ..
 chmod +x ./build-s3-dist.sh && ./build-s3-dist.sh $TEMPLATE_OUTPUT_BUCKET
 ```

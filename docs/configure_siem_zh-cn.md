@@ -306,17 +306,21 @@ Lambda 层的压缩文件内的目录结构应如下所示：
 
 #### 设置脚本的执行环境（es-loader）
 
-1. 使用 Amazon Linux 2 AMI 在可与 OpenSearch Service 通信的 VPC 中配置 Amazon EC2 实例。
+1. 使用 Amazon Linux 2023 AMI 在可与 OpenSearch Service 通信的 VPC 中配置 Amazon EC2 实例。
 1. 允许HTTP 通信，以便从 Amazon Linux 访问到位于 Internet 上的 GitHub 和 PyPI 网站。
 1. 将 IAM 角色 [**aes-siem-es-loader-for-ec2**] 附加到 EC2 示例。
 1. 连接到 Amazon Linux 终端并按照 [README](../README_zhcn.md) --> [2. 创建 CloudFormation 模板] --> [2-1. 先决条件]和[2-2． 克隆 SIEM on OpenSearch Service]
 1. 使用以下命令安装 Python 所依赖的模块：
 
-   ```python
-   cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
-   pip3 install -r requirements.txt -U -t .
-   pip3 install pandas -U
-   ```
+    ```python
+    export GIT_ROOT=$HOME
+    cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/lambda/es_loader/
+    python3.11 -m pip install -r requirements.txt -U -t .
+    python3.11 -m pip install awswrangler -U
+
+    ln -sf /usr/bin/python3.11 ${GIT_ROOT}/siem-on-amazon-opensearch-service/python3
+    PATH=${GIT_ROOT}/siem-on-amazon-opensearch-service/:$PATH
+    ```
 
 #### 设置环境变量
 
@@ -327,6 +331,7 @@ Lambda 层的压缩文件内的目录结构应如下所示：
 1. 将环境变量粘贴到 EC2 实例上的 Amazon Linux 终端中。 以适合您的环境来更改值
 
    ```sh
+   export AWS_DEFAULT_REGION=ap-northeast-1
    export ENDPOINT=search-aes-siem-XXXXXXXXXXXXXXXXXXXXXXXXXX.ap-northeast-1.es.amazonaws.com
    export GEOIP_BUCKET=aes-siem-123456789012-geo
    ```
@@ -336,8 +341,7 @@ Lambda 层的压缩文件内的目录结构应如下所示：
 1. 进入 es_loader 目录。
 
    ```sh
-   cd
-   cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
+   cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/lambda/es_loader/
    ```
 
 1. 从 S3 存储桶创建对象列表 (s3-list.txt)。
@@ -387,8 +391,8 @@ Lambda 层的压缩文件内的目录结构应如下所示：
 
    ```sh
    export AWS_DEFAULT_REGION=ap-northeast-1
-   cd
-   cd siem-on-amazon-opensearch-service/source/lambda/es_loader/
+   export GIT_ROOT=$HOME
+   cd ${GIT_ROOT}/siem-on-amazon-opensearch-service/source/lambda/es_loader/
    ./index.py -q aes-siem-dlq
    ```
 

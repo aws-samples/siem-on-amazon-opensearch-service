@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.2b'
+__version__ = '2.10.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -1037,6 +1037,18 @@ class MyAesSiemStack(cdk.Stack):
             assumed_by=aws_iam.ServicePrincipal(ec2_sp),
         )
 
+        aes_siem_es_loader_ec2_role.add_to_principal_policy(
+            aws_iam.PolicyStatement(
+                # for vpc access
+                actions=["ec2:CreateNetworkInterface",
+                         "ec2:DescribeNetworkInterfaces",
+                         "ec2:DeleteNetworkInterface",
+                         "ec2:AssignPrivateIpAddresses",
+                         "ec2:UnassignPrivateIpAddresses"],
+                resources=['*']
+            )
+        )
+
         aws_iam.CfnInstanceProfile(
             self, 'AesSiemEsLoaderEC2InstanceProfile',
             instance_profile_name=aes_siem_es_loader_ec2_role.role_name,
@@ -1220,7 +1232,7 @@ class MyAesSiemStack(cdk.Stack):
             self, 'LambdaEsLoader',
             function_name=function_name,
             description=f'{SOLUTION_NAME} / es-loader',
-            runtime=aws_lambda.Runtime.PYTHON_3_8,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset('../lambda/es_loader'),
             handler='index.lambda_handler',
             memory_size=2048,
@@ -1398,6 +1410,8 @@ class MyAesSiemStack(cdk.Stack):
             ]
         )
         lambda_es_loader.role.attach_inline_policy(
+            inline_policy_to_get_parameters_by_path)
+        aes_siem_es_loader_ec2_role.attach_inline_policy(
             inline_policy_to_get_parameters_by_path)
 
         # grant additional permission to es_loader role
@@ -1750,7 +1764,8 @@ class MyAesSiemStack(cdk.Stack):
                         "sqs:DeleteMessage",
                         "sqs:GetQueueAttributes"
                     ],
-                    resources=[(f'arn:{PARTITION}:sqs:*:{cfn_ct_aws_account}:*')],
+                    resources=[
+                        (f'arn:{PARTITION}:sqs:*:{cfn_ct_aws_account}:*')],
                 )
             ]
         )
@@ -1758,11 +1773,14 @@ class MyAesSiemStack(cdk.Stack):
             is_control_tower_access)
         lambda_es_loader.role.attach_inline_policy(
             inline_policy_controltower)
+        aes_siem_es_loader_ec2_role.attach_inline_policy(
+            inline_policy_controltower)
 
         source_mapping_for_ct = aws_lambda.EventSourceMapping(
             self, "EventSourceMappingForCT",
             target=lambda_es_loader,
             event_source_arn=ct_log_sqs.value_as_string,
+            report_batch_item_failures=True,
         )
         source_mapping_for_ct.node.default_child.cfn_options.condition = (
             is_control_tower_access)
@@ -1787,7 +1805,8 @@ class MyAesSiemStack(cdk.Stack):
                         "sqs:DeleteMessage",
                         "sqs:GetQueueAttributes"
                     ],
-                    resources=[(f'arn:{PARTITION}:sqs:*:{cfn_sl_aws_account}:*')],
+                    resources=[
+                        (f'arn:{PARTITION}:sqs:*:{cfn_sl_aws_account}:*')],
                 )
             ]
         )
@@ -1795,11 +1814,14 @@ class MyAesSiemStack(cdk.Stack):
             is_security_lake_access)
         lambda_es_loader.role.attach_inline_policy(
             inline_policy_securitylake)
+        aes_siem_es_loader_ec2_role.attach_inline_policy(
+            inline_policy_securitylake)
 
         source_mapping_for_ct2 = aws_lambda.EventSourceMapping(
             self, "EventSourceMappingForCT2",
             target=lambda_es_loader,
             event_source_arn=sl_log_sqs.value_as_string,
+            report_batch_item_failures=True,
         )
         source_mapping_for_ct2.node.default_child.cfn_options.condition = (
             is_security_lake_access)

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.2b'
+__version__ = '2.10.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -52,7 +52,7 @@ class Enrichment(object):
             self.scope, 'LambdaGeoipDownloader',
             function_name=function_name,
             description=f'{self.SOLUTION_NAME} / geoip-downloader',
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset('../lambda/geoip_downloader'),
             handler='index.lambda_handler',
             memory_size=320,
@@ -113,7 +113,7 @@ class Enrichment(object):
             self.scope, 'LambdaIocPlan',
             function_name=function_name,
             description=f'{self.SOLUTION_NAME} / ioc-plan',
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.plan',
             memory_size=128,
@@ -151,7 +151,7 @@ class Enrichment(object):
             self.scope, 'LambdaIocDownload',
             function_name=function_name,
             description=f'{self.SOLUTION_NAME} / ioc-download',
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.download',
             memory_size=384,
@@ -195,7 +195,7 @@ class Enrichment(object):
             self.scope, 'LambdaIocCreatedb',
             function_name=function_name,
             description=f'{self.SOLUTION_NAME} / ioc-createdb',
-            runtime=aws_lambda.Runtime.PYTHON_3_9,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.Code.from_asset('../lambda/ioc_database'),
             handler='lambda_function.createdb',
             memory_size=1024,
@@ -237,7 +237,7 @@ class Enrichment(object):
         map_download = aws_stepfunctions.Map(
             self.scope, 'MapDownload',
             items_path=aws_stepfunctions.JsonPath.string_at("$.mapped"),
-            parameters={"mapped.$": "$$.Map.Item.Value"},
+            item_selector={"mapped.$": "$$.Map.Item.Value"},
             max_concurrency=4,
         )
         task_ioc_download = aws_stepfunctions_tasks.LambdaInvoke(
@@ -261,7 +261,7 @@ class Enrichment(object):
             self.scope, "need to download?")
             .when(ioc_not_found, skip_download_state)
             .otherwise(map_download.next(task_ioc_createdb)))
-        map_download.iterator(task_ioc_download)
+        map_download.item_processor(task_ioc_download)
         ioc_state_machine_log_group = aws_logs.LogGroup(
             self.scope, "IocStateMachineLogGroup",
             log_group_name='/aws/vendedlogs/states/aes-siem-ioc-logs',

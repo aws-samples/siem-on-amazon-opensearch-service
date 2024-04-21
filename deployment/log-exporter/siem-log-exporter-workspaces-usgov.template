@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.10.2b: log exporter - Workspaces"
+Description: "SIEM on Amazon OpenSearch Service v2.10.3: log exporter - Workspaces"
 Parameters:
   cweRulesFrequency:
     Type: Number
@@ -69,7 +69,7 @@ Resources:
           # SPDX-License-Identifier: MIT-0
           __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                            'All Rights Reserved.')
-          __version__ = '2.10.2b'
+          __version__ = '2.10.3'
           __license__ = 'MIT-0'
           __author__ = 'Akihiro Nakajima'
           __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -167,7 +167,7 @@ Resources:
         Fn::GetAtt:
           - getWorkspacesInventoryRoleC66252C0
           - Arn
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 600
     DependsOn:
       - getWorkspacesInventoryRoleC66252C0

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.2'
+__version__ = '2.10.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -490,14 +490,13 @@ def configure_index_rollover(es_app_data):
         return
     awsauth = auth_aes()
     index_patterns = es_app_data['index-rollover']
-    logger.info('Create initial index 000001 for rollover')
+    logger.info('Delete initial index 000001 for rollover if no documents')
     for key in index_patterns:
         alias = key.replace('_rollover', '')
         res_alias = requests.get(
             f'https://{ENDPOINT}/{alias}', auth=awsauth, stream=True)
-        is_refresh = False
         if res_alias.status_code == 200:
-            logger.debug(output_message(f'Already exists {alias}', res_alias))
+            logger.debug(output_message(f'Alias {alias} exists', res_alias))
             idx = list(json.loads(res_alias.content).keys())[0]
             res_count = requests.get(
                 f'https://{ENDPOINT}/{idx}/_count', auth=awsauth, stream=True)
@@ -506,40 +505,9 @@ def configure_index_rollover(es_app_data):
                 if doc_count == 0:
                     requests.delete(
                         f'https://{ENDPOINT}/{idx}', auth=awsauth, stream=True)
-                    logger.info(f'{idx} is deleted and refreshed')
-                    is_refresh = True
-        else:
-            is_refresh = True
-            idx = key.replace('_rollover', '-000001')
-        if is_refresh:
-            url = f'https://{ENDPOINT}/{idx}'
-            payload = {'aliases': {alias: {"is_write_index": True}}}
-            res = requests.put(
-                url=url, auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
-            if res.status_code == 200:
-                logger.info(output_message(idx, res))
-            else:
-                logger.error(output_message(idx, res))
-        """
-        # check whether index alias has @timestamp field
-        timestamp_field = f'{idx}/_mapping/field/@timestamp'
-        res_timestamp = requests.get(
-            f'https://{ENDPOINT}/{timestamp_field}', auth=awsauth, stream=True)
-        if '@timestamp' not in res_timestamp.text:
-            payload = {"@timestamp": "3000-01-01T00:00:00"}
-            res = requests.post(
-                f'https://{ENDPOINT}/{idx}/_doc',
-                auth=awsauth, json=payload, headers=RESTAPI_HEADERS)
-            time.sleep(1)
-            doc_id = json.loads(res.content)['_id']
-            res = requests.delete(
-                f'https://{ENDPOINT}/{idx}/_doc/{doc_id}',
-                auth=awsauth, stream=True)
-            logger.info('put and deleted dummy data')
-        else:
-            pass
-        """
-    logger.info('Finished creating initial index 000001 for rollover')
+                    logger.info(f'{idx} has been deleted due to no documents')
+
+    logger.info('Finished deleing initial index 000001 for rollover')
 
 
 def json_serial(obj):
@@ -995,15 +963,28 @@ def aes_domain_poll_create(event, context):
         logger.debug('Processing domain creation')
         logger.debug(json.dumps(response, default=json_serial))
 
-        domain_processing_status = (
-            response['DomainStatus']['DomainProcessingStatus'])
-        logger.debug('DomainStatus.DomainProcessingStatus: '
-                     f'{domain_processing_status}')
-        if domain_processing_status != 'Active':
-            logger.info('OpenSearch Service domain creation is in progress')
-            return None
-        else:
-            logger.info('OpenSearch Service domain has just been created')
+        try:
+            domain_processing_status = (
+                response['DomainStatus']['DomainProcessingStatus'])
+            logger.debug('DomainStatus.DomainProcessingStatus: '
+                         f'{domain_processing_status}')
+            if domain_processing_status != 'Active':
+                logger.info(
+                    'OpenSearch Service domain creation is in progress')
+                return None
+            else:
+                logger.info('OpenSearch Service domain has just been created')
+        except Exception:
+            # for china region
+            logger.debug('DomainProcessingStatus API is not supported yet')
+            is_processing = response['DomainStatus']['Processing']
+            logger.debug(f'DomainStatus.Processing: {is_processing}')
+            if is_processing:
+                logger.info(
+                    'OpenSearch Service domain creation is in progress')
+                return None
+            else:
+                logger.info('OpenSearch Service domain has just been created')
 
         userdb_enabled = (response['DomainStatus']['AdvancedSecurityOptions']
                           ['InternalUserDatabaseEnabled'])

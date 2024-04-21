@@ -6,6 +6,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.3] - 2024-04-21
+### Added
+- Added support for a method to directly ingest logs from the S3 bucket of Security Lake #443
+- Promoted RDS (MySQL/PostgreSQL) from experimental support to official support and added a log-exporter for RDS #416,#425
+- Added support for parsing nanoseconds in ISO 8601 format #421,#422
+
+### Changed
+- Changed Lambda runtime from Python 3.8/3.9 to Python 3.11 #427
+- Enhanced SQS error handling #424
+- Prevented the creation of unnecessary indices when auto-rotation is disabled #419
+
+### Fixed
+- Fixed an issue with Control Tower Integration in GovCloud #445
+- Improved the logic to wait for the change to complete before making the next change when modifying the OpenSearch domain configuration #444
+- Fixed a parsing error for the source port in Linux SSH logs #426
+
 ## [2.10.2b] - 2024-03-30
 ### Added
 - Added support for Amazon OpenSearch 2.11 #432
@@ -13,9 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed a bug in the botocore dependencies for the Lambda function that creates the IOC DB #440
+- PR security vulnerability of urllib3 from 1.26.17 to 1.26.18 #417,#418
 
 ### Security
-- Updated AWS SDK for pandas from 3.4.1 to v3.7.1 #442
+- Updated AWS SDK for pandas from 3.4.1 to v3.7.1 #420,#442
 
 ## [2.10.2a] - 2023-10-07
 ### Fixed

@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.10.2b: log exporter - core resource"
+Description: "SIEM on Amazon OpenSearch Service v2.10.3: log exporter - core resource"
 Parameters:
   siemLogBucketName:
     Type: String
@@ -8,7 +8,7 @@ Parameters:
   roleNameCwlToKdf:
     Type: String
     Default: siem-role-cwl-to-firehose
-    Description: Define IAM role name for CloudWatch Logs to send data to Kinsis Data Firehose.
+    Description: Define IAM role name for CloudWatch Logs to send data to Kinesis Data Firehose.
   roleNameKdfToS3:
     Type: String
     Default: siem-role-firehose-to-s3
