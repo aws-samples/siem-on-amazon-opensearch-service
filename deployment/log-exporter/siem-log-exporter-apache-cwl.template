@@ -1,4 +1,4 @@
-Description: "SIEM on Amazon OpenSearch Service v2.10.3-beta.3: log exporter - Apache"
+Description: "SIEM on Amazon OpenSearch Service v2.10.3-rc.1: log exporter - Apache"
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
