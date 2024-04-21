@@ -785,7 +785,7 @@ S3 バケットに保存されているログをバッチで OpenSearch Service 
 1. OpenSearch Service へ通信ができる VPC 内に Amazon Linux 2023 で EC2 インスタンスをプロビジョニング
 1. Amazon Linux からインターネット上の GitHub と PyPI サイト へ HTTP 通信を許可
 1. EC2 に IAM ロールの [**aes-siem-es-loader-for-ec2**] をアタッチ
-1. Amazon Linux のターミナルに接続して、このページにある [CloudFormation テンプレートの作成](#cloudformation-テンプレートの作成) の [1. 準備](#1-準備) と [2. SIEM on OpenSearch Service の clone](2-siem-on-opensearch-service-の-clone) の手順を実施
+1. Amazon Linux のターミナルに接続して、このページにある [CloudFormation テンプレートの作成](#cloudformation-テンプレートの作成) の [1. 準備](#1-準備) と [2. SIEM on OpenSearch Service の clone](#2-siem-on-opensearch-service-の-clone) の手順を実施
 1. 下記のコマンドで Python のモジュールをインストールします
 
     ```python

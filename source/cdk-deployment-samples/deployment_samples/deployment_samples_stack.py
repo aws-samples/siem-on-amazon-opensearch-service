@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.3-rc.1'
+__version__ = '2.10.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -30,7 +30,7 @@ LAMBDA_GET_WORKSPACES_INVENTORY = '''# Copyright Amazon.com, Inc. or its affilia
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.3-rc.1'
+__version__ = '2.10.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -122,7 +122,7 @@ def lambda_handler(event, context):
 LAMBDA_GET_TRUSTEDADVISOR_CHECK_RESULT = '''# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 __copyright__ = 'Amazon.com, Inc. or its affiliates'
-__version__ = '2.10.3-rc.1'
+__version__ = '2.10.3'
 __license__ = 'MIT-0'
 __author__ = 'Katsuya Matsuoka'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -868,7 +868,8 @@ class RDSMySQLCWLogsExporterStack(MyStack):
                     {'Label': {'default': 'Amazon Kinesis Data Firehose conf'},
                      'Parameters': [create_firehose.logical_id,
                                     kdf_buffer_size.logical_id,
-                                    kdf_buffer_interval.logical_id,]},
+                                    kdf_buffer_interval.logical_id
+                                    ]},
                     {'Label': {'default': 'Amazon Kinesis Data Firehose Name'},
                      'Parameters': [kdf_name_of_mysql_audit_log.logical_id,
                                     kdf_name_of_mysql_error_log.logical_id,
@@ -1178,7 +1179,8 @@ class RDSPostgreSQLCWLogsExporterStack(MyStack):
                     {'Label': {'default': 'Amazon Kinesis Data Firehose conf'},
                      'Parameters': [create_firehose.logical_id,
                                     kdf_buffer_size.logical_id,
-                                    kdf_buffer_interval.logical_id,]},
+                                    kdf_buffer_interval.logical_id,
+                                    ]},
                     {'Label': {'default': 'Amazon Kinesis Data Firehose Name'},
                      'Parameters': [
                          kdf_name_of_postgresql_log.logical_id,

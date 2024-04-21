@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.3-rc.1'
+__version__ = '2.10.3'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -1041,10 +1041,10 @@ class MyAesSiemStack(cdk.Stack):
             aws_iam.PolicyStatement(
                 # for vpc access
                 actions=["ec2:CreateNetworkInterface",
-                            "ec2:DescribeNetworkInterfaces",
-                            "ec2:DeleteNetworkInterface",
-                            "ec2:AssignPrivateIpAddresses",
-                            "ec2:UnassignPrivateIpAddresses"],
+                         "ec2:DescribeNetworkInterfaces",
+                         "ec2:DeleteNetworkInterface",
+                         "ec2:AssignPrivateIpAddresses",
+                         "ec2:UnassignPrivateIpAddresses"],
                 resources=['*']
             )
         )
@@ -1764,7 +1764,8 @@ class MyAesSiemStack(cdk.Stack):
                         "sqs:DeleteMessage",
                         "sqs:GetQueueAttributes"
                     ],
-                    resources=[(f'arn:{PARTITION}:sqs:*:{cfn_ct_aws_account}:*')],
+                    resources=[
+                        (f'arn:{PARTITION}:sqs:*:{cfn_ct_aws_account}:*')],
                 )
             ]
         )
@@ -1804,7 +1805,8 @@ class MyAesSiemStack(cdk.Stack):
                         "sqs:DeleteMessage",
                         "sqs:GetQueueAttributes"
                     ],
-                    resources=[(f'arn:{PARTITION}:sqs:*:{cfn_sl_aws_account}:*')],
+                    resources=[
+                        (f'arn:{PARTITION}:sqs:*:{cfn_sl_aws_account}:*')],
                 )
             ]
         )
