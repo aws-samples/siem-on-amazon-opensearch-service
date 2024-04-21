@@ -237,7 +237,7 @@ class Enrichment(object):
         map_download = aws_stepfunctions.Map(
             self.scope, 'MapDownload',
             items_path=aws_stepfunctions.JsonPath.string_at("$.mapped"),
-            parameters={"mapped.$": "$$.Map.Item.Value"},
+            item_selector={"mapped.$": "$$.Map.Item.Value"},
             max_concurrency=4,
         )
         task_ioc_download = aws_stepfunctions_tasks.LambdaInvoke(
@@ -261,7 +261,7 @@ class Enrichment(object):
             self.scope, "need to download?")
             .when(ioc_not_found, skip_download_state)
             .otherwise(map_download.next(task_ioc_createdb)))
-        map_download.iterator(task_ioc_download)
+        map_download.item_processor(task_ioc_download)
         ioc_state_machine_log_group = aws_logs.LogGroup(
             self.scope, "IocStateMachineLogGroup",
             log_group_name='/aws/vendedlogs/states/aes-siem-ioc-logs',
