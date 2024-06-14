@@ -126,7 +126,7 @@ If you want to update "SIEM on OpenSearch Service" to the latest version, upgrad
 
 Upgrade the domain to OpenSearch 1.0 - 2.11 or Elasticsearch version 7.10. Some Dashboards assume OpenSearch Service 1.3 or higher. The recommended version is OpenSearch Service 2.11 with "Enable compatibility mode":
 
-1. Navigate to the [OpenSearch Service console](https://console.aws.amazon.com/es/home?)
+1. Navigate to the [OpenSearch Service console](https://console.aws.amazon.com/aos/home?)
 1. Choose domain: [**aes-siem**]
 1. Choose [**Actions**] icon, and choose [**Upgrade domain**] from the drop-down menu
 1. For "Version to upgrade to", choose [**OpenSearch 2.11**] (Recommended), [**OpenSearch 1.0 - 2.9**], or [**Elasticsearch 7.10**]
@@ -160,7 +160,7 @@ Updating is now complete.
 
 ### Changing the OpenSearch Service domain resources after deployment
 
-If you want to make changes to the OpenSearch Service domain itself such as changing the access policy of OpenSearch Service, changing the instance type, changing the Availability Zone or adding a new one, or changing to UltraWarm, perform the change from the [OpenSearch Service console](https://console.aws.amazon.com/es/home?) of AWS Management Console.
+If you want to make changes to the OpenSearch Service domain itself such as changing the access policy of OpenSearch Service, changing the instance type, changing the Availability Zone or adding a new one, or changing to UltraWarm, perform the change from the [OpenSearch Service console](https://console.aws.amazon.com/aos/home?) of AWS Management Console.
 
 ### Managing the index and customizing SIEM
 

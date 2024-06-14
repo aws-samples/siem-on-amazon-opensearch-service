@@ -235,7 +235,7 @@ cdk deploy \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
 
-The deployment takes about 30 minutes. When you're done, go back to README and proceed to “3. Configuring OpenSearch Dashboards.”
+The deployment takes about 30 minutes. When you're done, go back to README and proceed to “2. Configuring OpenSearch Dashboards.”
 
 ### 7. Back up cdk.json and cdk.context.json
 

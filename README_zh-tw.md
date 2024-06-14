@@ -173,7 +173,7 @@ We have published the workshop, [SIEM on Amazon OpenSearch Service Workshop](htt
 
 將OpenSearch升級至1.0版本:
 
-1. 導航至 [OpenSearch Service控制臺](https://console.aws.amazon.com/es/home?)
+1. 導航至 [OpenSearch Service控制臺](https://console.aws.amazon.com/aos/home?)
 1. 選定域: [**aes-siem**]
 1. 選擇 [**Actions**] 圖標，而後在下拉清單中選擇 [**Upgrade domain**]
 1. 在 "Version to upgrade to"部分，選擇 [**OpenSearch 2.11**] 後選擇[**Submit**]
@@ -204,7 +204,7 @@ https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-opensearch-service.tem
 
 ### 在部署之後，變更OpenSearch Service域資源
 
-如果您希望對OpenSearch Service域做出變更，例如變更OpenSearch Service的訪問策略、變更實例類型、變更可用區或添加新可用區，或者變更UltraWarm，請通過 [OpenSearch Service 管理控制臺](https://console.aws.amazon.com/es/home?) 執行變更操作。
+如果您希望對OpenSearch Service域做出變更，例如變更OpenSearch Service的訪問策略、變更實例類型、變更可用區或添加新可用區，或者變更UltraWarm，請通過 [OpenSearch Service 管理控制臺](https://console.aws.amazon.com/aos/home?) 執行變更操作。
 
 ### 管理SIEM索引與定製化設置
 

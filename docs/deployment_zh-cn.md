@@ -200,7 +200,7 @@ cdk deploy \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
 
-该部署大概需要30分钟的时间。当完成后，请参考 README文件 并执行 “3. Configuring OpenSearch Dashboards.” 部分。
+该部署大概需要30分钟的时间。当完成后，请参考 README文件 并执行 “2. Configuring OpenSearch Dashboards.” 部分。
 
 ## 使用 AWS CDK 更新 SIEM
 

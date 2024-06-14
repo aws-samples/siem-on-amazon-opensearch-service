@@ -229,7 +229,7 @@ cdk deploy \
     --parameters GeoLite2LicenseKey=xxxxxxxxxxxxxxxx
 ```
 
-約30分でデプロイが終わります。完了したら、[READMEに戻って](../README_ja.md)、「3. OpenSearch Dashboards の設定」にお進みください。
+約30分でデプロイが終わります。完了したら、[READMEに戻って](../README_ja.md)、「2. OpenSearch Dashboards の設定」にお進みください。
 
 ### 7. cdk.json と cdk.context.json のバックアップ
 
