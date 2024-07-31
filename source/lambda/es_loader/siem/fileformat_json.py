@@ -84,6 +84,9 @@ class FileFormatJson(FileFormatBase):
     def convert_lograw_to_dict(self, lograw, logconfig=None):
         try:
             logdict = json.loads(lograw)
+            if any([i in logdict for i in ["detail-type", "detailType"]]) and "resources" in logdict:
+                return logdict['detail']
+
             return logdict
         except json.decoder.JSONDecodeError as e:
             # this is probablly CWL log and trauncated by original log sender
@@ -104,7 +107,7 @@ class FileFormatJson(FileFormatBase):
 
     def _check_cwe_and_strip_header(
             self, dict_obj, logmeta={}, need_meta=False):
-        if "detail-type" in dict_obj and "resources" in dict_obj:
+        if any([i in dict_obj for i in ["detail-type", "detailType"]]) and "resources" in dict_obj:
             if need_meta:
                 logmeta = {'cwe_id': dict_obj['id'],
                            'cwe_source': dict_obj['source'],
