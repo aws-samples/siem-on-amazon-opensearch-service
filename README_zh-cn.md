@@ -194,7 +194,7 @@ https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-opensearch-service-chi
 
 ### 在部署之后，变更OpenSearch Service域资源
 
-如果您希望对OpenSearch Service域做出变更，例如变更OpenSearch Service的访问策略、变更实例类型、变更可用区或添加新可用区，或者变更UltraWarm，请通过 [OpenSearch Service 管理控制台](https://console.aws.amazon.com/es/home?) 执行变更操作。
+如果您希望对OpenSearch Service域做出变更，例如变更OpenSearch Service的访问策略、变更实例类型、变更可用区或添加新可用区，或者变更UltraWarm，请通过 [OpenSearch Service 管理控制台](https://console.aws.amazon.com/aos/home?) 执行变更操作。
 
 ### 管理SIEM索引与定製化设置
 
