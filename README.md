@@ -136,13 +136,15 @@ Upgrade the domain to OpenSearch 1.0 - 2.11 or Elasticsearch version 7.10. Some 
 If you completed the initial setup using CloudFormation, move on to the next step. If you completed the initial setup using the AWS CDK, see  
 "Updating SIEM with the AWS CDK" section in [Advanced Deployment](docs/deployment.md).
 
+### Checking es-loader Layer (Configuration File) Version
+
+The es-loader Lambda function currently specifies Python 3.11. The lambda layer for configuration file must be compatible with the same version. Check the [Compatible runtimes] of the relevant AWS Lambda layer and modify it to include the same version if it's not already included.
+
+Reference: [Adding user.ini to an AWS Lambda layer (recommended)](docs/configure_siem.md#adding-userini-to-an-aws-lambda-layer-recommended)
+
 ### Updating the CloudFormation stack
 
-You can update the CloudFormation stack by specifying the CloudFormation template below:
-
-```text
-https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-opensearch-service.template
-```
+You can update the CloudFormation stack by specifying the CloudFormation template. Please see [CloudFormation Templates for All Regions](docs/cloudformation_list.md) for template URLs.
 
 1. Navigate to the [CloudFormation console](https://console.aws.amazon.com/cloudformation/home?)
 1. Choose stack [**aes-siem**]

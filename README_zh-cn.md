@@ -172,11 +172,7 @@ SIEM on OpenSearch Service大概需要30分钟来完成部署。随后即可着�
 
 ### 更新CloudFormation堆栈（Stack）
 
-您可以按以下方式指定CloudFormation模板，藉此更新CloudFormation堆栈：
-
-```text
-https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-opensearch-service-china.template
-```
+您可以按以下方式指定CloudFormation模板，藉此更新CloudFormation堆栈: [CloudFormation Template For All Regions](docs/cloudformation_list_zh-cn.md).
 
 1. 导航至 [CloudFormation控制台](https://console.aws.amazon.com/cloudformation/home?)
 1. 选择堆栈 [**aes-siem**]
