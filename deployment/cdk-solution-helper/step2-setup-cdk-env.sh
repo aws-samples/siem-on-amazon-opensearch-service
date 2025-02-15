@@ -4,7 +4,7 @@
 
 shopt -s expand_aliases
 
-pip_ver="24.0"
+pip_ver="25.0.1"
 
 repo_root="${PWD}/../.."
 source_template_dir="$PWD/../"

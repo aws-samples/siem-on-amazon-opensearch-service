@@ -1,12 +1,12 @@
-requests==2.31.0
-opensearch-py==2.5.0
-geoip2==4.8.0
-aws-lambda-powertools==2.26.0
-xmltodict==0.13.0
-attrs==23.2.0
-ua-parser==0.18.0
+requests==2.32.3
+opensearch-py==2.8.0
+geoip2==5.0.1
+aws-lambda-powertools==3.6.0
+xmltodict==0.14.2
+attrs==25.1.0
+ua-parser==1.0.1
 
 # to fix dependency and conflicts
-boto3==1.34.42
-botocore==1.34.42
-urllib3>=1.26
+boto3==1.34.131
+botocore==1.34.131
+urllib3<2

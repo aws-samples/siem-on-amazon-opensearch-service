@@ -1,6 +1,5 @@
-aioboto3==12.3.0
-aiobotocore==2.11.2
-attrs==23.2.0
-boto3==1.34.34
-botocore==1.34.34
-# ijson==3.1.4
+aioboto3==13.1.1
+aiobotocore==2.13.1
+attrs==25.1.0
+boto3==1.34.131
+botocore==1.34.131

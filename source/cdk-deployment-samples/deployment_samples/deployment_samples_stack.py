@@ -448,6 +448,13 @@ class EventBridgeEventsExporterStack(MyStack):
             )
         )
 
+        kdf_to_s3_target = aws_events_targets.KinesisFirehoseStreamV2(
+            stream=aws_kinesisfirehose.DeliveryStream.from_delivery_stream_arn(
+                self, "KdfTarget",
+                delivery_stream_arn=kdf_to_s3.attr_arn
+            )
+        )
+
         is_inspector = cdk.CfnCondition(
             self, "IsInspector",
             expression=cdk.Fn.condition_equals(load_inspector.value_as_string, "Yes"))
@@ -459,7 +466,7 @@ class EventBridgeEventsExporterStack(MyStack):
                 detail_type=["Inspector2 Coverage", "Inspector2 Finding"]
             ))
         rule_inspector.node.default_child.cfn_options.condition = is_inspector
-        rule_inspector.add_target(aws_events_targets.KinesisFirehoseStream(kdf_to_s3))
+        rule_inspector.add_target(kdf_to_s3_target)
 
         is_security_hub = cdk.CfnCondition(
             self, "IsSecurityHub",
@@ -471,7 +478,7 @@ class EventBridgeEventsExporterStack(MyStack):
                 source=["aws.securityhub"],
                 detail_type=["Security Hub Findings - Imported"]))
         rule_security_hub.node.default_child.cfn_options.condition = is_security_hub
-        rule_security_hub.add_target(aws_events_targets.KinesisFirehoseStream(kdf_to_s3))
+        rule_security_hub.add_target(kdf_to_s3_target)
 
         is_config_rules = cdk.CfnCondition(
             self, "IsConfigRules",
@@ -483,7 +490,7 @@ class EventBridgeEventsExporterStack(MyStack):
                 source=["aws.config"],
                 detail_type=["Config Rules Compliance Change"]))
         rule_config_rules.node.default_child.cfn_options.condition = is_config_rules
-        rule_config_rules.add_target(aws_events_targets.KinesisFirehoseStream(kdf_to_s3))
+        rule_security_hub.add_target(kdf_to_s3_target)
 
 
 class ADLogExporterStack(MyStack):
@@ -630,13 +637,20 @@ class WorkSpacesLogExporterStack(MyStack):
             )
         )
 
+        kdf_to_s3_target = aws_events_targets.KinesisFirehoseStreamV2(
+            stream=aws_kinesisfirehose.DeliveryStream.from_delivery_stream_arn(
+                self, "KDFForWorkSpacesEventTarget",
+                delivery_stream_arn=kdf_to_s3.attr_arn
+            )
+        )
+
         pattern = aws_events.EventPattern(
             detail_type=["WorkSpaces Access"], source=['aws.workspaces'])
 
         aws_events.Rule(
             self, 'eventBridgeRuleWorkSpacesEvent', event_pattern=pattern,
             rule_name='siem-workspaces-event-to-kdf',
-            targets=[aws_events_targets.KinesisFirehoseStream(kdf_to_s3)])
+            targets=[kdf_to_s3_target])
 
 
 class TrustedAdvisorLogExporterStack(MyStack):
@@ -691,7 +705,7 @@ class TrustedAdvisorLogExporterStack(MyStack):
         # Lambda Functions to get trustedadvisor check result
         lambda_func = aws_lambda.Function(
             self, 'lambdaGetTrustedAdvisorCheckResult',
-            runtime=aws_lambda.Runtime.PYTHON_3_8,
+            runtime=aws_lambda.Runtime.PYTHON_3_11,
             code=aws_lambda.InlineCode(LAMBDA_GET_TRUSTEDADVISOR_CHECK_RESULT),
             function_name='siem-get-trustedadvisor-check-result',
             description='SIEM: get trustedadvisor check result',
