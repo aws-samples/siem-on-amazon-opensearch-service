@@ -1,4 +1,4 @@
-# CloudFormation Template For All Region
+# CloudFormation Template For All Regions
 
 [In English](cloudformation_list.md) | [Back to README](../README_zh-cn.md)
 

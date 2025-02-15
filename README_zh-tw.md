@@ -182,11 +182,7 @@ We have published the workshop, [SIEM on Amazon OpenSearch Service Workshop](htt
 
 ### 更新CloudFormation堆棧（Stack）
 
-您可以按以下方式指定CloudFormation模板，藉此更新CloudFormation堆棧：
-
-```text
-https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-opensearch-service.template
-```
+您可以按以下方式指定CloudFormation模板，藉此更新CloudFormation堆棧: [CloudFormation Template For All Regions](docs/cloudformation_list_zh-tw.md).
 
 1. 導航至 [CloudFormation控制臺](https://console.aws.amazon.com/cloudformation/home?)
 1. 選擇堆棧 [**aes-siem**]

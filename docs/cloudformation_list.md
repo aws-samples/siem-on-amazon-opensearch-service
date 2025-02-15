@@ -1,4 +1,4 @@
-# CloudFormation Template For All Region
+# CloudFormation Template For All Regions
 
 [View this page in Japanese (日本語)](cloudformation_list_ja.md) | [Chinese (简体中文)](cloudformation_list_zh-cn.md) | [Chinese (繁體中文)](cloudformation_list_zh-tw.md) | [Back to README](../README.md)
 

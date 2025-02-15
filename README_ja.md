@@ -142,13 +142,15 @@ OpenSearch Service を OpenSearch 1.0 - 2.11 または Elasticsearch 7.10 にア
 
 CloudFormation で初期インストールした場合は次へ進み、AWS CDK で初期インストールしている場合は [高度なデプロイ](docs/deployment_ja.md) のアップデートを参照してください。
 
+### es-loader レイヤー (設定ファイル) のバージョン確認
+
+Lambda 関数の es-loaderは現在、Python 3.11 を指定しています。設定ファイルのレイヤーも同じバージョンで利用できる必要があります。該当の AWS Lambda レイヤーの [**互換性のあるバージョン**] を確認して、同じバージョンが含まれていなければ、含めるよう変更してください。
+
+参考: [AWS Lambda レイヤーによる追加方法(推奨)](docs/configure_siem_ja.md#aws-lambda-レイヤーによる追加方法推奨)
+
 ### CloudFormation スタックの更新
 
-CloudFormation のテンプレートを指定して更新します。テンプレートの URL は下記です。
-
-```text
-https://aes-siem-<REGION>.s3.amazonaws.com/siem-on-amazon-opensearch-service.template
-```
+CloudFormation のテンプレートを指定して更新します。テンプレートの URL は [CloudFormation テンプレート 全リージョン](docs/cloudformation_list_ja.md) をご確認下さい。
 
 1. [CloudFormation コンソール](https://console.aws.amazon.com/cloudformation/home?) に移動
 1. [**aes-siem**] のスタックを選択

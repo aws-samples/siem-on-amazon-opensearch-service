@@ -68,7 +68,7 @@ zip -r configure-es-loader.zip user.ini
     * 名称：aes-siem-configure-es-loader（任意名称）
     * 检查上传 .zip 文件
     * 选择上传，然后选择 configure-es-loader.zip
-    * 兼容的运行时：选择 Python 3.8
+    * 兼容的运行时：选择 Python 3.11 and Python 3.13
 1. 选择[**Create**]
 
 最后，将刚刚创建的 Lambda 层添加到 Lambda 函数 es-loader：
