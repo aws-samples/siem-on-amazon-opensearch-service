@@ -131,12 +131,12 @@ SIEM on OpenSearch Service を新しいバージョンにアップデートす�
 
 ### OpenSearch Service のドメインのアップグレード
 
-OpenSearch Service を OpenSearch 1.0 - 2.11 または Elasticsearch 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.3 以上を前提にしています。推奨バージョンは OpenSearch 2.11 の「互換性モードを有効化」です。
+OpenSearch Service を OpenSearch 1.0 - 2.17 または Elasticsearch 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.3 以上を前提にしています。推奨バージョンは OpenSearch 2.17 の「互換性モードを有効化」です。
 
 1. [OpenSearch Service コンソール](https://console.aws.amazon.com/aos/home?) に移動
 1. [**aes-siem**] ドメインを選択
 1. [**アクション**] アイコンを選択して、プルダウンリストから [**ドメインのアップグレード**] を選択
-1. アップグレード先のバージョンで [**OpenSearch 2.11**] (推奨)、[**OpenSearch 1.0 - 2.9**] または [**Elasticsearch 7.10**] を選択
+1. アップグレード先のバージョンで [**OpenSearch 2.17**] (推奨)、[**OpenSearch 1.0 - 2.15**] または [**Elasticsearch 7.10**] を選択
 1. OpenSearch の場合は、「互換性モードを有効化」にチェックを入れる (推奨)
 1. [**送信**] を選択
 
