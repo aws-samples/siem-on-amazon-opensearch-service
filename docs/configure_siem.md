@@ -259,7 +259,7 @@ You can set the action from `COUNT` / `EXCLUDE` / `DISABLE`. When using this fun
 * EXCLUDE: Actually exclude based on conditions and ingest to OpenSearch Service
 * DISABLE: Disable for this function
 
-This parameter name must be prefixed with `/siem/log-filter/<log_type>/`. The log_type represents the log section name specified in aws.ini or user.ini (eg cloudtrail, vpcflowlogs, waf). You should replace `<log_type>` with the section name of the log to be excluded.
+This parameter name must be prefixed with `/siem/exclude-logs/<log_type>/`. The log_type represents the log section name specified in aws.ini or user.ini (eg cloudtrail, vpcflowlogs, waf). You should replace `<log_type>` with the section name of the log to be excluded.
 
 In addition, by setting multiple parameters respectively, exclusion processing is performed as an OR of those multiple conditions. For the value of `expression`, set a conditional expression conforming to [JMESPath](https://github.com/jmespath/jmespath.py) as in the example below (for details, see the [JMESPath document](https://jmespath.org/specification.html).
 
