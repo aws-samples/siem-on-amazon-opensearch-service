@@ -176,7 +176,7 @@ We have published the workshop, [SIEM on Amazon OpenSearch Service Workshop](htt
 1. 導航至 [OpenSearch Service控制臺](https://console.aws.amazon.com/aos/home?)
 1. 選定域: [**aes-siem**]
 1. 選擇 [**Actions**] 圖標，而後在下拉清單中選擇 [**Upgrade domain**]
-1. 在 "Version to upgrade to"部分，選擇 [**OpenSearch 2.17**] 後選擇[**Submit**]
+1. 在 "Version to upgrade to"部分，選擇 [**OpenSearch 2.19**] 後選擇[**Submit**]
 
 如果您選擇使用CloudFormation進行初始設置，請繼續執行下一步。如果您使用AWS CDK進行初設置，請參閱[高級部署](docs/deployment.md)中的 “使用AWS CDK更新SIEM” 部分。
 
