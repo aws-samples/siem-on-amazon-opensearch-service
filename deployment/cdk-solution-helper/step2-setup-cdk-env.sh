@@ -4,7 +4,7 @@
 
 shopt -s expand_aliases
 
-pip_ver="25.0.1"
+pip_ver="25.1.1"
 
 repo_root="${PWD}/../.."
 source_template_dir="$PWD/../"
@@ -43,16 +43,18 @@ else
       nvm install 16
       nvm alias default 16
       nvm use 16
-    elif [ -n "$is_al2023" ] && [ "$MAJOR_VER" != "18" ]; then
+    elif [ -n "$is_al2023" ] && [ "$MAJOR_VER" != "22" ]; then
       echo "Start installing Node 18 on Amazon Linux 2023"
-      nvm install 18
-      nvm alias default 18
-      nvm use 18
+      nvm install 22
+      nvm alias default 22
+      nvm use 22
+    elif [ "$MAJOR_VER" == "22" ]; then
+      echo 'Node 22 is ready'
     else
-      echo "Start installing Node 18"
-      nvm install 18
-      nvm alias default 18
-      nvm use 18
+      echo "Start installing Node 22"
+      nvm install 22
+      nvm alias default 22
+      nvm use 22
     fi
     echo "nvm alias"
     nvm alias
@@ -66,10 +68,10 @@ echo -e ""
 echo "Install CDK"
 if [[ "${AWS_EXECUTION_ENV}" = "CloudShell" ]]; then
   echo "npm install aws-cdk@${cdk_version}"
-  npm install aws-cdk@"${cdk_version}"
+  npm install aws-cdk@^2
 else
   echo "npm install -g aws-cdk@${cdk_version}"
-  npm install -g aws-cdk@"${cdk_version}"
+  npm install -g aws-cdk@^2
 fi
 
 # create virtual venv

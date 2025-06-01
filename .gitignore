@@ -2,6 +2,8 @@
 bin/
 aioboto3*
 aiobotocore*
+aiofiles*
+aiohappyeyeballs*
 aiohttp*
 aioitertool*
 aiosignal*
@@ -17,6 +19,8 @@ chardet*
 charset_normalizer*
 crhelper*
 elasticsearch*
+Events-*
+events
 fastjsonschema*
 frozenlist*
 geoip2*
@@ -31,6 +35,7 @@ multidict*
 opensearch_py*
 opensearchpy
 past*
+propcache*
 python_dateutil-2.8.1*
 requests*
 s3transfer*
