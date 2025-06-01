@@ -6,6 +6,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.4] - 2025-06-01
+### Added
+- Added support for Amazon OpenSearch 2.13/2.15/2.17/2.19 #460,#469
+
+### Changed
+- Updated AWS SDK for pandas from 3.7.1 to v3.12.0
+- Updated node version from 18 to 20/22 #467
+- Updated AWS CDK and opensearch-py
+
+### Fixed
+- Add Lambda ListTags permission #462
+- Update documents #456,#463,#466
+
+### Security
+- Updated requests from 2.31.0 to 2.32.2
+
 ## [2.10.3] - 2024-04-21
 ### Added
 - Added support for a method to directly ingest logs from the S3 bucket of Security Lake #443

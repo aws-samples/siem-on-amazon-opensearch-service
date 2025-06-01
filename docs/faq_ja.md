@@ -36,7 +36,7 @@ stderrは様々なログフォーマットがあり、ログの中に時刻フ�
 
 AWS マネジメントコンソールから新しいパスワードを設定できます。
 
-1. [OpenSearch Service コンソール](https://console.aws.amazon.com/es/home?) に移動します
+1. [OpenSearch Service コンソール](https://console.aws.amazon.com/aos/home?) に移動します
 1. aes-siem ドメインを選択します
 1. 画面上部の [**アクション**] ボタンを選択して、プルダウンメニューから [**セキュリティ構成の編集**] を選択します
 1. [細かいアクセスコントロール - Open Distro for Elasticsearch を搭載] の [**マスターユーザー**] ラジオボックスにチェックを入れます

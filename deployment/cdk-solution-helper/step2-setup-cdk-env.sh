@@ -4,7 +4,7 @@
 
 shopt -s expand_aliases
 
-pip_ver="24.0"
+pip_ver="25.1.1"
 
 repo_root="${PWD}/../.."
 source_template_dir="$PWD/../"
@@ -28,14 +28,14 @@ if [[ "${AWS_EXECUTION_ENV}" = "CloudShell" ]]; then
 else
   MAJOR_VER=$(node -v 2>/dev/null | cut -f 2 -d v | cut -f 1 -d ".")
   if [[ -n "$is_al2" && "$MAJOR_VER" == "16" ]] \
-      || [[ -n "$is_al2023" && "$MAJOR_VER" == "18" ]] \
-      || [ "$MAJOR_VER" == "18" ] || [ "$MAJOR_VER" == "20" ]; then
+      || [[ -n "$is_al2023" && "$MAJOR_VER" == "22" ]] \
+      || [ "$MAJOR_VER" == "20" ] || [ "$MAJOR_VER" == "22" ]; then
     echo "Installed Node.js version is $MAJOR_VER "
     echo "Skip Node.js installation"
   else
     echo "Install Node.js"
     # shellcheck disable=SC1090
-    nvm -v 2>/dev/null || curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && source ~/.nvm/nvm.sh
+    nvm -v 2>/dev/null || curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash && source ~/.nvm/nvm.sh
     MAJOR_VER=$(node -v 2>/dev/null | cut -f 2 -d v | cut -f 1 -d ".")
 
     if [ -n "$is_al2" ] && [ "$MAJOR_VER" != "16" ]; then
@@ -43,16 +43,16 @@ else
       nvm install 16
       nvm alias default 16
       nvm use 16
-    elif [ -n "$is_al2023" ] && [ "$MAJOR_VER" != "18" ]; then
+    elif [ -n "$is_al2023" ] && [ "$MAJOR_VER" != "22" ]; then
       echo "Start installing Node 18 on Amazon Linux 2023"
-      nvm install 18
-      nvm alias default 18
-      nvm use 18
+      nvm install 22
+      nvm alias default 22
+      nvm use 22
     else
-      echo "Start installing Node 18"
-      nvm install 18
-      nvm alias default 18
-      nvm use 18
+      echo "Start installing Node 22"
+      nvm install 22
+      nvm alias default 22
+      nvm use 22
     fi
     echo "nvm alias"
     nvm alias
@@ -66,10 +66,10 @@ echo -e ""
 echo "Install CDK"
 if [[ "${AWS_EXECUTION_ENV}" = "CloudShell" ]]; then
   echo "npm install aws-cdk@${cdk_version}"
-  npm install aws-cdk@"${cdk_version}"
+  npm install aws-cdk@^2
 else
   echo "npm install -g aws-cdk@${cdk_version}"
-  npm install -g aws-cdk@"${cdk_version}"
+  npm install -g aws-cdk@^2
 fi
 
 # create virtual venv

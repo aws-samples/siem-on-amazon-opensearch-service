@@ -56,7 +56,7 @@ Skip these steps if you want to send logs from your existing S3 bucket to SIEM o
 
 1. Deploy an Amazon Elastic Compute Cloud (Amazon EC2) instance that runs Amazon Linux 2023 or Amazon Linux 2. The EC instance require at least 2 GB RAM
 1. Create a role with Admin permissions in AWS Identity and Access Management (IAM) and attach it to the Amazon EC2 instance
-1. Log in to the shell; install the development tools, Python 3.8 or 3.9 and development files, git, jq and tar; and get the source code from GitHub
+1. Log in to the shell; install the development tools, Python 3.11 and development files, git, jq and tar; and get the source code from GitHub
 
     For Amazon Linux 2023
 

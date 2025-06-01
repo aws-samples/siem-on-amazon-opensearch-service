@@ -56,7 +56,7 @@
 
 1. Amazon Linux 2023 または Amazon Linux 2 を実行させた Amazon Elastic Compute Cloud (Amazon EC2) インスタンスをデプロイしてください。インスタンスは 2 GB 以上のメモリが必要です
 1. AWS Identity and Access Management (IAM) で Admin 権限を持つロールを作成して、インスタンスにアタッチします
-1. シェルにログインして、開発ツール、Python 3.8 or 3.9 と開発ファイル、git、jq、tar をインストールし、ソースコードを GitHub から取得します
+1. シェルにログインして、開発ツール、Python 3.11 と開発ファイル、git、jq、tar をインストールし、ソースコードを GitHub から取得します
 
     Amazon Linux 2023 の場合
 

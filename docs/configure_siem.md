@@ -76,7 +76,7 @@ Then create a Lambda layer following the steps below:
    * Check Upload a .zip file
    * Choose Upload and then select configure-es-loader.zip
    * Compatible architectures: Leave blank. Do **NOT** select anything
-   * Compatible runtimes: Choose [**Python 3.11**] and [**Python 3.13**]
+   * Compatible runtimes: Choose [**Python 3.11**] and [**Python 3.13**] (check current runtime version from **aes-siem-es-loader** layers pane)
 1. Choose [**Create**]
 1. After creation, select [Layers] from the left menu and verify that the above versions are included in [Compatible versions] for the created layer
 
