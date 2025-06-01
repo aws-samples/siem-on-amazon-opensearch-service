@@ -36,7 +36,7 @@ ignore_container_stderr = False
 
 You can set a new password with AWS Management Console.
 
-1. Navigate to the [OpenSearch Service console](https://console.aws.amazon.com/es/home?)
+1. Navigate to the [OpenSearch Service console](https://console.aws.amazon.com/aos/home?)
 1. Select [**aes-siem**] domain
 1. Select [**Actions**] at the top of screen and choose the [**Edit security configuration**] from the drop-down menu.
 1. Check [**Create master user**] from [Fine-grained access control - powered by Open Distro for Elasticsearch]

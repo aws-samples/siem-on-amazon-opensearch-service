@@ -28,14 +28,14 @@ if [[ "${AWS_EXECUTION_ENV}" = "CloudShell" ]]; then
 else
   MAJOR_VER=$(node -v 2>/dev/null | cut -f 2 -d v | cut -f 1 -d ".")
   if [[ -n "$is_al2" && "$MAJOR_VER" == "16" ]] \
-      || [[ -n "$is_al2023" && "$MAJOR_VER" == "18" ]] \
-      || [ "$MAJOR_VER" == "18" ] || [ "$MAJOR_VER" == "20" ]; then
+      || [[ -n "$is_al2023" && "$MAJOR_VER" == "22" ]] \
+      || [ "$MAJOR_VER" == "20" ] || [ "$MAJOR_VER" == "22" ]; then
     echo "Installed Node.js version is $MAJOR_VER "
     echo "Skip Node.js installation"
   else
     echo "Install Node.js"
     # shellcheck disable=SC1090
-    nvm -v 2>/dev/null || curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && source ~/.nvm/nvm.sh
+    nvm -v 2>/dev/null || curl -s -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash && source ~/.nvm/nvm.sh
     MAJOR_VER=$(node -v 2>/dev/null | cut -f 2 -d v | cut -f 1 -d ".")
 
     if [ -n "$is_al2" ] && [ "$MAJOR_VER" != "16" ]; then
@@ -48,8 +48,6 @@ else
       nvm install 22
       nvm alias default 22
       nvm use 22
-    elif [ "$MAJOR_VER" == "22" ]; then
-      echo 'Node 22 is ready'
     else
       echo "Start installing Node 22"
       nvm install 22

@@ -1,4 +1,4 @@
-Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1
+Description: SIEM on Amazon OpenSearch Service v2.10.4
 Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
@@ -437,7 +437,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / resource validator for deployment
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / resource validator for deployment
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -457,10 +457,10 @@ Resources:
       Timeout: 30
     DependsOn:
       - LambdaResourceValidatorServiceRole8BE4D6B0
-  LambdaResourceValidatorCurrentVersion1C9DB5C151f80ac9abd5266ce311313d63b44e43:
+  LambdaResourceValidatorCurrentVersion1C9DB5C1ba6346f3b3663291ae98392eabd6d2fa:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaResourceValidatorE0EF57CE'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -511,7 +511,7 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaResourceValidatorE0EF57CE.Arn'
-      ConfigVersion: 2.10.4-beta.1
+      ConfigVersion: 2.10.4
       vpce: !Ref 'VpcEndpointId'
       DeploymentTarget: !Ref 'DeploymentTarget'
       BucketPolicyUpdate: !Ref 'LogBucketPolicyUpdate'
@@ -587,6 +587,13 @@ Resources:
           - Action:
               - kms:Decrypt
               - kms:GenerateDataKey
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Resource: '*'
+          - Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
             Effect: Allow
             Principal:
               Service: events.amazonaws.com
@@ -753,9 +760,11 @@ Resources:
               - s3:ObjectCreated:*
             LambdaFunctionArn: !GetAtt 'LambdaEsLoader4B1E2DD9.Arn'
       Managed: true
+      SkipDestinationValidation: false
     DependsOn:
       - ExecCustomResourceValidator
       - S3BucketForLogAllowBucketNotificationsToaessiemLambdaEsLoaderEBF3B9FB7766EAA3
+      - S3BucketForLogPolicy546D5712
   S3BucketForLogAllowBucketNotificationsToaessiemLambdaEsLoaderEBF3B9FB7766EAA3:
     Type: AWS::Lambda::Permission
     Properties:
@@ -770,8 +779,8 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy1","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy1-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy1","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy1-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy1","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy1-2.10.4-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy1","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy1-2.10.4-${LogBucketPolicyUpdate}"}}'
       InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
@@ -813,7 +822,7 @@ Resources:
       FunctionName: aes-siem-aws-api-caller
       Handler: index.handler
       Role: !GetAtt 'AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2.Arn'
-      Runtime: nodejs18.x
+      Runtime: nodejs22.x
       Timeout: 30
     DependsOn:
       - AWS679f53fac002430cb0da5b7982bd2287ServiceRoleC1EA0FF2
@@ -821,8 +830,8 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy2","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy2-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy2","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy2-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy2","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy2-2.10.4-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy2","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy2-2.10.4-${LogBucketPolicyUpdate}"}}'
       InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
@@ -847,8 +856,8 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy3","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy3-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy3","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy3-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy3","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy3-2.10.4-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy3","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy3-2.10.4-${LogBucketPolicyUpdate}"}}'
       InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
@@ -873,8 +882,8 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy4","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy4-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy4","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy4-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy4","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy4-2.10.4-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy4","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy4-2.10.4-${LogBucketPolicyUpdate}"}}'
       InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
@@ -899,8 +908,8 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy5","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy5-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy5","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy5-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy5","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy5-2.10.4-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy5","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy5-2.10.4-${LogBucketPolicyUpdate}"}}'
       InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
@@ -925,8 +934,8 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy6","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy6-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy6","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy6-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy6","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy6-2.10.4-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy6","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy6-2.10.4-${LogBucketPolicyUpdate}"}}'
       InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
@@ -951,8 +960,8 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy7","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy7-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy7","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy7-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy7","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy7-2.10.4-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy7","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy7-2.10.4-${LogBucketPolicyUpdate}"}}'
       InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
@@ -977,8 +986,8 @@ Resources:
     Type: Custom::AWS
     Properties:
       ServiceToken: !GetAtt 'AWS679f53fac002430cb0da5b7982bd22872D164C4C.Arn'
-      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy8","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy8-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
-      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy8","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy8-2.10.4-beta.1-${LogBucketPolicyUpdate}"},"logApiResponseData":true}'
+      Create: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy8","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy8-2.10.4-${LogBucketPolicyUpdate}"}}'
+      Update: !Sub '{"action":"getParameter","service":"SSM","outputPaths":["Parameter.Value"],"parameters":{"Name":"/siem/bucketpolicy/log/policy8","WithDecryption":false},"physicalResourceId":{"id":"CustomResource::policy8-2.10.4-${LogBucketPolicyUpdate}"}}'
       InstallLatestAwsSdk: false
     DependsOn:
       - ExecCustomResourceValidator
@@ -1089,6 +1098,11 @@ Resources:
           - Action: sns:Publish
             Effect: Allow
             Resource: !Ref 'SnsTopic2C1570A4'
+          - Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Effect: Allow
+            Resource: !GetAtt 'KmsAesSiemLog44B26597.Arn'
         Version: '2012-10-17'
       PolicyName: AesSiemSnsRoleDefaultPolicy7B8095B5
       Roles:
@@ -1342,7 +1356,7 @@ Resources:
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader.zip'
       DeadLetterConfig:
         TargetArn: !GetAtt 'AesSiemDlq1CD8439D.Arn'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / es-loader
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / es-loader
       Environment:
         Variables:
           AOSS_TYPE: !GetAtt 'AesSiemDomainDeployedR2.aoss_type'
@@ -1375,10 +1389,10 @@ Resources:
     DependsOn:
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
-  LambdaEsLoaderCurrentVersion9DFE6955e2a4515bb60733d5bc9f9d81820c554e:
+  LambdaEsLoaderCurrentVersion9DFE695538e506c127eaddfca860910fdbe4a626:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaEsLoader4B1E2DD9'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1463,7 +1477,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/add_pandas_layer.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / add-pandas-layer
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / add-pandas-layer
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1477,10 +1491,10 @@ Resources:
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-  LambdaAddPandasLayerCurrentVersion52D07543131e51f515cde5e0d29a9f2ab24c447d:
+  LambdaAddPandasLayerCurrentVersion52D07543e77ea23a43f0ab7f95de2f122e511403:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaAddPandasLayer8F3F6957'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1488,11 +1502,11 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaAddPandasLayer8F3F6957.Arn'
-      ConfigVersion: 2.10.4-beta.1
+      ConfigVersion: 2.10.4
     DependsOn:
       - LambdaAddPandasLayerRoleDefaultPolicy6A268C17
       - LambdaAddPandasLayerRoleDCA80237
-      - LambdaEsLoaderCurrentVersion9DFE6955e2a4515bb60733d5bc9f9d81820c554e
+      - LambdaEsLoaderCurrentVersion9DFE695538e506c127eaddfca860910fdbe4a626
       - LambdaEsLoader4B1E2DD9
       - LambdaEsLoaderServiceRoleDefaultPolicyB7A386B3
       - LambdaEsLoaderServiceRoleFFD43869
@@ -1521,6 +1535,11 @@ Resources:
           - Action: sns:Publish
             Effect: Allow
             Resource: !Ref 'SnsTopic2C1570A4'
+          - Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+            Effect: Allow
+            Resource: !GetAtt 'KmsAesSiemLog44B26597.Arn'
         Version: '2012-10-17'
       PolicyName: LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
       Roles:
@@ -1538,7 +1557,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/es_loader_stopper.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / es-loader-stopper
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / es-loader-stopper
       Environment:
         Variables:
           AES_SIEM_ALERT_TOPIC_ARN: !Ref 'SnsTopic2C1570A4'
@@ -1554,10 +1573,10 @@ Resources:
     DependsOn:
       - LambdaEsLoaderStopperServiceRoleDefaultPolicyCC98CC06
       - LambdaEsLoaderStopperServiceRole83AABC1A
-  LambdaEsLoaderStopperCurrentVersion312AA8500b17a25f00e609556503f0b4c136e22e:
+  LambdaEsLoaderStopperCurrentVersion312AA8502c823a69e67e073abf5960a77e216a1c:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaEsLoaderStopper35C1D57B'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1622,7 +1641,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/index_metrics_exporter.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / index-metrics-exporter
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / index-metrics-exporter
       Environment:
         Variables:
           COLLECTION_NAME: !Ref 'DomainOrCollectionName'
@@ -1645,10 +1664,10 @@ Resources:
     DependsOn:
       - LambdaMetricsExporterServiceRoleDefaultPolicy5F0A7AC4
       - LambdaMetricsExporterServiceRoleDDE0BD95
-  LambdaMetricsExporterCurrentVersion79B0413F58a2a5960ce8adb4676005f237ebce7c:
+  LambdaMetricsExporterCurrentVersion79B0413Fd46bbab91e34302cf77543454fbc4074:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaMetricsExporter2737F589'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1716,7 +1735,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/geoip_downloader.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / geoip-downloader
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / geoip-downloader
       Environment:
         Variables:
           TRUSTED_PROXY_LIST: !Ref 'TrustedProxyIpList'
@@ -1732,10 +1751,10 @@ Resources:
     DependsOn:
       - LambdaGeoipDownloaderServiceRoleDefaultPolicyE7B8AE65
       - LambdaGeoipDownloaderServiceRoleE37FB908
-  LambdaGeoipDownloaderCurrentVersion7F1CD34F9613586dec412a4e9a9ba93c60194092:
+  LambdaGeoipDownloaderCurrentVersion7F1CD34F10cd5f3e1940de0a4a339ba36448e0b7:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaGeoipDownloaderA5EFF97E'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1812,7 +1831,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / ioc-plan
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / ioc-plan
       Environment:
         Variables:
           ABUSE_CH: !Ref 'EnableAbuseCh'
@@ -1830,10 +1849,10 @@ Resources:
     DependsOn:
       - LambdaIocPlanServiceRoleDefaultPolicyBAE5ADEE
       - LambdaIocPlanServiceRole6CDE7C5D
-  LambdaIocPlanCurrentVersion1BAA7B4C3b848a9408d56c127411314a3a36b5a5:
+  LambdaIocPlanCurrentVersion1BAA7B4C1abf722fcf7398cfc664e0234253c077:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaIocPlan6E369BFB'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1891,7 +1910,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / ioc-download
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / ioc-download
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1906,10 +1925,10 @@ Resources:
     DependsOn:
       - LambdaIocDownloadServiceRoleDefaultPolicy9EDF8942
       - LambdaIocDownloadServiceRoleEB9001C6
-  LambdaIocDownloadCurrentVersion48773E6B8bd3c9a99520cdd5b3ecb80baa9083bd:
+  LambdaIocDownloadCurrentVersion48773E6Bba5259e6d137881dc5efc8de39851cf3:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaIocDownload5519716E'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -1962,7 +1981,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/ioc_database.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / ioc-createdb
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / ioc-createdb
       Environment:
         Variables:
           GEOIP_BUCKET: !Sub 'aes-siem-${AWS::AccountId}-geo'
@@ -1976,10 +1995,10 @@ Resources:
     DependsOn:
       - LambdaIocCreatedbServiceRoleDefaultPolicyA06805A4
       - LambdaIocCreatedbServiceRole555565C0
-  LambdaIocCreatedbCurrentVersionD9D04E9Ca377642f3d23ac6debbf557b2b60f1be:
+  LambdaIocCreatedbCurrentVersionD9D04E9Ca8db94218e434241f3067cdfa16a7460:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaIocCreatedb04F35777'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -2231,7 +2250,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / opensearch domain deployment
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / opensearch domain deployment
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -2252,10 +2271,10 @@ Resources:
     DependsOn:
       - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaDeployAESCurrentVersion047915F1ba6d78f8d9c0419acad06825f1544a87:
+  LambdaDeployAESCurrentVersion047915F1df47d96a916d46da97556b59a78977b0:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaDeployAES636B5079'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -2263,7 +2282,7 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaDeployAES636B5079.Arn'
-      ConfigVersion: 2.10.4-beta.1
+      ConfigVersion: 2.10.4
       Target: !Ref 'DeploymentTarget'
       Name: !Ref 'DomainOrCollectionName'
       vpce: !Ref 'VpcEndpointId'
@@ -2283,7 +2302,7 @@ Resources:
       Code:
         S3Bucket: '%%BUCKET_NAME%%'
         S3Key: '%%SOLUTION_NAME%%/%%VERSION%%/assets/deploy_es.zip'
-      Description: SIEM on Amazon OpenSearch Service v2.10.4-beta.1 / opensearch configuration
+      Description: SIEM on Amazon OpenSearch Service v2.10.4 / opensearch configuration
       Environment:
         Variables:
           ACCOUNT_ID: !Ref 'AWS::AccountId'
@@ -2311,10 +2330,10 @@ Resources:
     DependsOn:
       - AesSiemDeployRoleForLambdaDefaultPolicy4129DE4C
       - AesSiemDeployRoleForLambda654D64F2
-  LambdaConfigureAESCurrentVersion65114768cf2dac6235b67b0502d56dad60b98238:
+  LambdaConfigureAESCurrentVersion65114768c01152ca0830e6c654fbeb45144dc3c2:
     Type: AWS::Lambda::Version
     Properties:
-      Description: 2.10.4-beta.1
+      Description: 2.10.4
       FunctionName: !Ref 'LambdaConfigureAESA0471961'
     UpdateReplacePolicy: Retain
     DeletionPolicy: Retain
@@ -2322,7 +2341,7 @@ Resources:
     Type: AWS::CloudFormation::CustomResource
     Properties:
       ServiceToken: !GetAtt 'LambdaConfigureAESA0471961.Arn'
-      ConfigVersion: 2.10.4-beta.1
+      ConfigVersion: 2.10.4
       Target: !Ref 'DeploymentTarget'
       Name: !Ref 'DomainOrCollectionName'
     DependsOn:
@@ -2393,96 +2412,33 @@ Resources:
     Properties:
       Description: AWS CloudFormation handler for "Custom::S3BucketNotifications" resources (@aws-cdk/aws-s3)
       Code:
-        ZipFile: |
-          import boto3  # type: ignore
-          import json
-          import logging
-          import urllib.request
-
-          s3 = boto3.client("s3")
-
-          EVENTBRIDGE_CONFIGURATION = 'EventBridgeConfiguration'
-          CONFIGURATION_TYPES = ["TopicConfigurations", "QueueConfigurations", "LambdaFunctionConfigurations"]
-
-          def handler(event: dict, context):
-            response_status = "SUCCESS"
-            error_message = ""
-            try:
-              props = event["ResourceProperties"]
-              notification_configuration = props["NotificationConfiguration"]
-              managed = props.get('Managed', 'true').lower() == 'true'
-              stack_id = event['StackId']
-              old = event.get("OldResourceProperties", {}).get("NotificationConfiguration", {})
-              if managed:
-                config = handle_managed(event["RequestType"], notification_configuration)
-              else:
-                config = handle_unmanaged(props["BucketName"], stack_id, event["RequestType"], notification_configuration, old)
-              s3.put_bucket_notification_configuration(Bucket=props["BucketName"], NotificationConfiguration=config)
-            except Exception as e:
-              logging.exception("Failed to put bucket notification configuration")
-              response_status = "FAILED"
-              error_message = f"Error: {str(e)}. "
-            finally:
-              submit_response(event, context, response_status, error_message)
-
-          def handle_managed(request_type, notification_configuration):
-            if request_type == 'Delete':
-              return {}
-            return notification_configuration
-
-          def handle_unmanaged(bucket, stack_id, request_type, notification_configuration, old):
-            def with_id(n):
-              n['Id'] = f"{stack_id}-{hash(json.dumps(n, sort_keys=True))}"
-              return n
-
-            external_notifications = {}
-            existing_notifications = s3.get_bucket_notification_configuration(Bucket=bucket)
-            for t in CONFIGURATION_TYPES:
-              if request_type == 'Update':
-                  ids = [with_id(n) for n in old.get(t, [])]
-                  old_incoming_ids = [n['Id'] for n in ids]
-                  external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'] in old_incoming_ids]
-              elif request_type == 'Create':
-                  external_notifications[t] = [n for n in existing_notifications.get(t, [])]
-            if EVENTBRIDGE_CONFIGURATION in existing_notifications:
-              external_notifications[EVENTBRIDGE_CONFIGURATION] = existing_notifications[EVENTBRIDGE_CONFIGURATION]
-
-            if request_type == 'Delete':
-              return external_notifications
-
-            notifications = {}
-            for t in CONFIGURATION_TYPES:
-              external = external_notifications.get(t, [])
-              incoming = [with_id(n) for n in notification_configuration.get(t, [])]
-              notifications[t] = external + incoming
-
-            if EVENTBRIDGE_CONFIGURATION in notification_configuration:
-              notifications[EVENTBRIDGE_CONFIGURATION] = notification_configuration[EVENTBRIDGE_CONFIGURATION]
-            elif EVENTBRIDGE_CONFIGURATION in external_notifications:
-              notifications[EVENTBRIDGE_CONFIGURATION] = external_notifications[EVENTBRIDGE_CONFIGURATION]
-
-            return notifications
-
-          def submit_response(event: dict, context, response_status: str, error_message: str):
-            response_body = json.dumps(
-              {
-                "Status": response_status,
-                "Reason": f"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}",
-                "PhysicalResourceId": event.get("PhysicalResourceId") or event["LogicalResourceId"],
-                "StackId": event["StackId"],
-                "RequestId": event["RequestId"],
-                "LogicalResourceId": event["LogicalResourceId"],
-                "NoEcho": False,
-              }
-            ).encode("utf-8")
-            headers = {"content-type": "", "content-length": str(len(response_body))}
-            try:
-              req = urllib.request.Request(url=event["ResponseURL"], headers=headers, data=response_body, method="PUT")
-              with urllib.request.urlopen(req) as response:
-                print(response.read().decode("utf-8"))
-              print("Status code: " + response.reason)
-            except Exception as e:
-                print("send(..) failed executing request.urlopen(..): " + str(e))
+        ZipFile: "import boto3  # type: ignore\nimport json\nimport logging\nimport urllib.request\n\ns3 = boto3.client(\"s3\")\n\nEVENTBRIDGE_CONFIGURATION = 'EventBridgeConfiguration'\nCONFIGURATION_TYPES\
+          \ = [\"TopicConfigurations\", \"QueueConfigurations\", \"LambdaFunctionConfigurations\"]\n\ndef handler(event: dict, context):\n  response_status = \"SUCCESS\"\n  error_message = \"\"\n  try:\n\
+          \    props = event[\"ResourceProperties\"]\n    notification_configuration = props[\"NotificationConfiguration\"]\n    managed = props.get('Managed', 'true').lower() == 'true'\n    skipDestinationValidation\
+          \ = props.get('SkipDestinationValidation', 'false').lower() == 'true'\n    stack_id = event['StackId']\n    old = event.get(\"OldResourceProperties\", {}).get(\"NotificationConfiguration\", {})\n\
+          \    if managed:\n      config = handle_managed(event[\"RequestType\"], notification_configuration)\n    else:\n      config = handle_unmanaged(props[\"BucketName\"], stack_id, event[\"RequestType\"\
+          ], notification_configuration, old)\n    s3.put_bucket_notification_configuration(Bucket=props[\"BucketName\"], NotificationConfiguration=config, SkipDestinationValidation=skipDestinationValidation)\n\
+          \  except Exception as e:\n    logging.exception(\"Failed to put bucket notification configuration\")\n    response_status = \"FAILED\"\n    error_message = f\"Error: {str(e)}. \"\n  finally:\n\
+          \    submit_response(event, context, response_status, error_message)\n\ndef handle_managed(request_type, notification_configuration):\n  if request_type == 'Delete':\n    return {}\n  return notification_configuration\n\
+          \ndef handle_unmanaged(bucket, stack_id, request_type, notification_configuration, old):\n  def get_id(n):\n    n['Id'] = ''\n    sorted_notifications = sort_filter_rules(n)\n    strToHash=json.dumps(sorted_notifications,\
+          \ sort_keys=True).replace('\"Name\": \"prefix\"', '\"Name\": \"Prefix\"').replace('\"Name\": \"suffix\"', '\"Name\": \"Suffix\"')\n    return f\"{stack_id}-{hash(strToHash)}\"\n  def with_id(n):\n\
+          \    n['Id'] = get_id(n)\n    return n\n\n  external_notifications = {}\n  existing_notifications = s3.get_bucket_notification_configuration(Bucket=bucket)\n  for t in CONFIGURATION_TYPES:\n \
+          \   if request_type == 'Update':\n        old_incoming_ids = [get_id(n) for n in old.get(t, [])]\n        external_notifications[t] = [n for n in existing_notifications.get(t, []) if not get_id(n)\
+          \ in old_incoming_ids]      \n    elif request_type == 'Delete':\n        external_notifications[t] = [n for n in existing_notifications.get(t, []) if not n['Id'].startswith(f\"{stack_id}-\")]\n\
+          \    elif request_type == 'Create':\n        external_notifications[t] = [n for n in existing_notifications.get(t, [])]\n  if EVENTBRIDGE_CONFIGURATION in existing_notifications:\n    external_notifications[EVENTBRIDGE_CONFIGURATION]\
+          \ = existing_notifications[EVENTBRIDGE_CONFIGURATION]\n\n  if request_type == 'Delete':\n    return external_notifications\n\n  notifications = {}\n  for t in CONFIGURATION_TYPES:\n    external\
+          \ = external_notifications.get(t, [])\n    incoming = [with_id(n) for n in notification_configuration.get(t, [])]\n    notifications[t] = external + incoming\n\n  if EVENTBRIDGE_CONFIGURATION\
+          \ in notification_configuration:\n    notifications[EVENTBRIDGE_CONFIGURATION] = notification_configuration[EVENTBRIDGE_CONFIGURATION]\n  elif EVENTBRIDGE_CONFIGURATION in external_notifications:\n\
+          \    notifications[EVENTBRIDGE_CONFIGURATION] = external_notifications[EVENTBRIDGE_CONFIGURATION]\n\n  return notifications\n\ndef submit_response(event: dict, context, response_status: str, error_message:\
+          \ str):\n  response_body = json.dumps(\n    {\n      \"Status\": response_status,\n      \"Reason\": f\"{error_message}See the details in CloudWatch Log Stream: {context.log_stream_name}\",\n\
+          \      \"PhysicalResourceId\": event.get(\"PhysicalResourceId\") or event[\"LogicalResourceId\"],\n      \"StackId\": event[\"StackId\"],\n      \"RequestId\": event[\"RequestId\"],\n      \"\
+          LogicalResourceId\": event[\"LogicalResourceId\"],\n      \"NoEcho\": False,\n    }\n  ).encode(\"utf-8\")\n  headers = {\"content-type\": \"\", \"content-length\": str(len(response_body))}\n\
+          \  try:\n    req = urllib.request.Request(url=event[\"ResponseURL\"], headers=headers, data=response_body, method=\"PUT\")\n    with urllib.request.urlopen(req) as response:\n      print(response.read().decode(\"\
+          utf-8\"))\n    print(\"Status code: \" + response.reason)\n  except Exception as e:\n      print(\"send(..) failed executing request.urlopen(..): \" + str(e))\n\ndef sort_filter_rules(json_obj):\n\
+          \  if not isinstance(json_obj, dict):\n      return json_obj\n  for key, value in json_obj.items():\n      if isinstance(value, dict):\n          json_obj[key] = sort_filter_rules(value)\n   \
+          \   elif isinstance(value, list):\n          json_obj[key] = [sort_filter_rules(item) for item in value]\n  if \"Filter\" in json_obj and \"Key\" in json_obj[\"Filter\"] and \"FilterRules\" in\
+          \ json_obj[\"Filter\"][\"Key\"]:\n      filter_rules = json_obj[\"Filter\"][\"Key\"][\"FilterRules\"]\n      sorted_filter_rules = sorted(filter_rules, key=lambda x: x[\"Name\"])\n      json_obj[\"\
+          Filter\"][\"Key\"][\"FilterRules\"] = sorted_filter_rules\n  return json_obj"
       Handler: index.handler
       Role: !GetAtt 'BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC.Arn'
       Runtime: python3.11
