@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIEM on Amazon OpenSearch Service</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #24292e;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        header {
+            border-bottom: 1px solid #eaecef;
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+        }
+        h1 {
+            margin-top: 0;
+        }
+        h2 {
+            margin-top: 2rem;
+            padding-bottom: 0.3rem;
+            border-bottom: 1px solid #eaecef;
+        }
+        .lang-options {
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        .lang-options a {
+            margin-right: 1rem;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+        .section {
+            flex: 1;
+            min-width: 300px;
+        }
+        ul {
+            padding-left: 1.5rem;
+        }
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .language-tag {
+            font-size: 0.8rem;
+            background-color: #f1f8ff;
+            color: #0366d6;
+            border-radius: 3px;
+            padding: 0.1rem 0.4rem;
+            margin-left: 0.5rem;
+        }
+        img.architecture {
+            max-width: 100%;
+            height: auto;
+            margin: 2rem 0;
+        }
+        footer {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid #eaecef;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #6a737d;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>SIEM on Amazon OpenSearch Service</h1>
+        <p>A solution for collecting multiple types of logs from multiple AWS accounts, correlating and visualizing them to help investigate security incidents.</p>
+        <div class="lang-options">
+            <a href="README_ja.html">日本語</a>
+            <a href="README_zh-cn.html">简体中文</a>
+            <a href="README_zh-tw.html">繁體中文</a>
+        </div>
+    </header>
+
+    <div>
+        <p>SIEM on Amazon OpenSearch Service is a solution for collecting multiple types of logs from multiple AWS accounts, correlating and visualizing the logs to help investigate security incidents. Deployment is easily done with the help of AWS CloudFormation or AWS Cloud Development Kit (AWS CDK), taking only about 30 minutes to complete.</p>
+        
+        <img class="architecture" src="images/siem-architecture.svg" alt="SIEM Architecture">
+    </div>
+
+    <div class="container">
+        <div class="section">
+            <h2>Getting Started</h2>
+            <ul>
+                <li><a href="deployment.html">Deployment</a> <a href="deployment_ja.html" class="language-tag">日本語</a> <a href="deployment_zh-cn.html" class="language-tag">简体中文</a></li>
+                <li><a href="configure_aws_service.html">Configuring AWS Services (Log Sources)</a> <a href="configure_aws_service_ja.html" class="language-tag">日本語</a> <a href="configure_aws_service_zh-cn.html" class="language-tag">简体中文</a></li>
+                <li><a href="configure_siem.html">Changing Configurations of SIEM</a> <a href="configure_siem_ja.html" class="language-tag">日本語</a> <a href="configure_siem_zh-cn.html" class="language-tag">简体中文</a></li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Features</h2>
+            <ul>
+                <li><a href="dashboard.html">Dashboard</a> <a href="dashboard_ja.html" class="language-tag">日本語</a> <a href="dashboard_zh-cn.html" class="language-tag">简体中文</a></li>
+                <li><a href="serverless.html">OpenSearch Serverless</a> <a href="serverless_ja.html" class="language-tag">日本語</a></li>
+                <li><a href="controltower.html">AWS Control Tower Integration</a> <a href="controltower_ja.html" class="language-tag">日本語</a></li>
+                <li><a href="securitylake.html">Amazon Security Lake Integration</a> <a href="securitylake_ja.html" class="language-tag">日本語</a></li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Reference</h2>
+            <ul>
+                <li><a href="suppoted_log_type.html">Supported Log Types</a></li>
+                <li><a href="faq.html">FAQ</a> <a href="faq_ja.html" class="language-tag">日本語</a> <a href="faq_zh-cn.html" class="language-tag">简体中文</a></li>
+                <li><a href="cloudformation_list.html">CloudFormation Templates</a> <a href="cloudformation_list_ja.html" class="language-tag">日本語</a> <a href="cloudformation_list_zh-cn.html" class="language-tag">简体中文</a> <a href="cloudformation_list_zh-tw.html" class="language-tag">繁體中文</a></li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h2>Contributed</h2>
+            <ul>
+                <li><a href="contributed/deepsecurity_ja.html">TrendMicro Deep Security</a> <a href="contributed/deepsecurity_ja.html" class="language-tag">日本語</a></li>
+                <li><a href="contributed/okta_ja.html">Okta audit log</a> <a href="contributed/okta_ja.html" class="language-tag">日本語</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <p>SIEM on Amazon OpenSearch Service is licensed under the MIT-0 License.</p>
+        <p><a href="https://github.com/aws-samples/siem-on-amazon-opensearch-service">View on GitHub</a></p>
+    </footer>
+</body>
+</html>
