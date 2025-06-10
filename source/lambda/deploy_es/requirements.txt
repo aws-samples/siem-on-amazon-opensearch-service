@@ -1,5 +1,5 @@
 crhelper==2.0.12
-requests==2.32.3
+requests==2.32.4
 opensearch-py==2.8.0
 
 # to fix dependency and conflicts
