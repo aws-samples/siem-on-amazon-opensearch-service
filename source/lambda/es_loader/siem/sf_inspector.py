@@ -15,8 +15,9 @@ def transform(logdata):
     logdata['@id'] = hashlib.md5(logdata['findingArn'].encode()).hexdigest()
     # confirmd and ignored Rule-143469
 
-    last_observed_epoch_str = str(int(datetime.datetime.strptime(
-        logdata['updatedAt'], '%b %d, %Y, %I:%M:%S %p').timestamp()))
+    # @timestamp has already been normalized from updatedAt by LogParser.
+    last_observed_epoch_str = str(int(
+        datetime.datetime.fromisoformat(logdata['@timestamp']).timestamp()))
     logdata['__doc_id_suffix'] = last_observed_epoch_str
 
     if 'AWS_ECR_CONTAINER_IMAGE' in logdata['vulnerability'].get('category'):
