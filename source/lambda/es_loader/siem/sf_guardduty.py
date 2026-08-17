@@ -9,28 +9,48 @@ __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
 
 import re
 
+from aws_lambda_powertools import Logger
+
 from siem import utils
+
+logger = Logger(child=True)
 
 RE_GD_TYPE = re.compile(
     r"(?P<ThreatPurpose>\w*):(?P<ResourceTypeAffected>\w*)/"
     r"(?P<ThreatFamilyName>[\w\&]*)(\.(?P<DetectionMechanism>\w*))?"
     r"(\!(?P<Artifact>\w*))?")
 
+# Fields extracted from the finding type. Kept as a constant so that the
+# fallback in transform() cannot drift from the parsed result.
+GD_TYPE_KEYS = ('ThreatPurpose', 'ResourceTypeAffected', 'ThreatFamilyName',
+                'DetectionMechanism', 'Artifact')
+
 
 def transform(logdata):
     logdata['rule']['name'] = logdata['rule']['name'].strip().rstrip('.')
-    if logdata['severity'] <= 3.9:
+    severity = logdata['severity']
+    if severity <= 3.9:
         label = "low"
-    elif logdata['severity'] <= 6.9:
+    elif severity <= 6.9:
         label = "medium"
-    elif logdata['severity'] <= 8.9:
+    elif severity <= 8.9:
         label = "high"
+    elif severity <= 10.0:
+        label = "critical"
+    else:
+        logger.warning(
+            f'GuardDuty severity {severity} is outside the documented '
+            'range of 1.0-10.0. Labelled as unknown')
+        label = "unknown"
     m = RE_GD_TYPE.match(logdata['type'])
-    gd = {'severitylabel': label, 'ThreatPurpose': m['ThreatPurpose'],
-          'ResourceTypeAffected': m['ResourceTypeAffected'],
-          'ThreatFamilyName': m['ThreatFamilyName'],
-          'DetectionMechanism': m.group('DetectionMechanism'),
-          'Artifact': m.group('Artifact')}
+    if m:
+        gd_type = {key: m.group(key) for key in GD_TYPE_KEYS}
+    else:
+        # An unparsable finding type must not cost us the whole document.
+        logger.warning(
+            f"GuardDuty finding type is not parsable: {logdata['type']}")
+        gd_type = dict.fromkeys(GD_TYPE_KEYS)
+    gd = {'severitylabel': label, **gd_type}
     try:
         action_type = logdata['service']['action']['actionType']
     except KeyError:
@@ -55,7 +75,7 @@ def transform(logdata):
         if not logdata['destination']:
             del logdata['destination']
     # event.category
-    if logdata['ThreatPurpose'] in ('Backdoor', 'CryptoCurrency', 'Trojan'):
+    if gd['ThreatPurpose'] in ('Backdoor', 'CryptoCurrency', 'Trojan'):
         logdata['event']['category'] = 'malware'
     elif gd['ThreatFamilyName'] in ('SuspiciousFile', 'MaliciousFile'):
         logdata['event']['category'] = 'malware'
