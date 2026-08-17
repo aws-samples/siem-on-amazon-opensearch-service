@@ -1,4 +1,4 @@
-requests==2.32.5
+requests==2.33.1
 opensearch-py==3.2.0
 
 # to fix dependency and conflicts
