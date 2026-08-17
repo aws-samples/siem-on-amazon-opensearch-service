@@ -1,8 +1,8 @@
 import re
 import base64
-import json
 import ipaddress
-from siem import merge, put_value_into_dict, get_value_from_dict
+
+from siem import utils
 
 def transform(logdata):
     # https://cloudone.trendmicro.com/docs/workload-security/event-syslog-message-formats/
@@ -61,20 +61,21 @@ def transform(logdata):
 
     for ecs_key in deepsecurity_ecs_keys:
         original_keys = deepsecurity_ecs_keys[ecs_key]
-        v = get_value_from_dict(logdata, original_keys)
+        v = utils.value_from_nesteddict_by_dottedkeylist(
+            logdata, original_keys)
         if v:
-            new_ecs_dict = put_value_into_dict(ecs_key, v)
             if ".ip" in ecs_key:
                 try:
                     ipaddress.ip_address(v)
                 except ValueError:
                     continue
-            merge(logdata, new_ecs_dict)
+            new_ecs_dict = utils.put_value_into_nesteddict(ecs_key, v)
+            utils.merge_dicts(logdata, new_ecs_dict)
             del logdata[original_keys]
 
     # source.ipが設定されていなければ、dvcで代用する
     if "dvc" in logdata:
-        if "source" in logdata and not "ip" in logdata['source']:
+        if "source" in logdata and "ip" not in logdata['source']:
             logdata['source']['ip'] = logdata['dvc']
         else:
             logdata['source'] = { 'ip': logdata['dvc'] }
