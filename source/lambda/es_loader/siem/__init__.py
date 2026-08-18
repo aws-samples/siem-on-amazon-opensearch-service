@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT-0
 __copyright__ = ('Copyright Amazon.com, Inc. or its affiliates. '
                  'All Rights Reserved.')
-__version__ = '2.10.5'
+__version__ = '2.10.6'
 __license__ = 'MIT-0'
 __author__ = 'Akihiro Nakajima'
 __url__ = 'https://github.com/aws-samples/siem-on-amazon-opensearch-service'
@@ -13,7 +13,6 @@ import gzip
 import hashlib
 import io
 import json
-import re
 import zipfile
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
@@ -1119,7 +1118,6 @@ class LogParser:
             elif isinstance(value, type(None)):
                 del d[key]
         return d
-
     def truncate_txt(self, txt, num):
         try:
             return txt.encode('utf-8')[:num].decode()
@@ -1143,180 +1141,3 @@ class LogParser:
                         f'Data was truncated because the size of {key} field '
                         f'is bigger than 32,766. _id is {self.doc_id}')
         return d
-
-
-###############################################################################
-# DEPRECATED function. Moved to siem.utils
-###############################################################################
-def get_value_from_dict(dct, xkeys_list):
-    """Deprecated. moved to utils.value_from_nesteddict_by_dottedkeylist.
-
-    入れ子になった辞書に対して、dotを含んだkeyで値を
-    抽出する。keyはリスト形式で複数含んでいたら分割する。
-    値がなければ返値なし
-
-    >>> dct = {'a': {'b': {'c': 123}}}
-    >>> xkey = 'a.b.c'
-    >>> get_value_from_dict(dct, xkey)
-    123
-    >>> xkey = 'x.y.z'
-    >>> get_value_from_dict(dct, xkey)
-
-    >>> xkeys_list = 'a.b.c x.y.z'
-    >>> get_value_from_dict(dct, xkeys_list)
-    123
-    >>> dct = {'a': {'b': [{'c': 123}, {'c': 456}]}}
-    >>> xkeys_list = 'a.b.0.c'
-    >>> get_value_from_dict(dct, xkeys_list)
-    123
-    """
-    for xkeys in xkeys_list.split():
-        v = dct
-        for k in xkeys.split('.'):
-            try:
-                k = int(k)
-            except ValueError:
-                pass
-            try:
-                v = v[k]
-            except (TypeError, KeyError, IndexError):
-                v = ''
-                break
-        if v:
-            return v
-
-
-def put_value_into_dict(key_str, v):
-    """Deprecated.
-
-    moved to utils.put_value_into_nesteddict
-    dictのkeyにドットが含まれている場合に入れ子になったdictを作成し、値としてvを入れる.
-    返値はdictタイプ。vが辞書ならさらに入れ子として代入。
-    値がlistなら、カンマ区切りのCSVにした文字列に変換
-    TODO: 値に"が入ってると例外になる。対処方法が見つからず返値なDROPPEDにしてるので改善する。#34
-
-    >>> put_value_into_dict('a.b.c', 123)
-    {'a': {'b': {'c': '123'}}}
-    >>> put_value_into_dict('a.b.c', [123])
-    {'a': {'b': {'c': '123'}}}
-    >>> put_value_into_dict('a.b.c', [123, 456])
-    {'a': {'b': {'c': '123,456'}}}
-    >>> v = {'x': 1, 'y': 2}
-    >>> put_value_into_dict('a.b.c', v)
-    {'a': {'b': {'c': {'x': 1, 'y': 2}}}}
-    >>> v = str({'x': "1", 'y': '2"3'})
-    >>> put_value_into_dict('a.b.c', v)
-    {'a': {'b': {'c': 'DROPPED'}}}
-    """
-    v = v
-    xkeys = key_str.split('.')
-    if isinstance(v, dict):
-        json_data = r'{{"{0}": {1} }}'.format(xkeys[-1], json.dumps(v))
-    elif isinstance(v, list):
-        json_data = r'{{"{0}": "{1}" }}'.format(
-            xkeys[-1], ",".join(map(str, v)))
-    else:
-        json_data = r'{{"{0}": "{1}" }}'.format(xkeys[-1], v)
-    if len(xkeys) >= 2:
-        xkeys.pop()
-        for xkey in reversed(xkeys):
-            json_data = r'{{"{0}": {1} }}'.format(xkey, json_data)
-    try:
-        new_dict = json.loads(json_data, strict=False)
-    except json.decoder.JSONDecodeError:
-        new_dict = put_value_into_dict(key_str, 'DROPPED')
-    return new_dict
-
-
-def conv_key(obj):
-    """Deprecated.
-
-    moved to utils.convert_key_to_safe_field
-    dictのkeyに-が入ってたら_に置換する
-    """
-    if isinstance(obj, dict):
-        for org_key in list(obj.keys()):
-            new_key = org_key
-            if '-' in org_key:
-                new_key = org_key.translate({ord('-'): ord('_')})
-                obj[new_key] = obj.pop(org_key)
-            utils.conv_key(obj[new_key])
-    elif isinstance(obj, list):
-        for val in obj:
-            utils.conv_key(val)
-    else:
-        pass
-
-
-def merge(a, b, path=None):
-    """Deprecated.
-
-    merges b into a
-    Moved to siem.utils.merge_dicts.
-    """
-    if path is None:
-        path = []
-    for key in b:
-        if key in a:
-            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                merge(a[key], b[key], path + [str(key)])
-            elif a[key] == b[key]:
-                pass  # same leaf value
-            elif str(a[key]) in str(b[key]):
-                # strで上書き。JSONだったのをstrに変換したデータ
-                a[key] = b[key]
-            else:
-                # conflict and override original value with new one
-                a[key] = b[key]
-        else:
-            a[key] = b[key]
-    return a
-
-
-def match_log_with_exclude_patterns(log_dict, log_patterns):
-    """Deprecated.
-
-    ログと、log_patterns を比較させる
-    一つでもマッチングされれば、OpenSearch ServiceにLoadしない
-
-    >>> pattern1 = 111
-    >>> RE_BINGO = re.compile('^'+str(pattern1)+'$')
-    >>> pattern2 = 222
-    >>> RE_MISS = re.compile('^'+str(pattern2)+'$')
-    >>> log_patterns = { \
-    'a': RE_BINGO, 'b': RE_MISS, 'x': {'y': {'z': RE_BINGO}}}
-    >>> log_dict = {'a': 111}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
-    >>> log_dict = {'a': 21112}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-
-    >>> log_dict = {'a': '111'}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
-    >>> log_dict = {'aa': 222, 'a': 111}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
-    >>> log_dict = {'x': {'y': {'z': 111}}}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
-    >>> log_dict = {'x': {'y': {'z': 222}}}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-
-    >>> log_dict = {'x': {'hoge':222, 'y': {'z': 111}}}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-    True
-    >>> log_dict = {'a': 222}
-    >>> match_log_with_exclude_patterns(log_dict, log_patterns)
-
-    """
-    for key, pattern in log_patterns.items():
-        if key in log_dict:
-            if isinstance(pattern, dict) and isinstance(log_dict[key], dict):
-                res = match_log_with_exclude_patterns(log_dict[key], pattern)
-                return res
-            elif isinstance(pattern, re.Pattern):
-                if isinstance(log_dict[key], list):
-                    pass
-                elif pattern.match(str(log_dict[key])):
-                    return True

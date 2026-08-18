@@ -157,7 +157,7 @@ SIEM on OpenSearch Service大概需要30分钟来完成部署。随后即可着�
 
 ### 升级OpenSearch Service域（Domain）
 
-将OpenSearch升级至1.0版本:
+将OpenSearch升级至2.11或更高版本。自v2.10.6起，最低支持版本为OpenSearch 2.11。这是因为GuardDuty索引模板使用了需要OpenSearch 2.7或更高版本的`flat_object`字段类型，并且OpenSearch 2.3 - 2.9已于2025年11月7日结束标准支持。不再支持Elasticsearch 7.10和OpenSearch 1.x:
 
 1. 导航至 [OpenSearch Service控制台](https://console.amazonaws.cn/esv3/home?)
 1. 选定域: [**aes-siem**]

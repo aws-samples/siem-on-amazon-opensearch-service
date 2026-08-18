@@ -131,13 +131,13 @@ SIEM on OpenSearch Service を新しいバージョンにアップデートす�
 
 ### OpenSearch Service のドメインのアップグレード
 
-OpenSearch Service を OpenSearch 1.0 - 2.19 または Elasticsearch 7.10 にアップグレードします。一部の Dashboard は OpenSearch Service 1.3 以上を前提にしています。推奨バージョンは OpenSearch 2.19 の「互換性モードを有効化」です。
+OpenSearch Service を OpenSearch 2.11 以降にアップグレードします。v2.10.6 以降は OpenSearch 2.11 が最低バージョンです。GuardDuty のインデックステンプレートが OpenSearch 2.7 以降を必要とする `flat_object` フィールドタイプを使用しており、かつ OpenSearch 2.3 - 2.9 は 2025 年 11 月 7 日に[標準サポート](https://docs.aws.amazon.com/ja_jp/opensearch-service/latest/developerguide/what-is.html#choosing-version)が終了しているためです。Elasticsearch 7.10 と OpenSearch 1.x はサポート対象外になりました。推奨バージョンは OpenSearch 2.19 の「互換性モードを有効化」です。
 
 1. [OpenSearch Service コンソール](https://console.aws.amazon.com/aos/home?) に移動
 1. [**aes-siem**] ドメインを選択
 1. [**アクション**] アイコンを選択して、プルダウンリストから [**ドメインのアップグレード**] を選択
-1. アップグレード先のバージョンで [**OpenSearch 2.19**] (推奨)、[**OpenSearch 1.0 - 2.17**] または [**Elasticsearch 7.10**] を選択
-1. OpenSearch の場合は、「互換性モードを有効化」にチェックを入れる (推奨)
+1. アップグレード先のバージョンで [**OpenSearch 2.19**] (推奨) または [**OpenSearch 2.11 - 2.17**] を選択
+1. 「互換性モードを有効化」にチェックを入れる (推奨)
 1. [**送信**] を選択
 
 CloudFormation で初期インストールした場合は次へ進み、AWS CDK で初期インストールしている場合は [高度なデプロイ](docs/deployment_ja.md) のアップデートを参照してください。
