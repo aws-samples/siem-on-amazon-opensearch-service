@@ -6,6 +6,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.6] - 2026-08-17
+### Changed
+- Changed the minimum supported version of Amazon OpenSearch Service to OpenSearch 2.11. The GuardDuty index template now uses the flat_object field type that requires OpenSearch 2.7 or later, and OpenSearch 2.3 - 2.9 reached the end of standard support on November 7, 2025. Elasticsearch 7.10 and OpenSearch 1.x are no longer supported #482
+- Changed the GuardDuty index template to map unmapped objects under resource.* and service.* to flat_object. The number of mapped fields no longer grows without bound as GuardDuty adds new finding details, and documents are no longer rejected by the 1,000 field limit #482
+
+### Removed
+- Removed the unused legacy dictionary helpers from siem/\_\_init\_\_.py: get_value_from_dict, put_value_into_dict, conv_key, merge and match_log_with_exclude_patterns #483
+
+### Fixed
+- Fixed Inspector findings not being loaded after Amazon Inspector changed the format of the updatedAt field. The current UTC format, the legacy format and ISO 8601 are all supported now #457
+- Fixed UnboundLocalError in the GuardDuty parser for findings with a severity of 9.0 or higher, such as AttackSequence findings. Those findings are now labelled critical, and a severity outside the documented range is labelled unknown instead of raising an exception #482
+- Fixed the GuardDuty parser failing when a finding type cannot be parsed. The finding is now loaded without the type fields #482
+- Fixed the GuardDuty severity dashboards not counting critical findings, and corrected the Midium label to Medium #482
+- Fixed the Deep Security parser replacing field values with the literal string DROPPED when the value could not be embedded in a JSON literal. Values such as Windows file paths (C:\\Windows\\System32\\cmd.exe) are now preserved #483
+
+### Security
+- Fixed a JSON field injection in the Deep Security parser. The deprecated put_value_into_dict() helper built nested documents by string-formatting log values into a JSON literal, so a value containing a double quote could inject arbitrary sibling fields into the normalized ECS document. The parser now uses siem.utils.put_value_into_nesteddict(), which builds the dictionary natively. Only log sources that explicitly enable the Deep Security parser through user.ini were affected #483
+- Updated AWS SDK for pandas layer from 3.17.0 to v3.17.1, which resolves CVE-2025-61385 of pg8000 and CVE-2025-53643 of aiohttp #475
+- Updated requests from 2.32.5 to 2.33.1, which resolves CVE-2026-25645 #475
+
 ## [2.10.5] - 2026-07-05
 ### Added
 - Added support for OpenSearch Dashboards 3.5 (Single OpenSearch Dashboards).

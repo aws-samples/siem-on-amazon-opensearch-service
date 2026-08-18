@@ -167,7 +167,7 @@ We have published the workshop, [SIEM on Amazon OpenSearch Service Workshop](htt
 
 ### 升級OpenSearch Service域（Domain）
 
-將OpenSearch升級至1.0版本:
+將OpenSearch升級至2.11或更高版本。自v2.10.6起，最低支援版本為OpenSearch 2.11。這是因為GuardDuty索引模板使用了需要OpenSearch 2.7或更高版本的`flat_object`欄位類型，並且OpenSearch 2.3 - 2.9已於2025年11月7日結束標準支援。不再支援Elasticsearch 7.10和OpenSearch 1.x:
 
 1. 導航至 [OpenSearch Service控制臺](https://console.aws.amazon.com/aos/home?)
 1. 選定域: [**aes-siem**]
