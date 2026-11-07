@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - name: Install test requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/requirements.txt
+      - name: pytest
+        env:
+          AWS_DEFAULT_REGION: us-east-1
+        run: pytest tests -q
+      - name: flake8 (changed Python files)
+        # Existing code has known flake8 findings. Only the files touched
+        # by the change are checked, so new code stays clean.
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git rev-list --max-parents=0 HEAD | tail -1)"
+          fi
+          files="$(git diff --name-only --diff-filter=ACMR "$base" HEAD -- '*.py')"
+          if [ -z "$files" ]; then
+            echo "no Python files changed"
+            exit 0
+          fi
+          echo "$files"
+          echo "$files" | xargs flake8
+      - name: Version strings are consistent
+        run: python deployment/bump_version.py --check
+
+  cfn-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - name: Install cfn-lint
+        run: pip install cfn-lint==1.59.0
+      - name: cfn-lint
+        # E1161 / E3031: %%BUCKET_NAME%% placeholders are replaced at build
+        # time by deployment/build-s3-dist.sh. Warnings do not fail the job.
+        run: >-
+          cfn-lint --ignore-checks E1161 E3031 W --non-zero-exit-code error
+          -- deployment/*.template deployment/log-exporter/*.template
+
+# cdk synth is not run here. source/cdk/mysiem/aes_siem_stack.py calls
+# IAM / EC2 / Lambda APIs while synthesizing, so it needs AWS credentials.
+# The published templates under deployment/ are linted instead.
