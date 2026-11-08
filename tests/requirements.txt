@@ -1,0 +1,14 @@
+# Requirements to run unit tests in tests/ from a fresh venv:
+#   python3 -m venv .venv
+#   .venv/bin/pip install -r tests/requirements.txt
+#   .venv/bin/pytest tests
+#
+# Runtime deps of es-loader (aws-lambda-powertools, boto3, opensearch-py,
+# geoip2, xmltodict, ua-parser, ...) are pinned in the es-loader file below
+# so that tests always run against the versions deployed to Lambda.
+-r ../source/lambda/es_loader/requirements.txt
+
+# test / lint tools
+pytest==9.2.0
+flake8==7.5.0
+jmespath==1.0.1

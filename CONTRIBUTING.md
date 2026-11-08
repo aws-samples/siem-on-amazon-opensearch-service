@@ -39,6 +39,23 @@ To send us a pull request, please:
 GitHub provides additional document on [forking a repository](https://help.github.com/articles/fork-a-repo/) and
 [creating a pull request](https://help.github.com/articles/creating-a-pull-request/).
 
+### Running tests locally
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r tests/requirements.txt
+AWS_DEFAULT_REGION=us-east-1 .venv/bin/pytest tests
+```
+
+Add tests under `tests/` for every change to es-loader. CI runs the tests, flake8 on changed Python files, the version string check and cfn-lint on every pull request.
+
+### Bumping the version
+
+```sh
+python3 deployment/bump_version.py <new version>
+python3 deployment/bump_version.py --check
+```
+
 
 ## Finding contributions to work on
 Looking at the existing issues is a great way to find something to contribute on. As our projects, by default, use the default GitHub issue labels (enhancement/bug/duplicate/help wanted/invalid/question/wontfix), looking at any 'help wanted' issues is a great place to start.

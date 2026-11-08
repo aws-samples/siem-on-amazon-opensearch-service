@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- Added unit tests for es-loader under tests/. They run without OpenSearch, check that every log type in aws.ini builds its logconfig and imports its sf_ module, and can be run from a fresh venv with `pip install -r tests/requirements.txt && pytest tests` #489
+- Added a GitHub Actions workflow that runs pytest, flake8 on changed Python files, a version string check and cfn-lint on every pull request #489
+- Added deployment/bump_version.py. `python3 deployment/bump_version.py <new version>` updates the version in every file, and `--check` fails when a file has a different version #489
+
 ## [2.10.6] - 2026-08-17
 ### Changed
 - Changed the minimum supported version of Amazon OpenSearch Service to OpenSearch 2.11. The GuardDuty index template now uses the flat_object field type that requires OpenSearch 2.7 or later, and OpenSearch 2.3 - 2.9 reached the end of standard support on November 7, 2025. Elasticsearch 7.10 and OpenSearch 1.x are no longer supported #482
